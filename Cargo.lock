@@ -1053,10 +1053,14 @@ dependencies = [
 name = "mandate-execution"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "hex",
  "mandate-core",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
+ "ulid",
 ]
 
 [[package]]
@@ -1537,6 +1541,8 @@ dependencies = [
  "clap",
  "http-body-util",
  "mandate-core",
+ "mandate-execution",
+ "mandate-identity",
  "mandate-policy",
  "mandate-server",
  "mandate-storage",

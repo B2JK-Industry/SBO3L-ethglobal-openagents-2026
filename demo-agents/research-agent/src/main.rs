@@ -11,6 +11,8 @@ use clap::Parser;
 use serde::Deserialize;
 use serde_json::Value;
 
+use mandate_execution::{GuardedExecutor, KeeperHubExecutor};
+use mandate_identity::{EnsResolver, OfflineEnsResolver};
 use mandate_server::{reference_policy, AppState, PaymentRequestResponse};
 use mandate_storage::Storage;
 
@@ -27,6 +29,20 @@ struct Cli {
     /// Path to scenarios.json (defaults to next to the binary)
     #[arg(long, default_value = "demo-agents/research-agent/scenarios.json")]
     scenarios: std::path::PathBuf,
+
+    /// Optional ENS records fixture (`{"name.eth": {...}}`). When set, resolve
+    /// `--ens-name` and verify the `mandate:policy_hash` text record matches
+    /// the canonical hash of the active reference policy.
+    #[arg(long)]
+    ens_fixture: Option<std::path::PathBuf>,
+    /// ENS name to resolve (used with --ens-fixture).
+    #[arg(long, default_value = "research-agent.team.eth")]
+    ens_name: String,
+
+    /// After an `allow` decision, route the action through the KeeperHub
+    /// guarded-execution adapter (local mock).
+    #[arg(long, default_value_t = false)]
+    execute_keeperhub: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,11 +113,66 @@ fn run(cli: &Cli) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("read {}: {e}", aprp_path.display()))?;
     let aprp_value: Value = serde_json::from_str(&aprp_raw)?;
 
+    if let Some(fixture) = &cli.ens_fixture {
+        ens_lookup(fixture, &cli.ens_name)?;
+    }
+
     let runtime = tokio::runtime::Runtime::new()?;
     let response = runtime.block_on(async move { call_in_memory(aprp_value).await })?;
 
     print_summary(scenario, &response);
     check_expectations(scenario, &response)?;
+
+    if cli.execute_keeperhub {
+        keeperhub_route(&aprp_path, &response)?;
+    }
+    Ok(())
+}
+
+fn ens_lookup(fixture: &std::path::Path, name: &str) -> anyhow::Result<()> {
+    let resolver = OfflineEnsResolver::from_file(fixture)
+        .map_err(|e| anyhow::anyhow!("ENS fixture {}: {e}", fixture.display()))?;
+    let records = resolver
+        .resolve(name)
+        .map_err(|e| anyhow::anyhow!("ENS resolve {name}: {e}"))?;
+    println!();
+    println!("ens.name:        {name}");
+    println!("ens.agent_id:    {}", records.agent_id);
+    println!("ens.endpoint:    {}", records.endpoint);
+    println!("ens.policy_hash: {}", records.policy_hash);
+    println!("ens.audit_root:  {}", records.audit_root);
+    let active = reference_policy()
+        .canonical_hash()
+        .map_err(|e| anyhow::anyhow!("policy hash: {e}"))?;
+    records
+        .verify_policy_hash(&active)
+        .map_err(|e| anyhow::anyhow!("ENS policy_hash mismatch: {e}"))?;
+    println!("ens.verify:      ok (matches active policy {})", active);
+    Ok(())
+}
+
+fn keeperhub_route(
+    aprp_path: &std::path::Path,
+    response: &PaymentRequestResponse,
+) -> anyhow::Result<()> {
+    let aprp_raw = std::fs::read_to_string(aprp_path)?;
+    let aprp_value: Value = serde_json::from_str(&aprp_raw)?;
+    let aprp: mandate_core::aprp::PaymentRequest = serde_json::from_value(aprp_value)?;
+    let executor = KeeperHubExecutor::local_mock();
+    println!();
+    match executor.execute(&aprp, &response.receipt) {
+        Ok(receipt) => {
+            println!("keeperhub.sponsor:       {}", receipt.sponsor);
+            println!("keeperhub.execution_ref: {}", receipt.execution_ref);
+            println!("keeperhub.mock:          {}", receipt.mock);
+            println!("keeperhub.note:          {}", receipt.note);
+        }
+        Err(e) => {
+            println!("keeperhub.sponsor:       keeperhub");
+            println!("keeperhub.refused:       {e}");
+            println!("keeperhub.note:          denied actions never reach the sponsor");
+        }
+    }
     Ok(())
 }
 

@@ -72,10 +72,18 @@ echo "  -- prompt-injection scenario --"
 ok "prompt-injection -> rejected + deny_code"
 echo
 
-bold "7. Pending slices"
-todo "ENS identity adapter"
-todo "KeeperHub guarded execution adapter"
+bold "7. Sponsor: ENS agent identity"
+bash demo-scripts/sponsors/ens-agent-identity.sh | sed 's/^/    /'
+ok "ENS records resolve and policy_hash matches active mandate"
+echo
+
+bold "8. Sponsor: KeeperHub guarded execution"
+bash demo-scripts/sponsors/keeperhub-guarded-execution.sh | sed 's/^/    /'
+ok "approved -> routed to KeeperHub mock; denied -> refused before sponsor"
+echo
+
+bold "9. Pending slices"
 todo "Uniswap guarded swap adapter (stretch)"
 echo
 
-bold "Demo runner: partial gates passed."
+bold "Demo runner: end-to-end Open Agents vertical green."

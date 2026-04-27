@@ -70,6 +70,8 @@ mandate-storage = { path = "crates/mandate-storage" }
 mandate-identity = { path = "crates/mandate-identity" }
 mandate-execution = { path = "crates/mandate-execution" }
 mandate-mcp = { path = "crates/mandate-mcp" }
+mandate-cli = { path = "crates/mandate-cli" }
+mandate-server = { path = "crates/mandate-server" }
 
 [profile.release]
 lto = "thin"

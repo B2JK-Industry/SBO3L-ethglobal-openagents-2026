@@ -16,6 +16,8 @@ mandate-core = { workspace = true }
 mandate-policy = { workspace = true }
 mandate-storage = { workspace = true }
 mandate-server = { path = "../../crates/mandate-server" }
+mandate-identity = { workspace = true }
+mandate-execution = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 clap = { workspace = true }
