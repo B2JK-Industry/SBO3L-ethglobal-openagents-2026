@@ -207,10 +207,13 @@ impl Policy {
         for r in &self.recipients {
             // Addresses are case-insensitive on EVM chains; normalise before
             // comparing so `0xAA…` and `0xaa…` are treated as the same.
-            let key = (r.address.to_ascii_lowercase(), r.chain.clone());
+            let normalised = r.address.to_ascii_lowercase();
+            let key = (normalised.clone(), r.chain.clone());
             if !recipients.insert(key) {
+                // Report the canonical (lowercase) form so the error message
+                // doesn't depend on which casing happens to be the duplicate.
                 return Err(PolicyValidationError::DuplicateRecipient {
-                    address: r.address.clone(),
+                    address: normalised,
                     chain: r.chain.clone(),
                 });
             }
@@ -276,9 +279,13 @@ mod tests {
     fn duplicate_rule_id_is_rejected() {
         let mut p = base();
         let dup = p.rules[0].clone();
+        let dup_id = dup.id.clone();
         p.rules.push(dup);
         let err = p.validate().expect_err("must reject duplicate rule id");
-        assert!(matches!(err, PolicyValidationError::DuplicateRuleId(_)));
+        assert!(
+            matches!(err, PolicyValidationError::DuplicateRuleId(ref id) if id == &dup_id),
+            "got {err:?}"
+        );
     }
 
     #[test]
@@ -295,15 +302,20 @@ mod tests {
         let mut p = base();
         // Mutate to upper-case to prove the check normalises before comparing.
         let mut dup = p.recipients[0].clone();
+        let original_lc = dup.address.to_ascii_lowercase();
         dup.address = dup.address.to_ascii_uppercase();
         p.recipients.push(dup);
         let err = p
             .validate()
             .expect_err("must reject duplicate recipient regardless of address casing");
-        assert!(matches!(
-            err,
-            PolicyValidationError::DuplicateRecipient { .. }
-        ));
+        // Error must surface the canonical lowercase form, not the raw casing
+        // of whichever entry happened to be the duplicate.
+        match err {
+            PolicyValidationError::DuplicateRecipient { address, .. } => {
+                assert_eq!(address, original_lc, "address must be reported lowercase");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]
@@ -317,6 +329,26 @@ mod tests {
         let bad = serde_json::to_string(&value).unwrap();
         let err =
             Policy::parse_json(&bad).expect_err("must reject duplicate agent_id at parse time");
+        assert!(
+            matches!(
+                err,
+                PolicyParseError::Validation(PolicyValidationError::DuplicateAgentId(_))
+            ),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn parse_yaml_runs_validation() {
+        // Symmetric coverage to `parse_json_runs_validation`. The duplicate is
+        // identical in YAML and JSON; this test pins that the YAML path also
+        // routes through `validate()` rather than just `serde_yaml::from_str`.
+        let raw = include_str!("../../../test-corpus/policy/reference_low_risk.json");
+        let mut value: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let extra = value["agents"][0].clone();
+        value["agents"].as_array_mut().unwrap().push(extra);
+        let bad_yaml = serde_yaml::to_string(&value).unwrap();
+        let err = Policy::parse_yaml(&bad_yaml).expect_err("YAML path must run validate() too");
         assert!(
             matches!(
                 err,
