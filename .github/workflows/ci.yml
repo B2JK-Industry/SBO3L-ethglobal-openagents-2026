@@ -51,44 +51,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install validator
-        run: pip install "jsonschema[format]>=4.21" "openapi-spec-validator>=0.7"
+      - name: Install validators
+        run: pip install "jsonschema[format]>=4.21" "openapi-spec-validator>=0.7" "referencing>=0.35"
 
-      - name: Validate JSON Schemas
-        run: |
-          set -e
-          for f in schemas/*.json; do
-            echo "[meta] $f"
-            python -c "import json,jsonschema,sys; s=json.load(open('$f')); jsonschema.Draft202012Validator.check_schema(s); print('  ok')"
-          done
+      - name: Validate JSON schemas and test corpus
+        run: python scripts/validate_schemas.py
 
       - name: Validate OpenAPI
         run: python scripts/validate_openapi.py
-
-      - name: Validate test corpus against schemas
-        run: |
-          python - <<'PY'
-          import json, jsonschema, sys, pathlib
-          aprp = json.load(open('schemas/aprp_v1.json'))
-          policy = json.load(open('schemas/policy_v1.json'))
-          fixtures = [
-              ('aprp', 'test-corpus/aprp/golden_001_minimal.json', True),
-              ('aprp', 'test-corpus/aprp/deny_prompt_injection_request.json', True),
-              ('aprp', 'test-corpus/aprp/adversarial_unknown_field.json', False),
-              ('policy', 'test-corpus/policy/reference_low_risk.json', True),
-          ]
-          schemas = {'aprp': aprp, 'policy': policy}
-          ok = True
-          for kind, path, should_pass in fixtures:
-              data = json.load(open(path))
-              try:
-                  jsonschema.Draft202012Validator(schemas[kind]).validate(data)
-                  passed = True
-              except jsonschema.ValidationError:
-                  passed = False
-              status = 'ok' if passed == should_pass else 'FAIL'
-              print(f"{status}: {path} expect_valid={should_pass} actual={passed}")
-              if passed != should_pass:
-                  ok = False
-          sys.exit(0 if ok else 1)
-          PY
