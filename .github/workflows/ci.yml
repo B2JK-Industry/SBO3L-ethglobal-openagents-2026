@@ -63,8 +63,7 @@ jobs:
           done
 
       - name: Validate OpenAPI
-        run: |
-          python -c "import json; from openapi_spec_validator import validate_spec; validate_spec(json.load(open('docs/api/openapi.json'))); print('openapi ok')"
+        run: python scripts/validate_openapi.py
 
       - name: Validate test corpus against schemas
         run: |
