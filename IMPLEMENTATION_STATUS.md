@@ -38,7 +38,7 @@ Live progress tracker. Updated as slices complete.
 
 ## In progress
 
-- [ ] Codex review requested + feedback addressed.
+- [ ] (Optional) Re-run `@codex review` to confirm the P3 round.
 
 ## Pending / stretch
 
@@ -47,11 +47,24 @@ Live progress tracker. Updated as slices complete.
 - [ ] Live Uniswap quote backend (gated behind `MANDATE_UNISWAP_LIVE=1`; static fixture today).
 - [ ] Demo video (3:30 cut). Storyboard committed in `demo-scripts/demo-video-script.md`.
 
+## Codex review feedback addressed
+
+- **P1 #1** trailing tokens silently ignored in `expr.rs:evaluate_bool` — fixed (commit `36aa748`).
+- **P1 #2** unknown / paused / revoked agent could be allowed — fixed: fail-closed `agent_gate()` (commit `36aa748`).
+- **P1 #3** `emergency.paused_agents` was dead code — fixed: gate enforces it + exposed at `input.emergency.paused_agents` (commit `36aa748`).
+- **P2 #4** demo step 5 was hardcoded "ok" lines — fixed: live `cargo test --workspace --all-targets` (commit `36aa748`).
+- **P2 #5** `SUBMISSION_NOTES.md` claimed "Rego via regorus" — fixed: honest description (commit `36aa748`).
+- **P3 #6** `f64` precision drift on huge amounts — fixed: `safe_amount_f64` round-trip check, finite sentinel `1e30` (commit `8809f48`).
+- **P3 #7** hardcoded dev signing seeds — annotated with visible "DEV ONLY" warning + new `AppState::with_signers()` for production (commit `8809f48`).
+- **P3 #8** `audit_list` N+1 query — replaced with single `SELECT … ORDER BY seq ASC` (commit `8809f48`).
+- **P3 #9** `null` cross-type comparison — `==` and `!=` now return identity-true/false instead of `TypeMismatch` (commit `8809f48`).
+- **P3 #10** idempotency / dedup — flagged as known hackathon scope in `SUBMISSION_NOTES.md` "Known limitations".
+
 ## Tests / demo status
 
 - `cargo fmt --check` — ✅
 - `cargo clippy --workspace --all-targets -- -D warnings` — ✅
-- `cargo test --workspace --all-targets` — ✅ 62 unit/integration tests pass (52 + 10 new uniswap tests).
+- `cargo test --workspace --all-targets` — ✅ 69 unit/integration tests pass (62 + 7 new P1/P3 regression tests).
 - `python scripts/validate_schemas.py` — ✅ 6 schemas, 4 fixtures.
 - `python scripts/validate_openapi.py` — ✅ docs/api/openapi.json valid.
 - `bash demo-scripts/run-openagents-final.sh` — ✅ all gates pass (steps 1–11 including tamper detection).

@@ -25,7 +25,7 @@ All implementation code in this repository:
 - Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh`.
 - `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection.
 - `demo-scripts/demo-video-script.md` — 3:30 storyboard with recording checklist.
-- CI: fmt, clippy, tests (62 passing), schema validation.
+- CI: fmt, clippy, tests (69 passing), schema validation.
 
 ## What was reused as planning material
 
