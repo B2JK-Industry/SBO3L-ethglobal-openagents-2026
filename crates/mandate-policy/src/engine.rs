@@ -150,7 +150,7 @@ fn finalise(rule: &Rule, policy_hash: String) -> Result<Outcome, EngineError> {
 }
 
 fn build_context(policy: &Policy, request: &PaymentRequest) -> serde_json::Value {
-    let amount_usd = request.amount.value.parse::<f64>().unwrap_or(f64::INFINITY);
+    let amount_usd = safe_amount_f64(&request.amount.value);
 
     let provider = match policy
         .providers
@@ -277,6 +277,46 @@ fn build_context(policy: &Policy, request: &PaymentRequest) -> serde_json::Value
     })
 }
 
+/// Sentinel returned by `safe_amount_f64` when the input cannot be safely
+/// represented in `f64`. We use a finite value (rather than `f64::INFINITY`)
+/// because `serde_json::Number` cannot serialise non-finite floats and
+/// `json!(f64::INFINITY)` would silently become `null` — which then breaks
+/// ordered comparisons in any rule referencing `input.amount_usd`.
+///
+/// `1e30` is many orders of magnitude beyond any plausible per-tx USD cap.
+const AMOUNT_FAILSAFE_USD: f64 = 1.0e30;
+
+/// Convert APRP `amount.value` (a string-encoded decimal, see
+/// `docs/spec/17_interface_contracts.md` §0) to an `f64` for rule evaluation.
+///
+/// Fail-closed semantics: the rule context uses `f64`, but the canonical
+/// amount is `Decimal`. If the input cannot be parsed as `Decimal` *or* the
+/// `Decimal → f64 → Decimal` round-trip loses precision (i.e. the value
+/// exceeds f64's safe integer range, ~2^53), we return [`AMOUNT_FAILSAFE_USD`].
+/// Any rule of the form `input.amount_usd <= X` will then deny.
+///
+/// Budget enforcement still runs against the original `Decimal` (see
+/// `crate::budget`); this function only protects the rule-evaluation path.
+fn safe_amount_f64(s: &str) -> f64 {
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+    let Ok(d) = Decimal::from_str(s) else {
+        return AMOUNT_FAILSAFE_USD;
+    };
+    let Ok(f) = s.parse::<f64>() else {
+        return AMOUNT_FAILSAFE_USD;
+    };
+    if !f.is_finite() {
+        return AMOUNT_FAILSAFE_USD;
+    }
+    // Round-trip check: Decimal → f64 → Decimal must equal the original.
+    let reconstructed = Decimal::try_from(f).ok();
+    match reconstructed {
+        Some(back) if back == d => f,
+        _ => AMOUNT_FAILSAFE_USD,
+    }
+}
+
 fn same_origin(a: &str, b: &str) -> bool {
     let normalize = |u: &str| u.trim_end_matches('/').to_string();
     let a = normalize(a);
@@ -385,5 +425,42 @@ mod tests {
         let outcome = decide(&p, &golden_aprp()).unwrap();
         assert_eq!(outcome.decision, Decision::Deny);
         assert_eq!(outcome.deny_code.as_deref(), Some("emergency.agent_paused"));
+    }
+
+    #[test]
+    fn precision_breaking_amount_is_treated_as_infinity() {
+        // Any value beyond f64's safe integer range (≈ 2^53) cannot round-trip
+        // through f64 without losing precision. The rule engine must then
+        // fail closed against an `amount_usd <= X` check.
+        let p = policy();
+        let mut req = golden_aprp();
+        // Decimal accepts up to 28 sig figs; f64 has ~15-16. Make a value the
+        // schema accepts but f64 cannot represent exactly:
+        // 10000000000000.001 (14 digits + 3 fractional).
+        req.amount.value = "10000000000000.001".to_string();
+        let outcome = decide(&p, &req).unwrap();
+        assert_eq!(
+            outcome.decision,
+            Decision::Deny,
+            "precision-lossy amount must be denied: {outcome:?}"
+        );
+    }
+
+    #[test]
+    fn safe_amount_f64_round_trips_small_values() {
+        // The reference fixtures use small values; these must NOT be punted.
+        assert_eq!(super::safe_amount_f64("0.05"), 0.05);
+        assert_eq!(super::safe_amount_f64("0.50"), 0.50);
+        assert_eq!(super::safe_amount_f64("10.00"), 10.00);
+        // Failsafe path: garbage input and precision-breaking values both
+        // collapse to the finite sentinel.
+        assert_eq!(
+            super::safe_amount_f64("not-a-number"),
+            super::AMOUNT_FAILSAFE_USD
+        );
+        assert_eq!(
+            super::safe_amount_f64("10000000000000.001"),
+            super::AMOUNT_FAILSAFE_USD
+        );
     }
 }

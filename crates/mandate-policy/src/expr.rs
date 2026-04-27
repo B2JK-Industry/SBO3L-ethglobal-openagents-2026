@@ -357,7 +357,23 @@ fn cmp(a: &Value, op: CmpOp, b: &Value) -> Result<bool, ExprError> {
             CmpOp::Neq => Ok(x != y),
             _ => Err(ExprError::TypeMismatch("ordered comparison on bool".into())),
         },
-        (Value::Null, Value::Null) => Ok(matches!(op, CmpOp::Eq)),
+        // Null is only equal to null. Cross-type Eq/Neq returns the obvious
+        // identity answer (null != "x" is true) instead of failing — which is
+        // what a policy author writing `input.recipient.address != null`
+        // would expect. Ordered comparisons on null still fail (they make no
+        // sense).
+        (Value::Null, Value::Null) => match op {
+            CmpOp::Eq => Ok(true),
+            CmpOp::Neq => Ok(false),
+            _ => Err(ExprError::TypeMismatch("ordered comparison on null".into())),
+        },
+        (Value::Null, _) | (_, Value::Null) => match op {
+            CmpOp::Eq => Ok(false),
+            CmpOp::Neq => Ok(true),
+            _ => Err(ExprError::TypeMismatch(
+                "ordered comparison with null".into(),
+            )),
+        },
         (a, b) => Err(ExprError::TypeMismatch(format!(
             "{op:?} between {a} and {b}"
         ))),

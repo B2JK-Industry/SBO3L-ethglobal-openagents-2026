@@ -38,13 +38,37 @@ pub struct AppInner {
 }
 
 impl AppState {
+    /// Build a server state with **deterministic, public dev signing seeds**.
+    ///
+    /// ⚠ DEV ONLY ⚠ — the seeds below are constants in this public repo, so
+    /// anyone can forge audit events and policy receipts that pass `verify()`.
+    /// Acceptable for the hackathon demo and CI; **production deployments
+    /// must inject real signers** via `AppState::with_signers` (or load them
+    /// from a TEE/HSM-backed signing backend per
+    /// `docs/spec/17_interface_contracts.md` §1).
     pub fn new(policy: Policy, storage: Storage) -> Self {
+        Self::with_signers(
+            policy,
+            storage,
+            DevSigner::from_seed("audit-signer-v1", [11u8; 32]),
+            DevSigner::from_seed("decision-signer-v1", [7u8; 32]),
+        )
+    }
+
+    /// Build a server state with caller-supplied signers. Use this in any
+    /// non-demo deployment.
+    pub fn with_signers(
+        policy: Policy,
+        storage: Storage,
+        audit_signer: DevSigner,
+        receipt_signer: DevSigner,
+    ) -> Self {
         Self(Arc::new(AppInner {
             policy,
             storage: Mutex::new(storage),
             budgets: Mutex::new(BudgetTracker::new()),
-            audit_signer: DevSigner::from_seed("audit-signer-v1", [11u8; 32]),
-            receipt_signer: DevSigner::from_seed("decision-signer-v1", [7u8; 32]),
+            audit_signer,
+            receipt_signer,
         }))
     }
 }

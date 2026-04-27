@@ -10,6 +10,57 @@ use mandate_core::signer::DevSigner;
 use crate::error::{StorageError, StorageResult};
 use crate::Storage;
 
+const SELECT_AUDIT_BY_SEQ: &str = "SELECT seq, id, ts, type, actor, subject_id, payload_hash, \
+                                   metadata_json, policy_version, policy_hash, attestation_ref, \
+                                   prev_event_hash, event_hash, signature_alg, signature_key_id, \
+                                   signature_hex FROM audit_events WHERE seq = ?1";
+
+const SELECT_AUDIT_ALL_ORDERED: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events ORDER BY seq ASC";
+
+fn row_to_signed_audit_event(r: &rusqlite::Row<'_>) -> rusqlite::Result<SignedAuditEvent> {
+    let metadata_json: String = r.get(7)?;
+    let metadata: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&metadata_json)
+        .map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(7, rusqlite::types::Type::Text, Box::new(e))
+        })?;
+    let ts: String = r.get(2)?;
+    let ts_parsed = chrono::DateTime::parse_from_rfc3339(&ts)
+        .map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e))
+        })?
+        .with_timezone(&Utc);
+    let event = AuditEvent {
+        version: 1,
+        seq: r.get::<_, i64>(0)? as u64,
+        id: r.get(1)?,
+        ts: ts_parsed,
+        event_type: r.get(3)?,
+        actor: r.get(4)?,
+        subject_id: r.get(5)?,
+        payload_hash: r.get(6)?,
+        metadata,
+        policy_version: r.get::<_, Option<i64>>(8)?.map(|v| v as u32),
+        policy_hash: r.get(9)?,
+        attestation_ref: r.get(10)?,
+        prev_event_hash: r.get(11)?,
+    };
+    let signature = EmbeddedSignature {
+        algorithm: SignatureAlgorithm::Ed25519,
+        key_id: r.get(14)?,
+        signature_hex: r.get(15)?,
+    };
+    let event_hash: String = r.get(12)?;
+    let _alg: String = r.get(13)?;
+    Ok(SignedAuditEvent {
+        event,
+        event_hash,
+        signature,
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct NewAuditEvent {
     pub event_type: String,
@@ -63,70 +114,18 @@ impl Storage {
     }
 
     pub fn audit_get(&self, seq: u64) -> StorageResult<SignedAuditEvent> {
-        let mut stmt = self.conn.prepare(
-            "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json,
-                    policy_version, policy_hash, attestation_ref, prev_event_hash,
-                    event_hash, signature_alg, signature_key_id, signature_hex
-             FROM audit_events WHERE seq = ?1",
-        )?;
-        let row = stmt.query_row(params![seq as i64], |r| {
-            let metadata_json: String = r.get(7)?;
-            let metadata: serde_json::Map<String, serde_json::Value> =
-                serde_json::from_str(&metadata_json).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        7,
-                        rusqlite::types::Type::Text,
-                        Box::new(e),
-                    )
-                })?;
-            let ts: String = r.get(2)?;
-            let ts_parsed = chrono::DateTime::parse_from_rfc3339(&ts)
-                .map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        2,
-                        rusqlite::types::Type::Text,
-                        Box::new(e),
-                    )
-                })?
-                .with_timezone(&Utc);
-            let event = AuditEvent {
-                version: 1,
-                seq: r.get::<_, i64>(0)? as u64,
-                id: r.get(1)?,
-                ts: ts_parsed,
-                event_type: r.get(3)?,
-                actor: r.get(4)?,
-                subject_id: r.get(5)?,
-                payload_hash: r.get(6)?,
-                metadata,
-                policy_version: r.get::<_, Option<i64>>(8)?.map(|v| v as u32),
-                policy_hash: r.get(9)?,
-                attestation_ref: r.get(10)?,
-                prev_event_hash: r.get(11)?,
-            };
-            let signature = EmbeddedSignature {
-                algorithm: SignatureAlgorithm::Ed25519,
-                key_id: r.get(14)?,
-                signature_hex: r.get(15)?,
-            };
-            let event_hash: String = r.get(12)?;
-            let _alg: String = r.get(13)?;
-            Ok(SignedAuditEvent {
-                event,
-                event_hash,
-                signature,
-            })
-        })?;
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_BY_SEQ)?;
+        let row = stmt.query_row(params![seq as i64], row_to_signed_audit_event)?;
         Ok(row)
     }
 
+    /// Fetch the entire audit log in seq order with a single query.
     pub fn audit_list(&self) -> StorageResult<Vec<SignedAuditEvent>> {
-        let n = self.audit_count()?;
-        let mut out = Vec::with_capacity(n as usize);
-        for seq in 1..=n {
-            out.push(self.audit_get(seq)?);
-        }
-        Ok(out)
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_ALL_ORDERED)?;
+        let rows = stmt
+            .query_map([], row_to_signed_audit_event)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     pub fn audit_append(
