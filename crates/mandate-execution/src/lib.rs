@@ -11,8 +11,13 @@
 //!   not available during the hackathon build).
 
 pub mod keeperhub;
+pub mod uniswap;
 
 pub use keeperhub::{KeeperHubExecutor, KeeperHubMode};
+pub use uniswap::{
+    evaluate_swap, SwapCheck, SwapPolicy, SwapPolicyOutcome, SwapQuote, SwapToken, UniswapExecutor,
+    UniswapMode,
+};
 
 use mandate_core::aprp::PaymentRequest;
 use mandate_core::receipt::PolicyReceipt;

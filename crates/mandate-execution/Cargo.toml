@@ -16,3 +16,4 @@ hex = { workspace = true }
 sha2 = { workspace = true }
 ulid = { workspace = true }
 chrono = { workspace = true }
+rust_decimal = { workspace = true }
