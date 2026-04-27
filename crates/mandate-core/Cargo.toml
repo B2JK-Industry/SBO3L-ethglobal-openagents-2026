@@ -1,0 +1,22 @@
+[package]
+name = "mandate-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Mandate core: protocol types, request hashing, error model, signed receipts."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_json_canonicalizer = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
+chrono = { workspace = true }
+rust_decimal = { workspace = true }
+ulid = { workspace = true }
+jsonschema = { workspace = true }

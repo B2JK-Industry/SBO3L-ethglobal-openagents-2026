@@ -1,0 +1,24 @@
+[package]
+name = "mandate-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Mandate daemon: HTTP API for payment-request decisions."
+
+[[bin]]
+name = "mandate-server"
+path = "src/main.rs"
+
+[dependencies]
+mandate-core = { workspace = true }
+mandate-policy = { workspace = true }
+mandate-storage = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
