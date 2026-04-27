@@ -450,6 +450,9 @@ mod tests {
     fn emergency_freeze_all_denies_any_request() {
         let mut p = policy();
         p.emergency.freeze_all = true;
+        // `golden_aprp()` is the request that *normally* passes (active agent,
+        // trusted provider, allowed recipient, small amount). Using it here
+        // proves the kill switch overrides an otherwise-allowed request.
         let outcome = decide(&p, &golden_aprp()).unwrap();
         assert_eq!(outcome.decision, Decision::Deny);
         assert_eq!(
