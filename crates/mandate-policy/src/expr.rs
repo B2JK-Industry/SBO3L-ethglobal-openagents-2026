@@ -509,4 +509,24 @@ mod tests {
         // Sanity: well-formed expressions still evaluate.
         assert!(evaluate_bool("true == true", &c).unwrap());
     }
+
+    #[test]
+    fn null_comparisons_match_intuitive_semantics() {
+        let c = json!({
+            "input": {
+                "addr_set":   "0x1111111111111111111111111111111111111111",
+                "addr_unset": null
+            }
+        });
+        // null == null is true; null != null is false (identity).
+        assert!(evaluate_bool("input.addr_unset == null", &c).unwrap());
+        assert!(!evaluate_bool("input.addr_unset != null", &c).unwrap());
+        // string vs null returns the obvious identity answer the reviewer flagged
+        // (`input.recipient.address != null` should be true when address is set).
+        assert!(evaluate_bool("input.addr_set != null", &c).unwrap());
+        assert!(!evaluate_bool("input.addr_set == null", &c).unwrap());
+        // Ordered comparisons on null still error (no obvious meaning).
+        let err = evaluate_bool("input.addr_unset < null", &c).expect_err("ordered null must fail");
+        assert!(matches!(err, ExprError::TypeMismatch(_)), "got {err:?}");
+    }
 }
