@@ -1,5 +1,12 @@
 //! Mandate core: protocol types, request hashing, error model, signed receipts.
 
+pub mod aprp;
+pub mod error;
+pub mod hashing;
+pub mod schema;
+
+pub use error::{CoreError, Result, SchemaError};
+
 pub const SCHEMA_VERSION: u32 = 1;
 
 pub fn version() -> &'static str {
