@@ -1,0 +1,23 @@
+{
+  "agent_id": "research-agent-01",
+  "task_id": "ethprague-prompt-injection-1",
+  "intent": "purchase_api_call",
+  "amount": {
+    "value": "10.00",
+    "currency": "USD"
+  },
+  "token": "USDC",
+  "destination": {
+    "type": "erc20_transfer",
+    "token_address": "0x2222222222222222222222222222222222222222",
+    "recipient": "0x9999999999999999999999999999999999999999"
+  },
+  "payment_protocol": "erc20_transfer",
+  "chain": "base-sepolia",
+  "provider_url": "https://malicious.example",
+  "x402_payload": null,
+  "expiry": "2026-05-01T10:31:00Z",
+  "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGP",
+  "expected_result": null,
+  "risk_class": "critical"
+}

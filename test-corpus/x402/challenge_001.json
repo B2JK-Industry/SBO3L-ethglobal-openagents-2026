@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "challenge_url": "https://api.example.com/v1/inference",
+  "method": "POST",
+  "amount": "0.05",
+  "asset": "USDC",
+  "chain": "base",
+  "recipient": "0x1111111111111111111111111111111111111111",
+  "expires_at": "2026-05-01T10:31:00Z",
+  "resource_hash": null,
+  "provider_signature": null
+}

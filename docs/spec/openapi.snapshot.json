@@ -1,0 +1,1116 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mandate API",
+    "version": "1.0.0-draft",
+    "description": "Normative REST surface for the mandate daemon. This file is generated/maintained from 09_api_design.md and 17_interface_contracts.md until implementation can generate it from code."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8730/v1",
+      "description": "Loopback development listener"
+    },
+    {
+      "url": "http://unix/v1",
+      "description": "Unix domain socket listener; client libraries map this pseudo URL to /run/mandate/mandate.sock"
+    }
+  ],
+  "paths": {
+    "/payment-requests": {
+      "post": {
+        "operationId": "createPaymentRequest",
+        "summary": "Create a payment request from an agent",
+        "security": [
+          {
+            "agentMtls": []
+          },
+          {
+            "agentJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/PreferAsync"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/aprp_v1.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous decision completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Request accepted for asynchronous processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "423": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/payment-requests/{id}": {
+      "get": {
+        "operationId": "getPaymentRequest",
+        "summary": "Get current state of a payment request",
+        "security": [
+          {
+            "agentMtls": []
+          },
+          {
+            "adminMtls": []
+          },
+          {
+            "auditJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaymentRequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment request state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/payment-requests/{id}/approve": {
+      "post": {
+        "operationId": "approvePaymentRequest",
+        "summary": "Approve a request that requires human approval",
+        "security": [
+          {
+            "adminMtls": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaymentRequestId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated request state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/payment-requests/{id}/reject": {
+      "post": {
+        "operationId": "rejectPaymentRequest",
+        "summary": "Reject a request that requires human approval",
+        "security": [
+          {
+            "adminMtls": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaymentRequestId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated request state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/agents": {
+      "get": {
+        "operationId": "listAgents",
+        "summary": "List agent profiles",
+        "security": [
+          {
+            "adminMtls": []
+          },
+          {
+            "auditJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "agents"
+                  ],
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Agent"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAgent",
+        "summary": "Create an agent identity",
+        "security": [
+          {
+            "adminMtls": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Agent created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/agents/{id}/policies": {
+      "patch": {
+        "operationId": "updateAgentPolicy",
+        "summary": "Attach or replace an agent policy",
+        "security": [
+          {
+            "adminMtls": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AgentId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Policy updated or pending more signatures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyUpdateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/budgets": {
+      "get": {
+        "operationId": "listBudgets",
+        "summary": "List current budget ledger state",
+        "security": [
+          {
+            "adminMtls": []
+          },
+          {
+            "auditJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Budget state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/stop": {
+      "post": {
+        "operationId": "emergencyStop",
+        "summary": "Freeze all new payments",
+        "security": [
+          {
+            "adminMtls": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmergencyStopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Emergency freeze enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/emergency/resume": {
+      "post": {
+        "operationId": "emergencyResume",
+        "summary": "Resume payments after incident handling",
+        "security": [
+          {
+            "adminMtls": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmergencyResumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Emergency freeze disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/audit-log": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "summary": "Stream audit events",
+        "security": [
+          {
+            "adminMtls": []
+          },
+          {
+            "auditJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AgentId"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "jsonl",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit event stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "events"
+                  ],
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "../../schemas/audit_event_v1.json"
+                      }
+                    },
+                    "merkle_root": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[a-f0-9]{64}$",
+                      "default": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "agentMtls": {
+        "type": "mutualTLS",
+        "description": "Agent certificate issued by the vault CA; certificate CN/SAN carries agent_id."
+      },
+      "adminMtls": {
+        "type": "mutualTLS",
+        "description": "Admin certificate plus signed mutation payload for mutating endpoints."
+      },
+      "agentJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "auditJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 64
+        }
+      },
+      "PreferAsync": {
+        "name": "Prefer",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "respond-async"
+          ]
+        }
+      },
+      "PaymentRequestId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^pr-[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        }
+      },
+      "AgentId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/AgentId"
+        }
+      }
+    },
+    "responses": {
+      "Problem": {
+        "description": "RFC 7807 problem+json error",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "AgentId": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$"
+      },
+      "PaymentRequestResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "payment_request_id",
+          "status",
+          "policy_version"
+        ],
+        "properties": {
+          "payment_request_id": {
+            "type": "string",
+            "pattern": "^pr-[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "auto_approved",
+              "requires_human",
+              "rejected",
+              "pending"
+            ]
+          },
+          "decision_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "deny_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-z]+\\.[a-z0-9_]+$",
+            "default": null
+          },
+          "policy_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "estimated_completion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "default": null
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        }
+      },
+      "PaymentRequestState": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaymentRequestResponse"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "agent_id": {
+                "$ref": "#/components/schemas/AgentId"
+              },
+              "request_hash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "audit_event_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              }
+            }
+          }
+        ]
+      },
+      "PaymentResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payment_proof": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^0x[a-fA-F0-9]{64}$",
+            "default": null
+          },
+          "provider_response_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        }
+      },
+      "AdminDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "approver_id",
+          "signed_decision"
+        ],
+        "properties": {
+          "approver_id": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "signed_decision": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 512
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "Agent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "policy_version",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/AgentId"
+          },
+          "policy_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "revoked"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_request_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "default": null
+          },
+          "spent_today_usd": {
+            "type": "string"
+          },
+          "spent_month_usd": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAgentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agent_id",
+          "identity",
+          "initial_policy_ref",
+          "signed_by",
+          "signature"
+        ],
+        "properties": {
+          "agent_id": {
+            "$ref": "#/components/schemas/AgentId"
+          },
+          "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "mtls_cert_csr",
+                  "jwt_subject"
+                ]
+              },
+              "csr_pem": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              }
+            }
+          },
+          "initial_policy_ref": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 128
+          },
+          "signed_by": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 512
+          }
+        }
+      },
+      "PolicyUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "new_policy",
+          "policy_hash",
+          "signatures",
+          "rationale"
+        ],
+        "properties": {
+          "new_policy": {
+            "$ref": "../../schemas/policy_v1.json"
+          },
+          "policy_hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "signatures": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/AdminSignature"
+            }
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "PolicyUpdateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "policy_version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "requires_more_approvals"
+            ]
+          },
+          "policy_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "missing_admin_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          }
+        }
+      },
+      "AdminSignature": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "admin_id",
+          "signature"
+        ],
+        "properties": {
+          "admin_id": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 512
+          }
+        }
+      },
+      "BudgetList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "budgets"
+        ],
+        "properties": {
+          "budgets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "agent_id",
+                "scope",
+                "cap_usd",
+                "current_spent_usd",
+                "period_resets_at"
+              ],
+              "properties": {
+                "agent_id": {
+                  "$ref": "#/components/schemas/AgentId"
+                },
+                "scope": {
+                  "type": "string"
+                },
+                "scope_key": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "default": null
+                },
+                "cap_usd": {
+                  "type": "string"
+                },
+                "current_spent_usd": {
+                  "type": "string"
+                },
+                "period_resets_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
+      "EmergencyStopRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason",
+          "signed_by",
+          "signature"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "signed_by": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 512
+          }
+        }
+      },
+      "EmergencyResumeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "signatures",
+          "post_incident_report_ref"
+        ],
+        "properties": {
+          "signatures": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/AdminSignature"
+            }
+          },
+          "post_incident_report_ref": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 256
+          }
+        }
+      },
+      "EmergencyState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "frozen",
+          "changed_at"
+        ],
+        "properties": {
+          "frozen": {
+            "type": "boolean"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "in_flight_rejected": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "code",
+          "request_id"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z]+\\.[a-z0-9_]+$"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "policy_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          }
+        }
+      }
+    }
+  }
+}

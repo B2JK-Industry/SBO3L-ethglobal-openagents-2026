@@ -1,0 +1,25 @@
+{
+  "agent_id": "research-agent-01",
+  "task_id": "demo-task-unknown-field",
+  "intent": "purchase_api_call",
+  "amount": {
+    "value": "0.05",
+    "currency": "USD"
+  },
+  "token": "USDC",
+  "destination": {
+    "type": "x402_endpoint",
+    "url": "https://api.example.com/v1/inference",
+    "method": "POST",
+    "expected_recipient": "0x1111111111111111111111111111111111111111"
+  },
+  "payment_protocol": "x402",
+  "chain": "base",
+  "provider_url": "https://api.example.com",
+  "x402_payload": null,
+  "expiry": "2026-05-01T10:31:00Z",
+  "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGN",
+  "expected_result": null,
+  "risk_class": "low",
+  "agent_says_it_is_safe": true
+}

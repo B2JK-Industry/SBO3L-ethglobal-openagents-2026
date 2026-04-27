@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mandate.dev/decision-token/v1.json",
+  "title": "Mandate Decision Token v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payload",
+    "signature_hex",
+    "signing_pubkey_hex"
+  ],
+  "properties": {
+    "payload": {
+      "$ref": "#/$defs/payload"
+    },
+    "signature_hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{128}$"
+    },
+    "signing_pubkey_hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "request_hash",
+        "decision",
+        "policy_version",
+        "policy_hash",
+        "tx_template",
+        "key_id",
+        "decision_id",
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "request_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny",
+            "requires_human"
+          ]
+        },
+        "deny_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z]+\\.[a-z0-9_]+$",
+          "default": null
+        },
+        "policy_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "policy_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "tx_template": {
+          "$ref": "#/$defs/tx_template"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^dec-[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attestation_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^att-[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+          "default": null
+        }
+      }
+    },
+    "tx_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain_id",
+        "to",
+        "value",
+        "data",
+        "gas_limit"
+      ],
+      "properties": {
+        "chain_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^0x[a-fA-F0-9]{40}$"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "data": {
+          "type": "string",
+          "pattern": "^0x[a-fA-F0-9]*$"
+        },
+        "gas_limit": {
+          "type": "integer",
+          "minimum": 21000
+        },
+        "max_fee_per_gas": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$",
+          "default": null
+        },
+        "max_priority_fee_per_gas": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$",
+          "default": null
+        },
+        "nonce_hint": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null
+        }
+      }
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
