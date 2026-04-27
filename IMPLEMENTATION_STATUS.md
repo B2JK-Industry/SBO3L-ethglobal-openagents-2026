@@ -64,7 +64,7 @@ Live progress tracker. Updated as slices complete.
 
 - `cargo fmt --check` — ✅
 - `cargo clippy --workspace --all-targets -- -D warnings` — ✅
-- `cargo test --workspace --all-targets` — ✅ 69 unit/integration tests pass (62 + 7 new P1/P3 regression tests).
+- `cargo test --workspace --all-targets` — ✅ 71 unit/integration tests pass (62 + 9 new P1/P3 regression tests).
 - `python scripts/validate_schemas.py` — ✅ 6 schemas, 4 fixtures.
 - `python scripts/validate_openapi.py` — ✅ docs/api/openapi.json valid.
 - `bash demo-scripts/run-openagents-final.sh` — ✅ all gates pass (steps 1–11 including tamper detection).
