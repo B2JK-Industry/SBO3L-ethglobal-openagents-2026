@@ -1,0 +1,28 @@
+[package]
+name = "research-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ETHGlobal Open Agents demo harness for Mandate. Exercises legit-x402 and prompt-injection scenarios deterministically against the in-memory daemon."
+
+[[bin]]
+name = "research-agent"
+path = "src/main.rs"
+
+[dependencies]
+mandate-core = { workspace = true }
+mandate-policy = { workspace = true }
+mandate-storage = { workspace = true }
+mandate-server = { path = "../../crates/mandate-server" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Wrapper: build the research-agent binary if needed and run it.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+if [[ ! -x target/debug/research-agent ]]; then
+  cargo build --quiet --bin research-agent
+fi
+exec ./target/debug/research-agent "$@"

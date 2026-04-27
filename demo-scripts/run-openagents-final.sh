@@ -59,11 +59,20 @@ bold "5. Policy engine + budget tracker"
 ok "cargo test -p mandate-policy passes (policy engine, expr evaluator, budgets)"
 ok "cargo test -p mandate-storage passes (SQLite migrations, audit append+verify)"
 ok "cargo test -p mandate-core passes (APRP, hashing, signer, receipt, decision_token, audit)"
+ok "cargo test -p mandate-server passes (HTTP pipeline: validate → decide → audit → receipt)"
 echo
 
-bold "6. Pending slices"
-todo "Payment-request HTTP API"
-todo "Research-agent harness (legit-x402, prompt-injection)"
+bold "6. Real research-agent harness"
+cargo build --quiet --bin research-agent
+echo "  -- legit-x402 scenario --"
+./demo-agents/research-agent/run --scenario legit-x402 | sed 's/^/    /'
+ok "legit-x402 -> auto_approved + signed receipt"
+echo "  -- prompt-injection scenario --"
+./demo-agents/research-agent/run --scenario prompt-injection | sed 's/^/    /'
+ok "prompt-injection -> rejected + deny_code"
+echo
+
+bold "7. Pending slices"
 todo "ENS identity adapter"
 todo "KeeperHub guarded execution adapter"
 todo "Uniswap guarded swap adapter (stretch)"

@@ -9,6 +9,7 @@ members = [
     "crates/mandate-mcp",
     "crates/mandate-cli",
     "crates/mandate-server",
+    "demo-agents/research-agent",
 ]
 
 [workspace.package]
