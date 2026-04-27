@@ -15,6 +15,7 @@ use thiserror::Error;
 use mandate_core::aprp::PaymentRequest;
 
 use crate::model::{Budget, BudgetScope, Policy};
+use crate::util::same_origin;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BudgetError {
@@ -161,8 +162,6 @@ fn applies_to_request(budget: &Budget, request: &PaymentRequest, policy: &Policy
         },
     }
 }
-
-use crate::util::same_origin;
 
 #[cfg(test)]
 mod tests {

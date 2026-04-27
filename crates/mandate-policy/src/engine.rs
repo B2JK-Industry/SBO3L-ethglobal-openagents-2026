@@ -19,6 +19,7 @@ use mandate_core::aprp::{Destination, PaymentRequest};
 
 use crate::expr;
 use crate::model::{AgentStatus, Policy, ProviderStatus, RecipientStatus, Rule, RuleEffect};
+use crate::util::same_origin;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -316,8 +317,6 @@ fn safe_amount_f64(s: &str) -> f64 {
         _ => AMOUNT_FAILSAFE_USD,
     }
 }
-
-use crate::util::same_origin;
 
 #[cfg(test)]
 mod tests {
