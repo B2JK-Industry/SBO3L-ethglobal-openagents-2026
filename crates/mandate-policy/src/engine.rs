@@ -18,7 +18,7 @@ use serde_json::json;
 use mandate_core::aprp::{Destination, PaymentRequest};
 
 use crate::expr;
-use crate::model::{Policy, ProviderStatus, RecipientStatus, Rule, RuleEffect};
+use crate::model::{AgentStatus, Policy, ProviderStatus, RecipientStatus, Rule, RuleEffect};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -57,6 +57,12 @@ pub fn decide(policy: &Policy, request: &PaymentRequest) -> Result<Outcome, Engi
         .canonical_hash()
         .map_err(|e| EngineError::Hash(e.to_string()))?;
 
+    // Fail-closed agent gate. Runs *before* any rule evaluation so a permissive
+    // allow rule can never fire for an agent that is unknown, paused or revoked.
+    if let Some(early) = agent_gate(policy, request, &policy_hash) {
+        return Ok(early);
+    }
+
     for rule in &policy.rules {
         let matched =
             expr::evaluate_bool(&rule.when, &context).map_err(|e| EngineError::Expression {
@@ -79,6 +85,48 @@ pub fn decide(policy: &Policy, request: &PaymentRequest) -> Result<Outcome, Engi
         deny_code: None,
         policy_hash,
     })
+}
+
+/// Pre-rule fail-closed gate on agent identity / status / emergency pause list.
+///
+/// Returns `Some(deny)` when the request must be rejected before any rule runs:
+///
+/// * agent_id is not registered in `policy.agents` → `auth.agent_not_found`
+/// * agent status is `paused` → `emergency.agent_paused`
+/// * agent status is `revoked` → `auth.agent_revoked`
+/// * agent_id appears in `policy.emergency.paused_agents` → `emergency.agent_paused`
+///
+/// `None` means the agent is known + active and rule evaluation should proceed.
+fn agent_gate(policy: &Policy, request: &PaymentRequest, policy_hash: &str) -> Option<Outcome> {
+    let deny = |code: &str| {
+        Some(Outcome {
+            decision: Decision::Deny,
+            matched_rule_id: None,
+            deny_code: Some(code.to_string()),
+            policy_hash: policy_hash.to_string(),
+        })
+    };
+    let agent = policy
+        .agents
+        .iter()
+        .find(|a| a.agent_id == request.agent_id);
+    let Some(agent) = agent else {
+        return deny("auth.agent_not_found");
+    };
+    match agent.status {
+        AgentStatus::Active => {}
+        AgentStatus::Paused => return deny("emergency.agent_paused"),
+        AgentStatus::Revoked => return deny("auth.agent_revoked"),
+    }
+    if policy
+        .emergency
+        .paused_agents
+        .iter()
+        .any(|a| a == &request.agent_id)
+    {
+        return deny("emergency.agent_paused");
+    }
+    None
 }
 
 fn finalise(rule: &Rule, policy_hash: String) -> Result<Outcome, EngineError> {
@@ -199,6 +247,14 @@ fn build_context(policy: &Policy, request: &PaymentRequest) -> serde_json::Value
     let risk_class: serde_json::Value =
         serde_json::to_value(request.risk_class).unwrap_or(json!(null));
 
+    let paused_agents: Vec<serde_json::Value> = policy
+        .emergency
+        .paused_agents
+        .iter()
+        .cloned()
+        .map(serde_json::Value::String)
+        .collect();
+
     json!({
         "input": {
             "agent_id": request.agent_id,
@@ -215,6 +271,7 @@ fn build_context(policy: &Policy, request: &PaymentRequest) -> serde_json::Value
             "recipient": recipient,
             "emergency": {
                 "freeze_all": policy.emergency.freeze_all,
+                "paused_agents": paused_agents,
             }
         }
     })
@@ -283,5 +340,50 @@ mod tests {
                 || code == "policy.deny_recipient_not_allowlisted",
             "got deny_code={code}"
         );
+    }
+
+    fn golden_aprp() -> PaymentRequest {
+        aprp(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ))
+    }
+
+    #[test]
+    fn unknown_agent_is_denied_before_rule_evaluation() {
+        let p = policy();
+        let mut req = golden_aprp();
+        req.agent_id = "unknown-attacker".into();
+        let outcome = decide(&p, &req).unwrap();
+        assert_eq!(outcome.decision, Decision::Deny);
+        assert_eq!(outcome.deny_code.as_deref(), Some("auth.agent_not_found"));
+        assert!(outcome.matched_rule_id.is_none(), "no rule must have fired");
+    }
+
+    #[test]
+    fn revoked_agent_status_is_denied() {
+        let mut p = policy();
+        p.agents[0].status = AgentStatus::Revoked;
+        let outcome = decide(&p, &golden_aprp()).unwrap();
+        assert_eq!(outcome.decision, Decision::Deny);
+        assert_eq!(outcome.deny_code.as_deref(), Some("auth.agent_revoked"));
+    }
+
+    #[test]
+    fn paused_agent_status_is_denied() {
+        let mut p = policy();
+        p.agents[0].status = AgentStatus::Paused;
+        let outcome = decide(&p, &golden_aprp()).unwrap();
+        assert_eq!(outcome.decision, Decision::Deny);
+        assert_eq!(outcome.deny_code.as_deref(), Some("emergency.agent_paused"));
+    }
+
+    #[test]
+    fn agent_in_emergency_paused_list_is_denied() {
+        let mut p = policy();
+        p.emergency.paused_agents.push("research-agent-01".into());
+        let outcome = decide(&p, &golden_aprp()).unwrap();
+        assert_eq!(outcome.decision, Decision::Deny);
+        assert_eq!(outcome.deny_code.as_deref(), Some("emergency.agent_paused"));
     }
 }

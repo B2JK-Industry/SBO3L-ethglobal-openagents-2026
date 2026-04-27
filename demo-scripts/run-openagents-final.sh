@@ -71,13 +71,22 @@ fi
 ok "strict (hash) verify correctly rejects placeholder hashes in seed fixture"
 echo
 
-bold "5. Policy engine + budget tracker + storage + server"
-ok "cargo test -p mandate-policy passes (policy engine, expr evaluator, budgets)"
-ok "cargo test -p mandate-storage passes (SQLite migrations, audit append+verify)"
-ok "cargo test -p mandate-core passes (APRP, hashing, signer, receipt, decision_token, audit)"
-ok "cargo test -p mandate-server passes (HTTP pipeline: validate -> decide -> audit -> receipt)"
-ok "cargo test -p mandate-execution passes (KeeperHub + Uniswap allow/deny + swap-policy guard)"
-ok "cargo test -p mandate-identity passes (ENS offline resolver + policy_hash verify)"
+bold "5. Policy engine + budget tracker + storage + server (live cargo test)"
+TEST_LOG="$(mktemp -t mandate-test-XXXXXX.log)"
+trap 'rm -f "$TEST_LOG"' EXIT
+if ! cargo test --workspace --all-targets --quiet > "$TEST_LOG" 2>&1; then
+  cat "$TEST_LOG"
+  fail "cargo test --workspace --all-targets failed"
+  exit 1
+fi
+PASSED=$(grep -E '^test result: ok' "$TEST_LOG" | awk '{ sum += $4 } END { print sum }')
+ok "cargo test --workspace --all-targets — ${PASSED:-?} tests pass"
+ok "covers: APRP/hashing/signer/receipt/decision_token/audit (mandate-core)"
+ok "covers: policy engine + expr evaluator + agent gate + paused-agents + budgets (mandate-policy)"
+ok "covers: SQLite migrations + audit append + chain verify (mandate-storage)"
+ok "covers: HTTP pipeline validate -> decide -> audit -> receipt (mandate-server)"
+ok "covers: KeeperHub + Uniswap allow/deny + swap-policy guard (mandate-execution)"
+ok "covers: ENS offline resolver + policy_hash verify (mandate-identity)"
 echo
 
 bold "6. Real research-agent harness"

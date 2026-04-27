@@ -15,7 +15,7 @@ All implementation code in this repository:
 - Rust workspace (`crates/mandate-*`).
 - `mandate` CLI (`mandate aprp validate`, `mandate verify-audit`, demo helpers).
 - Strict APRP schema validation, decision token signing, policy receipts.
-- Policy engine (Rego via `regorus`) + multi-scope budget checks.
+- Policy engine (hackathon-grade custom expression evaluator over the locked rule grammar in `mandate-policy/src/expr.rs`; Rego via `regorus` is the production target per `docs/spec/17_interface_contracts.md`) + multi-scope budget checks + fail-closed agent gate (unknown / paused / revoked / `emergency.paused_agents`).
 - SQLite-backed storage with hash-chained audit log.
 - Real research-agent harness with `legit-x402` and `prompt-injection` scenarios.
 - ENS identity proof adapter (resolves agent → vault endpoint + policy hash + audit root).

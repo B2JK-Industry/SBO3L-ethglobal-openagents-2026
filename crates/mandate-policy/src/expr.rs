@@ -410,6 +410,15 @@ pub fn evaluate_bool(expr: &str, ctx: &serde_json::Value) -> Result<bool, ExprEr
     let tokens = tokenize(expr)?;
     let mut parser = Parser { tokens, pos: 0 };
     let node = parser.parse_expr()?;
+    // Reject trailing tokens. Without this, a malformed (or adversarial)
+    // policy edit like `input.provider.trusted garbage_token` would silently
+    // evaluate as `input.provider.trusted` and turn into an unintended allow.
+    if !matches!(parser.peek(), Token::Eof) {
+        return Err(ExprError::Parse(format!(
+            "unexpected trailing tokens starting at {:?}",
+            parser.peek()
+        )));
+    }
     let value = eval_node(&node, ctx)?;
     truthy(&value)
 }
@@ -472,5 +481,16 @@ mod tests {
             &c
         )
         .unwrap());
+    }
+
+    #[test]
+    fn trailing_tokens_are_rejected() {
+        let c = ctx();
+        let err = evaluate_bool("input.provider.trusted garbage_token", &c).expect_err("must fail");
+        assert!(matches!(err, ExprError::Parse(_)), "got {err:?}");
+        let err2 = evaluate_bool("true == true junk", &c).expect_err("must fail");
+        assert!(matches!(err2, ExprError::Parse(_)), "got {err2:?}");
+        // Sanity: well-formed expressions still evaluate.
+        assert!(evaluate_bool("true == true", &c).unwrap());
     }
 }
