@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use mandate_core::audit::{verify_chain, SignedAuditEvent};
 use mandate_core::{schema, SchemaError};
 
 #[derive(Parser, Debug)]
@@ -24,11 +25,17 @@ enum Command {
         #[command(subcommand)]
         op: AprpCmd,
     },
-    /// Verify a Mandate audit hash chain
+    /// Verify a Mandate audit hash chain (JSONL)
     VerifyAudit {
         /// Path to a JSONL audit log
         #[arg(long)]
         path: PathBuf,
+        /// Skip recomputation of event_hash (for fixtures with placeholder hashes)
+        #[arg(long, default_value_t = false)]
+        skip_hash: bool,
+        /// Public key (hex, 32 bytes) to verify each event's signature
+        #[arg(long)]
+        pubkey: Option<String>,
     },
     /// Print the schema id for a wire format
     Schema {
@@ -82,10 +89,11 @@ fn main() -> ExitCode {
         Command::Aprp {
             op: AprpCmd::RunCorpus { root },
         } => cmd_aprp_corpus(&root),
-        Command::VerifyAudit { path: _ } => {
-            eprintln!("verify-audit: not yet implemented");
-            ExitCode::from(2)
-        }
+        Command::VerifyAudit {
+            path,
+            skip_hash,
+            pubkey,
+        } => cmd_verify_audit(&path, !skip_hash, pubkey.as_deref()),
         Command::Schema { kind } => cmd_schema(&kind),
     }
 }
@@ -211,4 +219,54 @@ fn read_json(path: &Path) -> anyhow::Result<serde_json::Value> {
     let data = std::fs::read_to_string(path)?;
     let value: serde_json::Value = serde_json::from_str(&data)?;
     Ok(value)
+}
+
+fn cmd_verify_audit(path: &Path, verify_hashes: bool, pubkey: Option<&str>) -> ExitCode {
+    let data = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error reading {}: {e}", path.display());
+            return ExitCode::from(2);
+        }
+    };
+    let mut events: Vec<SignedAuditEvent> = Vec::new();
+    for (i, line) in data.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let signed: SignedAuditEvent = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("invalid JSON at line {}: {e}", i + 1);
+                return ExitCode::from(1);
+            }
+        };
+        // Schema-validate too.
+        let raw: serde_json::Value = serde_json::from_str(line).unwrap();
+        if let Err(e) = schema::validate_audit_event(&raw) {
+            eprintln!(
+                "schema invalid at line {} (seq={}): {e}",
+                i + 1,
+                signed.event.seq
+            );
+            return ExitCode::from(1);
+        }
+        events.push(signed);
+    }
+    match verify_chain(&events, verify_hashes, pubkey) {
+        Ok(()) => {
+            println!(
+                "ok: {} events verified (hashes={}, sig={})",
+                events.len(),
+                verify_hashes,
+                pubkey.is_some()
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("audit chain invalid: {e}");
+            ExitCode::from(1)
+        }
+    }
 }

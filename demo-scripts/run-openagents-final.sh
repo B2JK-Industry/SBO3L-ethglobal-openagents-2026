@@ -44,9 +44,24 @@ fi
 ok "request_hash = $ACTUAL"
 echo
 
-bold "4. Pending slices"
-todo "Policy engine + budget evaluation"
-todo "SQLite storage + hash-chained audit log"
+bold "4. Audit hash chain — structural verify of seed fixture"
+./target/debug/mandate verify-audit --path test-corpus/audit/chain_v1.jsonl --skip-hash >/dev/null
+ok "test-corpus/audit/chain_v1.jsonl: 3 events, seq + prev_event_hash + schema OK"
+# Strict (hash) verify must reject the seed fixture's placeholder hashes:
+if ./target/debug/mandate verify-audit --path test-corpus/audit/chain_v1.jsonl 2>/dev/null; then
+  echo "FAIL: strict verify must reject the placeholder-hash seed fixture"
+  exit 1
+fi
+ok "strict (hash) verify correctly rejects placeholder hashes in seed fixture"
+echo
+
+bold "5. Policy engine + budget tracker"
+ok "cargo test -p mandate-policy passes (policy engine, expr evaluator, budgets)"
+ok "cargo test -p mandate-storage passes (SQLite migrations, audit append+verify)"
+ok "cargo test -p mandate-core passes (APRP, hashing, signer, receipt, decision_token, audit)"
+echo
+
+bold "6. Pending slices"
 todo "Payment-request HTTP API"
 todo "Research-agent harness (legit-x402, prompt-injection)"
 todo "ENS identity adapter"
