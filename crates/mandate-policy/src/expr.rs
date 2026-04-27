@@ -526,7 +526,24 @@ mod tests {
         assert!(evaluate_bool("input.addr_set != null", &c).unwrap());
         assert!(!evaluate_bool("input.addr_set == null", &c).unwrap());
         // Ordered comparisons on null still error (no obvious meaning).
-        let err = evaluate_bool("input.addr_unset < null", &c).expect_err("ordered null must fail");
-        assert!(matches!(err, ExprError::TypeMismatch(_)), "got {err:?}");
+        // Both branches in cmp() must reject ordering: null-vs-null AND null-vs-T.
+        let err_null_null =
+            evaluate_bool("input.addr_unset < null", &c).expect_err("null < null must fail");
+        assert!(
+            matches!(err_null_null, ExprError::TypeMismatch(_)),
+            "got {err_null_null:?}"
+        );
+        let err_string_null =
+            evaluate_bool("input.addr_set < null", &c).expect_err("string < null must fail");
+        assert!(
+            matches!(err_string_null, ExprError::TypeMismatch(_)),
+            "got {err_string_null:?}"
+        );
+        let err_null_string =
+            evaluate_bool("null > input.addr_set", &c).expect_err("null > string must fail");
+        assert!(
+            matches!(err_null_string, ExprError::TypeMismatch(_)),
+            "got {err_null_string:?}"
+        );
     }
 }
