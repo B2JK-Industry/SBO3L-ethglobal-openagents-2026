@@ -317,19 +317,7 @@ fn safe_amount_f64(s: &str) -> f64 {
     }
 }
 
-fn same_origin(a: &str, b: &str) -> bool {
-    let normalize = |u: &str| u.trim_end_matches('/').to_string();
-    let a = normalize(a);
-    let b = normalize(b);
-    if a == b {
-        return true;
-    }
-    // Match by host: if `b` starts with `a/`, a is the origin.
-    if b.starts_with(&format!("{a}/")) || a.starts_with(&format!("{b}/")) {
-        return true;
-    }
-    false
-}
+use crate::util::same_origin;
 
 #[cfg(test)]
 mod tests {

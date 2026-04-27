@@ -162,11 +162,7 @@ fn applies_to_request(budget: &Budget, request: &PaymentRequest, policy: &Policy
     }
 }
 
-fn same_origin(a: &str, b: &str) -> bool {
-    let a = a.trim_end_matches('/');
-    let b = b.trim_end_matches('/');
-    a == b || b.starts_with(&format!("{a}/")) || a.starts_with(&format!("{b}/"))
-}
+use crate::util::same_origin;
 
 #[cfg(test)]
 mod tests {
