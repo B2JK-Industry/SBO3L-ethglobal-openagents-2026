@@ -183,20 +183,26 @@ async fn create_payment_request(
                 final_deny_code = Some(deny.deny_code.to_string());
             }
             Ok(None) => {
+                // commit() can fail only with `BudgetError::BadValue` — i.e. a
+                // malformed `cap_usd` decimal in the loaded policy. That is a
+                // server-side configuration error, not a business denial; use
+                // a distinct code so callers don't confuse it with a real cap
+                // breach (which surfaces via `Ok(Some(deny))` above with code
+                // `budget.hard_cap_exceeded`).
                 budgets.commit(&inner.policy, &aprp, now).map_err(|e| {
                     problem(
-                        "budget.hard_cap_exceeded",
+                        "policy.config_error",
                         500,
-                        "budget error",
+                        "policy config error",
                         e.to_string(),
                     )
                 })?;
             }
             Err(e) => {
                 return Err(problem(
-                    "budget.hard_cap_exceeded",
+                    "policy.config_error",
                     500,
-                    "budget error",
+                    "policy config error",
                     e.to_string(),
                 ));
             }

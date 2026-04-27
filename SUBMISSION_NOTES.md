@@ -49,6 +49,12 @@ These are documentation/specifications, not prior product code. See [`AI_USAGE.m
 - KeeperHub adapter — live against KeeperHub MCP/API; falls back to faithful local mock when credentials are unavailable, clearly disclosed in demo output.
 - Uniswap adapter — live quote against Uniswap API where available; otherwise faithful local mock.
 
+## Known limitations (hackathon scope)
+
+- `Budget.soft_cap_usd` is parsed and validated against the schema, but not yet enforced by `BudgetTracker`. A production deployment (per `docs/spec/17_interface_contracts.md`) emits a soft-cap warning into the receipt; this hackathon build only enforces the hard cap (`cap_usd`). See comment in `crates/mandate-policy/src/model.rs`.
+- Signing seeds in `AppState::new` are constants in this public repo. Acceptable for the demo and CI; production callers must inject real signers via `AppState::with_signers` (TEE/HSM-backed). The dev-only path is gated with a visible warning comment in `crates/mandate-server/src/lib.rs`.
+- No request-level idempotency key / dedup. Replays are independently audited and receipted. Tracked in the backlog.
+
 ## Demo
 
 ```bash

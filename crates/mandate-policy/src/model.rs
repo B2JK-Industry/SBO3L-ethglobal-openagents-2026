@@ -54,6 +54,11 @@ pub struct Budget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_key: Option<String>,
     pub cap_usd: String,
+    // Reserved: parsed and round-tripped, but not enforced by `BudgetTracker`
+    // in this hackathon scope. Production engines (per
+    // `docs/spec/17_interface_contracts.md`) emit a soft-cap warning that
+    // surfaces in the receipt. Tracked in `SUBMISSION_NOTES.md` → "Known
+    // limitations".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub soft_cap_usd: Option<String>,
 }
