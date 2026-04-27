@@ -22,25 +22,27 @@ green for everything that exists today.
 |---|---|
 | Repo bootstrap, README, AI_USAGE, SUBMISSION_NOTES, FEEDBACK | done |
 | Planning artifacts under `docs/spec/` (verbatim from pre-hackathon repo) | done |
-| Rust workspace + 8 crate skeletons | done |
-| `mandate` CLI: `aprp validate`, `aprp hash`, `aprp run-corpus`, `schema`, `verify-audit` (stub) | done |
+| Rust workspace + 8 crates + `research-agent` bin | done |
+| `mandate` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit` | done |
 | APRP v1 types with `deny_unknown_fields` + serde round-trip | done |
 | JCS canonical hashing (locked golden hash `c0bd2fab…`) | done |
 | JSON Schema validation with embedded schemas + local refs | done |
 | Ed25519 dev signer (deterministic seed support) | done |
 | Policy receipt v1: sign + verify + schema check | done |
 | Decision token v1: sign + verify + schema check | done |
+| Audit event v1 + hash-chain helper + schema check | done |
+| Policy YAML model + Rego-compatible expression evaluator + decide() | done |
+| Budget tracker (per_tx / daily / monthly / per_provider) | done |
+| SQLite storage with migrations + audit log + chain verifier | done |
+| `POST /v1/payment-requests` HTTP API + handler tests | done |
+| Real research-agent harness (`legit-x402`, `prompt-injection`) | done |
+| ENS identity adapter (offline resolver + policy_hash verify) | done |
+| KeeperHub guarded-execution adapter (live stub + local mock) | done |
+| Sponsor demo scripts (`ens-agent-identity.sh`, `keeperhub-guarded-execution.sh`) | done |
+| End-to-end demo runner (`run-openagents-final.sh`) | done |
 | CI: `fmt`, `clippy -D warnings`, `test`, schema/OpenAPI validators | done, green |
-| Partial `demo-scripts/run-openagents-final.sh` runner | done |
-| Policy YAML model + rule evaluator + budget tracker | **pending** |
-| SQLite storage + hash-chained audit log | **pending** |
-| Payment-request HTTP API | **pending** |
-| Research-agent harness (legit-x402, prompt-injection) | **pending** |
-| ENS identity adapter | **pending** |
-| KeeperHub guarded-execution adapter | **pending** |
 | Uniswap guarded-swap adapter (stretch) | **pending** |
-| Final demo runner with full sponsor flow | **pending** |
-| Codex review, feedback addressed | **pending** |
+| Codex review, feedback addressed | **pending — requested in this PR** |
 
 ## CI
 
@@ -107,15 +109,24 @@ See [`AI_USAGE.md`](AI_USAGE.md). Coding assistants (Claude Code) used for scaff
 
 Only "live" or faithfully-disclosed local mocks will be claimed in the final submission.
 
-## Next exact commits
+## Test summary
 
-1. Policy YAML model + Rust-side rule evaluator (`mandate-policy`).
-2. Budget tracker (per_tx / daily / per_provider) backed by SQLite (`mandate-storage`).
-3. Hash-chained audit log + verifier (`mandate-storage`, `mandate verify-audit` CLI).
-4. `POST /v1/payment-requests` HTTP route in `mandate-server` driving the full pipeline.
-5. Research-agent harness with `legit-x402` and `prompt-injection` scenarios.
-6. ENS identity adapter (testnet + offline fixture).
-7. KeeperHub adapter (live MCP/API where possible, faithful mock otherwise).
-8. End-to-end demo runner replacing the partial runner.
+```
+cargo test --workspace --all-targets
+  mandate-core           27 pass    APRP, hashing, signer, receipt, decision_token, audit, schema
+  mandate-policy         14 pass    model, expression evaluator, decide(), budget tracker
+  mandate-storage         2 pass    SQLite migrate, audit append + hash-chain verify
+  mandate-server          3 pass    legit-x402 -> ok, prompt-injection -> deny, adversarial -> 400
+  mandate-identity        3 pass    offline ENS resolver + policy_hash verify
+  mandate-execution       3 pass    KeeperHub: approved routes / denied refused / live stub
+  total                  52 pass
+```
+
+## Next steps after Codex review
+
+1. Address Codex feedback (correctness, security, tests, demo reliability).
+2. (Optional stretch) Uniswap guarded-swap adapter (`crates/mandate-execution/src/uniswap.rs`).
+3. (Optional stretch) Live ENS testnet resolver behind the existing `EnsResolver` trait.
+4. Final demo recording per `docs/spec/30_ethglobal_submission_compliance.md` §6-§7.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
