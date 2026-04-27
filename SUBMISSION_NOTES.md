@@ -19,10 +19,13 @@ All implementation code in this repository:
 - SQLite-backed storage with hash-chained audit log.
 - Real research-agent harness with `legit-x402` and `prompt-injection` scenarios.
 - ENS identity proof adapter (resolves agent → vault endpoint + policy hash + audit root).
-- KeeperHub guarded-execution adapter.
-- (Stretch) Uniswap guarded-swap adapter.
-- `demo-scripts/run-openagents-final.sh` — single-command demo runner.
-- CI: fmt, clippy, tests, schema validation.
+- KeeperHub guarded-execution adapter (`mandate-execution::keeperhub`).
+- Uniswap guarded-swap adapter (`mandate-execution::uniswap`): swap-policy guard (token allowlist, max notional, max slippage, quote freshness, treasury recipient) + `UniswapExecutor::local_mock()`.
+- Sponsor demo scripts: `ens-agent-identity.sh`, `keeperhub-guarded-execution.sh`, `uniswap-guarded-swap.sh`.
+- Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh`.
+- `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection.
+- `demo-scripts/demo-video-script.md` — 3:30 storyboard with recording checklist.
+- CI: fmt, clippy, tests (62 passing), schema validation.
 
 ## What was reused as planning material
 
