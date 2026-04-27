@@ -1,0 +1,25 @@
+{
+  "_note": "Attacker-induced Uniswap quote: swap into a rug-token output (not on the policy allowlist) routed to a denied treasury recipient with extreme slippage. The Mandate demo uses this fixture to prove deny-before-execution.",
+  "quote_id": "qt-01HZFAKEDEMOQ002",
+  "input": {
+    "token_symbol": "USDC",
+    "token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "amount": "5.00",
+    "decimals": 6
+  },
+  "output": {
+    "token_symbol": "RUG",
+    "token_address": "0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead",
+    "amount": "1000000",
+    "decimals": 18
+  },
+  "route": [
+    {"token_symbol": "USDC", "token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"},
+    {"token_symbol": "RUG",  "token_address": "0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead"}
+  ],
+  "expected_slippage_bps": 1500,
+  "expires_at_unix": 9999999999,
+  "fetched_at_unix": 1714233600,
+  "treasury_recipient": "0x9999999999999999999999999999999999999999",
+  "chain": "base"
+}
