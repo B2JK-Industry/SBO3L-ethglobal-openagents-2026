@@ -193,11 +193,11 @@ fn build_context(policy: &Policy, request: &PaymentRequest) -> serde_json::Value
         }),
     };
 
-    let intent: serde_json::Value = serde_json::to_value(&request.intent).unwrap_or(json!(null));
+    let intent: serde_json::Value = serde_json::to_value(request.intent).unwrap_or(json!(null));
     let payment_protocol: serde_json::Value =
-        serde_json::to_value(&request.payment_protocol).unwrap_or(json!(null));
+        serde_json::to_value(request.payment_protocol).unwrap_or(json!(null));
     let risk_class: serde_json::Value =
-        serde_json::to_value(&request.risk_class).unwrap_or(json!(null));
+        serde_json::to_value(request.risk_class).unwrap_or(json!(null));
 
     json!({
         "input": {
