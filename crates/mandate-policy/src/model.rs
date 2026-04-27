@@ -1,6 +1,9 @@
 //! Policy YAML/JSON model. Mirrors `schemas/policy_v1.json`.
 
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -135,13 +138,84 @@ pub struct Emergency {
     pub paused_agents: Vec<String>,
 }
 
+/// Errors that can occur when parsing or validating a `Policy`.
+///
+/// `serde(deny_unknown_fields)` already protects every nested struct against
+/// unexpected JSON/YAML keys; the [`PolicyParseError::Validation`] variant
+/// covers semantic invariants that serde cannot express, such as uniqueness
+/// of `agents[].agent_id`.
+#[derive(Debug, Error)]
+pub enum PolicyParseError {
+    #[error("json: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("yaml: {0}")]
+    Yaml(#[from] serde_yaml::Error),
+    #[error(transparent)]
+    Validation(#[from] PolicyValidationError),
+}
+
+/// Semantic validation failures detected after a policy has been deserialised.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum PolicyValidationError {
+    #[error("agents[].agent_id must be unique; '{0}' appears more than once")]
+    DuplicateAgentId(String),
+    #[error("rules[].id must be unique; '{0}' appears more than once")]
+    DuplicateRuleId(String),
+    #[error("providers[].id must be unique; '{0}' appears more than once")]
+    DuplicateProviderId(String),
+    #[error("recipients[] must be unique by (address, chain); '{address}@{chain}' duplicated")]
+    DuplicateRecipient { address: String, chain: String },
+}
+
 impl Policy {
-    pub fn parse_yaml(s: &str) -> Result<Self, serde_yaml::Error> {
-        serde_yaml::from_str(s)
+    pub fn parse_yaml(s: &str) -> Result<Self, PolicyParseError> {
+        let policy: Self = serde_yaml::from_str(s)?;
+        policy.validate()?;
+        Ok(policy)
     }
 
-    pub fn parse_json(s: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(s)
+    pub fn parse_json(s: &str) -> Result<Self, PolicyParseError> {
+        let policy: Self = serde_json::from_str(s)?;
+        policy.validate()?;
+        Ok(policy)
+    }
+
+    /// Run semantic validation that serde cannot express. Called automatically
+    /// by [`Policy::parse_json`] and [`Policy::parse_yaml`]; exposed publicly
+    /// so callers that build a `Policy` programmatically (tests, fuzzing) can
+    /// run the same checks.
+    pub fn validate(&self) -> Result<(), PolicyValidationError> {
+        let mut agent_ids = HashSet::with_capacity(self.agents.len());
+        for a in &self.agents {
+            if !agent_ids.insert(a.agent_id.as_str()) {
+                return Err(PolicyValidationError::DuplicateAgentId(a.agent_id.clone()));
+            }
+        }
+        let mut rule_ids = HashSet::with_capacity(self.rules.len());
+        for r in &self.rules {
+            if !rule_ids.insert(r.id.as_str()) {
+                return Err(PolicyValidationError::DuplicateRuleId(r.id.clone()));
+            }
+        }
+        let mut provider_ids = HashSet::with_capacity(self.providers.len());
+        for p in &self.providers {
+            if !provider_ids.insert(p.id.as_str()) {
+                return Err(PolicyValidationError::DuplicateProviderId(p.id.clone()));
+            }
+        }
+        let mut recipients = HashSet::with_capacity(self.recipients.len());
+        for r in &self.recipients {
+            // Addresses are case-insensitive on EVM chains; normalise before
+            // comparing so `0xAA…` and `0xaa…` are treated as the same.
+            let key = (r.address.to_ascii_lowercase(), r.chain.clone());
+            if !recipients.insert(key) {
+                return Err(PolicyValidationError::DuplicateRecipient {
+                    address: r.address.clone(),
+                    chain: r.chain.clone(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Canonical SHA-256 hex of the policy. Computed over JCS-canonical JSON.
@@ -177,5 +251,78 @@ mod tests {
         let h2 = policy.canonical_hash().unwrap();
         assert_eq!(h1, h2);
         assert_eq!(h1.len(), 64);
+    }
+
+    fn base() -> Policy {
+        Policy::parse_json(include_str!(
+            "../../../test-corpus/policy/reference_low_risk.json"
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn duplicate_agent_id_is_rejected() {
+        let mut p = base();
+        let dup = p.agents[0].clone();
+        p.agents.push(dup);
+        let err = p.validate().expect_err("must reject duplicate agent_id");
+        assert!(
+            matches!(err, PolicyValidationError::DuplicateAgentId(ref id) if id == "research-agent-01"),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn duplicate_rule_id_is_rejected() {
+        let mut p = base();
+        let dup = p.rules[0].clone();
+        p.rules.push(dup);
+        let err = p.validate().expect_err("must reject duplicate rule id");
+        assert!(matches!(err, PolicyValidationError::DuplicateRuleId(_)));
+    }
+
+    #[test]
+    fn duplicate_provider_id_is_rejected() {
+        let mut p = base();
+        let dup = p.providers[0].clone();
+        p.providers.push(dup);
+        let err = p.validate().expect_err("must reject duplicate provider id");
+        assert!(matches!(err, PolicyValidationError::DuplicateProviderId(_)));
+    }
+
+    #[test]
+    fn duplicate_recipient_is_rejected_case_insensitively() {
+        let mut p = base();
+        // Mutate to upper-case to prove the check normalises before comparing.
+        let mut dup = p.recipients[0].clone();
+        dup.address = dup.address.to_ascii_uppercase();
+        p.recipients.push(dup);
+        let err = p
+            .validate()
+            .expect_err("must reject duplicate recipient regardless of address casing");
+        assert!(matches!(
+            err,
+            PolicyValidationError::DuplicateRecipient { .. }
+        ));
+    }
+
+    #[test]
+    fn parse_json_runs_validation() {
+        // Drop a manual duplicate into the raw JSON and confirm parse_json
+        // surfaces a `Validation` error rather than silently accepting it.
+        let raw = include_str!("../../../test-corpus/policy/reference_low_risk.json");
+        let mut value: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let extra = value["agents"][0].clone();
+        value["agents"].as_array_mut().unwrap().push(extra);
+        let bad = serde_json::to_string(&value).unwrap();
+        let err =
+            Policy::parse_json(&bad).expect_err("must reject duplicate agent_id at parse time");
+        assert!(
+            matches!(
+                err,
+                PolicyParseError::Validation(PolicyValidationError::DuplicateAgentId(_))
+            ),
+            "got {err:?}"
+        );
     }
 }
