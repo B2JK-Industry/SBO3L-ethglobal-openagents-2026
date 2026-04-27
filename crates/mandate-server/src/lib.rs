@@ -39,9 +39,11 @@ pub struct AppInner {
     /// Per-process replay-protection set of APRP nonces. The spec
     /// (`docs/spec/17_interface_contracts.md` §3.1, error code
     /// `protocol.nonce_replay`) requires reused nonces to be rejected with
-    /// HTTP 409. We keep this in-memory: simple, correct for the hackathon
-    /// demo, and persisted into the audit log via `request_received` so the
-    /// chain still records every replay attempt.
+    /// HTTP 409. We keep this in-memory: simple and correct for the hackathon
+    /// demo daemon, but **the audit log records nothing about a rejected
+    /// replay** — the gate fires before `audit_append` and short-circuits
+    /// with the 409 response. Surfacing replay attempts via a dedicated
+    /// `request_rejected` event is tracked as future work.
     pub seen_nonces: Mutex<HashSet<String>>,
 }
 
@@ -169,6 +171,13 @@ async fn create_payment_request(
     // running the rest of the pipeline so two concurrent replays cannot both
     // pass; the first to win the lock claims the nonce, every other request
     // with the same nonce is rejected.
+    //
+    // Tradeoff: this is rejection-only, not safe-retry. If a downstream step
+    // (request_hash, policy decide, audit_append, receipt sign) fails *after*
+    // the nonce is inserted, the nonce is permanently consumed — a client
+    // retry with the same body will see 409 `protocol.nonce_replay`, not the
+    // original 5xx. Idempotent-retry would require an `Idempotency-Key`
+    // header + cached response (RFC 8470-style); out of scope here.
     {
         let mut seen = inner.seen_nonces.lock().expect("nonce lock");
         if !seen.insert(aprp.nonce.clone()) {
