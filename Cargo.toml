@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mandate-core",
+    "crates/mandate-policy",
+    "crates/mandate-storage",
+    "crates/mandate-identity",
+    "crates/mandate-execution",
+    "crates/mandate-mcp",
+    "crates/mandate-cli",
+    "crates/mandate-server",
+    "demo-agents/research-agent",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Daniel Babjak <babjak_daniel@hotmail.com>"]
+repository = "https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026"
+rust-version = "1.80"
+
+[workspace.dependencies]
+# serde / json / yaml
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+serde_json_canonicalizer = "0.3"
+
+# error handling
+thiserror = "1"
+anyhow = "1"
+
+# async / runtime
+tokio = { version = "1", features = ["full"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# crypto
+sha2 = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+hex = "0.4"
+rand = "0.8"
+
+# JSON Schema
+jsonschema = { version = "0.17", default-features = false }
+
+# time / money / id
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+ulid = "1"
+
+# tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# storage
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# server / client
+axum = "0.7"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+url = "2"
+
+# internal
+mandate-core = { path = "crates/mandate-core" }
+mandate-policy = { path = "crates/mandate-policy" }
+mandate-storage = { path = "crates/mandate-storage" }
+mandate-identity = { path = "crates/mandate-identity" }
+mandate-execution = { path = "crates/mandate-execution" }
+mandate-mcp = { path = "crates/mandate-mcp" }
+mandate-cli = { path = "crates/mandate-cli" }
+mandate-server = { path = "crates/mandate-server" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

@@ -1,0 +1,25 @@
+{
+  "_note": "Static Uniswap quote fixture for the Mandate guarded-swap demo. Live mode (MANDATE_UNISWAP_LIVE=1) is gated behind the official Uniswap Trading API and is intentionally not wired into this hackathon build — see FEEDBACK.md.",
+  "quote_id": "qt-01HZFAKEDEMOQ001",
+  "input": {
+    "token_symbol": "USDC",
+    "token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "amount": "5.00",
+    "decimals": 6
+  },
+  "output": {
+    "token_symbol": "ETH",
+    "token_address": "0x0000000000000000000000000000000000000000",
+    "amount": "0.0014",
+    "decimals": 18
+  },
+  "route": [
+    {"token_symbol": "USDC", "token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"},
+    {"token_symbol": "ETH",  "token_address": "0x0000000000000000000000000000000000000000"}
+  ],
+  "expected_slippage_bps": 35,
+  "expires_at_unix": 9999999999,
+  "fetched_at_unix": 1714233600,
+  "treasury_recipient": "0x1111111111111111111111111111111111111111",
+  "chain": "base"
+}

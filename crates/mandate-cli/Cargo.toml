@@ -1,0 +1,23 @@
+[package]
+name = "mandate-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Mandate CLI: validate, decide, sign, verify-audit, demo helpers."
+
+[[bin]]
+name = "mandate"
+path = "src/main.rs"
+
+[dependencies]
+mandate-core = { workspace = true }
+mandate-policy = { workspace = true }
+mandate-storage = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

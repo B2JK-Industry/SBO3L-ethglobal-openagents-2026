@@ -1,0 +1,20 @@
+[package]
+name = "mandate-policy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Mandate policy: YAML/JSON policy parsing and rule evaluation."
+
+[dependencies]
+mandate-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+serde_json_canonicalizer = { workspace = true }
+chrono = { workspace = true }

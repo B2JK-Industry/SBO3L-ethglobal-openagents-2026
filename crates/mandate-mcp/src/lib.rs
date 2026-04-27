@@ -1,0 +1,1 @@
+//! Mandate MCP adapter (placeholder).

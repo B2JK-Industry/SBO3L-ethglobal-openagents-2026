@@ -1,0 +1,13 @@
+{
+  "_note": "Per-agent swap-policy fixture used by demo-scripts/sponsors/uniswap-guarded-swap.sh. Production deployments source these limits from the active Mandate policy; the demo keeps a separate file so the swap-policy guard can be exercised in isolation.",
+  "agent_id": "research-agent-01",
+  "chain": "base",
+  "input_token_allowlist": ["USDC"],
+  "output_token_allowlist": ["ETH", "WETH", "USDC", "USDT", "DAI"],
+  "max_notional_usd": "20.00",
+  "max_slippage_bps": 50,
+  "quote_max_age_seconds": 30,
+  "treasury_recipient_allowlist": [
+    "0x1111111111111111111111111111111111111111"
+  ]
+}
