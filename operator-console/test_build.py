@@ -133,16 +133,17 @@ def main() -> int:
             failures += 1
 
     # 2. Backlog panels — each PSM-* item must surface with its label.
-    # PSM-A2 is "pending" (backend merged on main; console panel landing in
-    # B2.v2). The other four are still "blocked" (backend not merged yet).
+    # PSM-A2, PSM-A1.9, and PSM-A5 are "pending" (backends merged on main;
+    # console panels landing in B2.v2). PSM-A3 and PSM-A4 are still
+    # "blocked" (backends not merged yet).
     print("\n== backlog placeholders ==")
     blocked = [
         ("policy lifecycle panel",   "PSM-A3",   "policy lifecycle"),
-        ("mock KMS CLI panel",       "PSM-A1.9", "Mock KMS CLI surface"),
         ("audit checkpoint panel",   "PSM-A4",   "Audit checkpoints"),
     ]
     pending = [
         ("Idempotency-Key panel",    "PSM-A2",   "Idempotency-Key"),
+        ("mock KMS CLI panel",       "PSM-A1.9", "Mock KMS CLI surface"),
         ("doctor panel",             "PSM-A5",   "Operator readiness summary"),
     ]
     blocked_pill_pattern = re.compile(
@@ -175,9 +176,9 @@ def main() -> int:
         else:
             _fail(label, f"backlog {backlog_id} or descr {descr!r} not in HTML")
             failures += 1
-    # PSM-A2 and PSM-A5 must NOT appear inside a blocked-pill — that would
-    # lie about merged backends. Defensive negative assertions.
-    for backlog_id in ("PSM-A2", "PSM-A5"):
+    # PSM-A2, PSM-A1.9, and PSM-A5 must NOT appear inside a blocked-pill —
+    # that would lie about merged backends. Defensive negative assertions.
+    for backlog_id in ("PSM-A2", "PSM-A1.9", "PSM-A5"):
         pat = re.compile(
             rf'class="pill blocked"[^>]*>not implemented yet — backlog\s*{re.escape(backlog_id)}\b',
             re.IGNORECASE,
@@ -214,11 +215,9 @@ def main() -> int:
         failures += 1
 
     # required + (blocked-pill class) + (pending-pill class) + blocked + pending
-    # + (PSM-A2-not-in-blocked negative) + forbidden + (html.parser).
-    # required + (blocked-pill class) + (pending-pill class) + blocked + pending
-    # + 2 negative assertions (PSM-A2 + PSM-A5 not in blocked-pill) + forbidden
-    # + (html.parser).
-    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 2 + len(forbidden) + 1
+    # + 3 negative assertions (PSM-A2 + PSM-A1.9 + PSM-A5 not in blocked-pill)
+    # + forbidden + (html.parser).
+    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 3 + len(forbidden) + 1
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")

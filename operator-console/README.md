@@ -48,16 +48,16 @@ backend PRs land and a tiny B-side follow-up consumes the new value.
 - **Mock sponsor disclosure** — KeeperHub allow path + mock tag, KeeperHub deny path refusal, denied-action-executed status, ENS offline-fixture pill, Uniswap `local_mock` pill.
 - **Audit-bundle verification (optional)** — when invoked with `--bundle <path>`, runs `mandate audit verify-bundle` and renders the parsed result. Without `--bundle`, renders an honest "bundle not provided" state with the exact commands to produce one.
 
-**Pending-panel placeholder (backend already merged on `main`; console panel landing in B2.v2):**
+**Pending-panel placeholders (backend already merged on `main`; console panel landing in B2.v2):**
 
 - HTTP `Idempotency-Key` safe-retry — **PSM-A2 merged on `main`** (PR #23). Console panel intentionally still pending B2.v2; the four-case behaviour matrix is exercised today by `demo-scripts/run-production-shaped-mock.sh` step 7. The placeholder pill is blue (`pending`), not yellow (`blocked`), to avoid the dishonest "not implemented yet" claim.
+- Mock KMS CLI surface (`mandate key list --mock` / `mandate key rotate --mock`) + storage — **PSM-A1.9 merged on `main`** (PR #28). Console panel intentionally still pending B2.v2.
+- Operator readiness summary (`mandate doctor`) — **PSM-A5 merged on `main`** (PR #25). Console panel intentionally still pending B2.v2; the runner's step 2 already auto-runs `mandate doctor` against the live binary.
 
 **Blocked-panel placeholders (backend not yet merged):**
 
 - Active policy lifecycle (`mandate policy current` / `activate` / `diff`) — backlog **PSM-A3**
-- Mock KMS CLI surface (`mandate key list --mock` / `mandate key rotate --mock`) + storage — backlog **PSM-A1.9**
 - Audit checkpoints (`mandate audit checkpoint create` / `verify`) — backlog **PSM-A4**
-- Operator readiness summary (`mandate doctor`) — backlog **PSM-A5**
 
 Each placeholder lights up when the corresponding A-side PR lands and a
 follow-up B-side PR consumes the new value. The console renders honestly
