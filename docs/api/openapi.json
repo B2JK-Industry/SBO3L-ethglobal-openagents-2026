@@ -550,7 +550,7 @@
     "securitySchemes": {
       "agentMtls": {
         "type": "mutualTLS",
-        "description": "Agent certificate issued by the vault CA; certificate CN/SAN carries agent_id."
+        "description": "Agent certificate issued by the Mandate CA; certificate CN/SAN carries agent_id."
       },
       "adminMtls": {
         "type": "mutualTLS",

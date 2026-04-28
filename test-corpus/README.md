@@ -15,7 +15,7 @@ This directory is normative input for implementation and CI.
 |---|---|---|
 | `aprp/golden_001_minimal.json` | Minimal valid APRP x402 request | accepted |
 | `aprp/adversarial_unknown_field.json` | Strict schema guard | `schema.unknown_field` |
-| `aprp/deny_prompt_injection_request.json` | ETHPrague hero attack request | valid schema, policy denies with `policy.deny_recipient_not_allowlisted` |
+| `aprp/deny_prompt_injection_request.json` | Open Agents hero attack request | valid schema, policy denies with `policy.deny_recipient_not_allowlisted` |
 | `policy/reference_low_risk.json` | Reference low-risk policy | accepted by policy linter |
 | `x402/challenge_001.json` | Minimal x402 challenge | accepted |
 | `audit/chain_v1.jsonl` | Three-event audit chain shape | accepted after implementation locks hashes/signatures |

@@ -6,6 +6,8 @@
 **Review verdict before this docs cleanup:** `READY_AFTER_FIXES` — no code/security/demo blockers; only doc staleness issues.
 **After the fixes in PR #10:** **`READY_FOR_SUBMISSION`** — all medium and low findings (M1–M4, L1, L2) are resolved by PR #10, as marked in §6 below.
 
+> **Note:** this review was originally captured after PR #10. Post-PR #11/#12 current status is tracked in [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) and is **96/96 tests** with persistent SQLite-backed APRP nonce-replay protection.
+
 ---
 
 ## 1. Repository state
