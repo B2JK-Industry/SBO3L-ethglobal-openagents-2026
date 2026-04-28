@@ -110,13 +110,13 @@ else
 fi
 echo
 
-# ─── 3. Mock KMS / signer lifecycle (Developer A backlog) ────────────────
-bold "3. Mock KMS — signer lifecycle (PSM-A1)"
+# ─── 3. Mock KMS CLI surface (Developer A backlog PSM-A1.9) ──────────────
+bold "3. Mock KMS CLI surface (PSM-A1.9)"
 if have_subcmd key list; then
   ./target/debug/mandate key list --mock 2>&1 | sed 's/^/    /' && ok "mandate key list --mock" || skip "mandate key list --mock returned non-zero"
 else
-  skip "blocked: waiting for \`mandate key list --mock\` (backlog PSM-A1)"
-  note_skip "Mock KMS / key rotation lifecycle — PSM-A1"
+  skip "signer + trait + rotation are merged in PR #22; waiting for \`mandate key list --mock\` / \`mandate key rotate --mock\` CLI + persistent mock-KMS storage table (backlog PSM-A1.9)"
+  note_skip "Mock KMS CLI surface (\`mandate key list --mock\` / \`mandate key rotate --mock\`) + persistent mock-KMS storage table — PSM-A1.9"
 fi
 echo
 
@@ -193,7 +193,7 @@ bold "9. DB-backed audit bundle — export from SQLite + verify"
 # Public verification keys for the deterministic dev signers in
 # `crates/mandate-server/src/lib.rs:54-55`. These are NOT secrets — they are
 # derived from public seed bytes. Production deployments inject real
-# signers via `AppState::with_signers` (TEE/HSM-backed); when PSM-A1 lands a
+# signers via `AppState::with_signers` (TEE/HSM-backed); when PSM-A1.9 lands a
 # `mandate key list --mock` command this script can switch to reading the
 # pubkeys from there instead of hardcoding.
 AUDIT_PUBKEY="66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a"
