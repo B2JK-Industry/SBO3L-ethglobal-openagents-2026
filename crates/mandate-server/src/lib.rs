@@ -4,6 +4,7 @@
 //! the full pipeline: schema validate → request_hash → policy decide → budget
 //! check → audit append → policy receipt sign.
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use axum::extract::State;
@@ -35,6 +36,15 @@ pub struct AppInner {
     pub budgets: Mutex<BudgetTracker>,
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
+    /// Per-process replay-protection set of APRP nonces. The spec
+    /// (`docs/spec/17_interface_contracts.md` §3.1, error code
+    /// `protocol.nonce_replay`) requires reused nonces to be rejected with
+    /// HTTP 409. We keep this in-memory: simple and correct for the hackathon
+    /// demo daemon, but **the audit log records nothing about a rejected
+    /// replay** — the gate fires before `audit_append` and short-circuits
+    /// with the 409 response. Surfacing replay attempts via a dedicated
+    /// `request_rejected` event is tracked as future work.
+    pub seen_nonces: Mutex<HashSet<String>>,
 }
 
 impl AppState {
@@ -69,6 +79,7 @@ impl AppState {
             budgets: Mutex::new(BudgetTracker::new()),
             audit_signer,
             receipt_signer,
+            seen_nonces: Mutex::new(HashSet::new()),
         }))
     }
 }
@@ -153,6 +164,35 @@ async fn create_payment_request(
             e.to_string(),
         )
     })?;
+
+    // Replay protection. The APRP `nonce` must be unique per request — see
+    // `docs/spec/17_interface_contracts.md` §0 ("Object IDs: ULID") and §3.1
+    // (`protocol.nonce_replay` → HTTP 409). We register the nonce *before*
+    // running the rest of the pipeline so two concurrent replays cannot both
+    // pass; the first to win the lock claims the nonce, every other request
+    // with the same nonce is rejected.
+    //
+    // Tradeoff: this is rejection-only, not safe-retry. If a downstream step
+    // (request_hash, policy decide, audit_append, receipt sign) fails *after*
+    // the nonce is inserted, the nonce is permanently consumed — a client
+    // retry with the same body will see 409 `protocol.nonce_replay`, not the
+    // original 5xx. Idempotent-retry would require an `Idempotency-Key`
+    // header + cached response (RFC 8470-style); out of scope here.
+    {
+        let mut seen = inner.seen_nonces.lock().expect("nonce lock");
+        if !seen.insert(aprp.nonce.clone()) {
+            return Err(problem(
+                "protocol.nonce_replay",
+                409,
+                "Nonce has already been used",
+                format!(
+                    "agent_id={}, nonce={} — replay rejected",
+                    aprp.agent_id, aprp.nonce
+                ),
+            ));
+        }
+    }
+
     let req_hash = request_hash(&body).map_err(|e| {
         problem(
             "transport.tls_handshake",
@@ -387,5 +427,85 @@ mod tests {
         let (status, v) = post_json(app, "/v1/payment-requests", body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(v["code"], "schema.unknown_field");
+    }
+
+    #[tokio::test]
+    async fn replayed_nonce_returns_409_protocol_nonce_replay() {
+        // Spec §3.1: a reused APRP nonce must surface as
+        // `protocol.nonce_replay` with HTTP 409. Build the app once so both
+        // requests share the same `seen_nonces` set, then submit the same
+        // body twice. The first request goes through the usual pipeline
+        // (auto_approved); the second must be rejected before any policy
+        // decision happens.
+        let app = build_app();
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+
+        let (status1, v1) = post_json(app.clone(), "/v1/payment-requests", body.clone()).await;
+        assert_eq!(status1, StatusCode::OK);
+        assert_eq!(v1["status"], "auto_approved");
+
+        let (status2, v2) = post_json(app, "/v1/payment-requests", body).await;
+        assert_eq!(status2, StatusCode::CONFLICT);
+        assert_eq!(v2["code"], "protocol.nonce_replay");
+    }
+
+    #[tokio::test]
+    async fn distinct_nonces_are_independently_processed() {
+        let app = build_app();
+        let mut body1 = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let mut body2 = body1.clone();
+        body1["nonce"] = Value::String("01HTAWX5K3R8YV9NQB7C6P2DG1".to_string());
+        body2["nonce"] = Value::String("01HTAWX5K3R8YV9NQB7C6P2DG2".to_string());
+        // distinct task_ids keep request_hash from colliding too
+        body1["task_id"] = Value::String("demo-task-A".to_string());
+        body2["task_id"] = Value::String("demo-task-B".to_string());
+
+        let (status1, _) = post_json(app.clone(), "/v1/payment-requests", body1).await;
+        let (status2, _) = post_json(app, "/v1/payment-requests", body2).await;
+        assert_eq!(status1, StatusCode::OK);
+        assert_eq!(status2, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn replay_with_same_nonce_but_mutated_body_is_still_rejected() {
+        // Pin the security property: replay protection keys on `nonce`
+        // alone, so an attacker cannot bypass the gate by perturbing
+        // non-security fields (task_id, amount, etc.) while keeping the
+        // captured nonce. The dedup happens before request_hash, policy
+        // decide, budget, audit, and signing — so the second response is
+        // 409 `protocol.nonce_replay` with no audit/receipt side effects,
+        // even though the body differs from the first request.
+        let app = build_app();
+        let body1 = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let mut body2 = body1.clone();
+        // Same nonce as body1; mutate non-security fields.
+        body2["task_id"] = Value::String("demo-task-mutated".to_string());
+        body2["amount"]["value"] = Value::String("0.04".to_string());
+        assert_eq!(
+            body1["nonce"], body2["nonce"],
+            "test setup: nonce must match"
+        );
+        assert_ne!(body1, body2, "test setup: bodies must differ");
+
+        let (status1, v1) = post_json(app.clone(), "/v1/payment-requests", body1).await;
+        assert_eq!(status1, StatusCode::OK);
+        assert_eq!(v1["status"], "auto_approved");
+
+        let (status2, v2) = post_json(app, "/v1/payment-requests", body2).await;
+        assert_eq!(status2, StatusCode::CONFLICT);
+        assert_eq!(v2["code"], "protocol.nonce_replay");
+        // Replay rejection must not produce a receipt or audit_event_id —
+        // the response is the Problem object, not PaymentRequestResponse.
+        assert!(v2.get("receipt").is_none());
+        assert!(v2.get("audit_event_id").is_none());
     }
 }
