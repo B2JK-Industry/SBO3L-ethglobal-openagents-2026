@@ -170,37 +170,77 @@ bold "12. Agent boundary — no-key proof"
 # drops a `*.pem` / `*.key` fixture under demo-agents/research-agent/, this
 # gate flips to FAIL and the demo aborts. Receipts continue to be signed
 # inside mandate-server, behind the policy boundary.
+#
+# A blanket `|| true` would silently pass when a scan target is missing or
+# unreadable. We instead distinguish exit codes precisely:
+#   grep:  0 = matches found,   1 = no matches (desired),   2+ = real error → abort
+#   find:  0 = scan succeeded (count may legitimately be 0), non-zero → abort
+# Path existence and readability are asserted up front before any scan runs.
 AGENT_DIR="demo-agents/research-agent"
-# Guard each command substitution with `|| true` because grep returns 1 when
-# nothing matches — which IS the desired no-key state — and pipefail would
-# otherwise abort the script on the very signal we want to detect.
-NO_KEY_SOURCE_HITS=$( { grep -REnI \
+AGENT_CARGO="$AGENT_DIR/Cargo.toml"
+AGENT_SRC="$AGENT_DIR/src"
+for path in "$AGENT_CARGO" "$AGENT_SRC"; do
+  if [[ ! -r "$path" ]]; then
+    fail "D-OA-12 prerequisite missing: $path is missing or unreadable"
+    exit 1
+  fi
+done
+
+# Returns matched-line count via stdout, or aborts the gate on a real error.
+no_key_grep_count() {
+  local label="$1" target="$2"; shift 2
+  local out rc=0
+  out=$(grep -REnI "$@" -- "$target" 2>&1) || rc=$?
+  case "$rc" in
+    0) printf '%s\n' "$out" | wc -l | tr -d ' ' ;;
+    1) printf '0' ;;
+    *) fail "D-OA-12 $label grep scan failed (rc=$rc): ${out:-no stderr}"; exit 1 ;;
+  esac
+}
+
+# Returns matched-line count via stdout, or aborts the gate on a real error.
+# `find` returns 0 even when zero files match, so we treat any non-zero rc
+# as a hard error and only translate empty stdout to "0 matches".
+no_key_find_count() {
+  local label="$1" target="$2"; shift 2
+  local out rc=0
+  out=$(find "$target" -type f \( "$@" \) 2>&1) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    fail "D-OA-12 $label find scan failed (rc=$rc): ${out:-no stderr}"
+    exit 1
+  fi
+  if [[ -z "$out" ]]; then
+    printf '0'
+  else
+    printf '%s\n' "$out" | wc -l | tr -d ' '
+  fi
+}
+
+NO_KEY_SOURCE_HITS=$(no_key_grep_count "agent source" "$AGENT_SRC" \
   -e 'SigningKey' \
   -e 'signing_key' \
   -e 'DevSigner::' \
   -e 'from_seed' \
   -e 'BEGIN .*PRIVATE' \
-  -e 'private_key' \
-  "$AGENT_DIR/src" 2>/dev/null || true; } | wc -l | tr -d ' ')
-NO_KEY_CARGO_HITS=$( { grep -EnI \
+  -e 'private_key')
+NO_KEY_CARGO_HITS=$(no_key_grep_count "agent Cargo.toml" "$AGENT_CARGO" \
   -e '^[[:space:]]*ed25519' \
   -e '^[[:space:]]*secp256k1' \
   -e '^[[:space:]]*k256' \
-  -e '^[[:space:]]*ring[[:space:]]*=' \
-  "$AGENT_DIR/Cargo.toml" 2>/dev/null || true; } | wc -l | tr -d ' ')
-NO_KEY_FIXTURE_HITS=$( { find "$AGENT_DIR" -type f \( \
-    -name '*.pem' -o -name '*.key' -o \
-    -name 'id_ed25519*' -o -name 'id_rsa*' -o \
-    -name '*.privkey' -o -name '*.privkey.json' \
-  \) 2>/dev/null || true; } | wc -l | tr -d ' ')
+  -e '^[[:space:]]*ring[[:space:]]*=')
+NO_KEY_FIXTURE_HITS=$(no_key_find_count "agent key-material files" "$AGENT_DIR" \
+  -name '*.pem' -o -name '*.key' -o \
+  -name 'id_ed25519*' -o -name 'id_rsa*' -o \
+  -name '*.privkey' -o -name '*.privkey.json')
+
 if [[ "$NO_KEY_SOURCE_HITS" == "0" && "$NO_KEY_CARGO_HITS" == "0" && "$NO_KEY_FIXTURE_HITS" == "0" ]]; then
   ok "D-OA-12 Agent boundary: research-agent has no signer/private-key dependency; signing occurs inside Mandate."
   NO_KEY_PROOF=PASS
 else
   fail "D-OA-12 Agent boundary check failed (source_hits=$NO_KEY_SOURCE_HITS cargo_signer_deps=$NO_KEY_CARGO_HITS key_fixtures=$NO_KEY_FIXTURE_HITS)"
   echo "  -- offending references in $AGENT_DIR --" >&2
-  grep -REnI -e 'SigningKey' -e 'signing_key' -e 'DevSigner::' -e 'from_seed' -e 'BEGIN .*PRIVATE' -e 'private_key' "$AGENT_DIR/src" >&2 || true
-  grep -EnI -e '^[[:space:]]*ed25519' -e '^[[:space:]]*secp256k1' -e '^[[:space:]]*k256' -e '^[[:space:]]*ring[[:space:]]*=' "$AGENT_DIR/Cargo.toml" >&2 || true
+  grep -REnI -e 'SigningKey' -e 'signing_key' -e 'DevSigner::' -e 'from_seed' -e 'BEGIN .*PRIVATE' -e 'private_key' "$AGENT_SRC" >&2 || true
+  grep -EnI -e '^[[:space:]]*ed25519' -e '^[[:space:]]*secp256k1' -e '^[[:space:]]*k256' -e '^[[:space:]]*ring[[:space:]]*=' "$AGENT_CARGO" >&2 || true
   find "$AGENT_DIR" -type f \( -name '*.pem' -o -name '*.key' -o -name 'id_ed25519*' -o -name 'id_rsa*' -o -name '*.privkey' -o -name '*.privkey.json' \) >&2 || true
   exit 1
 fi
