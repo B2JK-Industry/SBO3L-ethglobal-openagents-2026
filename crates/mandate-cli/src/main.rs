@@ -9,6 +9,7 @@ use mandate_core::{schema, SchemaError};
 
 mod doctor;
 mod key;
+mod policy;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -88,6 +89,57 @@ enum Command {
     Key {
         #[command(subcommand)]
         op: KeyCmd,
+    },
+    /// Local active-policy lifecycle (PSM-A3).
+    ///
+    /// Operates on the persistent `active_policy` SQLite table (V006).
+    /// This is **local production-shaped lifecycle**, not remote
+    /// governance: there is no on-chain anchor, no consensus, no
+    /// signing on activation; whoever opens the DB activates the
+    /// policy. See `docs/cli/policy.md`.
+    Policy {
+        #[command(subcommand)]
+        op: PolicyCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum PolicyCmd {
+    /// Parse + semantic-validate + canonical-hash a policy JSON file.
+    /// Stdout: policy_hash + summary counts. No DB access.
+    Validate {
+        /// Path to a policy JSON file.
+        path: PathBuf,
+    },
+    /// Print the currently-active policy row from the DB. Exits non-
+    /// zero (code 3) if no policy has been activated yet — that is the
+    /// honest signal, not a fake "ok".
+    Current {
+        /// SQLite database path.
+        #[arg(long)]
+        db: PathBuf,
+    },
+    /// Validate, hash, and activate a policy. Idempotent: re-running
+    /// with the same policy is a no-op.
+    Activate {
+        /// Path to a policy JSON file.
+        path: PathBuf,
+        /// SQLite database path.
+        #[arg(long)]
+        db: PathBuf,
+        /// Optional source label recorded in the row (default
+        /// `operator-cli`).
+        #[arg(long)]
+        source: Option<String>,
+    },
+    /// Diff two candidate policy files at the canonical-JSON level.
+    /// Exits 0 if identical, 1 if they differ (with a printed diff),
+    /// 2 if either file fails to parse / validate.
+    Diff {
+        /// Left-hand policy file ("from").
+        a: PathBuf,
+        /// Right-hand policy file ("to").
+        b: PathBuf,
     },
 }
 
@@ -287,6 +339,18 @@ fn main() -> ExitCode {
                     db,
                 },
         } => key::cmd_rotate(mock, &role, &root_seed, &db),
+        Command::Policy {
+            op: PolicyCmd::Validate { path },
+        } => policy::cmd_validate(&path),
+        Command::Policy {
+            op: PolicyCmd::Current { db },
+        } => policy::cmd_current(&db),
+        Command::Policy {
+            op: PolicyCmd::Activate { path, db, source },
+        } => policy::cmd_activate(&path, &db, source.as_deref()),
+        Command::Policy {
+            op: PolicyCmd::Diff { a, b },
+        } => policy::cmd_diff(&a, &b),
     }
 }
 

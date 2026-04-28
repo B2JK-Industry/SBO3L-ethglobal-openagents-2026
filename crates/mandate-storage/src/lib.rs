@@ -6,7 +6,9 @@ pub mod error;
 pub mod idempotency_store;
 pub mod mock_kms_store;
 pub mod nonce_store;
+pub mod policy_store;
 
 pub use audit_store::NewAuditEvent;
 pub use db::Storage;
 pub use error::{StorageError, StorageResult};
+pub use policy_store::ActivePolicyRecord;
