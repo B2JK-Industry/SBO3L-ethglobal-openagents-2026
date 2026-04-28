@@ -45,7 +45,7 @@ A research-agent in our demo emits a payment request (an APRP — "Agent Payment
 
 Every decision can be packaged as a verifiable audit bundle: `mandate audit export` produces a single JSON file containing the signed receipt, the audit-chain prefix, and the signer keys; `mandate audit verify-bundle` re-derives every claim from that file alone. A static, offline proof viewer (`python3 trust-badge/build.py`) renders the most recent demo run into a single self-contained HTML page — no JS, no fetch, works directly from `file://`.
 
-The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 121/121 tests pass, schemas validate, the demo's 13 gates are green end-to-end including audit-chain tamper-detection and the agent no-key boundary proof.
+The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 178/178 tests pass, schemas validate, the demo's 13 gates are green end-to-end including audit-chain tamper-detection and the agent no-key boundary proof. A second runner — `bash demo-scripts/run-production-shaped-mock.sh` — exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + audit-bundle round-trip) end-to-end with `Tally: 16 real, 0 mock, 3 skipped`.
 
 Mandate is not a wallet, not a relayer, and not a trading bot. It is the pre-execution policy and signing boundary that lets autonomous agents transact without ever being trusted with a key.
 ```

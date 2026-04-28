@@ -9,9 +9,10 @@ material is included.**
 
 ## What it demonstrates
 
-- The catalogue shape that a future `mandate key list --mock` CLI
-  (PSM-A1.9) would emit. Adapter authors can target a stable JSON shape
-  now without waiting for the CLI to land.
+- The catalogue shape that the `mandate key list --mock` CLI (PSM-A1.9,
+  shipped in PR #28) emits today. Adapter authors can dry-run their
+  KMS-listing parsers against this fixture without invoking the binary;
+  the CLI's actual output uses the same field set.
 - Per-key metadata fields that production callers need: `key_id`,
   `key_version`, `algorithm`, `purpose` (`audit_event_signing` /
   `policy_receipt_signing`), `verifying_key_hex`, `created_at_iso`,
@@ -38,23 +39,40 @@ clearly labelled `⚠ DEV ONLY ⚠` and never ship as production keys.
 
 ## Exact replacement step
 
-This is a two-stage replacement. **Stage 1** (PSM-A1.9) introduces a
-mock-KMS CLI surface that emits this fixture's shape from a real local
-keyring. **Stage 2** (production) swaps the mock keyring for a real
-KMS / HSM client.
+This is a two-stage replacement. **Stage 1** (PSM-A1.9) ships a mock-KMS
+CLI surface that materialises this fixture's shape from a real local
+SQLite keyring — **landed in PR #28**. **Stage 2** (production) swaps
+the mock keyring for a real KMS / HSM client.
 
-### Stage 1 — `mandate key list --mock` CLI (PSM-A1.9)
+### Stage 1 — `mandate key list --mock` CLI (PSM-A1.9 — DONE)
 
-1. Land Developer A's PSM-A1.9 PR (`feat: persist mock kms keyring + add mandate key cli`).
-2. Output of `mandate key list --mock --format json` should match this
-   fixture's shape (same fields, same envelope).
-3. Update `demo-scripts/run-production-shaped-mock.sh` step 9 to read
-   the audit/receipt verification pubkeys from
-   `mandate key list --mock --format json` instead of the current
-   hardcoded constants. Comment in the script already points at this
-   transition (`crates/mandate-server/src/lib.rs:54-55`).
-4. The fixture stays as the **shape contract** for the CLI's JSON
-   output — the validator (`test_fixtures.py`) protects against drift.
+PSM-A1.9 shipped in PR #28. The CLI exists today:
+
+```bash
+mandate key init   --mock --role audit-mock    --root-seed <hex64> --db <path>
+mandate key list   --mock                                          --db <path>
+mandate key rotate --mock --role audit-mock    --root-seed <hex64> --db <path>
+```
+
+Every operation requires `--mock` (production KMS backends are not
+implemented; calls without `--mock` exit 2 with an explicit refusal).
+Every output line is `mock-kms:`-prefixed. `rotate` refuses with exit 2
+if the supplied `--root-seed` does not derive the stored current
+version's public material — preventing accidental mixed-seed keyrings.
+The persistent `mock_kms_keys` table is migration V005; the daemon's
+`mandate doctor` reports it as `ok` once V005 is applied.
+
+The fixture stays as the **public shape reference** — useful for
+adapter authors writing KMS-listing parsers and for verification tests
+that don't want to execute the binary. The fixture's `verifying_key_hex`
+values are the same dev-signer pubkeys the runner uses today; they are
+deterministically derivable from the public dev seeds at
+`crates/mandate-server/src/lib.rs:54-55`. **Mock — not production-grade.**
+
+A future B-side follow-up can teach `demo-scripts/run-production-shaped-mock.sh`
+step 9 to read the verification pubkeys from `mandate key list --mock`
+output instead of the hardcoded constants — an internal cleanup, not a
+correctness fix.
 
 ### Stage 2 — production KMS / HSM
 

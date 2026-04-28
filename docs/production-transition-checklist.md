@@ -237,20 +237,22 @@ seeds in `crates/mandate-server/src/lib.rs:54-55` (`audit-signer-v1` +
 labelled `⚠ DEV ONLY ⚠` in the source and in `SUBMISSION_NOTES.md`.
 `AppState::with_signers(...)` is the production injection point.
 
-The catalogue shape for the future `mandate key list --mock` CLI is
+The catalogue shape for the `mandate key list --mock` CLI is
 documented in
 [`mock-kms-keys.json`](../demo-fixtures/mock-kms-keys.json) and its
 [companion guide](../demo-fixtures/mock-kms-keys.md).
 
 ### What live needs
 
-The transition is two-stage:
+Stage 1 is **shipped**. Stage 2 is the production-deployment work.
 
-- **Stage 1: Mock-KMS CLI (PSM-A1.9 — Developer A backlog).** A real
-  on-disk keyring + `mandate key list --mock` / `mandate key rotate --mock`
-  commands. Output JSON shape matches `mock-kms-keys.json`.
-- **Stage 2: production KMS / HSM.** A real `Signer` impl backed by
-  AWS KMS, GCP KMS, Azure Key Vault, or an HSM SDK.
+- **Stage 1: Mock-KMS CLI (PSM-A1.9) — DONE in PR #28.** Persistent
+  `mock_kms_keys` SQLite table (V005) + `mandate key {init,list,rotate} --mock`
+  CLI. Every operation requires `--mock` and prefixes every output line
+  with `mock-kms:`. **Mock — not production-grade.**
+- **Stage 2: production KMS / HSM — pending.** A real `Signer` impl
+  backed by AWS KMS, GCP KMS, Azure Key Vault, or an HSM SDK. This is
+  what the rest of this section documents.
 
 ### Env vars / endpoints / credentials
 
@@ -268,19 +270,16 @@ for GCP, etc.). **Never committed to the repo.**
 
 ### Code change
 
-#### Stage 1 (PSM-A1.9)
+#### Stage 1 (PSM-A1.9 — DONE in PR #28)
 
-1. Persistent SQLite-backed mock keyring in
-   `crates/mandate-storage/` (or equivalent).
-2. `mandate key list --mock --format json` outputs the
-   `mock-kms-keys.json` shape.
-3. `mandate key rotate --mock <key-id>` bumps `key_version` and stamps
-   `rotated_at_iso`. Old keys remain in the keyring with `active: false`
-   so prior receipts continue to verify.
-4. `demo-scripts/run-production-shaped-mock.sh` step 9 reads the audit
-   / receipt verification pubkeys from `mandate key list --mock --format json`
-   instead of the hardcoded constants. Comment in the script already
-   points at this transition.
+Already on `main`. No further code change needed.
+
+- Persistent SQLite-backed keyring in `crates/mandate-storage/src/mock_kms_store.rs` + migration `migrations/V005__mock_kms_keys.sql`.
+- `mandate key {init,list,rotate} --mock --db <path>` CLI in `crates/mandate-cli/src/key.rs`.
+- `--root-seed` is a CLI input only; it is **never** persisted to SQLite (only the per-version `verifying_key_hex` is). Rotate refuses with exit 2 on a mismatched seed.
+- The `mandate doctor` `mock_kms_keys` row reports `ok` once V005 is applied.
+
+Pending follow-up (B-side, optional cleanup): teach `demo-scripts/run-production-shaped-mock.sh` step 9 to read the audit / receipt verification pubkeys from `mandate key list --mock` output instead of the hardcoded constants. Internal cleanup, not a correctness fix — the runner today exercises the CLI lifecycle in step 3 and uses the existing pubkey constants in step 9.
 
 #### Stage 2 (production KMS / HSM)
 

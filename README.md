@@ -10,7 +10,7 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Status
 
-**Implemented and reproducible from a fresh clone.** `cargo test --workspace --all-targets` runs **121/121 green**. `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~5 seconds. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
+**Implemented and reproducible from a fresh clone.** `cargo test --workspace --all-targets` runs **178/178 green**. `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~5 seconds. `bash demo-scripts/run-production-shaped-mock.sh` exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + audit-bundle round-trip) end-to-end with `Tally: 16 real, 0 mock, 3 skipped`. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
 
 ## Three commands a judge needs
 

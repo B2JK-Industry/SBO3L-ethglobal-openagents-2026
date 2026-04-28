@@ -110,10 +110,40 @@ else
 fi
 echo
 
-# ─── 3. Mock KMS CLI surface (Developer A backlog PSM-A1.9) ──────────────
+# ─── 3. Mock KMS CLI surface (PSM-A1.9 — REAL today) ─────────────────────
 bold "3. Mock KMS CLI surface (PSM-A1.9)"
+# PSM-A1.9 shipped in PR #28: persistent mock_kms_keys SQLite table
+# (migration V005) + `mandate key {init,list,rotate} --mock` CLI surface.
+# Every operation requires `--mock` and prefixes every output line with
+# `mock-kms:` for explicit disclosure. We exercise init → list → rotate →
+# list end-to-end against a fresh tempfile-backed SQLite, then drop it.
+# Mock — not production-grade.
 if have_subcmd key list; then
-  ./target/debug/mandate key list --mock 2>&1 | sed 's/^/    /' && ok "mandate key list --mock" || skip "mandate key list --mock returned non-zero"
+  # Section-local tempdir + EXIT trap — TMPDIR_PSM is set up in step 5,
+  # later than this section, so we use a self-contained temp space and
+  # tear it down on success. The trap is appended (not replaced) so we
+  # don't disturb any later trap installs.
+  KMS_TMP="$(mktemp -d -t mandate-mock-kms.XXXXXX)"
+  KMS_DB="$KMS_TMP/mock-kms.db"
+  # Deterministic 64-hex-char dev seed. NOT a secret — `mandate-server`'s
+  # production-shaped DevSigner uses literally this byte pattern (all 0x11),
+  # see `crates/mandate-server/src/lib.rs:54`. The corresponding public
+  # verifying key is the audit-signer pubkey shipped in
+  # `demo-fixtures/mock-kms-keys.json`.
+  KMS_ROOT_SEED="$(python3 -c 'print("11"*32)')"
+  if ./target/debug/mandate key init --mock --role audit-mock \
+       --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1 | sed 's/^/    /' \
+     && ./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1 | sed 's/^/    /' \
+     && ./target/debug/mandate key rotate --mock --role audit-mock \
+       --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1 | sed 's/^/    /' \
+     && ./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1 | sed 's/^/    /'; then
+    ok "mandate key init/list/rotate --mock — full lifecycle exercised against fresh SQLite"
+    rm -rf "$KMS_TMP"
+  else
+    fail "mandate key CLI lifecycle returned non-zero"
+    rm -rf "$KMS_TMP"
+    exit 1
+  fi
 else
   skip "signer + trait + rotation are merged in PR #22; waiting for \`mandate key list --mock\` / \`mandate key rotate --mock\` CLI + persistent mock-KMS storage table (backlog PSM-A1.9)"
   note_skip "Mock KMS CLI surface (\`mandate key list --mock\` / \`mandate key rotate --mock\`) + persistent mock-KMS storage table — PSM-A1.9"
@@ -393,6 +423,9 @@ cat <<EOF
   REAL today (executed by this run, no network):
     - persistent SQLite-backed APRP + nonce-replay (legit + prompt-injection)
     - signed Ed25519 policy receipts, hash-chained audit log
+    - mock KMS CLI surface (PSM-A1.9): \`mandate key {init,list,rotate} --mock\`
+      lifecycle exercised against a fresh SQLite (V005 \`mock_kms_keys\`)
+    - \`mandate doctor\` (PSM-A5): operator readiness summary
     - HTTP \`Idempotency-Key\` safe-retry (PSM-A2): four-case behaviour
       matrix exercised against a real mandate-server on 127.0.0.1:${IDEM_PORT}
       with persistent SQLite at \`$(basename "$IDEM_DB")\`
