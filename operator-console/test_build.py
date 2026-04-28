@@ -258,8 +258,70 @@ def main() -> int:
         _fail("html.parser", str(e))
         failures += 1
 
-    # required (v1) + evidence_required (v2) + 5×2 negative + forbidden + parse.
-    total = len(required) + len(evidence_required) + (5 * 2) + len(forbidden) + 1
+    # 6. Fallback-state propagation — for each non-ok evidence-load state,
+    #    every fallback panel must surface the SPECIFIC reason instead of
+    #    silently misdiagnosing it as "missing". Regression coverage for
+    #    the P1 review finding that load_evidence() returned the state
+    #    but the renderer dropped it on the floor.
+    print("\n== fallback-state propagation ==")
+    fallback_cases: list[tuple[str, str, str]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        # State 1: missing → file does not exist.
+        missing_path = Path(tmp) / "no-such-file.json"
+        fallback_cases.append(("missing", str(missing_path),
+                               "evidence file missing"))
+        # State 2: parse_failed → file exists, not valid JSON.
+        parse_path = Path(tmp) / "malformed.json"
+        parse_path.write_text("{ this is not valid json", encoding="utf-8")
+        fallback_cases.append(("parse_failed", str(parse_path),
+                               "JSON parse failed"))
+        # State 3: wrong_schema → file is valid JSON but schema is wrong.
+        wrong_path = Path(tmp) / "wrong-schema.json"
+        wrong_path.write_text(
+            json.dumps({"schema": "not-mandate-operator-evidence-v1"}),
+            encoding="utf-8",
+        )
+        fallback_cases.append(("wrong_schema", str(wrong_path),
+                               "schema is not"))
+        for state, ev_arg, expected_phrase in fallback_cases:
+            out = Path(tmp) / f"index-{state}.html"
+            proc = subprocess.run(
+                [sys.executable, str(BUILD),
+                 "--input", str(FIXTURE),
+                 "--evidence", ev_arg,
+                 "--output", str(out)],
+                capture_output=True, text=True,
+            )
+            if proc.returncode != 0:
+                _fail(f"fallback {state}: build.py rc={proc.returncode}",
+                      proc.stderr.strip())
+                failures += 1
+                continue
+            html_state = out.read_text(encoding="utf-8")
+            # Each of the five panels must carry the reason text — counts
+            # ≥5 to ensure all five panels ran the new propagation, not
+            # just one.
+            occurrences = html_state.count(expected_phrase)
+            if occurrences >= 5:
+                _ok(f"fallback {state}: phrase {expected_phrase!r} present",
+                    f"{occurrences} occurrences (≥5 panels)")
+            else:
+                _fail(f"fallback {state}: phrase {expected_phrase!r} not propagated",
+                      f"only {occurrences} occurrences (need ≥5)")
+                failures += 1
+            # Conversely, the misdiagnosis "evidence file missing" must
+            # NOT appear for non-missing states — that was the bug.
+            if state != "missing" and "evidence file missing" in html_state:
+                _fail(f"fallback {state}: misdiagnosed as 'evidence file missing'",
+                      "renderer fell back to the wrong reason text")
+                failures += 1
+            else:
+                _ok(f"fallback {state}: not misdiagnosed as 'evidence file missing'")
+
+    # required (v1) + evidence_required (v2) + 5×2 negative + forbidden + parse
+    # + 3 fallback states × 2 assertions (phrase present + not misdiagnosed).
+    total = (len(required) + len(evidence_required) + (5 * 2)
+             + len(forbidden) + 1 + (len(fallback_cases) * 2))
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")

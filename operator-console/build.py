@@ -116,6 +116,23 @@ def load_evidence(path: Path) -> tuple[dict | None, str]:
     return doc, "ok"
 
 
+# Human-readable reason text per `load_evidence()` state. Used so the
+# fallback panel surfaces the actual cause (unreadable / parse_failed /
+# wrong_schema) instead of misdiagnosing every failure as "missing".
+_EVIDENCE_REASON_TEXT = {
+    "missing":       "evidence file missing",
+    "unreadable":    "evidence file present but unreadable (filesystem error)",
+    "parse_failed":  "evidence file present but JSON parse failed",
+    "wrong_schema":  f"evidence file present but schema is not '{EXPECTED_EVIDENCE_SCHEMA}'",
+}
+
+
+def _evidence_reason_text(state: str | None) -> str:
+    if state in _EVIDENCE_REASON_TEXT:
+        return _EVIDENCE_REASON_TEXT[state]
+    return f"evidence not loaded (state={state!r})"
+
+
 def _evidence_unavailable_panel(panel_title: str, reason: str, expected_path: Path) -> str:
     """Honest 'evidence not gathered' placeholder — never a fake-OK pill."""
     return f"""
@@ -128,11 +145,11 @@ def _evidence_unavailable_panel(panel_title: str, reason: str, expected_path: Pa
 </section>"""
 
 
-def render_idempotency_panel(evidence: dict | None) -> str:
+def render_idempotency_panel(evidence: dict | None, evidence_state: str | None = None) -> str:
     if evidence is None:
         return _evidence_unavailable_panel(
             "PSM-A2 · HTTP Idempotency-Key safe-retry (4-case behaviour matrix)",
-            "evidence file missing", DEFAULT_EVIDENCE,
+            _evidence_reason_text(evidence_state), DEFAULT_EVIDENCE,
         )
     idem = evidence.get("psm_a2_idempotency", {}) or {}
     c1 = idem.get("case_1_first_post", {}) or {}
@@ -154,10 +171,11 @@ def render_idempotency_panel(evidence: dict | None) -> str:
 </section>"""
 
 
-def render_doctor_panel(evidence: dict | None) -> str:
+def render_doctor_panel(evidence: dict | None, evidence_state: str | None = None) -> str:
     if evidence is None:
         return _evidence_unavailable_panel(
-            "PSM-A5 · mandate doctor", "evidence file missing", DEFAULT_EVIDENCE,
+            "PSM-A5 · mandate doctor",
+            _evidence_reason_text(evidence_state), DEFAULT_EVIDENCE,
         )
     doc = evidence.get("psm_a5_doctor", {}) or {}
     if doc.get("malformed"):
@@ -202,11 +220,11 @@ def render_doctor_panel(evidence: dict | None) -> str:
 </section>"""
 
 
-def render_kms_panel(evidence: dict | None) -> str:
+def render_kms_panel(evidence: dict | None, evidence_state: str | None = None) -> str:
     if evidence is None:
         return _evidence_unavailable_panel(
             "PSM-A1.9 · Mock KMS keyring (mock, not production KMS)",
-            "evidence file missing", DEFAULT_EVIDENCE,
+            _evidence_reason_text(evidence_state), DEFAULT_EVIDENCE,
         )
     kms = evidence.get("psm_a1_9_mock_kms", {}) or {}
     keys = kms.get("keys") or []
@@ -239,10 +257,11 @@ def render_kms_panel(evidence: dict | None) -> str:
 </section>"""
 
 
-def render_policy_panel(evidence: dict | None) -> str:
+def render_policy_panel(evidence: dict | None, evidence_state: str | None = None) -> str:
     if evidence is None:
         return _evidence_unavailable_panel(
-            "PSM-A3 · Active policy lifecycle", "evidence file missing", DEFAULT_EVIDENCE,
+            "PSM-A3 · Active policy lifecycle",
+            _evidence_reason_text(evidence_state), DEFAULT_EVIDENCE,
         )
     p = evidence.get("psm_a3_active_policy")
     if not p:
@@ -268,11 +287,11 @@ def render_policy_panel(evidence: dict | None) -> str:
 </section>"""
 
 
-def render_checkpoint_panel(evidence: dict | None) -> str:
+def render_checkpoint_panel(evidence: dict | None, evidence_state: str | None = None) -> str:
     if evidence is None:
         return _evidence_unavailable_panel(
             "PSM-A4 · Audit checkpoints — mock anchoring, NOT onchain",
-            "evidence file missing", DEFAULT_EVIDENCE,
+            _evidence_reason_text(evidence_state), DEFAULT_EVIDENCE,
         )
     cp = evidence.get("psm_a4_audit_checkpoints", {}) or {}
     create = cp.get("create") or {}
@@ -414,7 +433,8 @@ def render_bundle_panel(result: dict) -> str:
 # --- main render -----------------------------------------------------------
 
 
-def render(summary: dict, bundle_result: dict, evidence: dict | None) -> str:
+def render(summary: dict, bundle_result: dict, evidence: dict | None,
+           evidence_state: str | None = None) -> str:
     legit = summary.get("scenarios", {}).get("legit_x402", {}) or {}
     pi = summary.get("scenarios", {}).get("prompt_injection", {}) or {}
     nkp = summary.get("no_key_proof", {}) or {}
@@ -572,11 +592,11 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 </div>
 </section>
 
-{render_idempotency_panel(evidence)}
-{render_doctor_panel(evidence)}
-{render_kms_panel(evidence)}
-{render_policy_panel(evidence)}
-{render_checkpoint_panel(evidence)}
+{render_idempotency_panel(evidence, evidence_state)}
+{render_doctor_panel(evidence, evidence_state)}
+{render_kms_panel(evidence, evidence_state)}
+{render_policy_panel(evidence, evidence_state)}
+{render_checkpoint_panel(evidence, evidence_state)}
 
 <footer>
 Generated from <code>demo-scripts/artifacts/latest-demo-summary.json</code>.
@@ -657,7 +677,10 @@ def main() -> int:
         )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(render(summary, bundle_result, evidence), encoding="utf-8")
+    out_path.write_text(
+        render(summary, bundle_result, evidence, evidence_state),
+        encoding="utf-8",
+    )
     print(f"operator-console: wrote {out_path} ({out_path.stat().st_size} bytes)")
     return 0
 

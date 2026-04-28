@@ -613,13 +613,20 @@ verify_lines = [
     for l in _read_text("CHECKPOINT_VERIFY_OUT").splitlines()
     if l.strip()
 ]
-def _has_phrase(needle):
-    return any(needle in l for l in verify_lines)
+# P1 fix: each boolean must match `ok` on its OWN line. The previous
+# `_has_phrase("ok")` co-condition matched ANY line containing the
+# token "ok", so a `db cross-check: fail` line could still resolve
+# `db_cross_check_ok=true` simply because some other line said "ok"
+# (e.g. structural verify ok). That risked a false-positive evidence
+# panel claiming a verification succeeded that actually failed.
+def _line_status_ok(prefix):
+    pat = re.compile(re.escape(prefix) + r':\s*ok\b')
+    return any(pat.search(l) for l in verify_lines)
 checkpoint_verify = {
     "raw_lines": verify_lines,
-    "structural_verify_ok": _has_phrase("structural verify: ok"),
-    "db_cross_check_ok":   _has_phrase("db cross-check:") and _has_phrase("ok"),
-    "result_ok":           _has_phrase("verify result:") and _has_phrase("ok"),
+    "structural_verify_ok": _line_status_ok("structural verify"),
+    "db_cross_check_ok":    _line_status_ok("db cross-check"),
+    "result_ok":            _line_status_ok("verify result"),
 }
 
 # 5. PSM-A2 — idempotency 4-case matrix.
