@@ -13,19 +13,21 @@
 All implementation code in this repository:
 
 - Rust workspace (`crates/mandate-*`).
-- `mandate` CLI (`mandate aprp validate`, `mandate verify-audit`, demo helpers).
+- `mandate` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit`, `audit export`, `audit verify-bundle`.
 - Strict APRP schema validation, decision token signing, policy receipts.
 - Policy engine (hackathon-grade custom expression evaluator over the locked rule grammar in `mandate-policy/src/expr.rs`; Rego via `regorus` is the production target per `docs/spec/17_interface_contracts.md`) + multi-scope budget checks + fail-closed agent gate (unknown / paused / revoked / `emergency.paused_agents`).
-- SQLite-backed storage with hash-chained audit log.
+- SQLite-backed storage with hash-chained audit log + persistent SQLite-backed APRP nonce-replay table (`nonce_replay`, migration V002).
+- Verifiable audit-bundle export and offline verifier (`mandate.audit_bundle.v1`), including a DB-backed export path that pre-flights chain integrity and signatures before writing the bundle.
 - Real research-agent harness with `legit-x402` and `prompt-injection` scenarios.
 - ENS identity proof adapter (resolves agent → Mandate endpoint + policy hash + audit root).
-- KeeperHub guarded-execution adapter (`mandate-execution::keeperhub`).
+- KeeperHub guarded-execution adapter (`mandate-execution::keeperhub`) — `local_mock()` + `live()` constructor pair.
 - Uniswap guarded-swap adapter (`mandate-execution::uniswap`): swap-policy guard (token allowlist, max notional, max slippage, quote freshness, treasury recipient) + `UniswapExecutor::local_mock()`.
 - Sponsor demo scripts: `ens-agent-identity.sh`, `keeperhub-guarded-execution.sh`, `uniswap-guarded-swap.sh`.
 - Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh`.
-- `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection.
-- `demo-scripts/demo-video-script.md` — 3:30 storyboard with recording checklist.
-- CI: fmt, clippy, tests (96 passing), schema validation.
+- `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection, agent no-key boundary proof, and a deterministic transcript artifact.
+- Static, offline trust-badge proof viewer (`trust-badge/build.py`) + stdlib regression test (`trust-badge/test_build.py`).
+- `demo-scripts/demo-video-script.md` — 3:30 video script with recording checklist.
+- CI: fmt, clippy, tests (121 passing), schema validation, OpenAPI validation, trust-badge regression test.
 
 ## What was reused as planning material
 
@@ -38,47 +40,63 @@ These are documentation/specifications, not prior product code. See [`AI_USAGE.m
 
 ## Targeted partner prizes (max 3)
 
-1. **KeeperHub — Best Use of KeeperHub.** Mandate is the pre-execution policy and risk layer; KeeperHub is the execution layer. Approved actions are routed to KeeperHub; denied actions never reach it.
-2. **ENS — Best Integration for AI Agents.** ENS records resolve `mandate:agent_id`, `mandate:endpoint`, `mandate:policy_hash`, `mandate:audit_root`. ENS gates discovery and verifies the active policy hash matches.
-3. **Uniswap — Best Uniswap API Integration (stretch).** Mandate enforces token allowlists, slippage caps, quote freshness and treasury policy before any agent-initiated swap is signed.
+1. **KeeperHub — Best Use of KeeperHub.** Mandate is the pre-execution policy and risk layer; KeeperHub is the execution layer. Approved actions are routed to KeeperHub; denied actions never reach it. Demo uses `KeeperHubExecutor::local_mock()`; the adapter boundary is real.
+2. **ENS — Best Integration for AI Agents.** ENS records resolve `mandate:agent_id`, `mandate:endpoint`, `mandate:policy_hash`, `mandate:audit_root`. ENS gates discovery and verifies the active policy hash matches. Demo uses an offline resolver fixture; live testnet resolution is a single trait-backed adapter swap.
+3. **Uniswap — Best Uniswap API Integration (stretch).** Mandate is not a trading bot. The guarded-swap demo enforces token allowlists, slippage caps, max notional, treasury recipient and quote freshness before any agent-initiated swap is signed. Demo uses `UniswapExecutor::local_mock()`; the swap-policy guard and the deny path are real.
 
 ## What is live vs mocked
 
-- APRP / policy / receipts / audit chain — **live**, end-to-end deterministic.
-- ENS resolution — live against testnet records OR clearly-labelled local resolver fixture (see `demo-scripts/sponsors/ens-agent-identity.sh`).
-- KeeperHub adapter — live against KeeperHub MCP/API; falls back to faithful local mock when credentials are unavailable, clearly disclosed in demo output.
-- Uniswap adapter — live quote against Uniswap API where available; otherwise faithful local mock.
+- APRP / policy / receipts / audit chain / persistent nonce-replay / audit-bundle export & verify / no-key proof / trust-badge render — **live, end-to-end, deterministic**.
+- ENS resolution — offline fixture (`OfflineEnsResolver` reads `demo-fixtures/ens-records.json`). The `EnsResolver` trait abstraction is real; live resolver is a future swap.
+- KeeperHub adapter — local mock (`KeeperHubExecutor::local_mock()`). The adapter boundary is real; the live constructor exists but is not exercised in the demo.
+- Uniswap adapter — local mock (`UniswapExecutor::local_mock()`). The swap-policy guard runs before any executor call. `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`.
+- Signing seeds — deterministic dev seeds in `AppState::new` are public and demo-only. Production deployments inject real signers via `AppState::with_signers`. We do not claim production readiness for TEE/HSM in this build.
+- There is **no** `MANDATE_*_LIVE` environment variable feature flag in this build.
 
 ## Known limitations (hackathon scope)
 
 - `Budget.soft_cap_usd` is parsed and validated against the schema, but not yet enforced by `BudgetTracker`. A production deployment (per `docs/spec/17_interface_contracts.md`) emits a soft-cap warning into the receipt; this hackathon build only enforces the hard cap (`cap_usd`). See comment in `crates/mandate-policy/src/model.rs`.
-- Signing seeds in `AppState::new` are constants in this public repo. Acceptable for the demo and CI; production callers must inject real signers via `AppState::with_signers` (TEE/HSM-backed). The dev-only path is gated with a visible warning comment in `crates/mandate-server/src/lib.rs`.
+- Signing seeds in `AppState::new` are public constants in this open repo. Acceptable for the demo and CI; production callers must inject real signers via `AppState::with_signers`.
 - APRP nonce replay protection is enforced (`POST /v1/payment-requests` returns HTTP 409 `protocol.nonce_replay` on a reused nonce, before any policy/budget/audit/signing side effects). The dedup is backed by a persistent SQLite table (`nonce_replay`, migration V002), so the protection survives a daemon restart whenever persistent storage is configured (`Storage::open(path)`). The hackathon demo defaults to `Storage::open_in_memory()`, which is also a real SQLite database — nonces persist for the full lifetime of the daemon process and are dropped only when the in-memory database is destroyed (i.e. when the demo process exits). RFC 8470-style `Idempotency-Key` semantics for safe-retry on 5xx are not implemented; a 5xx after the nonce is consumed will surface as a 409 on retry rather than a replay of the original response.
+- The audit-bundle v1 carries the full chain prefix from genesis and the canonical `request_hash` only (not the original APRP body). Pruned / Merkle-proof variants and embedded APRP are tracked as future work — see `docs/cli/audit-bundle.md`.
 
 ## Demo
 
+Three commands a judge needs:
+
 ```bash
-bash demo-scripts/run-openagents-final.sh
+bash demo-scripts/run-openagents-final.sh   # 13-gate vertical demo
+python3 trust-badge/build.py                # render the one-screen proof viewer
+python3 trust-badge/test_build.py           # stdlib regression test for the viewer
 ```
 
-Proves, in order:
+The demo proves, in order:
 
-1. Real agent identity (ENS-resolved).
-2. Legitimate payment request → allowed → policy receipt → routed to KeeperHub.
-3. Prompt-injection malicious request → denied **before execution** → deny code visible.
-4. Audit chain verified end-to-end.
-5. No private key ever held by the agent.
+1. Strict APRP schema gate (golden + adversarial).
+2. Locked golden APRP `request_hash`.
+3. Audit chain — structural verify + strict-hash verify of the seed fixture.
+4. Policy + budget + storage + server unit tests pass live.
+5. Real research-agent harness — legit-x402 → Allow + signed receipt; prompt-injection → Deny.
+6. ENS sponsor identity proof — published policy_hash matches active.
+7. KeeperHub sponsor — approved request routes to mock executor; denied request never reaches the sponsor.
+8. Uniswap sponsor — bounded swap allowed; rug-token attacker quote denied at swap-policy guard AND Mandate boundary.
+9. Red-team prompt-injection standalone gate.
+10. Audit-chain tamper detection — flip a byte and confirm strict-hash verify rejects.
+11. Agent no-key boundary proof — zero `SigningKey` / `signing_key` references in the agent crate, zero key-material fixtures, no signing-related cargo deps.
+12. Demo transcript artifact — deterministic JSON written to `demo-scripts/artifacts/`, consumed by `trust-badge/build.py`.
+
+For a verifiable single-decision proof package, see `docs/cli/audit-bundle.md`: `mandate audit export` packages a signed receipt + audit chain prefix + signer keys into one JSON file; `mandate audit verify-bundle` re-derives every claim from that file alone.
 
 ## Demo video
 
-Target length 3:30, hard stop 3:50. Real human voice narration. Storyboard in [`docs/spec/30_ethglobal_submission_compliance.md`](docs/spec/30_ethglobal_submission_compliance.md) §7.
+Target length 3:30, hard stop 3:50. Real human voice narration. Video script in [`demo-scripts/demo-video-script.md`](demo-scripts/demo-video-script.md).
 
 ## Judging criteria mapping
 
 | Criterion | Mandate angle |
 |---|---|
-| Technicality | Policy engine + signed receipts + audit chain + sponsor adapter + agent harness. |
+| Technicality | Policy engine + signed receipts + persistent nonce-replay store + hash-chained audit + verifiable audit bundle + sponsor adapters + agent harness + offline trust-badge. |
 | Originality | Spending mandate replaces agent wallet — agent never holds key. |
-| Practicality | Local daemon + CLI + runnable demo; useful for agent builders today. |
-| Usability | One-command final demo, readable receipts, clear deny codes. |
-| WOW factor | Prompt-injection visibly tries to spend, Mandate denies pre-execution and proves why. |
+| Practicality | Local daemon + CLI + runnable demo + offline proof bundle; useful for agent builders today. |
+| Usability | One-command final demo, one-command proof viewer, readable receipts, clear deny codes. |
+| WOW factor | Prompt-injection visibly tries to spend, Mandate denies pre-execution and proves why on a single screen. |
