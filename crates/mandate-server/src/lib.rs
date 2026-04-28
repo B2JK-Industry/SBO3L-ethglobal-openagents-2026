@@ -1,14 +1,17 @@
 //! Mandate HTTP API.
 //!
 //! Exposes `POST /v1/payment-requests` and `GET /v1/health`. The handler runs
-//! the full pipeline: schema validate → request_hash → **persistent nonce
-//! replay claim** → policy decide → budget check → audit append → policy
-//! receipt sign.
+//! the full pipeline: **idempotency-key check** → schema validate →
+//! request_hash → **persistent nonce replay claim** → policy decide →
+//! budget check → audit append → policy receipt sign. On a successful
+//! 200 response with `Idempotency-Key` set, the whole response envelope
+//! is cached for safe retry; subsequent retries with the same key + body
+//! return the cached envelope without re-running any side-effecting step.
 
 use std::sync::{Arc, Mutex};
 
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -25,7 +28,13 @@ use mandate_core::signer::DevSigner;
 use mandate_policy::engine::Decision as EngineDecision;
 use mandate_policy::{decide, BudgetTracker, Policy};
 use mandate_storage::audit_store::NewAuditEvent;
+use mandate_storage::idempotency_store::IdempotencyEntry;
 use mandate_storage::Storage;
+
+/// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
+const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
+const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
+const IDEMPOTENCY_KEY_MAX_LEN: usize = 64;
 
 #[derive(Clone)]
 pub struct AppState(pub Arc<AppInner>);
@@ -131,12 +140,174 @@ fn problem(code: &str, status: u16, title: &str, detail: impl Into<String>) -> P
     }
 }
 
+/// Read and validate the optional `Idempotency-Key` header. Empty header
+/// → `Ok(None)`. Header present but malformed (non-ASCII, too short, too
+/// long per OpenAPI spec) → `Err(Problem)` carrying a 400.
+fn extract_idempotency_key(headers: &HeaderMap) -> Result<Option<String>, Problem> {
+    let raw = match headers.get(IDEMPOTENCY_KEY_HEADER) {
+        Some(v) => v,
+        None => return Ok(None),
+    };
+    let s = raw.to_str().map_err(|_| {
+        problem(
+            "protocol.idempotency_key_invalid",
+            400,
+            "Idempotency-Key must be ASCII",
+            "non-ASCII bytes in header",
+        )
+    })?;
+    if s.len() < IDEMPOTENCY_KEY_MIN_LEN || s.len() > IDEMPOTENCY_KEY_MAX_LEN {
+        return Err(problem(
+            "protocol.idempotency_key_invalid",
+            400,
+            "Idempotency-Key length out of range",
+            format!(
+                "expected {IDEMPOTENCY_KEY_MIN_LEN}..={IDEMPOTENCY_KEY_MAX_LEN} chars, got {}",
+                s.len()
+            ),
+        ));
+    }
+    Ok(Some(s.to_string()))
+}
+
+/// Build a `Response` from a cached idempotency entry. The cached
+/// `response_body` is replayed verbatim (string-identical to the original
+/// 200 OK body), with `Content-Type: application/json` and the original
+/// HTTP status. By design we only ever cache 200 responses, but the
+/// builder honours whatever status was stored.
+fn cached_response(entry: &IdempotencyEntry) -> Response {
+    let status =
+        StatusCode::from_u16(entry.response_status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (
+        status,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        entry.response_body.clone(),
+    )
+        .into_response()
+}
+
 async fn create_payment_request(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<PaymentRequestResponse>, Problem> {
+) -> Response {
     let inner = state.0.clone();
 
+    // Step 0: idempotency lookup. Runs BEFORE schema validation, nonce
+    // gate, policy, budget, audit and signing — so a successful retry
+    // produces zero new side effects (no nonce reclaim, no audit row, no
+    // budget commit, no fresh signed receipt). A retry with the same key
+    // but a different canonical body is rejected with HTTP 409
+    // `protocol.idempotency_conflict`.
+    let idempotency_key = match extract_idempotency_key(&headers) {
+        Ok(k) => k,
+        Err(p) => return p.into_response(),
+    };
+    // Hash up front: needed both for the cache lookup (conflict
+    // detection) and the cache write on a 200. If hashing fails (which
+    // it shouldn't for any well-formed JSON Value), default to empty
+    // and let the pipeline surface the underlying problem via schema
+    // validation downstream.
+    let body_canonical_hash = request_hash(&body).unwrap_or_default();
+    if let Some(ref key) = idempotency_key {
+        let storage = inner.storage.lock().expect("storage lock");
+        match storage.idempotency_lookup(key) {
+            Ok(Some(entry)) => {
+                if entry.request_hash == body_canonical_hash {
+                    // Cache hit, body matches → replay the original
+                    // response without touching the pipeline.
+                    return cached_response(&entry);
+                }
+                // Cache hit, body differs → conflict.
+                drop(storage);
+                return problem(
+                    "protocol.idempotency_conflict",
+                    409,
+                    "Idempotency-Key conflict",
+                    format!(
+                        "key={key} was used previously with a different canonical request body"
+                    ),
+                )
+                .into_response();
+            }
+            Ok(None) => {
+                // Fall through to fresh pipeline; we'll cache on 200.
+            }
+            Err(e) => {
+                drop(storage);
+                return problem(
+                    "audit.write_failed",
+                    500,
+                    "idempotency store error",
+                    e.to_string(),
+                )
+                .into_response();
+            }
+        }
+    }
+
+    let pipeline_result = run_pipeline(&inner, body).await;
+
+    // Serialize the response envelope (we need the bytes both for the HTTP
+    // response and, on success with idempotency, for the cache row).
+    let (status, response_body) = match &pipeline_result {
+        Ok(resp) => match serde_json::to_string(resp) {
+            Ok(s) => (StatusCode::OK, s),
+            Err(e) => {
+                let p = problem(
+                    "audit.write_failed",
+                    500,
+                    "response serialisation failed",
+                    e.to_string(),
+                );
+                let body = serde_json::to_string(&p).unwrap_or_default();
+                (
+                    StatusCode::from_u16(p.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                    body,
+                )
+            }
+        },
+        Err(p) => {
+            let body = serde_json::to_string(p).unwrap_or_default();
+            let s = StatusCode::from_u16(p.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            (s, body)
+        }
+    };
+
+    // Cache only deterministic 200 successes. Errors flow through fresh
+    // on retry: a 5xx might have been transient; a 4xx will reproduce on
+    // the same body anyway via the pipeline.
+    if let Some(key) = idempotency_key {
+        if status == StatusCode::OK {
+            let entry = IdempotencyEntry {
+                key,
+                request_hash: body_canonical_hash,
+                response_status: status.as_u16(),
+                response_body: response_body.clone(),
+                created_at: Utc::now(),
+            };
+            let mut storage = inner.storage.lock().expect("storage lock");
+            // We ignore the Ok(false) case (a concurrent winner already
+            // stored a row under this key). We also ignore Err(_) — the
+            // response itself is correct; failing to cache it just means
+            // the next retry will re-run the pipeline, which is the
+            // pre-idempotency behaviour.
+            let _ = storage.idempotency_try_store(&entry);
+        }
+    }
+
+    (
+        status,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        response_body,
+    )
+        .into_response()
+}
+
+async fn run_pipeline(
+    inner: &Arc<AppInner>,
+    body: Value,
+) -> Result<PaymentRequestResponse, Problem> {
     if let Err(e) = schema::validate_aprp(&body) {
         return Err(problem(
             e.code(),
@@ -335,7 +506,7 @@ async fn create_payment_request(
         )
     })?;
 
-    Ok(Json(PaymentRequestResponse {
+    Ok(PaymentRequestResponse {
         status: payment_status,
         decision: receipt_decision,
         deny_code: final_deny_code,
@@ -344,7 +515,7 @@ async fn create_payment_request(
         policy_hash: outcome.policy_hash.clone(),
         audit_event_id: signed_event.event.id.clone(),
         receipt,
-    }))
+    })
 }
 
 /// Embedded reference policy for development/demo. Production callers should
@@ -561,5 +732,232 @@ mod tests {
             assert!(v2.get("receipt").is_none());
             assert!(v2.get("audit_event_id").is_none());
         }
+    }
+
+    // --------------------------- Idempotency-Key (PSM-A2) ---------------------------
+    //
+    // Behaviour matrix the tests below pin:
+    //
+    //  | Request 1                          | Request 2                                  | Outcome                          |
+    //  |------------------------------------|--------------------------------------------|----------------------------------|
+    //  | K=K1, body=B1, success             | K=K1, body=B1                              | byte-identical cached response   |
+    //  | K=K1, body=B1, success             | K=K1, body=B2                              | 409 protocol.idempotency_conflict|
+    //  | K=K1, body=B1, success (file db)   | (drop daemon) K=K1, body=B1                | byte-identical cached response   |
+    //  | K=K1, body=B1, success             | K=K2, body=B1 (same nonce)                 | 409 protocol.nonce_replay        |
+    //  | no K, body=B1, success             | no K, body=B1                              | 409 protocol.nonce_replay (legacy)|
+    //  | malformed K (too short / too long) | -                                          | 400 protocol.idempotency_key_invalid |
+    //
+    // The "K=K1, body=B1, success" / "K=K1, body=B1" pair must NOT add a
+    // new audit event (cached path skips the pipeline entirely).
+
+    /// Helper that submits an APRP body with an `Idempotency-Key` header
+    /// and returns (status, parsed body, raw bytes). The raw bytes let the
+    /// cached-replay test assert byte-identical replay.
+    async fn post_json_with_idempotency_key(
+        app: Router,
+        path: &str,
+        body: Value,
+        idempotency_key: &str,
+    ) -> (StatusCode, Value, Vec<u8>) {
+        let req = Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("content-type", "application/json")
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key)
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        let status = resp.status();
+        let bytes = resp
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+        let v: Value = serde_json::from_slice(&bytes).unwrap();
+        (status, v, bytes)
+    }
+
+    #[tokio::test]
+    async fn idempotency_returns_cached_response_for_same_key_and_body() {
+        // First POST consumes the nonce, runs the pipeline, signs a
+        // receipt, appends an audit row. Second POST with the same key
+        // and body must return the byte-identical response WITHOUT
+        // running any side-effecting step. We assert that by:
+        //   1. comparing raw response bytes,
+        //   2. checking audit_count is unchanged after the retry.
+        let storage = Storage::open_in_memory().unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let key = "idem-test-fixed-aaaaaaaaaaaaaaaa"; // 32 chars, in spec range
+
+        let (s1, v1, bytes1) =
+            post_json_with_idempotency_key(app.clone(), "/v1/payment-requests", body.clone(), key)
+                .await;
+        assert_eq!(s1, StatusCode::OK);
+        assert_eq!(v1["status"], "auto_approved");
+        let receipt_id_1 = v1["audit_event_id"].as_str().unwrap().to_string();
+
+        // Second POST: same key, same body → cached response replayed.
+        let (s2, v2, bytes2) =
+            post_json_with_idempotency_key(app, "/v1/payment-requests", body, key).await;
+        assert_eq!(s2, StatusCode::OK);
+        assert_eq!(
+            bytes1, bytes2,
+            "cached retry must return byte-identical body"
+        );
+        // Same audit_event_id → confirms we did NOT append a new event.
+        assert_eq!(v2["audit_event_id"], receipt_id_1);
+    }
+
+    #[tokio::test]
+    async fn idempotency_returns_409_conflict_for_same_key_different_body() {
+        let storage = Storage::open_in_memory().unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let body1 = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let mut body2 = body1.clone();
+        // Mutate to a clearly different canonical body. We also have to
+        // change the nonce so that — if conflict didn't fire — the
+        // second request would NOT be rejected on nonce-replay grounds
+        // (we want to isolate the conflict path for this assertion).
+        body2["nonce"] = Value::String("01HFAKEALTERNATENONCEAAAAAA".to_string());
+        body2["task_id"] = Value::String("idempotency-conflict-test".to_string());
+        let key = "idem-conflict-key-aaaaaaaaaaaaaa"; // 32 chars
+
+        let (s1, _, _) =
+            post_json_with_idempotency_key(app.clone(), "/v1/payment-requests", body1, key).await;
+        assert_eq!(s1, StatusCode::OK);
+
+        let (s2, v2, _) =
+            post_json_with_idempotency_key(app, "/v1/payment-requests", body2, key).await;
+        assert_eq!(s2, StatusCode::CONFLICT);
+        assert_eq!(v2["code"], "protocol.idempotency_conflict");
+        assert!(v2.get("receipt").is_none());
+        assert!(v2.get("audit_event_id").is_none());
+    }
+
+    #[tokio::test]
+    async fn idempotency_persists_across_storage_reopen() {
+        // Same key + same body across daemon restart → cached response.
+        // This is the production-shape claim: a 5xx-flailing client can
+        // safely retry past a daemon bounce without nonce_replay-ing.
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let db_path = tmp.path().to_path_buf();
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let key = "idem-restart-key-aaaaaaaaaaaaaaaa"; // 32 chars
+
+        let bytes_first;
+        {
+            let storage = Storage::open(&db_path).unwrap();
+            let app = router(AppState::new(reference_policy(), storage));
+            let (s, v, raw) =
+                post_json_with_idempotency_key(app, "/v1/payment-requests", body.clone(), key)
+                    .await;
+            assert_eq!(s, StatusCode::OK);
+            assert_eq!(v["status"], "auto_approved");
+            bytes_first = raw;
+        }
+
+        // Drop the AppState and Storage; reopen against the same file.
+        let storage = Storage::open(&db_path).unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let (s2, _, raw2) =
+            post_json_with_idempotency_key(app, "/v1/payment-requests", body, key).await;
+        assert_eq!(s2, StatusCode::OK);
+        assert_eq!(
+            bytes_first, raw2,
+            "cached envelope must replay byte-identically across daemon restart"
+        );
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_too_short_returns_400() {
+        let storage = Storage::open_in_memory().unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let too_short = "shortkey";
+        let (s, v, _) =
+            post_json_with_idempotency_key(app, "/v1/payment-requests", body, too_short).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST);
+        assert_eq!(v["code"], "protocol.idempotency_key_invalid");
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_too_long_returns_400() {
+        let storage = Storage::open_in_memory().unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        // 65 chars — one past the OpenAPI maxLength.
+        let too_long = "a".repeat(65);
+        let (s, v, _) =
+            post_json_with_idempotency_key(app, "/v1/payment-requests", body, &too_long).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST);
+        assert_eq!(v["code"], "protocol.idempotency_key_invalid");
+    }
+
+    #[tokio::test]
+    async fn nonce_replay_still_protects_when_no_idempotency_key() {
+        // Sanity: behaviour without `Idempotency-Key` is unchanged. This
+        // is structurally the same scenario as
+        // `replayed_nonce_returns_409_protocol_nonce_replay` but kept as
+        // a separate, named test because the idempotency layer changes
+        // the handler shape; we want a regression test that pins
+        // "no header → legacy nonce semantics" specifically.
+        let storage = Storage::open_in_memory().unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let (s1, v1) = post_json(app.clone(), "/v1/payment-requests", body.clone()).await;
+        assert_eq!(s1, StatusCode::OK);
+        assert_eq!(v1["status"], "auto_approved");
+        let (s2, v2) = post_json(app, "/v1/payment-requests", body).await;
+        assert_eq!(s2, StatusCode::CONFLICT);
+        assert_eq!(v2["code"], "protocol.nonce_replay");
+    }
+
+    #[tokio::test]
+    async fn defense_in_depth_different_idempotency_key_same_nonce_returns_nonce_replay() {
+        // Defence in depth. An attacker who captures a successful
+        // request body cannot bypass the nonce gate by attaching a fresh
+        // Idempotency-Key — the nonce is still consumed, so the second
+        // request gets 409 protocol.nonce_replay (not a fresh allow,
+        // and not idempotency_conflict either since K2 is unseen).
+        let storage = Storage::open_in_memory().unwrap();
+        let app = router(AppState::new(reference_policy(), storage));
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let key1 = "idem-defense-key-1-aaaaaaaaaaaa"; // 32 chars
+        let key2 = "idem-defense-key-2-bbbbbbbbbbbb"; // 32 chars
+
+        let (s1, _, _) =
+            post_json_with_idempotency_key(app.clone(), "/v1/payment-requests", body.clone(), key1)
+                .await;
+        assert_eq!(s1, StatusCode::OK);
+
+        let (s2, v2, _) =
+            post_json_with_idempotency_key(app, "/v1/payment-requests", body, key2).await;
+        // The cache miss falls through to the nonce gate → 409.
+        assert_eq!(s2, StatusCode::CONFLICT);
+        assert_eq!(v2["code"], "protocol.nonce_replay");
     }
 }

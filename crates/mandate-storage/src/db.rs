@@ -9,8 +9,15 @@ use crate::error::{StorageError, StorageResult};
 
 pub const V001_SQL: &str = include_str!("../../../migrations/V001__init.sql");
 pub const V002_SQL: &str = include_str!("../../../migrations/V002__nonce_replay.sql");
+pub const V004_SQL: &str = include_str!("../../../migrations/V004__idempotency_keys.sql");
 
-const MIGRATIONS: &[(i64, &str, &str)] = &[(1, "init", V001_SQL), (2, "nonce_replay", V002_SQL)];
+// V003 was reserved for a separate experiment that did not land; numbering
+// stays sparse intentionally so future migrations don't have to renumber.
+const MIGRATIONS: &[(i64, &str, &str)] = &[
+    (1, "init", V001_SQL),
+    (2, "nonce_replay", V002_SQL),
+    (4, "idempotency_keys", V004_SQL),
+];
 
 pub struct Storage {
     pub(crate) conn: Connection,
