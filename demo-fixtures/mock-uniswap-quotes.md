@@ -16,22 +16,37 @@ author must satisfy:
 1. **`happy_path_within_caps`** — bounded USDC → ETH, recipient on the
    treasury allowlist, slippage 35 bps (cap 50). Both `evaluate_swap`
    and the Mandate boundary should `Allow`.
-2. **`slippage_violation`** — 1500 bps slippage to a rug-token recipient.
-   `evaluate_swap` returns `swap_policy: deny` with reason
-   `max_slippage_bps`; Mandate's policy denies on
-   `policy.deny_recipient_not_allowlisted` (because the recipient is
-   `0x9999…`, off-allowlist). The deny path is exercised in two places.
+2. **`multiple_violations_rug_quote`** — USDC → RUG with 1500 bps
+   slippage and an off-allowlist recipient (`0x9999…`). This quote
+   intentionally trips **three** swap-policy checks at once. `evaluate_swap`
+   (`crates/mandate-execution/src/uniswap.rs`) traverses checks in
+   field order — `input_token` → `output_token` → `max_notional_usd` →
+   `max_slippage_bps` → `quote_freshness` → `treasury_recipient` — so
+   the **first** violation a consumer sees is `output_token_allowlisted`
+   (RUG ∉ output allowlist), with `max_slippage_bps` and
+   `treasury_recipient_allowlisted` reported as additional violations
+   in the same returned `SwapPolicyOutcome.checks` vector. The fixture
+   reflects this with `expected_swap_policy_reason:
+   "output_token_allowlisted"` plus
+   `expected_additional_violations: ["max_slippage_bps",
+   "treasury_recipient_allowlisted"]`. Mandate's policy boundary
+   independently denies on `policy.deny_recipient_not_allowlisted`, so
+   the deny is exercised at two layers (swap-policy guard + Mandate
+   boundary) — defense in depth.
 3. **`recipient_allowlist_violation`** — bounded slippage but recipient
-   off-allowlist. `evaluate_swap` denies on
-   `treasury_recipient_allowlisted`; Mandate denies on the same
+   off-allowlist (the **only** failing check). `evaluate_swap` denies
+   on `treasury_recipient_allowlisted`; Mandate denies on
    `policy.deny_recipient_not_allowlisted`. Demonstrates that the
    swap-policy guard and the Mandate policy boundary are **independent**
    defenses with different reason codes — defense in depth.
 
 Each quote also carries an `expected_swap_policy` /
-`expected_mandate_decision` / `expected_mandate_deny_code` triple so an
-adapter author can dry-run their policy against the fixture without
-guessing what the right answer is.
+`expected_swap_policy_reason` (singular — the **first** failed check
+under field-order traversal) / `expected_mandate_decision` /
+`expected_mandate_deny_code` quadruple so an adapter author can dry-run
+their policy against the fixture without guessing what the right answer
+is. The rug entry adds `expected_additional_violations` (an array)
+because that quote alone trips multiple checks.
 
 ## What live system it stands in for
 
