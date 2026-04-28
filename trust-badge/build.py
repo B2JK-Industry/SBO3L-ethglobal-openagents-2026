@@ -105,6 +105,7 @@ header .meta b{{color:#e6edf3;font-weight:500}}
 .pill.ok{{background:#0f2b15;color:#3fb950;border:1px solid #2ea043}}
 .pill.bad{{background:#3a1216;color:#f85149;border:1px solid #f85149}}
 .pill.neutral{{background:#21262d;color:#8b949e;border:1px solid #30363d}}
+.has-tip{{cursor:help;border-bottom:1px dotted #484f58}}
 .na{{color:#484f58}}
 footer{{margin-top:6px;color:#8b949e;font-size:11px;border-top:1px solid #30363d;padding-top:10px}}
 footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
@@ -117,7 +118,7 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 <div class="tag">"Don't give your agent a wallet. Give it a mandate."</div>
 <div class="meta">
 <span><b>agent</b> {esc(summary.get("agent_id"))}</span>
-<span><b>commit</b> {esc(commit_short)}</span>
+<span><b>commit</b> <span class="has-tip" title="{esc(commit)}">{esc(commit_short)}</span></span>
 <span><b>generated</b> {esc(summary.get("generated_at_iso"))}</span>
 <span><b>schema</b> {esc(summary.get("schema"))}</span>
 </div>
