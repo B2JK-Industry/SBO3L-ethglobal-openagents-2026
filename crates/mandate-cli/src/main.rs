@@ -3,6 +3,8 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use mandate_core::audit::{verify_chain, SignedAuditEvent};
+use mandate_core::audit_bundle::{self, AuditBundle};
+use mandate_core::receipt::PolicyReceipt;
 use mandate_core::{schema, SchemaError};
 
 #[derive(Parser, Debug)]
@@ -41,6 +43,55 @@ enum Command {
     Schema {
         /// One of: aprp | policy | decision-token | policy-receipt | audit-event | x402
         kind: String,
+    },
+    /// Verifiable audit export bundle commands.
+    ///
+    /// `mandate audit export` packages a signed receipt + the relevant audit
+    /// chain segment + the public verification keys into a single JSON file
+    /// that anyone can re-verify offline. `mandate audit verify-bundle`
+    /// re-derives every signature, hash and chain link in that file and
+    /// reports the result. Tagline: Mandate does not just decide. It leaves
+    /// behind verifiable proof.
+    Audit {
+        #[command(subcommand)]
+        op: AuditCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AuditCmd {
+    /// Build a verifiable bundle from a signed receipt + audit chain JSONL.
+    ///
+    /// The chain JSONL must include the genesis event (seq=1) through the
+    /// event referenced by the receipt's `audit_event_id`, in seq order.
+    Export {
+        /// Path to the signed PolicyReceipt JSON (the body returned by
+        /// `POST /v1/payment-requests`, field `receipt`).
+        #[arg(long)]
+        receipt: PathBuf,
+        /// Path to a JSONL audit chain (one SignedAuditEvent per line).
+        #[arg(long)]
+        chain: PathBuf,
+        /// Public verification key (hex) for the receipt signer (32 bytes).
+        #[arg(long)]
+        receipt_pubkey: String,
+        /// Public verification key (hex) for the audit signer (32 bytes).
+        #[arg(long)]
+        audit_pubkey: String,
+        /// Output path. If omitted, the bundle JSON is written to stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Verify a previously-exported bundle.
+    ///
+    /// Re-derives every receipt + audit signature, every audit event_hash,
+    /// and the prev_event_hash linkage of the included chain segment. Exits
+    /// with code 0 on success, 1 on any verification failure, 2 on I/O or
+    /// JSON-parse errors.
+    VerifyBundle {
+        /// Path to a bundle JSON file produced by `mandate audit export`.
+        #[arg(long)]
+        path: PathBuf,
     },
 }
 
@@ -95,6 +146,25 @@ fn main() -> ExitCode {
             pubkey,
         } => cmd_verify_audit(&path, !skip_hash, pubkey.as_deref()),
         Command::Schema { kind } => cmd_schema(&kind),
+        Command::Audit {
+            op:
+                AuditCmd::Export {
+                    receipt,
+                    chain,
+                    receipt_pubkey,
+                    audit_pubkey,
+                    out,
+                },
+        } => cmd_audit_export(
+            &receipt,
+            &chain,
+            &receipt_pubkey,
+            &audit_pubkey,
+            out.as_deref(),
+        ),
+        Command::Audit {
+            op: AuditCmd::VerifyBundle { path },
+        } => cmd_audit_verify_bundle(&path),
     }
 }
 
@@ -266,6 +336,121 @@ fn cmd_verify_audit(path: &Path, verify_hashes: bool, pubkey: Option<&str>) -> E
         }
         Err(e) => {
             eprintln!("audit chain invalid: {e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn read_audit_chain_jsonl(path: &Path) -> anyhow::Result<Vec<SignedAuditEvent>> {
+    let data = std::fs::read_to_string(path)?;
+    let mut events: Vec<SignedAuditEvent> = Vec::new();
+    for (i, line) in data.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let signed: SignedAuditEvent = serde_json::from_str(line).map_err(|e| {
+            anyhow::anyhow!("chain JSONL line {} is not a SignedAuditEvent: {e}", i + 1)
+        })?;
+        events.push(signed);
+    }
+    Ok(events)
+}
+
+fn cmd_audit_export(
+    receipt_path: &Path,
+    chain_path: &Path,
+    receipt_pubkey_hex: &str,
+    audit_pubkey_hex: &str,
+    out: Option<&Path>,
+) -> ExitCode {
+    let receipt: PolicyReceipt = match std::fs::read_to_string(receipt_path)
+        .map_err(anyhow::Error::from)
+        .and_then(|s| serde_json::from_str(&s).map_err(anyhow::Error::from))
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("error reading receipt {}: {e}", receipt_path.display());
+            return ExitCode::from(2);
+        }
+    };
+    let chain = match read_audit_chain_jsonl(chain_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error reading chain {}: {e}", chain_path.display());
+            return ExitCode::from(2);
+        }
+    };
+    let bundle = match audit_bundle::build(
+        receipt,
+        chain,
+        receipt_pubkey_hex.to_string(),
+        audit_pubkey_hex.to_string(),
+        chrono::Utc::now(),
+    ) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("error building bundle: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    // Pretty-print so humans can diff bundles visually; structure is the
+    // same as the compact form because field order is fixed by the derive.
+    let serialised = match serde_json::to_string_pretty(&bundle) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error serialising bundle: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    match out {
+        Some(p) => {
+            if let Err(e) = std::fs::write(p, serialised.as_bytes()) {
+                eprintln!("error writing {}: {e}", p.display());
+                return ExitCode::from(2);
+            }
+            eprintln!(
+                "wrote bundle to {} (chain length: {}, audit_event_id: {})",
+                p.display(),
+                bundle.audit_chain_segment.len(),
+                bundle.audit_event.event.id
+            );
+        }
+        None => {
+            println!("{serialised}");
+        }
+    }
+    ExitCode::SUCCESS
+}
+
+fn cmd_audit_verify_bundle(path: &Path) -> ExitCode {
+    let data = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error reading {}: {e}", path.display());
+            return ExitCode::from(2);
+        }
+    };
+    let bundle: AuditBundle = match serde_json::from_str(&data) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("invalid bundle JSON: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    match audit_bundle::verify(&bundle) {
+        Ok(summary) => {
+            println!(
+                "ok: bundle verified (decision={:?}, deny_code={:?}, chain_length={}, audit_event_id={})",
+                summary.decision,
+                summary.deny_code,
+                summary.audit_chain_length,
+                summary.audit_event_id
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("bundle invalid: {e}");
             ExitCode::from(1)
         }
     }
