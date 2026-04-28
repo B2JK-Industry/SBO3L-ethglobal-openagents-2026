@@ -133,17 +133,18 @@ def main() -> int:
             failures += 1
 
     # 2. Backlog panels — each PSM-* item must surface with its label.
-    # PSM-A2, PSM-A1.9, PSM-A3, and PSM-A5 are "pending" (backends merged
-    # on `main`; console panels landing in B2.v2). PSM-A4 is the only
-    # remaining "blocked" item (backend not merged yet).
+    # PSM-A2, PSM-A1.9, PSM-A3, PSM-A4, and PSM-A5 are all "pending"
+    # (backends merged on `main`; full console panels landing in
+    # B2.v2). There are currently no items in the "blocked" state;
+    # the pattern stays in place so a future regression that
+    # introduces a new blocked item is still picked up.
     print("\n== backlog placeholders ==")
-    blocked = [
-        ("audit checkpoint panel",   "PSM-A4",   "Audit checkpoints"),
-    ]
+    blocked: list[tuple[str, str, str]] = []
     pending = [
         ("Idempotency-Key panel",    "PSM-A2",   "Idempotency-Key"),
         ("mock KMS CLI panel",       "PSM-A1.9", "Mock KMS CLI surface"),
         ("policy lifecycle panel",   "PSM-A3",   "policy lifecycle"),
+        ("audit checkpoint panel",   "PSM-A4",   "Audit checkpoints"),
         ("doctor panel",             "PSM-A5",   "Operator readiness summary"),
     ]
     blocked_pill_pattern = re.compile(
@@ -154,11 +155,20 @@ def main() -> int:
         r'class="pill pending"[^>]*>PSM-[A-Z0-9.]+ merged · console panel landing in B2\.v2 ',
         re.IGNORECASE,
     )
-    if not blocked_pill_pattern.search(html_text):
-        _fail("blocked-pill class+text", "no <span class=\"pill blocked\"> ... 'not implemented yet — backlog'")
-        failures += 1
+    # Only require the blocked-pill class when at least one panel is
+    # actually in the blocked state. Post-PSM-A4 the list is empty —
+    # asserting "blocked-pill must appear" against zero blocked items
+    # would be impossible-to-satisfy and falsely flag the truthful
+    # render. The conditional keeps regression coverage if a future
+    # backlog row is added and stays blocked.
+    if blocked:
+        if not blocked_pill_pattern.search(html_text):
+            _fail("blocked-pill class+text", "no <span class=\"pill blocked\"> ... 'not implemented yet — backlog'")
+            failures += 1
+        else:
+            _ok("blocked-pill class+text present")
     else:
-        _ok("blocked-pill class+text present")
+        _ok("blocked-pill class+text not required (no blocked items)")
     if not pending_pill_pattern.search(html_text):
         _fail("pending-pill class+text", "no <span class=\"pill pending\"> ... 'PSM-X merged · console panel landing in B2.v2'")
         failures += 1
@@ -176,11 +186,11 @@ def main() -> int:
         else:
             _fail(label, f"backlog {backlog_id} or descr {descr!r} not in HTML")
             failures += 1
-    # PSM-A2, PSM-A1.9, PSM-A3, and PSM-A5 must NOT appear inside a
-    # blocked-pill — that would lie about merged backends. Defensive
-    # negative assertions; PSM-A3 was added once the active-policy
-    # lifecycle landed (this PR).
-    for backlog_id in ("PSM-A2", "PSM-A1.9", "PSM-A3", "PSM-A5"):
+    # PSM-A2, PSM-A1.9, PSM-A3, PSM-A4, and PSM-A5 must NOT appear
+    # inside a blocked-pill — that would lie about merged backends.
+    # Defensive negative assertions; PSM-A4 was added once the audit
+    # checkpoint surface landed (this PR).
+    for backlog_id in ("PSM-A2", "PSM-A1.9", "PSM-A3", "PSM-A4", "PSM-A5"):
         pat = re.compile(
             rf'class="pill blocked"[^>]*>not implemented yet — backlog\s*{re.escape(backlog_id)}\b',
             re.IGNORECASE,
@@ -217,9 +227,10 @@ def main() -> int:
         failures += 1
 
     # required + (blocked-pill class) + (pending-pill class) + blocked + pending
-    # + 4 negative assertions (PSM-A2 + PSM-A1.9 + PSM-A3 + PSM-A5 not in blocked-pill)
+    # + 5 negative assertions (PSM-A2 + PSM-A1.9 + PSM-A3 + PSM-A4 + PSM-A5
+    #   not in blocked-pill)
     # + forbidden + (html.parser).
-    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 4 + len(forbidden) + 1
+    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 5 + len(forbidden) + 1
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")

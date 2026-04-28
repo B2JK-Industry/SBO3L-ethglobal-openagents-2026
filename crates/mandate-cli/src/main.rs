@@ -7,6 +7,7 @@ use mandate_core::audit_bundle::{self, AuditBundle};
 use mandate_core::receipt::PolicyReceipt;
 use mandate_core::{schema, SchemaError};
 
+mod audit_checkpoint;
 mod doctor;
 mod key;
 mod policy;
@@ -242,6 +243,48 @@ enum AuditCmd {
         #[arg(long)]
         path: PathBuf,
     },
+    /// **Mock-anchored** audit checkpoints (PSM-A4).
+    ///
+    /// Operates on the persistent `audit_checkpoints` SQLite table
+    /// (V007). This is **mock** anchoring, NOT real onchain
+    /// anchoring — the `mock_anchor_ref` is a deterministic local id
+    /// derived from the checkpoint content; nothing is broadcast and
+    /// nothing is signed by any chain. Every CLI line carries a
+    /// `mock-anchor:` prefix for loud disclosure. See
+    /// `docs/cli/audit-checkpoint.md`.
+    Checkpoint {
+        #[command(subcommand)]
+        op: CheckpointCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum CheckpointCmd {
+    /// Create a checkpoint from the current audit chain tip.
+    /// Writes one row to `audit_checkpoints` and prints the
+    /// resulting artifact. With `--out <file>`, the same JSON is
+    /// also written to disk for offline distribution.
+    Create {
+        /// Mandate SQLite database path.
+        #[arg(long)]
+        db: PathBuf,
+        /// Optional output path for the checkpoint JSON artifact.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Verify a checkpoint JSON artifact. Structural checks always
+    /// run; with `--db <path>`, the chain digest is also re-derived
+    /// from the live chain and the row is looked up by anchor ref.
+    Verify {
+        /// Path to a checkpoint JSON file produced by
+        /// `mandate audit checkpoint create`.
+        path: PathBuf,
+        /// Mandate SQLite database path. When supplied, the verify
+        /// step also confirms the checkpoint was issued by *this* DB
+        /// and that the live chain still anchors back to it.
+        #[arg(long)]
+        db: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -316,6 +359,18 @@ fn main() -> ExitCode {
         Command::Audit {
             op: AuditCmd::VerifyBundle { path },
         } => cmd_audit_verify_bundle(&path),
+        Command::Audit {
+            op:
+                AuditCmd::Checkpoint {
+                    op: CheckpointCmd::Create { db, out },
+                },
+        } => audit_checkpoint::cmd_create(&db, out.as_deref()),
+        Command::Audit {
+            op:
+                AuditCmd::Checkpoint {
+                    op: CheckpointCmd::Verify { path, db },
+                },
+        } => audit_checkpoint::cmd_verify(&path, db.as_deref()),
         Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
         Command::Key {
             op:
