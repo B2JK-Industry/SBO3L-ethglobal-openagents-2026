@@ -23,7 +23,14 @@ Two kinds of fixture live here:
 ## Production-shaped mock fixtures (B3)
 
 Four JSON files demonstrating live-shape integrations against deterministic
-local data. Each carries an envelope that the validation test enforces:
+local data. Each carries an envelope that the validation test enforces.
+
+For the **per-surface mock-to-live transition** (env vars, endpoints,
+credentials, code change, verification, and truthfulness invariants),
+see [`docs/production-transition-checklist.md`](../docs/production-transition-checklist.md).
+Each fixture also has a sibling `.md` file in this directory documenting
+what it demonstrates, what live system it stands in for, and the exact
+replacement step.
 
 ```json
 {
@@ -35,12 +42,12 @@ local data. Each carries an envelope that the validation test enforces:
 }
 ```
 
-| Fixture | Surface | What live integration would replace it |
-|---|---|---|
-| [`mock-ens-registry.json`](mock-ens-registry.json) | ENS text-record registry across multiple agent identities (catalogue view) | Live ENS resolver against mainnet/Sepolia text records via the public Registry + Public Resolver contracts. The `mandate_identity::EnsResolver` trait already abstracts this; switching is a constructor swap. |
-| [`mock-keeperhub-sandbox.json`](mock-keeperhub-sandbox.json) | KeeperHub workflow webhook submit/result envelopes (success / idempotency-conflict / not-approved-local / lookup-status) | Real KeeperHub workflow webhook responses once a public submission/result schema and credentials are available. See [`docs/keeperhub-live-spike.md`](../docs/keeperhub-live-spike.md) and FEEDBACK.md §KeeperHub. |
-| [`mock-uniswap-quotes.json`](mock-uniswap-quotes.json) | Uniswap quote catalogue (happy path, slippage violation, recipient-allowlist violation) shaped for the swap-policy guard | Live Uniswap Trading API quote endpoint. `UniswapExecutor::live()` is intentionally stubbed (`BackendOffline`) until that wiring lands. |
-| [`mock-kms-keys.json`](mock-kms-keys.json) | Public verification-key metadata (Ed25519) for Mandate's two demo signers — same deterministic dev seeds the production-shaped runner uses | Real KMS / HSM key-listing API output (AWS KMS `ListKeys`+`GetPublicKey`, GCP KMS, Azure Key Vault, or HSM). Production deployments inject signers via `AppState::with_signers`. |
+| Fixture | Per-fixture doc | Surface | Runner that consumes the live equivalent | Where the live transition lives in [`production-transition-checklist.md`](../docs/production-transition-checklist.md) |
+|---|---|---|---|---|
+| [`mock-ens-registry.json`](mock-ens-registry.json) | [`mock-ens-registry.md`](mock-ens-registry.md) | ENS text-record registry across multiple agent identities (catalogue view). Today's runtime input for the single-agent case is [`ens-records.json`](ens-records.json), consumed by gate 7 of [`demo-scripts/run-openagents-final.sh`](../demo-scripts/run-openagents-final.sh) and step 5/6 of [`demo-scripts/run-production-shaped-mock.sh`](../demo-scripts/run-production-shaped-mock.sh). | [`run-openagents-final.sh`](../demo-scripts/run-openagents-final.sh) gate 7 (via `OfflineEnsResolver` today; future `LiveEnsResolver` would consume live ENS records under `MANDATE_ENS_LIVE=1`). | [§ ENS resolver](../docs/production-transition-checklist.md#ens-resolver) |
+| [`mock-keeperhub-sandbox.json`](mock-keeperhub-sandbox.json) | [`mock-keeperhub-sandbox.md`](mock-keeperhub-sandbox.md) | KeeperHub workflow webhook submit/result envelopes (success / idempotency-conflict / not-approved-local / lookup-status). | [`demo-scripts/sponsors/keeperhub-guarded-execution.sh`](../demo-scripts/sponsors/keeperhub-guarded-execution.sh) (today: `KeeperHubExecutor::local_mock()`; future: `KeeperHubExecutor::live()` under `MANDATE_KEEPERHUB_LIVE=1` per [`docs/keeperhub-live-spike.md`](../docs/keeperhub-live-spike.md)). | [§ KeeperHub guarded execution](../docs/production-transition-checklist.md#keeperhub-guarded-execution) |
+| [`mock-uniswap-quotes.json`](mock-uniswap-quotes.json) | [`mock-uniswap-quotes.md`](mock-uniswap-quotes.md) | Uniswap quote catalogue (happy path, slippage violation, recipient-allowlist violation) shaped for the swap-policy guard. | [`demo-scripts/sponsors/uniswap-guarded-swap.sh`](../demo-scripts/sponsors/uniswap-guarded-swap.sh) gate 9 (today: `UniswapExecutor::local_mock()`; future: `UniswapExecutor::live()` under `MANDATE_UNISWAP_LIVE=1`). | [§ Uniswap guarded swap](../docs/production-transition-checklist.md#uniswap-guarded-swap) |
+| [`mock-kms-keys.json`](mock-kms-keys.json) | [`mock-kms-keys.md`](mock-kms-keys.md) | Public verification-key metadata (Ed25519) for Mandate's two demo signers — same deterministic dev seeds the production-shaped runner uses. | [`demo-scripts/run-production-shaped-mock.sh`](../demo-scripts/run-production-shaped-mock.sh) step 9 (today: hardcoded constants; future: `mandate key list --mock --format json` under PSM-A1.9). | [§ Signer / Mock-KMS / HSM](../docs/production-transition-checklist.md#signer--mock-kms--hsm) |
 
 ### Truthfulness invariants enforced by the test
 
