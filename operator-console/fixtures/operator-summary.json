@@ -1,0 +1,42 @@
+{
+  "schema": "mandate-demo-summary-v1",
+  "tagline": "Don't give your agent a wallet. Give it a mandate.",
+  "agent_id": "operator-fixture-agent-01",
+  "demo_commit": "fedcba9876543210fedcba9876543210fedcba98",
+  "generated_at_iso": "2026-04-28T00:00:00Z",
+  "scenarios": {
+    "legit_x402": {
+      "decision": "Allow",
+      "matched_rule": "allow-small-x402-api-call",
+      "request_hash": "1010101010101010101010101010101010101010101010101010101010101010",
+      "policy_hash":  "2020202020202020202020202020202020202020202020202020202020202020",
+      "audit_event":  "evt-OPERATORALLOW00000000000",
+      "receipt_signature": "ab1010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010ab",
+      "keeperhub_execution_ref": "kh-OPERATORALLOW000000000000",
+      "keeperhub_mock": true
+    },
+    "prompt_injection": {
+      "decision": "Deny",
+      "deny_code": "policy.deny_unknown_provider",
+      "matched_rule": "deny-unknown-provider",
+      "request_hash": "3030303030303030303030303030303030303030303030303030303030303030",
+      "policy_hash":  "2020202020202020202020202020202020202020202020202020202020202020",
+      "audit_event":  "evt-OPERATORDENY0000000000000",
+      "receipt_signature": "cd2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020cd",
+      "denied_action_executed": false,
+      "keeperhub_refused": true
+    }
+  },
+  "no_key_proof": {
+    "status": "PASS",
+    "checks": {
+      "agent_source_signer_references": 0,
+      "agent_cargo_signer_deps": 0,
+      "agent_key_material_files": 0
+    }
+  },
+  "audit_chain": {
+    "structural_verify_accepts_tampered_actor": true,
+    "strict_hash_verify_rejects_tampered": true
+  }
+}
