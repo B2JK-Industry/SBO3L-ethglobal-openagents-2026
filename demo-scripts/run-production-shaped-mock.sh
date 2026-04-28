@@ -150,10 +150,54 @@ else
 fi
 echo
 
-# ─── 4. Active policy lifecycle (Developer A backlog) ────────────────────
+# ─── 4. Active policy lifecycle (Developer A backlog PSM-A3) ────────────
+# Runs against its own tempfile DB so an honest "no active policy" run
+# is visible BEFORE we activate the reference policy. Section 5 below
+# re-uses TMPDIR_PSM but on a separate DB file, so the persistent-
+# SQLite scenario stays independent.
+TMPDIR_PSM="$(mktemp -d -t mandate-prod-shaped.XXXXXX)"
+trap 'rm -rf "$TMPDIR_PSM"' EXIT
+POLICY_DB="$TMPDIR_PSM/policy.db"
+REF_POLICY="test-corpus/policy/reference_low_risk.json"
+
 bold "4. Active policy lifecycle (PSM-A3)"
 if have_subcmd policy current; then
-  ./target/debug/mandate policy current 2>&1 | sed 's/^/    /' && ok "mandate policy current" || skip "mandate policy current returned non-zero"
+  # 4a. validate (no DB)
+  if ./target/debug/mandate policy validate "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
+    ok "mandate policy validate $REF_POLICY"
+  else
+    fail "mandate policy validate failed against the reference policy"
+    exit 1
+  fi
+  # 4b. honest no-active (exit 3 on a freshly-initialised DB)
+  ./target/debug/mandate key list --mock --db "$POLICY_DB" >/dev/null  # primes V001..V006
+  if ./target/debug/mandate policy current --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
+    fail "policy current must exit non-zero on a fresh DB (honest no-active)"
+    exit 1
+  else
+    ok "mandate policy current honestly reports no active policy on a fresh DB (exit 3)"
+  fi
+  # 4c. activate the reference policy
+  if ./target/debug/mandate policy activate "$REF_POLICY" --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
+    ok "mandate policy activate $REF_POLICY -> v1"
+  else
+    fail "mandate policy activate failed"
+    exit 1
+  fi
+  # 4d. current after activate -> ok with version + hash prefix
+  if ./target/debug/mandate policy current --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
+    ok "mandate policy current after activate (active row visible)"
+  else
+    fail "mandate policy current failed after activate"
+    exit 1
+  fi
+  # 4e. diff identical files -> exit 0
+  if ./target/debug/mandate policy diff "$REF_POLICY" "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
+    ok "mandate policy diff (identical files -> no differences)"
+  else
+    fail "mandate policy diff against itself must report no differences"
+    exit 1
+  fi
 else
   skip "blocked: waiting for \`mandate policy current\` (backlog PSM-A3)"
   note_skip "Policy activation lifecycle (validate/current/activate/diff) — PSM-A3"
@@ -162,8 +206,6 @@ echo
 
 # ─── 5. Allow path on persistent SQLite ──────────────────────────────────
 bold "5. Allow path — legit-x402 against persistent SQLite"
-TMPDIR_PSM="$(mktemp -d -t mandate-prod-shaped.XXXXXX)"
-trap 'rm -rf "$TMPDIR_PSM"' EXIT
 DB_PATH="$TMPDIR_PSM/mandate.db"
 RECEIPT_PATH="$TMPDIR_PSM/receipt.json"
 LEGIT_OUT="$(./demo-agents/research-agent/run \

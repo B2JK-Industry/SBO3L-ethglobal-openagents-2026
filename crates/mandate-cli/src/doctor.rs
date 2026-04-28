@@ -190,12 +190,38 @@ fn run_checks(storage: &Storage) -> Vec<Check> {
     }
 
     // 6. active policy (PSM-A3)
+    //
+    // Three states, all honest:
+    //   - table present + an active row: `ok` with version + 12-char
+    //     hash prefix (full hash in `mandate policy current`).
+    //   - table present + no active row: `skip` ("table is here, no
+    //     policy seeded yet — run `mandate policy activate <file>`").
+    //   - table missing entirely: `skip` ("older daemon DB before V006").
     match storage.optional_count("active_policy") {
-        Ok(Some(n)) => checks.push(ok("active_policy", format!("table present, rows={n}"))),
+        Ok(Some(_)) => match storage.policy_current() {
+            Ok(Some(rec)) => {
+                let prefix: String = rec.policy_hash.chars().take(12).collect();
+                let total = storage.policy_list().map(|v| v.len()).unwrap_or(0);
+                checks.push(ok(
+                    "active_policy",
+                    format!(
+                        "table present, rows={total}, active=v{ver}, hash={prefix}…",
+                        ver = rec.version,
+                    ),
+                ));
+            }
+            Ok(None) => checks.push(skip(
+                "active_policy",
+                "table present but no policy activated yet — run \
+                 `mandate policy activate <file> --db <path>` to seed one (PSM-A3)",
+            )),
+            Err(e) => checks.push(fail("active_policy", e.to_string())),
+        },
         Ok(None) => checks.push(skip(
             "active_policy",
-            "table not present — policy lifecycle (PSM-A3) not implemented; \
-             daemon currently uses the embedded reference policy",
+            "table not present — older daemon DB before V006; the daemon \
+             still uses the embedded reference policy until `mandate policy \
+             activate` runs against an upgraded DB (PSM-A3)",
         )),
         Err(e) => checks.push(fail("active_policy", e.to_string())),
     }
@@ -412,12 +438,15 @@ mod tests {
     #[test]
     fn fresh_in_memory_db_yields_ok_overall() {
         // A fresh storage on current `main` has:
-        //   - migrations applied (V001 + V002 + V004),
-        //   - idempotency_keys table present (V004) — ok,
-        //   - nonce_replay table present (V002) — ok,
-        //   - mock_kms_keys, active_policy → skip (not on main yet),
-        //   - audit_chain → skip (no events yet),
-        //   - payment_requests → ok (V001).
+        //   - migrations applied (V001 + V002 + V004 + V005 + V006),
+        //   - nonce_replay (V002), idempotency_keys (V004),
+        //     mock_kms_keys (V005), payment_requests (V001) — all
+        //     present, all rows=0 → ok rows.
+        //   - active_policy (V006) table present but no policy seeded
+        //     yet → skip with PSM-A3 pointer (truthfulness rule:
+        //     "table is here but you haven't activated anything yet"
+        //     is honest, not fake-ok).
+        //   - audit_chain → skip (no events yet).
         // No fails, no warns → overall ok.
         let s = fresh_storage();
         let checks = run_checks(&s);
@@ -490,6 +519,86 @@ mod tests {
                 );
             }
             other => panic!("expected skip on older DB without V004, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn active_policy_skip_when_no_policy_seeded() {
+        // PSM-A3 truthfulness rule: a fresh DB has the V006 table but
+        // nothing has been activated yet. Doctor must surface this as
+        // skip with a pointer at `mandate policy activate`, not as
+        // ok or as a missing-table skip — the table IS here, it's the
+        // policy that's missing.
+        let s = fresh_storage();
+        let checks = run_checks(&s);
+        let row = checks
+            .iter()
+            .find(|c| c.name == "active_policy")
+            .expect("active_policy row");
+        match &row.status {
+            CheckStatus::Skip { reason } => {
+                assert!(
+                    reason.contains("activate") && reason.contains("PSM-A3"),
+                    "skip reason must point at `mandate policy activate` and PSM-A3; got: {reason}"
+                );
+            }
+            other => panic!("expected skip on freshly migrated DB without policy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn active_policy_reports_ok_after_activate() {
+        // After a policy is activated, the row flips to ok and
+        // surfaces both the version and a 12-char hash prefix so an
+        // operator can confirm which policy is live. We hand the
+        // storage layer an arbitrary stable JSON + hash here — the
+        // doctor only reads what's persisted, not what `Policy::parse`
+        // would have produced (that's covered by the CLI integration
+        // test that pins the embedded reference hash).
+        use chrono::Utc;
+        let mut s = fresh_storage();
+        let policy_json = r#"{"version":1,"agents":[],"rules":[{"id":"r-1"}],"providers":[],"recipients":[],"budgets":[]}"#;
+        let hash = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+        s.policy_activate(policy_json, hash, "operator-cli", Utc::now())
+            .unwrap();
+        let checks = run_checks(&s);
+        let row = checks
+            .iter()
+            .find(|c| c.name == "active_policy")
+            .expect("active_policy row");
+        match &row.status {
+            CheckStatus::Ok { detail } => {
+                assert!(detail.contains("active=v1"), "got: {detail}");
+                let prefix = &hash[..12];
+                assert!(
+                    detail.contains(prefix),
+                    "detail must include the first 12 hex chars of the hash; got: {detail}"
+                );
+            }
+            other => panic!("expected ok after activate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn active_policy_skip_when_table_missing_on_older_db() {
+        // Pre-V006 daemon DB: drop the table to simulate an older
+        // daemon that hasn't applied V006 yet. The skip must point
+        // operators at the V006 migration / `mandate policy activate`
+        // flow.
+        let (_tmp, s) = storage_without_table("active_policy");
+        let checks = run_checks(&s);
+        let row = checks
+            .iter()
+            .find(|c| c.name == "active_policy")
+            .expect("active_policy row");
+        match &row.status {
+            CheckStatus::Skip { reason } => {
+                assert!(
+                    reason.contains("PSM-A3") && reason.contains("V006"),
+                    "skip reason must reference PSM-A3 + V006: {reason}"
+                );
+            }
+            other => panic!("expected skip on older DB without V006, got {other:?}"),
         }
     }
 
