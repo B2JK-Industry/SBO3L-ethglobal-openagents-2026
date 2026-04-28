@@ -48,9 +48,12 @@ backend PRs land and a tiny B-side follow-up consumes the new value.
 - **Mock sponsor disclosure** — KeeperHub allow path + mock tag, KeeperHub deny path refusal, denied-action-executed status, ENS offline-fixture pill, Uniswap `local_mock` pill.
 - **Audit-bundle verification (optional)** — when invoked with `--bundle <path>`, runs `mandate audit verify-bundle` and renders the parsed result. Without `--bundle`, renders an honest "bundle not provided" state with the exact commands to produce one.
 
-**Blocked panels (rendered as honest "not implemented yet" placeholders):**
+**Pending-panel placeholder (backend already merged on `main`; console panel landing in B2.v2):**
 
-- HTTP `Idempotency-Key` safe-retry — backlog **PSM-A2**
+- HTTP `Idempotency-Key` safe-retry — **PSM-A2 merged on `main`** (PR #23). Console panel intentionally still pending B2.v2; the four-case behaviour matrix is exercised today by `demo-scripts/run-production-shaped-mock.sh` step 7. The placeholder pill is blue (`pending`), not yellow (`blocked`), to avoid the dishonest "not implemented yet" claim.
+
+**Blocked-panel placeholders (backend not yet merged):**
+
 - Active policy lifecycle (`mandate policy current` / `activate` / `diff`) — backlog **PSM-A3**
 - Mock KMS CLI surface (`mandate key list --mock` / `mandate key rotate --mock`) + storage — backlog **PSM-A1.9**
 - Audit checkpoints (`mandate audit checkpoint create` / `verify`) — backlog **PSM-A4**
@@ -169,8 +172,7 @@ Discipline for every B2.v2+ PR:
 - Same regression-test pattern: assert the panel renders the new value AND assert the placeholder no longer appears.
 - No marketing copy, no fake values, no silent fallback to a placeholder when the backend value is malformed (render an explicit failure state instead).
 
-B2.v2 implementation is **gated on PSM-A2 being merged into `main`**.
-This document is read-only planning until that gate clears.
+B2.v2 implementation is **unblocked** — PSM-A2 has merged on `main` (PR #23). The console panel update is the next B-side PR; today the production-shaped runner walks the four-case Idempotency-Key behaviour matrix end-to-end against a real `mandate-server` daemon, and the operator-console PSM-A2 row carries a blue `pending` pill pointing at that runner.
 
 ## Honest scope
 
