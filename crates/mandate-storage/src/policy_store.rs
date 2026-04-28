@@ -343,6 +343,82 @@ mod tests {
         assert!(s.policy_get_version(99).unwrap().is_none());
     }
 
+    /// Codex P1 review on PR #35: the singleton invariant must be
+    /// enforced by the database itself, not just by the
+    /// `policy_activate` CLI guard. This test bypasses the high-level
+    /// activate path and INSERTs a second active row directly via raw
+    /// rusqlite. With the V006 partial UNIQUE index keyed on
+    /// `(deactivated_at IS NULL)`, that second insert MUST fail with
+    /// a UNIQUE constraint error. The previous shape — partial UNIQUE
+    /// keyed directly on `deactivated_at` — silently accepted the
+    /// second insert because SQLite treats every NULL as distinct.
+    #[test]
+    fn db_layer_refuses_two_active_rows_even_via_raw_insert() {
+        let mut s = Storage::open_in_memory().unwrap();
+        let (j1, h1) = pol("rule-a");
+        s.policy_activate(&j1, &h1, "operator-cli", now_at("2026-04-28T10:00:00Z"))
+            .unwrap();
+
+        // Bypass `policy_activate` entirely. If the singleton invariant
+        // depended only on the CLI's "deactivate previous in same tx"
+        // path, this insert would succeed and the table would carry
+        // two active rows — which is exactly the shape Codex P1 caught.
+        let raw_insert = s.conn.execute(
+            "INSERT INTO active_policy
+             (version, policy_hash, policy_json, activated_at, deactivated_at, source)
+             VALUES (?1, ?2, ?3, ?4, NULL, ?5)",
+            rusqlite::params![
+                999_i64,
+                "0".repeat(64), // a different, syntactically-valid hash
+                "{}",
+                "2026-04-28T11:00:00Z",
+                "test-bypass",
+            ],
+        );
+        let err = raw_insert.expect_err(
+            "DB-level singleton invariant must reject a second active row \
+             even when policy_activate is bypassed",
+        );
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("unique") || msg.contains("constraint"),
+            "expected UNIQUE constraint failure; got: {msg}"
+        );
+
+        // Sanity: the original active row is still present and is
+        // still the one and only active policy.
+        let all = s.policy_list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].policy_hash, h1);
+        assert!(all[0].deactivated_at.is_none());
+    }
+
+    /// Pin the lifecycle: deactivate-then-activate is the supported
+    /// flow and the new singleton index must NOT block it. Distinct
+    /// from `db_layer_refuses_two_active_rows_…` above which exercises
+    /// the rejection path.
+    #[test]
+    fn db_layer_allows_normal_deactivate_then_activate_lifecycle() {
+        let mut s = Storage::open_in_memory().unwrap();
+        let (j1, h1) = pol("rule-a");
+        let (j2, h2) = pol("rule-b");
+        s.policy_activate(&j1, &h1, "operator-cli", now_at("2026-04-28T10:00:00Z"))
+            .unwrap();
+        // Activating a second, distinct policy goes through the
+        // policy_activate path which deactivates v1 in the same tx
+        // before inserting v2. The DB-level singleton index must
+        // accept this — historical (deactivated) rows are excluded
+        // from the partial index entirely.
+        let outcome = s
+            .policy_activate(&j2, &h2, "operator-cli", now_at("2026-04-28T11:00:00Z"))
+            .unwrap();
+        assert_eq!(outcome, ActivateOutcome::Activated { version: 2 });
+        let all = s.policy_list().unwrap();
+        assert_eq!(all.len(), 2);
+        assert!(all[0].deactivated_at.is_some(), "v1 deactivated");
+        assert!(all[1].deactivated_at.is_none(), "v2 active");
+    }
+
     #[test]
     fn policy_persists_across_storage_reopen() {
         let tmp = tempfile::NamedTempFile::new().unwrap();

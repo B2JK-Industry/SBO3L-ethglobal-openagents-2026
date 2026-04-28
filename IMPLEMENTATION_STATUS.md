@@ -17,7 +17,7 @@ For the historical PR-by-PR audit trail, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --all-targets` | ✅ **198 / 198 pass** (0 fail, 0 ignored) |
+| `cargo test --workspace --all-targets` | ✅ **200 / 200 pass** (0 fail, 0 ignored) |
 | `python3 scripts/validate_schemas.py` | ✅ (6 schemas + 4 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |

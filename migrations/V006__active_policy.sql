@@ -28,11 +28,26 @@ CREATE TABLE IF NOT EXISTS active_policy (
     source         TEXT NOT NULL  -- e.g. "operator-cli", "embedded-ref-v1"
 );
 
--- Singleton: at most one row may be active at any moment. The partial
--- index keys only NULL `deactivated_at` rows, so historical rows do
--- not contend.
+-- Singleton: at most one row may be active at any moment.
+--
+-- Codex P1 review on PR #35 caught that a partial UNIQUE index keyed
+-- directly on `deactivated_at` does NOT enforce the singleton in
+-- SQLite — `UNIQUE` indexes treat each `NULL` as distinct, so two
+-- rows with `deactivated_at IS NULL` both pass the constraint and
+-- multiple active policies are possible through manual / concurrent
+-- writes (the in-tx CLI guard we already have only protects the
+-- `mandate policy activate` path).
+--
+-- The fix keys the index on `(deactivated_at IS NULL)`, an integer
+-- expression that is `1` for active rows and `0` for deactivated
+-- rows. Combined with the partial `WHERE deactivated_at IS NULL`,
+-- the index contains at most one entry — the value `1` — and a
+-- second active insert fails with a UNIQUE constraint error at the
+-- DB layer. Historical (deactivated) rows are excluded from the
+-- partial index entirely and do not contend.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_active_policy_singleton
-    ON active_policy(deactivated_at) WHERE deactivated_at IS NULL;
+    ON active_policy((deactivated_at IS NULL))
+    WHERE deactivated_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_active_policy_hash ON active_policy(policy_hash);
 

@@ -33,7 +33,7 @@ All implementation code in this repository:
 - Production-shaped mock fixtures (`demo-fixtures/mock-*.json`) + per-fixture transition guides (`demo-fixtures/mock-*.md`) + single `docs/production-transition-checklist.md`.
 - `demo-scripts/demo-video-script.md` — 3:30 video script with recording checklist.
 - Active-policy lifecycle: `mandate policy {validate, current, activate, diff}` (PSM-A3) backed by SQLite migration V006 (`active_policy` table with a non-NULL-keyed partial UNIQUE singleton index — the singleton invariant is enforced by the database itself, not just the CLI). This is **local** lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation. Documented in `docs/cli/policy.md`.
-- CI: fmt, clippy, tests (198 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
+- CI: fmt, clippy, tests (200 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
 - Production-shaped mock runner: `bash demo-scripts/run-production-shaped-mock.sh` walks the operator surface end-to-end (doctor, mock KMS CLI, full PSM-A3 policy lifecycle, persistent SQLite allow + deny, audit-bundle export). Tally: **21 real / 0 mock / 2 skipped** — only PSM-A4 (audit checkpoints) and the optional `--include-final-demo` flag remain on the SKIPPED list.
 
 ## What was reused as planning material
