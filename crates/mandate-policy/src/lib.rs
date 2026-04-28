@@ -8,6 +8,7 @@ pub mod model;
 pub use budget::{BudgetDeny, BudgetTracker};
 pub use engine::{decide, Decision, EngineError, Outcome};
 pub use model::{
-    AgentSelector, AgentStatus, Budget, BudgetScope, DefaultDecision, Emergency, Policy, Provider,
-    ProviderStatus, Recipient, RecipientStatus, Rule, RuleEffect,
+    AgentSelector, AgentStatus, Budget, BudgetScope, DefaultDecision, Emergency, Policy,
+    PolicyParseError, PolicyValidationError, Provider, ProviderStatus, Recipient, RecipientStatus,
+    Rule, RuleEffect,
 };
