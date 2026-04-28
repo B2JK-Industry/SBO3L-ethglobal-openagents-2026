@@ -150,15 +150,20 @@ else
 fi
 echo
 
-# ─── 4. Active policy lifecycle (Developer A backlog PSM-A3) ────────────
-# Runs against its own tempfile DB so an honest "no active policy" run
-# is visible BEFORE we activate the reference policy. Section 5 below
-# re-uses TMPDIR_PSM but on a separate DB file, so the persistent-
-# SQLite scenario stays independent.
+# Tempdir + policy DB for sections 4 and 5. Section 3 above uses its
+# own self-contained KMS_TMP so its lifecycle stays atomic; section 4
+# (active-policy lifecycle) and section 5 (persistent-SQLite allow +
+# deny) share one tempfile DB rooted here.
 TMPDIR_PSM="$(mktemp -d -t mandate-prod-shaped.XXXXXX)"
 trap 'rm -rf "$TMPDIR_PSM"' EXIT
 POLICY_DB="$TMPDIR_PSM/policy.db"
 REF_POLICY="test-corpus/policy/reference_low_risk.json"
+
+# ─── 4. Active policy lifecycle (PSM-A3 — REAL today) ───────────────────
+# Walks validate → current(no-active, exit 3) → activate → current(ok)
+# → diff against the reference policy. Each step exits the runner on
+# failure so the truthfulness contract holds: a broken lifecycle never
+# silently turns into a `skip`.
 
 bold "4. Active policy lifecycle (PSM-A3)"
 if have_subcmd policy current; then
@@ -169,8 +174,10 @@ if have_subcmd policy current; then
     fail "mandate policy validate failed against the reference policy"
     exit 1
   fi
-  # 4b. honest no-active (exit 3 on a freshly-initialised DB)
-  ./target/debug/mandate key list --mock --db "$POLICY_DB" >/dev/null  # primes V001..V006
+  # 4b. honest no-active (exit 3 on a fresh DB). `policy current` opens
+  # the DB (running V001..V006 on first touch) and surfaces the empty
+  # active_policy table as exit 3 + an honest "no active policy" line —
+  # NOT a fake `ok`.
   if ./target/debug/mandate policy current --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
     fail "policy current must exit non-zero on a fresh DB (honest no-active)"
     exit 1

@@ -52,11 +52,11 @@ backend PRs land and a tiny B-side follow-up consumes the new value.
 
 - HTTP `Idempotency-Key` safe-retry — **PSM-A2 merged on `main`** (PR #23). Console panel intentionally still pending B2.v2; the four-case behaviour matrix is exercised today by `demo-scripts/run-production-shaped-mock.sh` step 7. The placeholder pill is blue (`pending`), not yellow (`blocked`), to avoid the dishonest "not implemented yet" claim.
 - Mock KMS CLI surface (`mandate key list --mock` / `mandate key rotate --mock`) + storage — **PSM-A1.9 merged on `main`** (PR #28). Console panel intentionally still pending B2.v2.
+- Active policy lifecycle (`mandate policy validate` / `current` / `activate` / `diff`) — **PSM-A3 merged on `main`** (PR #35). Console panel intentionally still pending B2.v2; the full lifecycle is exercised today by `demo-scripts/run-production-shaped-mock.sh` step 4 (validate → no-active → activate → current → diff). The placeholder pill is blue (`pending`), not yellow (`blocked`), so the console doesn't lie that the lifecycle is unmerged.
 - Operator readiness summary (`mandate doctor`) — **PSM-A5 merged on `main`** (PR #25). Console panel intentionally still pending B2.v2; the runner's step 2 already auto-runs `mandate doctor` against the live binary.
 
 **Blocked-panel placeholders (backend not yet merged):**
 
-- Active policy lifecycle (`mandate policy current` / `activate` / `diff`) — backlog **PSM-A3**
 - Audit checkpoints (`mandate audit checkpoint create` / `verify`) — backlog **PSM-A4**
 
 Each placeholder lights up when the corresponding A-side PR lands and a
