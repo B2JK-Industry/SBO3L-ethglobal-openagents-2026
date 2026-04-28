@@ -6,11 +6,44 @@ Notes for partner sponsors during the ETHGlobal Open Agents 2026 build of **Mand
 
 How Mandate uses KeeperHub: *Mandate decides, KeeperHub executes.* After Mandate signs an `allow` policy receipt, the receipt and the underlying APRP are handed to `KeeperHubExecutor::execute()`. Denied receipts are refused before any sponsor call. The same signed receipt can be packaged into a verifiable audit bundle (`mandate audit export` / `mandate audit verify-bundle`) so downstream audits can re-derive what KeeperHub was asked to execute, what was approved, and which audit-chain position the decision occupies.
 
-- **What worked:** the "execution layer for AI agents onchain" framing maps directly onto our `GuardedExecutor` trait. The integration is a thin adapter, not a rewrite. Audit trails on KeeperHub's side complement our hash-chained audit log; the audit bundle gives KeeperHub a portable proof of *why* an action was authorised that any third-party auditor can re-verify offline.
-- **What was unclear:** at build time we could not find a stable public schema for an action submission/result envelope, so the hackathon adapter mocks execution. This is clearly disclosed in script output (`mock: true`). The live path is a separate Rust constructor (`KeeperHubExecutor::live()`); the demo always constructs `KeeperHubExecutor::local_mock()`. Switching is one constructor call once a stable submission schema and credentials are available — there is no env-var feature flag in this hackathon build.
-- **Suggested improvements:**
-  - Publish a JSON schema for action submission so third-party policy engines can validate locally before submitting.
-  - Native field for an upstream policy/receipt id so KeeperHub's audit trail can re-emit it and tie executions back to whoever authorised them.
+### What worked
+
+The "execution layer for AI agents onchain" framing maps directly onto our `GuardedExecutor` trait. The integration is a thin adapter, not a rewrite. Audit trails on KeeperHub's side complement our hash-chained audit log; the audit bundle gives KeeperHub a portable proof of *why* an action was authorised that any third-party auditor can re-verify offline.
+
+### What was unclear at build time
+
+- **Public submission/result schema.** We could not find a stable public schema for an action submission/result envelope, so the hackathon adapter mocks execution. This is clearly disclosed in script output (`mock: true`). The live path is a separate Rust constructor (`KeeperHubExecutor::live()`); the demo always constructs `KeeperHubExecutor::local_mock()`. Switching is one constructor call once a stable submission schema and credentials are available — there is no env-var feature flag in this hackathon build.
+- **Token-prefix naming.** From outside the docs, the `kh_*` vs `wfb_*` prefix split (KeeperHub-native API tokens vs workflow-webhook tokens) wasn't obvious. A short "which token does which thing" page in the public docs — with a worked example showing the exact header each token belongs in — would shave significant integration time off third-party adapters.
+- **`executionId` lookup.** It wasn't obvious how to look up the post-submit status (or run logs) of a previously-returned `executionId`. A documented GET path (or MCP tool — see below) would let policy engines and operators reconcile their own audit trails against KeeperHub's.
+
+### Suggested improvements
+
+- **Publish a JSON schema for action submission.** Third-party policy engines can validate locally before submitting; mismatches surface at the policy boundary, not over the wire.
+- **Documented `executionId` → status / run-log lookup.** Either as a documented GET endpoint or as an MCP tool. Mandate would call this from the operator console to render execution status next to the audit bundle that authorised it.
+- **First-class upstream policy/audit fields on submission.** Native, schema-blessed fields a caller can attach to the submission envelope so KeeperHub's audit trail can re-emit them on the result side and in run logs:
+  - `mandate_request_hash` — JCS-canonical SHA-256 of the APRP (Mandate's canonical request hash).
+  - `mandate_policy_hash` — canonical hash of the policy that authorised the action.
+  - `mandate_receipt_signature` — Ed25519 signature of the policy receipt (hex).
+  - `mandate_audit_event_id` — ULID of the audit-chain event the decision occupies.
+- **MCP tool: `keeperhub.lookup_execution(execution_id)`** — returns status + run-log pointer + the `mandate_*` fields above (echoed back). Lets a Mandate operator (or any auditor) connect a KeeperHub execution row directly to the upstream Mandate authorization proof without out-of-band correlation.
+- **Optional webhook headers from KeeperHub → caller.** When a workflow webhook fires back to a Mandate-style consumer, attach two optional headers so the consumer can verify the upstream proof in one network round trip:
+  - `X-Mandate-Receipt-Signature: <hex>`
+  - `X-Mandate-Policy-Hash: <hex>`
+- **Why these matter (in one sentence).** Today an auditor reading a KeeperHub execution row has no cryptographic link back to the Mandate decision that approved it; with the four `mandate_*` fields plus the two optional headers, an offline auditor can take a KeeperHub execution log line, a Mandate audit bundle, and verify end-to-end that the executed action was the one Mandate signed off on — without trusting either side to correlate honestly.
+
+### KeeperHub live integration target
+
+This is what the live path looks like once a stable schema + credentials are available. It is **not implemented** in this hackathon build (which honestly mocks execution behind `KeeperHubExecutor::local_mock()`); it is documented here so KeeperHub's team can pre-empt the obvious questions during review.
+
+- **Current build:** `KeeperHubExecutor::local_mock()` returns a deterministic `kh-<ULID>` `execution_ref` and prints `mock: true` in demo output. `KeeperHubExecutor::live()` is a separate Rust constructor and is the only place the live wiring needs to land. **No KeeperHub credentials, secrets, tokens, or fixtures are committed anywhere in this repo** — `git grep` for `kh_`, `wfb_`, `KEEPERHUB_TOKEN`, `KEEPERHUB_API_KEY` returns nothing under `crates/`, `demo-scripts/`, `demo-fixtures/`, or `test-corpus/`.
+- **Target live flow:**
+  1. Operator sets `MANDATE_KEEPERHUB_WEBHOOK_URL` and `MANDATE_KEEPERHUB_TOKEN` (or equivalent) in the daemon's environment. The token never enters the repo.
+  2. Mandate evaluates the APRP and signs an `allow` `PolicyReceipt`. Denied receipts are refused upstream — KeeperHub is never called for a denied action.
+  3. `KeeperHubExecutor::live()` POSTs the signed receipt + the canonical APRP body to the workflow webhook, attaching the four `mandate_*` fields above on the envelope (and, when KeeperHub publishes the optional response headers, expecting them on any signed callback).
+  4. The adapter parses the workflow's response, captures `executionId`, and returns it as the `execution_ref` on the Mandate `ExecutionReceipt`.
+  5. `executionId` is recorded in the Mandate audit bundle (`mandate audit export` already carries `execution_ref` opaquely). The operator console renders it next to the corresponding audit-bundle verification panel.
+  6. If the workflow returns a non-2xx status or an unparseable body, the live path surfaces an explicit `ExecutionError` — never a silent fallback to mock.
+- **Truthfulness:** until the live path is exercised against a real KeeperHub workflow webhook, the demo continues to ship `local_mock()` and the demo runner continues to print `mock: true`. We will not flip the public surface to "live" without a real network call to a real KeeperHub endpoint.
 
 ## ENS
 
