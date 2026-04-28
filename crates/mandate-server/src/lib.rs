@@ -156,6 +156,16 @@ fn extract_idempotency_key(headers: &HeaderMap) -> Result<Option<String>, Proble
             "non-ASCII bytes in header",
         )
     })?;
+    // PR #23 P2 review: the doc-comment above promises an empty header
+    // value is treated as absent (`Ok(None)`), but the length check below
+    // would otherwise reject `Idempotency-Key:` (empty) as
+    // `protocol.idempotency_key_invalid` 400. RFC 7230 §3.2.4 allows
+    // empty field-values; HTTP libraries that auto-emit headers from
+    // None values can produce them. Treat empty as absent so callers
+    // that pass `""` get the no-idempotency path instead of a 400.
+    if s.is_empty() {
+        return Ok(None);
+    }
     if s.len() < IDEMPOTENCY_KEY_MIN_LEN || s.len() > IDEMPOTENCY_KEY_MAX_LEN {
         return Err(problem(
             "protocol.idempotency_key_invalid",
@@ -959,5 +969,33 @@ mod tests {
         // The cache miss falls through to the nonce gate → 409.
         assert_eq!(s2, StatusCode::CONFLICT);
         assert_eq!(v2["code"], "protocol.nonce_replay");
+    }
+
+    // PR #23 P2 review: the doc-comment on `extract_idempotency_key`
+    // promises an empty header value is treated as absent (`Ok(None)`).
+    // These three tests pin that contract: absent → None, empty → None,
+    // too-short non-empty → 400. Without the empty-string guard the
+    // function used to reject `Idempotency-Key:` (empty) as a 400.
+    #[test]
+    fn extract_idempotency_key_absent_header_is_none() {
+        let headers = HeaderMap::new();
+        assert!(matches!(extract_idempotency_key(&headers), Ok(None)));
+    }
+
+    #[test]
+    fn extract_idempotency_key_empty_header_is_treated_as_absent() {
+        let mut headers = HeaderMap::new();
+        headers.insert(IDEMPOTENCY_KEY_HEADER, "".parse().unwrap());
+        assert!(matches!(extract_idempotency_key(&headers), Ok(None)));
+    }
+
+    #[test]
+    fn extract_idempotency_key_short_non_empty_is_rejected() {
+        let mut headers = HeaderMap::new();
+        headers.insert(IDEMPOTENCY_KEY_HEADER, "tooshort".parse().unwrap());
+        let err = extract_idempotency_key(&headers).unwrap_err();
+        // Problem carries a 400 with code protocol.idempotency_key_invalid.
+        assert_eq!(err.status, 400);
+        assert_eq!(err.code, "protocol.idempotency_key_invalid");
     }
 }
