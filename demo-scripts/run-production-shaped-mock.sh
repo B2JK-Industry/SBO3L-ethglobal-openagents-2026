@@ -433,12 +433,32 @@ fi
 ok "tampered bundle correctly rejected by verify-bundle"
 echo
 
-# ─── 10. Audit checkpoint create/verify (Developer A backlog) ────────────
-bold "10. Audit checkpoint create/verify (PSM-A4)"
+# ─── 10. Audit checkpoint create/verify (PSM-A4 — REAL today) ───────────
+# PSM-A4 shipped here: persistent `audit_checkpoints` table (V007) +
+# `mandate audit checkpoint {create,verify}` CLI surface. This is
+# **mock anchoring**, NOT real onchain anchoring — the
+# `mock_anchor_ref` is a deterministic local id, never broadcast and
+# never attested by any chain. The `mock-anchor:` prefix is on every
+# CLI output line for loud disclosure. We exercise create → verify
+# (no DB) → verify (--db) end-to-end against the live SQLite file
+# from §5/§6 so the anchor binds to a real audit chain.
+bold "10. Audit checkpoint create/verify (PSM-A4 — mock anchoring)"
 if have_subcmd audit checkpoint; then
-  ./target/debug/mandate audit checkpoint create --help >/dev/null 2>&1 \
-    && ok "mandate audit checkpoint available" \
-    || skip "mandate audit checkpoint subcommand exists but help failed"
+  CHECKPOINT_OUT="$TMPDIR_PSM/checkpoint.json"
+  if ./target/debug/mandate audit checkpoint create \
+       --db "$DB_PATH" --out "$CHECKPOINT_OUT" 2>&1 | sed 's/^/    /'; then
+    ok "mandate audit checkpoint create --db $DB_PATH --out $CHECKPOINT_OUT"
+  else
+    fail "mandate audit checkpoint create returned non-zero"
+    exit 1
+  fi
+  if ./target/debug/mandate audit checkpoint verify "$CHECKPOINT_OUT" \
+       --db "$DB_PATH" 2>&1 | sed 's/^/    /'; then
+    ok "mandate audit checkpoint verify $(basename "$CHECKPOINT_OUT") --db $DB_PATH (chain_digest + anchor row + latest_event_hash all match)"
+  else
+    fail "mandate audit checkpoint verify returned non-zero"
+    exit 1
+  fi
 else
   skip "blocked: waiting for \`mandate audit checkpoint\` (backlog PSM-A4)"
   note_skip "Audit checkpoints + mock anchoring — PSM-A4"
@@ -474,6 +494,11 @@ cat <<EOF
     - signed Ed25519 policy receipts, hash-chained audit log
     - mock KMS CLI surface (PSM-A1.9): \`mandate key {init,list,rotate} --mock\`
       lifecycle exercised against a fresh SQLite (V005 \`mock_kms_keys\`)
+    - active-policy lifecycle (PSM-A3): \`mandate policy {validate,current,activate,diff}\`
+      against V006 \`active_policy\` with DB-enforced singleton invariant
+    - audit checkpoints (PSM-A4 — **MOCK ANCHORING**, not onchain):
+      \`mandate audit checkpoint {create,verify}\` against V007 \`audit_checkpoints\`;
+      every output line carries the \`mock-anchor:\` prefix
     - \`mandate doctor\` (PSM-A5): operator readiness summary
     - HTTP \`Idempotency-Key\` safe-retry (PSM-A2): four-case behaviour
       matrix exercised against a real mandate-server on 127.0.0.1:${IDEM_PORT}

@@ -26,15 +26,16 @@ All implementation code in this repository:
 - Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh`.
 - `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection, agent no-key boundary proof, and a deterministic transcript artifact.
 - Static, offline trust-badge proof viewer (`trust-badge/build.py`) + stdlib regression test (`trust-badge/test_build.py`).
-- Static, offline operator console (`operator-console/build.py`) — sister surface to the trust-badge with three pending pills (PSM-A2 / PSM-A5 / PSM-A1.9 — backends merged, panels landing in B2.v2) and two blocked pills (PSM-A3 / PSM-A4).
+- Static, offline operator console (`operator-console/build.py`) — sister surface to the trust-badge with five pending pills (PSM-A2 / PSM-A5 / PSM-A1.9 / PSM-A3 / PSM-A4 — all backends merged, panels landing in B2.v2); zero blocked pills.
 - HTTP `Idempotency-Key` safe-retry (PSM-A2): persistent SQLite-backed dedup with the four-case behaviour matrix exercised by `demo-scripts/run-production-shaped-mock.sh` step 7 against a real `mandate-server` daemon.
 - `mandate doctor` (PSM-A5): operator readiness summary; refuses to open a missing DB (no write-on-typo); per-feature `ok`/`skip`/`warn`/`fail`; stable JSON envelope.
 - Mock KMS CLI surface + persistence (PSM-A1.9): `mandate key {init,list,rotate} --mock` with `mock_kms_keys` SQLite table (V005). Mock — not production-grade.
 - Production-shaped mock fixtures (`demo-fixtures/mock-*.json`) + per-fixture transition guides (`demo-fixtures/mock-*.md`) + single `docs/production-transition-checklist.md`.
 - `demo-scripts/demo-video-script.md` — 3:30 video script with recording checklist.
 - Active-policy lifecycle: `mandate policy {validate, current, activate, diff}` (PSM-A3) backed by SQLite migration V006 (`active_policy` table with a non-NULL-keyed partial UNIQUE singleton index — the singleton invariant is enforced by the database itself, not just the CLI). This is **local** lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation. Documented in `docs/cli/policy.md`.
-- CI: fmt, clippy, tests (200 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
-- Production-shaped mock runner: `bash demo-scripts/run-production-shaped-mock.sh` walks the operator surface end-to-end (doctor, mock KMS CLI, full PSM-A3 policy lifecycle, persistent SQLite allow + deny, audit-bundle export). Tally: **21 real / 0 mock / 2 skipped** — only PSM-A4 (audit checkpoints) and the optional `--include-final-demo` flag remain on the SKIPPED list.
+- Audit checkpoints + mock anchoring: `mandate audit checkpoint {create, verify}` (PSM-A4) backed by SQLite migration V007 (`audit_checkpoints` table). **Mock anchoring**, NOT real onchain anchoring — `mock_anchor_ref` is a deterministic local id, never broadcast. Every CLI line carries a `mock-anchor:` prefix and every JSON artifact carries `mock_anchor: true`. Documented in `docs/cli/audit-checkpoint.md`.
+- CI: fmt, clippy, tests (215 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
+- Production-shaped mock runner: `bash demo-scripts/run-production-shaped-mock.sh` walks the operator surface end-to-end (doctor, mock KMS CLI, full PSM-A3 policy lifecycle, **PSM-A4 audit checkpoint create/verify with mock anchoring**, persistent SQLite allow + deny, audit-bundle export). Tally: **23 real / 0 mock / 1 skipped** — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list.
 
 ## What was reused as planning material
 

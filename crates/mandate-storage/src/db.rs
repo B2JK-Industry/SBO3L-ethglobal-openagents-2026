@@ -12,17 +12,20 @@ pub const V002_SQL: &str = include_str!("../../../migrations/V002__nonce_replay.
 pub const V004_SQL: &str = include_str!("../../../migrations/V004__idempotency_keys.sql");
 pub const V005_SQL: &str = include_str!("../../../migrations/V005__mock_kms_keys.sql");
 pub const V006_SQL: &str = include_str!("../../../migrations/V006__active_policy.sql");
+pub const V007_SQL: &str = include_str!("../../../migrations/V007__audit_checkpoints.sql");
 
 // V003 reserved for an experiment that did not land. V004 = PSM-A2
 // (idempotency_keys, PR #23). V005 = PSM-A1.9 (mock_kms_keys, PR #28).
-// V006 = PSM-A3 (active_policy, this PR). Sparse numbering kept
-// intentional so parallel branches don't collide on the same number.
+// V006 = PSM-A3 (active_policy, PR #35). V007 = PSM-A4 (audit
+// checkpoints, this PR). Sparse numbering kept intentional so
+// parallel branches don't collide on the same number.
 const MIGRATIONS: &[(i64, &str, &str)] = &[
     (1, "init", V001_SQL),
     (2, "nonce_replay", V002_SQL),
     (4, "idempotency_keys", V004_SQL),
     (5, "mock_kms_keys", V005_SQL),
     (6, "active_policy", V006_SQL),
+    (7, "audit_checkpoints", V007_SQL),
 ];
 
 pub struct Storage {

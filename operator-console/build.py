@@ -351,7 +351,7 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 <dt>HTTP <code>Idempotency-Key</code> safe-retry</dt><dd>{pending_pill("PSM-A2", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 <dt>Active policy lifecycle (<code>mandate policy current</code> / <code>activate</code> / <code>diff</code>)</dt><dd>{pending_pill("PSM-A3", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 <dt>Mock KMS CLI surface (<code>mandate key list --mock</code> / <code>key rotate --mock</code>) + storage</dt><dd>{pending_pill("PSM-A1.9", "demo-scripts/run-production-shaped-mock.sh")}</dd>
-<dt>Audit checkpoints (<code>mandate audit checkpoint create</code> / <code>verify</code>)</dt><dd>{blocked_pill("PSM-A4")}</dd>
+<dt>Audit checkpoints (<code>mandate audit checkpoint create</code> / <code>verify</code>) — <strong>mock anchoring, not onchain</strong></dt><dd>{pending_pill("PSM-A4", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 <dt>Operator readiness summary (<code>mandate doctor</code>)</dt><dd>{pending_pill("PSM-A5", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 </dl>
 <p class="empty">Each placeholder lights up automatically once Developer A's corresponding PR lands and a follow-up B-side PR consumes the new value. The console renders honestly today: nothing is faked, nothing is hidden.</p>

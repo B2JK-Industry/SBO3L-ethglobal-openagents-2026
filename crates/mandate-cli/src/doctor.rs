@@ -226,7 +226,55 @@ fn run_checks(storage: &Storage) -> Vec<Check> {
         Err(e) => checks.push(fail("active_policy", e.to_string())),
     }
 
-    // 7. payment_requests (existing table from V001)
+    // 7. audit checkpoints (PSM-A4)
+    //
+    // Three states, all honest:
+    //   - table present + at least one row: `ok` with count + the
+    //     latest checkpoint's sequence + 12-char anchor-ref tail
+    //     (full ref via `mandate audit checkpoint create --out` or
+    //     storage list).
+    //   - table present + no rows: `skip` ("no checkpoint created
+    //     yet — run `mandate audit checkpoint create`"). Truthful:
+    //     the table exists but no anchor has been issued.
+    //   - table missing entirely: `skip` ("older daemon DB before
+    //     V007"). The CLI surface and storage are unavailable on
+    //     this DB until the migration runs.
+    match storage.optional_count("audit_checkpoints") {
+        Ok(Some(_)) => match storage.audit_checkpoint_latest() {
+            Ok(Some(rec)) => {
+                let total = storage.audit_checkpoint_count().unwrap_or(0);
+                let tail = rec
+                    .mock_anchor_ref
+                    .strip_prefix("local-mock-anchor-")
+                    .unwrap_or(&rec.mock_anchor_ref);
+                let prefix: String = tail.chars().take(12).collect();
+                checks.push(ok(
+                    "audit_checkpoints",
+                    format!(
+                        "table present, rows={total}, latest=seq{seq}, anchor={prefix}… \
+                         (mock — see docs/cli/audit-checkpoint.md)",
+                        seq = rec.sequence,
+                    ),
+                ));
+            }
+            Ok(None) => checks.push(skip(
+                "audit_checkpoints",
+                "table present but no checkpoint created yet — run \
+                 `mandate audit checkpoint create --db <path>` to anchor the \
+                 current chain tip (PSM-A4 — mock anchoring, not onchain)",
+            )),
+            Err(e) => checks.push(fail("audit_checkpoints", e.to_string())),
+        },
+        Ok(None) => checks.push(skip(
+            "audit_checkpoints",
+            "table not present — older daemon DB before V007; the audit \
+             checkpoint surface (PSM-A4) is unavailable until the V007 \
+             migration runs. Mock anchoring, not onchain.",
+        )),
+        Err(e) => checks.push(fail("audit_checkpoints", e.to_string())),
+    }
+
+    // 8. payment_requests (existing table from V001)
     match storage.optional_count("payment_requests") {
         Ok(Some(n)) => checks.push(ok("payment_requests", format!("table present, rows={n}"))),
         Ok(None) => checks.push(fail(
@@ -438,14 +486,14 @@ mod tests {
     #[test]
     fn fresh_in_memory_db_yields_ok_overall() {
         // A fresh storage on current `main` has:
-        //   - migrations applied (V001 + V002 + V004 + V005 + V006),
+        //   - migrations applied (V001 + V002 + V004 + V005 + V006 + V007),
         //   - nonce_replay (V002), idempotency_keys (V004),
         //     mock_kms_keys (V005), payment_requests (V001) — all
         //     present, all rows=0 → ok rows.
         //   - active_policy (V006) table present but no policy seeded
-        //     yet → skip with PSM-A3 pointer (truthfulness rule:
-        //     "table is here but you haven't activated anything yet"
-        //     is honest, not fake-ok).
+        //     yet → skip with PSM-A3 pointer.
+        //   - audit_checkpoints (V007) table present but no
+        //     checkpoint created yet → skip with PSM-A4 pointer.
         //   - audit_chain → skip (no events yet).
         // No fails, no warns → overall ok.
         let s = fresh_storage();
@@ -599,6 +647,107 @@ mod tests {
                 );
             }
             other => panic!("expected skip on older DB without V006, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn audit_checkpoints_skip_when_no_checkpoint_seeded() {
+        // PSM-A4 truthfulness rule: a fresh DB has the V007 table
+        // but no checkpoint has been created yet. Doctor must
+        // surface skip with a pointer at `mandate audit checkpoint
+        // create` and explicit "mock anchoring" disclosure — never
+        // fake-ok and never silently claim onchain.
+        let s = fresh_storage();
+        let checks = run_checks(&s);
+        let row = checks
+            .iter()
+            .find(|c| c.name == "audit_checkpoints")
+            .expect("audit_checkpoints row");
+        match &row.status {
+            CheckStatus::Skip { reason } => {
+                assert!(
+                    reason.contains("checkpoint create") && reason.contains("PSM-A4"),
+                    "skip reason must point at create + PSM-A4: {reason}"
+                );
+                assert!(
+                    reason.contains("mock") && !reason.to_lowercase().contains("onchain anchor"),
+                    "skip reason must disclose mock anchoring without overclaiming: {reason}"
+                );
+            }
+            other => {
+                panic!("expected skip on freshly migrated DB without a checkpoint, got {other:?}")
+            }
+        }
+    }
+
+    #[test]
+    fn audit_checkpoints_reports_ok_after_create() {
+        // After at least one checkpoint exists, the row flips to ok
+        // and surfaces sequence + the first 12 hex chars of the
+        // mock_anchor_ref tail. Full ref is available via `mandate
+        // audit checkpoint create --out` or storage list.
+        use chrono::Utc;
+        use mandate_core::signer::DevSigner;
+        use mandate_storage::audit_checkpoint_store::compute_chain_digest;
+        use mandate_storage::audit_store::NewAuditEvent;
+        let mut s = fresh_storage();
+        let signer = DevSigner::from_seed("doctor-checkpoint", [9u8; 32]);
+        s.audit_append(
+            NewAuditEvent::now("policy_decided", "doctor-test", "subj-1"),
+            &signer,
+        )
+        .unwrap();
+        let hashes = s.audit_event_hashes_in_order().unwrap();
+        let digest = compute_chain_digest(&hashes).unwrap();
+        let rec = s.audit_checkpoint_create(&digest, Utc::now()).unwrap();
+        let checks = run_checks(&s);
+        let row = checks
+            .iter()
+            .find(|c| c.name == "audit_checkpoints")
+            .expect("audit_checkpoints row");
+        match &row.status {
+            CheckStatus::Ok { detail } => {
+                assert!(detail.contains("rows=1"), "got: {detail}");
+                assert!(detail.contains("latest=seq1"), "got: {detail}");
+                assert!(detail.contains("mock"), "must disclose mock: {detail}");
+                let tail = rec
+                    .mock_anchor_ref
+                    .strip_prefix("local-mock-anchor-")
+                    .unwrap();
+                let prefix = &tail[..12];
+                assert!(
+                    detail.contains(prefix),
+                    "detail must include the 12-hex anchor prefix; got: {detail}"
+                );
+            }
+            other => panic!("expected ok after checkpoint create, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn audit_checkpoints_skip_when_table_missing_on_older_db() {
+        // Pre-V007 daemon DB: drop the table to simulate an older
+        // daemon. Skip must reference PSM-A4 + V007 and explicitly
+        // mention "mock" so an operator knows the upgrade path AND
+        // that the surface they're missing is not onchain anchoring.
+        let (_tmp, s) = storage_without_table("audit_checkpoints");
+        let checks = run_checks(&s);
+        let row = checks
+            .iter()
+            .find(|c| c.name == "audit_checkpoints")
+            .expect("audit_checkpoints row");
+        match &row.status {
+            CheckStatus::Skip { reason } => {
+                assert!(
+                    reason.contains("PSM-A4") && reason.contains("V007"),
+                    "skip reason must reference PSM-A4 + V007: {reason}"
+                );
+                assert!(
+                    reason.to_lowercase().contains("mock"),
+                    "skip reason must disclose mock anchoring: {reason}"
+                );
+            }
+            other => panic!("expected skip on older DB without V007, got {other:?}"),
         }
     }
 
