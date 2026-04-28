@@ -43,7 +43,7 @@ Mandate is a local policy, budget, receipt and audit firewall that decides wheth
 
 A research-agent in our demo emits a payment request (an APRP — "Agent Payment Request Protocol") across the Mandate boundary. Mandate validates the request, evaluates a deterministic policy, enforces multi-scope budgets, rejects replayed nonces with HTTP 409, signs an Ed25519 policy receipt, appends a hash-chained audit event, and only then routes the action to a sponsor executor (KeeperHub or Uniswap in this demo). When the same agent is prompt-injected and forwards a hostile request, Mandate denies before any signer or executor runs and the audit log captures the rejection. Tampering with one byte of an audit event is rejected by the strict-hash verifier.
 
-The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 90/90 tests pass, schemas validate, the demo's 11 gates are green end-to-end including the audit-chain tamper-detection step.
+The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 96/96 tests pass, schemas validate, the demo's 11 gates are green end-to-end including the audit-chain tamper-detection step.
 
 Mandate is not a wallet, not a relayer, and not a trading bot. It is the pre-execution policy and signing boundary that lets autonomous agents transact without ever being trusted with a key.
 ```
@@ -65,7 +65,7 @@ Rust workspace (8 crates + research-agent demo binary):
   - mandate-core        APRP types, JCS canonical hashing, Ed25519 signer, receipts, decision tokens, audit events.
   - mandate-policy      Policy model + Rego-compatible expression evaluator, decide(), multi-scope budget tracker.
   - mandate-storage     SQLite-backed audit log with hash-chain verifier (rusqlite + migrations).
-  - mandate-server      axum HTTP server, POST /v1/payment-requests pipeline, in-memory APRP nonce-replay gate.
+  - mandate-server      axum HTTP server, POST /v1/payment-requests pipeline, SQLite-backed APRP nonce-replay gate (atomic INSERT into the `nonce_replay` table from migration V002).
   - mandate-execution   Guarded-executor adapters (KeeperHub, Uniswap) with explicit local_mock / live constructors.
   - mandate-identity    ENS resolver trait + offline fixture resolver + policy_hash drift check.
   - mandate-mcp         MCP tool surface skeleton.
@@ -95,7 +95,7 @@ REAL (end-to-end, exercised by the test suite + the final demo):
   - JSON Schema validation — 6 schemas, 4-fixture corpus, no network.
   - Policy engine + agent gate (unknown / paused / revoked / `emergency.paused_agents` / `emergency.freeze_all`).
   - Multi-scope budget tracker (per_tx non-accumulating; daily / monthly / per_provider accumulating; commit only on Allow).
-  - APRP nonce replay rejection — HTTP 409 + `protocol.nonce_replay`, fires before request_hash / policy / budget / audit / signing so a replay produces no side effects.
+  - APRP nonce replay rejection — HTTP 409 + `protocol.nonce_replay`, fires before request_hash / policy / budget / audit / signing so a replay produces no side effects. Dedup is backed by the persistent `nonce_replay` SQLite table (migration V002) via `Storage::nonce_try_claim`, so a daemon configured with `Storage::open(path)` rejects replays across process restart; the demo defaults to `Storage::open_in_memory()`, where the same SQLite-backed dedup persists for the lifetime of the demo process.
   - Ed25519-signed policy receipts, decision tokens and audit events.
   - Hash-chained audit log (SQLite + JSONL verifier with structural and strict-hash modes).
   - Audit-chain tamper detection — flip one byte and strict-hash verify rejects.
@@ -109,7 +109,7 @@ MOCKED / OFFLINE in this hackathon build (clearly labelled in demo output):
 
 Not present in this build (intentional):
   - No `MANDATE_*_LIVE` environment variable feature flag — switching any sponsor adapter from mock to live is a single-constructor-call change, not a runtime toggle.
-  - No persistent nonce store (the in-memory `seen_nonces` set resets on daemon restart; tracked as post-submission task PS-P1-01).
+  - No RFC 8470-style `Idempotency-Key` semantics for safe-retry on 5xx — a 5xx after the nonce is consumed will surface as a 409 `protocol.nonce_replay` on retry rather than replaying the original response.
   - No real secrets, API keys, private keys or wallet keys committed anywhere.
 ```
 
