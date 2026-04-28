@@ -571,3 +571,64 @@ fn db_backed_export_fails_when_db_chain_is_tampered() {
         "no bundle should be written when the DB chain doesn't verify"
     );
 }
+
+#[test]
+fn db_backed_export_fails_when_receipt_pubkey_is_wrong() {
+    // QA low finding follow-up: structurally the DB-backed export's
+    // pre-flight is `chain check (verify_chain) → receipt.verify(...)`,
+    // but until now we only had a direct test for the chain-side branch
+    // (`db_backed_export_fails_when_db_chain_is_tampered` and the
+    // wrong-audit-pubkey path it implicitly covers, since
+    // verify_chain also takes the audit pubkey). The receipt-side
+    // branch — `receipt signature pre-flight failed` — was reachable
+    // in code but not pinned by an integration test. This test
+    // closes that gap directly.
+    //
+    // Setup is the same well-formed DB fixture used by the happy-path
+    // test. The only thing wrong is `--receipt-pubkey`: we substitute
+    // a different DevSigner's pubkey, so the receipt's signature
+    // (made by the real receipt signer in the fixture) cannot verify
+    // under it. The export must exit non-zero with the receipt-side
+    // diagnostic on stderr, and crucially must not write the bundle
+    // file — a half-written bundle on a "wrong key" path would be a
+    // foot-gun for downstream consumers.
+    let (tmp, db, receipt, _rpk_correct, apk, _) = build_db_fixture();
+    let bundle_path = tmp.path().join("bundle.json");
+
+    // Pubkey of an unrelated signer — guaranteed not to match the
+    // receipt's signature.
+    let other_signer = DevSigner::from_seed("attacker-receipt-signer", [99u8; 32]);
+    let wrong_rpk = other_signer.verifying_key_hex();
+
+    let out = Command::new(cli_bin())
+        .args([
+            "audit",
+            "export",
+            "--receipt",
+            receipt.to_str().unwrap(),
+            "--db",
+            db.to_str().unwrap(),
+            "--receipt-pubkey",
+            &wrong_rpk,
+            "--audit-pubkey",
+            &apk,
+            "--out",
+            bundle_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "must reject wrong --receipt-pubkey; stdout={}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("receipt signature pre-flight failed"),
+        "expected receipt-side pre-flight diagnostic; got {stderr}"
+    );
+    assert!(
+        !bundle_path.exists(),
+        "no bundle should be written when the receipt pubkey doesn't match"
+    );
+}
