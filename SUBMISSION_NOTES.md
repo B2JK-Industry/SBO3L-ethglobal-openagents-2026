@@ -25,7 +25,7 @@ All implementation code in this repository:
 - Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh`.
 - `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection.
 - `demo-scripts/demo-video-script.md` — 3:30 storyboard with recording checklist.
-- CI: fmt, clippy, tests (69 passing), schema validation.
+- CI: fmt, clippy, tests (90 passing), schema validation.
 
 ## What was reused as planning material
 
@@ -53,7 +53,7 @@ These are documentation/specifications, not prior product code. See [`AI_USAGE.m
 
 - `Budget.soft_cap_usd` is parsed and validated against the schema, but not yet enforced by `BudgetTracker`. A production deployment (per `docs/spec/17_interface_contracts.md`) emits a soft-cap warning into the receipt; this hackathon build only enforces the hard cap (`cap_usd`). See comment in `crates/mandate-policy/src/model.rs`.
 - Signing seeds in `AppState::new` are constants in this public repo. Acceptable for the demo and CI; production callers must inject real signers via `AppState::with_signers` (TEE/HSM-backed). The dev-only path is gated with a visible warning comment in `crates/mandate-server/src/lib.rs`.
-- No request-level idempotency key / dedup. Replays are independently audited and receipted. Tracked in the backlog.
+- APRP nonce replay protection is enforced (`POST /v1/payment-requests` returns HTTP 409 `protocol.nonce_replay` on a reused nonce, before any policy/budget/audit/signing side effects). The `seen_nonces` set is in-memory only — it resets when the daemon restarts. RFC 8470-style `Idempotency-Key` semantics for safe-retry on 5xx are not implemented; a 5xx after the nonce is consumed will surface as a 409 on retry rather than a replay of the original response.
 
 ## Demo
 

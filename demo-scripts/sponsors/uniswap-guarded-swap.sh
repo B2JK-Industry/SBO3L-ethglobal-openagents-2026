@@ -14,8 +14,9 @@
 #      engine denies (`policy.deny_recipient_not_allowlisted`). The Uniswap
 #      executor refuses to run on the denied receipt.
 #
-# Live mode (MANDATE_UNISWAP_LIVE=1) is gated behind real Uniswap credentials
-# and is intentionally not wired into this hackathon build — see FEEDBACK.md.
+# The live executor (`UniswapExecutor::live()`) is intentionally stubbed in
+# this hackathon build and would error with `BackendOffline`. There is no
+# env-var feature flag — the demo always uses `local_mock()`. See FEEDBACK.md.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 

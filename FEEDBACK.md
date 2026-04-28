@@ -7,7 +7,7 @@ Notes for partner sponsors during the ETHGlobal Open Agents 2026 build of **Mand
 How Mandate uses KeeperHub: *Mandate decides, KeeperHub executes.* After Mandate signs an `allow` policy receipt, the receipt and the underlying APRP are handed to `KeeperHubExecutor::execute()`. Denied receipts are refused before any sponsor call.
 
 - **What worked:** the "execution layer for AI agents onchain" framing maps directly onto our `GuardedExecutor` trait. The integration is a thin adapter, not a rewrite. Audit trails on KeeperHub's side complement our hash-chained audit log.
-- **What was unclear:** at build time we could not find a stable public schema for an action submission/result envelope, so the hackathon adapter mocks execution. This is clearly disclosed in script output (`mock: true`) and gated behind `MANDATE_KEEPERHUB_LIVE=1` for the live switch.
+- **What was unclear:** at build time we could not find a stable public schema for an action submission/result envelope, so the hackathon adapter mocks execution. This is clearly disclosed in script output (`mock: true`). The live path is a separate Rust constructor (`KeeperHubExecutor::live()`); the demo always constructs `KeeperHubExecutor::local_mock()`. Switching is one constructor call once a stable submission schema and credentials are available — there is no env-var feature flag in this hackathon build.
 - **Suggested improvements:**
   - Publish a JSON schema for action submission so third-party policy engines can validate locally before submitting.
   - Native field for an upstream policy/receipt id so KeeperHub's audit trail can re-emit it and tie executions back to whoever authorised them.
@@ -41,7 +41,7 @@ How Mandate uses Uniswap: Mandate sits in front of any agent that wants to swap.
 
 ### Known limitations of the hackathon implementation
 
-- `demo-scripts/sponsors/uniswap-guarded-swap.sh` runs against a stored quote fixture by default. Live mode is gated behind `MANDATE_UNISWAP_LIVE=1` and a real Uniswap Trading API endpoint.
+- `demo-scripts/sponsors/uniswap-guarded-swap.sh` runs against a stored quote fixture. The live path (`UniswapExecutor::live()`) is intentionally stubbed in this hackathon build and would error with `BackendOffline`; the demo always uses `UniswapExecutor::local_mock()`. There is no env-var feature flag in this build — wiring up a real Uniswap Trading API endpoint is one function-body change.
 - The treasury recipient check uses the demo allowlist; production deployments should source it from the active Mandate policy's `recipients` list (already supported by `mandate-policy::Policy`).
 
 ## General

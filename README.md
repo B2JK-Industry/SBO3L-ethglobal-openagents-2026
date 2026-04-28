@@ -10,7 +10,7 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Status
 
-Pre-implementation. Repo bootstrap in progress. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for live progress.
+Implementation complete. All hardening PRs (#5, #6, #7, #8, #9) are merged into `main`; `cargo test --workspace --all-targets` runs **90/90 green**; `bash demo-scripts/run-openagents-final.sh` runs end-to-end clean. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the post-merge snapshot and [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the submission-readiness audit.
 
 ## What this is
 
@@ -19,11 +19,17 @@ Pre-implementation. Repo bootstrap in progress. See [`IMPLEMENTATION_STATUS.md`]
 - Sponsor-facing adapters for **KeeperHub**, **ENS** and (stretch) **Uniswap**.
 - Signed policy receipts and a tamper-evident audit hash chain.
 
-## How to run the demo (when ready)
+## How to run the demo
+
+From a fresh clone:
 
 ```bash
+git clone https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026.git
+cd mandate-ethglobal-openagents-2026
 bash demo-scripts/run-openagents-final.sh
 ```
+
+You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators. The demo runs in ~5 seconds and exercises all 11 steps including the audit-chain tamper detection.
 
 See [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) for the ETHGlobal submission narrative and [`AI_USAGE.md`](AI_USAGE.md) for AI tooling disclosure.
 

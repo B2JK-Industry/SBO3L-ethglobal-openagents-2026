@@ -155,8 +155,8 @@ bold "Demo complete — Open Agents vertical green."
 echo
 cat <<'EOF'
   ✔ ENS identity verified (research-agent.team.eth: policy_hash matches active).
-  ✔ Legitimate x402 spend approved -> KeeperHub executed.
-  ✔ Bounded USDC -> ETH swap allowed; rug-token swap denied.
+  ✔ Legitimate x402 spend approved -> KeeperHub mock executed (kh-<ULID>).
+  ✔ Bounded USDC -> ETH swap allowed (uni-<ULID> via Uniswap mock executor); rug-token swap denied.
   ✔ Prompt-injection denied at the Mandate boundary; receipt + audit_event recorded.
   ✔ Audit chain tampering rejected by strict-hash verifier.
 
