@@ -2,6 +2,7 @@
 
 pub mod aprp;
 pub mod audit;
+pub mod audit_bundle;
 pub mod decision_token;
 pub mod error;
 pub mod hashing;
