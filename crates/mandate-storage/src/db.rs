@@ -8,8 +8,9 @@ use sha2::Digest;
 use crate::error::{StorageError, StorageResult};
 
 pub const V001_SQL: &str = include_str!("../../../migrations/V001__init.sql");
+pub const V002_SQL: &str = include_str!("../../../migrations/V002__nonce_replay.sql");
 
-const MIGRATIONS: &[(i64, &str, &str)] = &[(1, "init", V001_SQL)];
+const MIGRATIONS: &[(i64, &str, &str)] = &[(1, "init", V001_SQL), (2, "nonce_replay", V002_SQL)];
 
 pub struct Storage {
     pub(crate) conn: Connection,

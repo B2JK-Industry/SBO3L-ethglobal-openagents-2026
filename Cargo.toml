@@ -57,6 +57,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # storage
 rusqlite = { version = "0.31", features = ["bundled"] }
+tempfile = "3"
 
 # server / client
 axum = "0.7"
