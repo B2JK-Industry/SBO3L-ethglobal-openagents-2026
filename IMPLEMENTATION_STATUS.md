@@ -1,74 +1,72 @@
 # Implementation Status
 
-Live progress tracker. Updated as slices complete.
+Post-merge snapshot for the ETHGlobal Open Agents 2026 submission.
 
 **Last updated:** 2026-04-28
-**Current phase:** Phase 4 — post-merge hardening; security/perf/refactor PRs in flight.
-**Current branch:** `feat/nonce-replay-protection`
-**Current PR:** [#7](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/7) — `feat: enforce protocol.nonce_replay (HTTP 409) on reused APRP nonces`
-**CI:** ✅ green on PR #7 (Rust check + JSON Schemas/OpenAPI validators).
-**Codex:** ✅ re-reviewed PR #7 — "Didn't find any major issues."
+**Phase:** 5 — submission readiness; `main` is submission-ready after the documentation cleanup in PR #10.
+**Implementation PRs merged into `main`:** `#1`, `#2`, `#5`, `#6`, `#7`, `#8`, `#9`. **Documentation cleanup:** PR `#10` (this commit). **No implementation PRs remain open.**
+**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
+**Blockers:** none.
 
-## Merged
+## Merged PRs
 
-- [x] PR #1 — `[WIP] Implement Mandate ETHGlobal Open Agents vertical` (squashed into `main` as `6f137fb`).
-- [x] PR #2 — `chore: add Codex (Claude Code) PR review workflow` (`f99cd2e`).
+| PR | Merge SHA | Title |
+|----|-----------|-------|
+| [#1](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/1) | `6f137fb` | `[WIP] Implement Mandate ETHGlobal Open Agents vertical` (full vertical) |
+| [#2](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/2) | `f99cd2e` | `chore: add Codex (Claude Code) PR review workflow` |
+| [#7](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/7) | `2c3eb70` | `feat: enforce protocol.nonce_replay (HTTP 409) on reused APRP nonces` |
+| [#9](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/9) | `8e24154` | `feat: validate policy uniqueness invariants in Policy::parse_{json,yaml}` |
+| [#8](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/8) | `931fb28` | `tests: null comparison + emergency.freeze_all regressions` |
+| [#6](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/6) | `30fb407` | `perf: collapse audit_last into a single query` |
+| [#5](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/5) | `f52596c` | `refactor: deduplicate same_origin into mandate-policy::util` |
 
-## Open PRs (all CI green, awaiting Daniel's manual review / merge)
+## What is implemented
 
-| PR | Branch | Title | Status |
-|----|--------|-------|--------|
-| [#5](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/5) | `chore/dedupe-same-origin` | refactor: deduplicate `same_origin` into `mandate-policy::util` | ✅ CI green |
-| [#6](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/6) | `perf/audit-last-single-query` | perf: collapse `audit_last` into a single query | ✅ CI green |
-| [#7](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/7) | `feat/nonce-replay-protection` | feat: enforce `protocol.nonce_replay` (HTTP 409) on reused APRP nonces | ✅ CI green, Codex re-reviewed clean |
-| [#8](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/8) | `tests/null-cmp-and-freeze-all` | tests: null comparison + `emergency.freeze_all` regressions (rebased) | ✅ CI green |
-| [#9](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/9) | `feat/policy-validation-hardening` | feat: validate policy uniqueness invariants in `Policy::parse_{json,yaml}` | ✅ CI green |
+Full Open Agents vertical:
 
-## Pending / stretch
+- Rust workspace (8 crates + research-agent demo bin).
+- `mandate` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit`.
+- APRP v1 wire format with `serde(deny_unknown_fields)` end-to-end + JCS canonical request hashing (golden hash `c0bd2fab…` locked in test).
+- Strict JSON Schema validation (embedded, local refs, no network).
+- Ed25519 dev signer (deterministic seed; production path via `AppState::with_signers`).
+- Policy receipt v1, decision token v1, audit event v1 — all sign + verify + schema-validated.
+- Hash-chained audit log with `prev_event_hash` linkage and SQLite-backed storage.
+- Tiny Rego-compatible expression evaluator + `decide()` + canonical policy hash.
+- Multi-scope budget tracker (`per_tx`, `daily`, `monthly`, `per_provider`) — accumulating where it should, non-accumulating where it shouldn't.
+- HTTP API: `POST /v1/payment-requests` (full pipeline: schema → request_hash → **nonce replay gate** → policy → budget → audit → signed receipt) + `GET /v1/health`.
+- Real research-agent harness (`legit-x402`, `prompt-injection`) using an in-memory daemon.
+- ENS identity adapter (offline fixture resolver + policy_hash verification).
+- KeeperHub guarded-execution adapter (`local_mock` + `live` constructor pair; demo uses `local_mock`).
+- Uniswap guarded-swap adapter (token allowlist, max notional, max slippage, quote freshness, treasury recipient) + `UniswapExecutor::local_mock()`.
+- Sponsor demo scripts: `ens-agent-identity.sh`, `keeperhub-guarded-execution.sh`, `uniswap-guarded-swap.sh`.
+- Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh` (`D-RT-PI-01..03`).
+- Reset hook: `demo-scripts/reset.sh`.
+- Final demo runner: `bash demo-scripts/run-openagents-final.sh` — single command, 11 steps, ~5 seconds, includes audit-chain tamper detection.
 
-- [ ] Live KeeperHub backend (stub today; one-function-body switch when credentials available).
-- [ ] Live ENS testnet resolver (offline fixture today; trait already abstracts the backend).
-- [ ] Live Uniswap quote backend (gated behind `MANDATE_UNISWAP_LIVE=1`; static fixture today).
-- [ ] Demo video (3:30 cut). Storyboard committed in `demo-scripts/demo-video-script.md`.
+## Hardening landed during this phase
 
-## PR #7 — what changed (current branch)
+- **PR #7** — APRP nonce replay protection (HTTP 409 `protocol.nonce_replay`). The replay gate fires before `request_hash` / policy / budget / audit / signing, so a duplicate nonce produces no audit/receipt side effects. Three regression tests cover (a) replay rejected, (b) distinct nonces independently processed, (c) replay with same nonce but mutated body still rejected. In-memory dedup set; resets on daemon restart (documented in `SUBMISSION_NOTES.md` "Known limitations").
+- **PR #9** — `Policy::parse_{json,yaml}` reject duplicate `agents[].agent_id`, `rules[].id`, `providers[].id`, `(recipients[].address.lc, chain)`, and `(budgets[].agent_id, scope, scope_key)`. Both parse paths route through the same `validate()` step.
+- **PR #8** — Regression tests for `null` comparison semantics in `expr.rs` and the `emergency.freeze_all` global kill-switch in `engine.rs`. Pure additive: `+57` lines across two `#[test]` modules.
+- **PR #6** — `audit_last` collapsed from a `SELECT seq` + `audit_get` two-roundtrip into a single `SELECT * ORDER BY seq DESC LIMIT 1`. Tightens error handling: previously `.ok()` swallowed every SQLite error into `Ok(None)`; now only `QueryReturnedNoRows` becomes `None`.
+- **PR #5** — `same_origin` deduplicated from `engine.rs` and `budget.rs` into `mandate-policy::util` (`pub(crate)`). Behaviour-preserving; substring-trap test pinned (`example.com.attacker.com` correctly rejected).
 
-Two commits on top of `main`:
+## Tests / CI status
 
-1. `88ed2ff` `feat: enforce protocol.nonce_replay (HTTP 409) on reused APRP nonces`
-   - New `seen_nonces: Mutex<HashSet<String>>` on `AppState`.
-   - `POST /v1/payment-requests` claims the nonce **before** policy / budget / audit / signing — a replay never mutates state.
-   - Returns HTTP `409 Conflict` with deny code `protocol.nonce_replay` on duplicate.
-   - Two regression tests: first request succeeds (200), replay rejected (409); concurrent-replay only one wins.
-2. `f0e86f1` `docs: clarify replay gate has no audit trail and is rejection-only`
-   - Doc-comment fixes for the two items Codex flagged on first pass — now explicit that the in-memory set is reset on restart and that rejected replays are intentionally not chained into the audit log (would let an attacker grow the log with crafted nonces).
+- `cargo fmt --check` — ✅
+- `cargo clippy --workspace --all-targets -- -D warnings` — ✅ (no warnings)
+- `cargo test --workspace --all-targets` — ✅ **90 / 90 pass** (0 fail, 0 ignored)
+- `python3 scripts/validate_schemas.py` — ✅ (6 schemas + 4 corpus fixtures)
+- `python3 scripts/validate_openapi.py` — ✅ (`docs/api/openapi.json` valid)
+- `bash demo-scripts/run-openagents-final.sh` — ✅ all 11 steps green incl. audit-chain tamper detection (~5 seconds end-to-end)
 
-## Tests / CI status (PR #7 head)
+## Pending / stretch (not blocking submission)
 
-- `cargo test --workspace --all-targets` — ✅ **71 tests pass** (69 baseline + 2 nonce-replay regression tests).
-- `cargo fmt --check` — ✅ (CI).
-- `cargo clippy --workspace --all-targets -- -D warnings` — ✅ (CI).
-- `python scripts/validate_schemas.py` — ✅ (CI).
-- `python scripts/validate_openapi.py` — ✅ (CI).
-
-## Codex review feedback (PR #7)
-
-- Initial review flagged two doc-only issues:
-  1. Misleading `seen_nonces` doc comment ("persisted") → fixed in `f0e86f1`.
-  2. Claim that replays are audited → fixed in `f0e86f1` (explicit "rejection-only, no audit trail" + rationale).
-- Re-review after `f0e86f1`: **"Didn't find any major issues."**
-
-## Next exact task
-
-**Wait for Daniel's manual review on PR #7 before any merge** (per session instruction: security-sensitive change, second pair of eyes required even though Codex is clean).
-
-While waiting, candidate next slices (only after explicit go-ahead — do NOT start in parallel with security review):
-
-1. PR #5 (refactor `same_origin`) — lowest-risk, mechanical dedup.
-2. PR #6 (perf `audit_last`) — small SQL change, mirrors the already-merged `audit_list` pattern.
-3. PR #8 (regression tests only — no production change).
-4. PR #9 (policy uniqueness validation — adds parse-time invariants).
+- Live KeeperHub backend (one-constructor switch via `KeeperHubExecutor::live()`; demo uses `local_mock()`).
+- Live ENS testnet resolver (offline fixture today; trait already abstracts the backend).
+- Live Uniswap quote backend (`UniswapExecutor::live()` is intentionally stubbed; demo uses `local_mock()`).
+- Demo video (3:30 cut). Storyboard committed in `demo-scripts/demo-video-script.md`.
 
 ## Blockers
 
-None. Awaiting human review.
+**None.** See `FINAL_REVIEW.md` for the full submission-readiness audit.
