@@ -3,10 +3,10 @@
 Post-merge snapshot for the ETHGlobal Open Agents 2026 submission.
 
 **Last updated:** 2026-04-28
-**Phase:** 5 — submission readiness; all hardening PRs merged.
-**`main` HEAD:** `f52596c433861c72c2f22ffe183674524d45e14d` (pre-docs-PR; this status file lives on `docs/final-submission-readiness`).
-**Open PRs:** 0 implementation PRs. One **docs-only** PR open (`docs: finalize ETHGlobal submission readiness`) carrying this file, `FINAL_REVIEW.md`, and the doc cleanups identified by the Phase-5 review.
-**CI on `main`:** ✅ green on the latest commit (`Rust check` + `Validate JSON schemas / OpenAPI`).
+**Phase:** 5 — submission readiness; `main` is submission-ready after the documentation cleanup in PR #10.
+**Implementation PRs merged into `main`:** `#1`, `#2`, `#5`, `#6`, `#7`, `#8`, `#9`. **Documentation cleanup:** PR `#10` (this commit). **No implementation PRs remain open.**
+**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
+**Blockers:** none.
 
 ## Merged PRs
 

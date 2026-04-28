@@ -3,7 +3,8 @@
 **Reviewed commit:** `f52596c433861c72c2f22ffe183674524d45e14d`
 **Date:** 2026-04-28
 **Scope:** Read-only audit of `main` after merging PRs #5, #6, #7, #8, #9.
-**Status (TL;DR):** **READY_AFTER_FIXES** at the time of review — only doc-only corrections needed; no code, security or demo blockers. The medium-severity findings (M1–M4) are addressed in the docs-only PR `docs: finalize ETHGlobal submission readiness`. After that PR merges, the project is **READY_FOR_SUBMISSION**.
+**Review verdict before this docs cleanup:** `READY_AFTER_FIXES` — no code/security/demo blockers; only doc staleness issues.
+**After the fixes in PR #10:** **`READY_FOR_SUBMISSION`** — all medium and low findings (M1–M4, L1, L2) are resolved by PR #10, as marked in §6 below.
 
 ---
 
@@ -70,7 +71,7 @@ Methodology: an Explore subagent gathered evidence with file paths and line rang
 | Question | Answer |
 |---|---|
 | What is real? | APRP wire format, JCS hashing, schema validation, policy engine, budget tracker, hash-chained audit, signed receipts/decision tokens/audit events, Ed25519 signing/verify, full HTTP pipeline, agent harness sending real cross-boundary requests. |
-| What is mocked? | (1) ENS testnet resolver — uses local fixture; the trait abstraction is real. (2) KeeperHub backend — `local_mock()` when `MANDATE_KEEPERHUB_LIVE != 1`. (3) Uniswap quote — static fixture when `MANDATE_UNISWAP_LIVE != 1`. (4) Signing seeds — deterministic dev seeds, gated for production via `with_signers()`. |
+| What is mocked? | (1) **ENS testnet resolver** — demo uses a local fixture; the trait abstraction is real. (2) **KeeperHub backend** — the demo always constructs `KeeperHubExecutor::local_mock()` (verified at `demo-agents/research-agent/src/main.rs:310`). A `KeeperHubExecutor::live()` constructor exists, but no env-var or runtime feature flag switches between them in this hackathon build. (3) **Uniswap backend** — the demo always constructs `UniswapExecutor::local_mock()` (`demo-agents/research-agent/src/main.rs:331`). `UniswapExecutor::live()` is intentionally stubbed and returns `ExecutionError::BackendOffline`. (4) **Signing seeds** — deterministic dev seeds in `mandate-server/src/lib.rs`, gated for production via `AppState::with_signers()`. **There is no `MANDATE_*_LIVE` env-var feature flag anywhere in the build.** |
 | Are mocks clearly labelled? | ✅ Demo output prints `keeperhub.sponsor: keeperhub` + `keeperhub mock` mid-flow; Uniswap output uses obviously-fake `qt-01HZFAKEDEMOQ001` quote_id. `SUBMISSION_NOTES.md` has an explicit "What is live vs mocked" section. |
 | Does the demo ever pretend a mock is live? | ❌ no. (Minor: the final summary line `KeeperHub executed` is sligthly soft on the `mock` qualifier compared to the mid-flow output, but earlier lines establish the mock context — see L1.) |
 | Does the demo prove allow + deny paths? | ✅ legit-x402 → allow + signed receipt; prompt-injection + Uniswap rug-token → deny + `keeperhub.refused`. |
@@ -108,39 +109,53 @@ Methodology: an Explore subagent gathered evidence with file paths and line rang
 
 ### Medium severity (doc-only; misleading to judges)
 
-- **M1.** `README.md:13` — `**Status:** Pre-implementation. Repo bootstrap in progress.` — false. Implementation is complete; 90 tests pass; demo green. A judge landing on README first will mistakenly think the project isn't built.
-  - **Recommended fix:** replace with `Implementation complete; demo green end-to-end on commit ` `<sha>`. See `IMPLEMENTATION_STATUS.md`.
-- **M2.** `README.md:22` — heading `## How to run the demo (when ready)` — implies demo isn't ready.
-  - **Recommended fix:** drop `(when ready)`.
-- **M3.** `SUBMISSION_NOTES.md:28` — `CI: fmt, clippy, tests (69 passing), schema validation.` — stale. Actual is 90.
-  - **Recommended fix:** update to `tests (90 passing)`.
-- **M4.** `IMPLEMENTATION_STATUS.md` is fully stale: lists 5 PRs as open, names PR #7 as the current branch, says "Wait for Daniel's manual review on PR #7 before any merge", cites 71 tests. All five PRs are merged and tests are 90.
-  - **Recommended fix:** rewrite the file as a post-merge wrap-up: PRs merged, final test count, demo status, no blockers.
-- **M5.** *(Repo-admin note, not a submission issue.)* The classic branch-protection API for `main` returns HTTP 404. This may simply mean protection is configured via the newer **GitHub Rulesets** mechanism (separate API at `repos/{owner}/{repo}/rulesets`) rather than classic branch protection — the two are often confused. **Not a code or submission blocker.** If neither is configured, enabling either before broader open-source adoption is a fine post-hackathon repo-admin task.
+- **M1.** ✅ **Resolved by PR #10.** `README.md:13` formerly said `**Status:** Pre-implementation. Repo bootstrap in progress.` — replaced with the accurate post-merge status that points to `IMPLEMENTATION_STATUS.md` and `FINAL_REVIEW.md`.
+- **M2.** ✅ **Resolved by PR #10.** `README.md:22` formerly read `## How to run the demo (when ready)` — `(when ready)` dropped, fresh-clone instructions made copy-pasteable.
+- **M3.** ✅ **Resolved by PR #10.** `SUBMISSION_NOTES.md:28` test count updated `69 → 90`.
+- **M4.** ✅ **Resolved by PR #10.** `IMPLEMENTATION_STATUS.md` rewritten as a post-merge snapshot with all seven implementation PRs (`#1`, `#2`, `#5`, `#6`, `#7`, `#8`, `#9`) listed as merged; no implementation PRs open; cites 90/90 tests.
+- **M5.** *(Repo-admin note, not a submission issue.)* The classic branch-protection API for `main` returns HTTP 404. This may simply mean protection is configured via the newer **GitHub Rulesets** mechanism (separate API at `repos/{owner}/{repo}/rulesets`) rather than classic branch protection — the two are often confused. **Not a code or submission blocker.** If neither is configured, enabling either before broader open-source adoption is a fine post-hackathon repo-admin task. *(PR #10's `BLOCKED` mergeStateStatus despite green CI suggests Rulesets are in fact active.)*
 
 ### Low severity (polish)
 
-- **L1.** Demo final summary uses `Legitimate x402 spend approved -> KeeperHub executed.` — could be clearer that this is the local-mock executor, since the same line for Uniswap doesn't carry that nuance either. Mid-flow output makes the mock context explicit, but a reader skimming only the final summary might miss it. Optional one-word edit (`KeeperHub executed (mock)` and `swap allowed (mock)`).
-- **L2.** `PR_DESCRIPTION.md` is the body of merged PR #1 and still reads `[WIP] / Draft / not ready to merge / 23 tests pass`. Not user-facing for the ETHGlobal submission, but inconsistent with reality. Could be deleted or refreshed; safest to delete since GitHub already preserves the PR history.
+- **L1.** ✅ **Resolved by PR #10.** Demo final summary now reads `KeeperHub mock executed (kh-<ULID>)` and `Bounded USDC -> ETH swap allowed (uni-<ULID> via Uniswap mock executor); rug-token swap denied.` — a viewer skimming only the summary now sees the mock context.
+- **L2.** ✅ **Resolved by PR #10.** `PR_DESCRIPTION.md` deleted (was the WIP body of merged PR #1; GitHub preserves the merged PR's history).
 
 ---
 
-## 7. Recommended fixes before submission
+## 7. Fixes landed in PR #10
 
-In priority order:
+All medium and low findings from §6 are resolved in the docs-only PR #10 that carries this report. See the audit trail in §8.
 
-1. **Fix M1, M2, M3** — three small line edits across `README.md` and `SUBMISSION_NOTES.md`. Pure doc; no code touched.
-2. **Fix M4** — rewrite `IMPLEMENTATION_STATUS.md` as a post-merge snapshot.
-3. **Fix L1** — optional polish on demo final summary lines (one-line edit in `demo-scripts/run-openagents-final.sh`); only if you want belt-and-braces honesty for the video viewer.
-4. **(Post-submission)** **M5** — enable branch protection on `main`.
-5. **(Optional)** **L2** — delete or refresh `PR_DESCRIPTION.md`.
+| ID | File touched | Fix |
+|---|---|---|
+| M1 | `README.md` | Replaced "Pre-implementation. Repo bootstrap in progress." with the accurate post-merge status. |
+| M2 | `README.md` | Dropped "(when ready)" from the demo heading; added copy-pasteable `git clone` instructions. |
+| M3 | `SUBMISSION_NOTES.md` | Test count bumped `69 → 90`. Also rewrote the "no idempotency / dedup" limitation to reflect the post-#7 reality. |
+| M4 | `IMPLEMENTATION_STATUS.md` | Rewritten as a post-merge snapshot that stays true after PR #10 merges. |
+| L1 | `demo-scripts/run-openagents-final.sh` | Final summary lines now carry `mock executed` / `via … mock executor` qualifiers. |
+| L2 | `PR_DESCRIPTION.md` | Deleted. |
+| (also) | `FEEDBACK.md`, `demo-scripts/sponsors/uniswap-guarded-swap.sh`, `demo-agents/research-agent/README.md` | Codex-flagged stale env-var claims removed; ETHPrague→ETHGlobal Open Agents and Vault→Mandate language updated. |
 
-Items 1–3 are doc-only. Items 4 and 5 are not changes to this commit's submission readiness.
+M5 (branch-protection / Rulesets) is unaffected by this PR and is a post-hackathon repo-admin item, not a submission blocker.
 
 ---
 
 ## 8. Final verdict
 
-# READY_AFTER_FIXES
+# READY_FOR_SUBMISSION after PR #10
 
-The codebase is solid: build, tests, demo all green; all nine security/correctness areas pass with code-level evidence; mocks are honestly labelled. The only outstanding issues are **stale documentation strings** that would mislead a judge skimming README/SUBMISSION_NOTES. Fixing M1–M4 takes minutes and pushes the project to **READY_FOR_SUBMISSION**.
+The codebase audited at `f52596c` was solid: build, tests, demo all green; all nine security/correctness areas pass with code-level evidence; mocks are honestly labelled. The only outstanding issues at that point were **stale documentation strings** that would have misled a judge skimming README/SUBMISSION_NOTES — captured as M1–M4 + L1 + L2.
+
+**All of those findings are resolved in PR #10**, which carries this report alongside the doc cleanup. Once PR #10 lands on `main`, the repository is `READY_FOR_SUBMISSION`. The only remaining non-blocking item is M5 (a repo-admin question about branch protection / Rulesets configuration), which is unrelated to the submission itself.
+
+### Audit trail of the post-review fixes
+
+| Finding | Severity | Status |
+|---|---|---|
+| M1 — `README.md` "Pre-implementation" line | Medium | ✅ resolved by PR #10 |
+| M2 — `README.md` "(when ready)" demo heading | Medium | ✅ resolved by PR #10 |
+| M3 — `SUBMISSION_NOTES.md` `tests (69 passing)` | Medium | ✅ resolved by PR #10 |
+| M4 — `IMPLEMENTATION_STATUS.md` fully stale | Medium | ✅ resolved by PR #10 |
+| M5 — branch protection / Rulesets repo-admin note | Medium (non-blocking) | ⚠️ not a submission issue |
+| L1 — demo summary missing `mock` qualifier | Low | ✅ resolved by PR #10 |
+| L2 — `PR_DESCRIPTION.md` is the WIP body of merged PR #1 | Low | ✅ resolved by PR #10 (file deleted) |
