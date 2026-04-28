@@ -25,6 +25,13 @@ const SELECT_AUDIT_LAST: &str =
      policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
      signature_key_id, signature_hex FROM audit_events ORDER BY seq DESC LIMIT 1";
 
+const SELECT_AUDIT_PREFIX_BY_SEQ: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events WHERE seq <= ?1 ORDER BY seq ASC";
+
+const SELECT_AUDIT_SEQ_BY_ID: &str = "SELECT seq FROM audit_events WHERE id = ?1";
+
 fn row_to_signed_audit_event(r: &rusqlite::Row<'_>) -> rusqlite::Result<SignedAuditEvent> {
     let metadata_json: String = r.get(7)?;
     let metadata: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&metadata_json)
@@ -146,20 +153,44 @@ impl Storage {
     /// `event_id` — it includes every prev_event_hash predecessor needed for
     /// chain verification, and stops at the receipt's referenced event so
     /// the bundle is no larger than the proof requires.
+    ///
+    /// This is implemented as two scoped SQL queries — first an `id → seq`
+    /// lookup (the audit_events.id UNIQUE index makes this O(log n)), then
+    /// a `WHERE seq <= ?1 ORDER BY seq ASC` over only the prefix rows.
+    /// Rows with `seq > target_seq` are never deserialised, so:
+    ///
+    ///   * the cost scales with the proof prefix size, not the total log
+    ///     size — exporting an old receipt's bundle does not pay for every
+    ///     event written since;
+    ///   * a malformed or tampered row past the target event cannot break
+    ///     a proof for an earlier event whose own prefix is intact.
+    ///
+    /// A malformed row *inside* the prefix still surfaces (either through
+    /// the row mapper or, downstream, via `verify_chain` on the returned
+    /// segment) — that is the correct outcome, since the proof depends on
+    /// every preceding event being well-formed.
     pub fn audit_chain_prefix_through(
         &self,
         event_id: &str,
     ) -> StorageResult<Vec<SignedAuditEvent>> {
-        let chain = self.audit_list()?;
-        let position = chain
-            .iter()
-            .position(|e| e.event.id == event_id)
-            .ok_or_else(|| StorageError::AuditEventNotFound {
-                id: event_id.to_string(),
-            })?;
-        let mut prefix = chain;
-        prefix.truncate(position + 1);
-        Ok(prefix)
+        let target_seq: i64 =
+            match self
+                .conn
+                .query_row(SELECT_AUDIT_SEQ_BY_ID, params![event_id], |r| r.get(0))
+            {
+                Ok(seq) => seq,
+                Err(rusqlite::Error::QueryReturnedNoRows) => {
+                    return Err(StorageError::AuditEventNotFound {
+                        id: event_id.to_string(),
+                    });
+                }
+                Err(e) => return Err(e.into()),
+            };
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_PREFIX_BY_SEQ)?;
+        let rows = stmt
+            .query_map(params![target_seq], row_to_signed_audit_event)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     pub fn audit_append(
@@ -345,5 +376,111 @@ mod tests {
             StorageError::AuditEventNotFound { id } => assert_eq!(id, "evt-DOES-NOT-EXIST"),
             other => panic!("unexpected: {other:?}"),
         }
+    }
+
+    #[test]
+    fn audit_chain_prefix_through_does_not_read_rows_after_target_seq() {
+        // Codex P2: the prefix query MUST NOT pay for rows past the
+        // target event. We prove that by writing a well-formed prefix
+        // (seq=1 + seq=2) and then injecting a row at seq=3 whose
+        // `metadata_json` is not valid JSON. If the implementation read
+        // the whole table and truncated in memory, the row mapper would
+        // run on seq=3 and return an Err. Because we use `WHERE seq <=
+        // target_seq`, seq=3 is never even loaded — exporting through
+        // seq=2 succeeds.
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        let _e1 = s
+            .audit_append(
+                NewAuditEvent::now("runtime_started", "mandate-server", "runtime"),
+                &signer,
+            )
+            .unwrap();
+        let target = s
+            .audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", "pr-test-001"),
+                &signer,
+            )
+            .unwrap();
+        // Inject a malformed seq=3 row directly. We don't go through
+        // `audit_append` because that would refuse to write malformed
+        // JSON; the test specifically simulates a corrupted future row.
+        s.conn
+            .execute(
+                "INSERT INTO audit_events
+                    (seq, id, ts, type, actor, subject_id, payload_hash, metadata_json,
+                     policy_version, policy_hash, attestation_ref, prev_event_hash,
+                     event_hash, signature_alg, signature_key_id, signature_hex)
+                 VALUES (3, 'evt-MALFORMED-FUTURE', '2026-04-27T12:00:02Z', 'policy_decided',
+                         'policy_engine', 'pr-test-002', '{}', 'NOT JSON',
+                         NULL, NULL, NULL,
+                         '0000000000000000000000000000000000000000000000000000000000000000',
+                         '0000000000000000000000000000000000000000000000000000000000000000',
+                         'ed25519', 'audit-signer-v1', 'aaaa')",
+                [],
+            )
+            .unwrap();
+
+        let prefix = s
+            .audit_chain_prefix_through(&target.event.id)
+            .expect("prefix must load even with a malformed row at higher seq");
+        assert_eq!(prefix.len(), 2);
+        assert_eq!(prefix[1].event.id, target.event.id);
+    }
+
+    #[test]
+    fn audit_chain_prefix_through_propagates_malformed_row_inside_prefix() {
+        // Symmetric guarantee: a malformed row *inside* the prefix MUST
+        // surface — a proof needs every predecessor to be well-formed.
+        // Inject a malformed seq=2 row, then export through seq=3. The
+        // row mapper on seq=2 fails when parsing `metadata_json`, which
+        // surfaces as a SQLite conversion error.
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        let _e1 = s
+            .audit_append(
+                NewAuditEvent::now("runtime_started", "mandate-server", "runtime"),
+                &signer,
+            )
+            .unwrap();
+        // Inject malformed row at seq=2 directly.
+        s.conn
+            .execute(
+                "INSERT INTO audit_events
+                    (seq, id, ts, type, actor, subject_id, payload_hash, metadata_json,
+                     policy_version, policy_hash, attestation_ref, prev_event_hash,
+                     event_hash, signature_alg, signature_key_id, signature_hex)
+                 VALUES (2, 'evt-MALFORMED-PREFIX', '2026-04-27T12:00:01Z', 'policy_decided',
+                         'policy_engine', 'pr-test-001', '{}', 'NOT JSON',
+                         NULL, NULL, NULL,
+                         '0000000000000000000000000000000000000000000000000000000000000000',
+                         '0000000000000000000000000000000000000000000000000000000000000000',
+                         'ed25519', 'audit-signer-v1', 'aaaa')",
+                [],
+            )
+            .unwrap();
+        // And a valid-looking seq=3 the test will try to export through.
+        s.conn
+            .execute(
+                "INSERT INTO audit_events
+                    (seq, id, ts, type, actor, subject_id, payload_hash, metadata_json,
+                     policy_version, policy_hash, attestation_ref, prev_event_hash,
+                     event_hash, signature_alg, signature_key_id, signature_hex)
+                 VALUES (3, 'evt-OK-SEQ3', '2026-04-27T12:00:02Z', 'policy_decided',
+                         'policy_engine', 'pr-test-002', '{}', '{}',
+                         NULL, NULL, NULL,
+                         '0000000000000000000000000000000000000000000000000000000000000000',
+                         '0000000000000000000000000000000000000000000000000000000000000000',
+                         'ed25519', 'audit-signer-v1', 'bbbb')",
+                [],
+            )
+            .unwrap();
+
+        let err = s
+            .audit_chain_prefix_through("evt-OK-SEQ3")
+            .expect_err("must fail when a row inside the prefix is malformed");
+        // The row mapper turns the bad metadata_json into a SQLite
+        // conversion error, which our error type wraps as Sqlite(_).
+        assert!(matches!(err, StorageError::Sqlite(_)), "got {err:?}");
     }
 }
