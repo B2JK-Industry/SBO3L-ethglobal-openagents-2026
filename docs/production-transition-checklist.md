@@ -17,12 +17,12 @@ this document is a claim that any surface is production-ready today.**
 
 The companion docs are:
 
-- [`docs/keeperhub-live-spike.md`](keeperhub-live-spike.md) — full
-  KeeperHub live-path design (read first if you're working KeeperHub).
 - [`demo-fixtures/README.md`](../demo-fixtures/README.md) — production-shaped
   mock fixtures + cross-links to runners.
 - [`FEEDBACK.md`](../FEEDBACK.md) — partner feedback and live-integration
-  asks (KeeperHub, ENS, Uniswap).
+  asks (KeeperHub, ENS, Uniswap), including the four `mandate_*` envelope
+  fields and the optional `X-Mandate-*` response headers that the
+  KeeperHub live path would consume.
 
 ---
 
@@ -97,17 +97,19 @@ are refused **before any I/O** in
 `KeeperHubExecutor::execute()` (decision check at the top of the
 function). The four `mandate_*` envelope fields and the optional
 `X-Mandate-*` response headers are documented in
-[`docs/keeperhub-live-spike.md`](keeperhub-live-spike.md) and
+[`FEEDBACK.md` §KeeperHub](../FEEDBACK.md) and
 [`mock-keeperhub-sandbox.md`](../demo-fixtures/mock-keeperhub-sandbox.md).
 
 ### What live needs
 
-- A public KeeperHub workflow webhook submission/result schema (open
-  question 1 in [`docs/keeperhub-live-spike.md`](keeperhub-live-spike.md)).
+- A public KeeperHub workflow webhook submission/result schema (the
+  schema-publication ask is in [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md)).
 - Sandbox / production credentials.
-- An answer to seven other open questions in the spike (token-prefix
-  naming, `executionId` lookup, rate limiting, idempotency overlap with
-  PSM-A2, sync vs async, optional response headers, callback signing).
+- Answers to the open questions raised in
+  [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md): token-prefix naming
+  (`kh_*` vs `wfb_*`), `executionId` lookup path, idempotency overlap
+  with PSM-A2, the four `mandate_*` envelope fields, and the optional
+  `X-Mandate-*` response headers.
 
 ### Env vars / endpoints / credentials
 
@@ -124,7 +126,8 @@ function). The four `mandate_*` envelope fields and the optional
 
 ### Code change
 
-Detailed in [`docs/keeperhub-live-spike.md` § "Concrete shopping list for the live PR"](keeperhub-live-spike.md). Summary:
+Summary (the upstream feedback / open-question backing for each item is
+in [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md)):
 
 1. `KeeperHubLiveConfig::from_env()` reads the env vars.
 2. `KeeperHubMode::Live(KeeperHubLiveConfig)` + `execute_live()`.
@@ -341,10 +344,10 @@ After flipping any surface, update:
 
 - It is not a claim that any of these flips have happened. Every
   surface stays mock today.
-- It is not a substitute for the per-surface design docs
-  ([`keeperhub-live-spike.md`](keeperhub-live-spike.md) is the
-  authoritative source for KeeperHub live wiring; the per-fixture
-  `.md` files in `demo-fixtures/` are authoritative for fixture shape).
+- It is not a substitute for the per-surface design docs. The
+  per-fixture `.md` files in `demo-fixtures/` are authoritative for
+  fixture shape; [`FEEDBACK.md`](../FEEDBACK.md) is authoritative for
+  the partner-facing live-integration asks.
 - It is not exhaustive. Production-grade deployments need TLS
   termination, observability, log retention, secret rotation, RBAC,
   and the rest of the operational checklist that lives in

@@ -38,14 +38,16 @@ public submission/result schema and credentials are available. Mandate's
 needs to land. The four `mandate_*` envelope fields are feedback asks
 captured in [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md).
 
-The full design for the live wiring is in
-[`docs/keeperhub-live-spike.md`](../docs/keeperhub-live-spike.md).
+The partner-facing live-integration asks (schema publication, the four
+`mandate_*` envelope fields, the optional `X-Mandate-*` response
+headers) live in [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md).
 
 ## Exact replacement step
 
 1. Wait for KeeperHub to publish a stable submission/result schema and
-   provision sandbox credentials (gates documented in
-   [`docs/keeperhub-live-spike.md` § "Why a spike instead of code"](../docs/keeperhub-live-spike.md)).
+   provision sandbox credentials (the schema-publication ask is in
+   [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md) under "Suggested
+   improvements").
 2. Implement `KeeperHubLiveConfig::from_env()` in
    `crates/mandate-execution/src/keeperhub.rs` reading:
    - `MANDATE_KEEPERHUB_WEBHOOK_URL` — the workflow webhook URL.
@@ -86,11 +88,10 @@ for the env-var / endpoint / credentials matrix.
 
 - [`README.md`](README.md) §B3 fixtures
 - [`test_fixtures.py`](test_fixtures.py) (validator)
-- [`../docs/keeperhub-live-spike.md`](../docs/keeperhub-live-spike.md)
-  (full live-path design)
 - [`../FEEDBACK.md` §KeeperHub](../FEEDBACK.md) (the upstream feedback
-  asks for the four `mandate_*` envelope fields and the optional
-  `X-Mandate-*` response headers)
+  asks for the four `mandate_*` envelope fields, the optional
+  `X-Mandate-*` response headers, and the documented `kh_*` vs `wfb_*`
+  token-prefix disambiguation)
 - [`../docs/production-transition-checklist.md` §KeeperHub](../docs/production-transition-checklist.md#keeperhub-guarded-execution)
 - The runtime-consumed mock today is `KeeperHubExecutor::local_mock()`
   in `crates/mandate-execution/src/keeperhub.rs`; this fixture

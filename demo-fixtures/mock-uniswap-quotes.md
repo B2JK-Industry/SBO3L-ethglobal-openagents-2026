@@ -58,8 +58,9 @@ file.
    HTTP GET against the configured endpoint.
 3. Wire `MANDATE_UNISWAP_LIVE=1` env-var gating into
    `demo-scripts/sponsors/uniswap-guarded-swap.sh` analogous to the
-   `MANDATE_KEEPERHUB_LIVE=1` flag designed in
-   [`docs/keeperhub-live-spike.md`](../docs/keeperhub-live-spike.md).
+   `MANDATE_KEEPERHUB_LIVE=1` flag pattern (see
+   [`docs/production-transition-checklist.md` §KeeperHub](../docs/production-transition-checklist.md#keeperhub-guarded-execution)
+   for the env-var gating shape).
 4. Address the "Suggested improvements" in
    [`FEEDBACK.md` §Uniswap](../FEEDBACK.md) before claiming live:
    - **signed quotes** with server-issued `quote_id` + `expires_at`

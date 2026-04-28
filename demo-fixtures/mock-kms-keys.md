@@ -61,11 +61,13 @@ KMS / HSM client.
 1. Implement a `Signer` trait variant that calls the chosen KMS / HSM:
    - AWS KMS — sign via `kms:Sign` with the key id from `key_list`.
    - HSM — vendor SDK `signer.sign(...)`.
-2. Configure via env vars:
+2. Configure via env vars (canonical names — see
+   [`docs/production-transition-checklist.md` §Signer](../docs/production-transition-checklist.md#signer--mock-kms--hsm)):
    - `MANDATE_SIGNER_BACKEND` — `dev` | `mock_kms` | `aws_kms` | `hsm`.
-   - `MANDATE_AWS_KMS_KEY_ID` (or vendor equivalent) for the live
-     audit / receipt signer key ids.
-   - `MANDATE_KMS_REGION` / `MANDATE_KMS_ENDPOINT` for the KMS API.
+   - `MANDATE_AUDIT_SIGNER_KEY_ID` — KMS key id for the audit signer.
+   - `MANDATE_RECEIPT_SIGNER_KEY_ID` — KMS key id for the receipt signer.
+   - `MANDATE_KMS_REGION` / `MANDATE_KMS_ENDPOINT` for the KMS API
+     (vendor-specific equivalents apply for non-AWS backends).
 3. Construct `AppState::with_signers(...)` from the configured backend
    instead of the dev signers. Existing `AppState::new()` continues to
    use deterministic dev seeds and stays clearly labelled `⚠ DEV ONLY ⚠`.

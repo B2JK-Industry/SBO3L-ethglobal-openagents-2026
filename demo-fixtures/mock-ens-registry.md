@@ -46,9 +46,10 @@ implement the same trait against a JSON-RPC endpoint.
    default remains `OfflineEnsResolver` so offline behaviour is
    preserved when no env vars are set.
 4. Test discipline: live ENS reads must never run in CI; gate them
-   behind a `MANDATE_ENS_LIVE=1` operator-side flag the same way
-   `MANDATE_KEEPERHUB_LIVE=1` is being designed in
-   [`docs/keeperhub-live-spike.md`](../docs/keeperhub-live-spike.md).
+   behind a `MANDATE_ENS_LIVE=1` operator-side flag, paralleling the
+   `MANDATE_KEEPERHUB_LIVE=1` and `MANDATE_UNISWAP_LIVE=1` patterns
+   captured in
+   [`docs/production-transition-checklist.md`](../docs/production-transition-checklist.md).
 5. Update `demo-fixtures/README.md`'s ENS row of the production
    transition checklist to mark live as **shipped** once the trait
    implementation lands.
