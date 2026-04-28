@@ -271,22 +271,43 @@ pub fn run(db: Option<&Path>, json: bool) -> ExitCode {
     // filesystem and produces a misleading "ok" report for a DB that
     // never existed. Pre-check existence and refuse to open a missing
     // path. Codex P1 review on PR #25.
+    //
+    // Codex P2 follow-up on PR #32 asked us to use `try_exists()` instead
+    // of `exists()`: `exists()` swallows fs/permission errors as `false`,
+    // which would mis-report a permission-denied path as "does not exist"
+    // and exit 2. With `try_exists()`:
+    //   - Ok(false) → file genuinely missing → exit 2 with "does not exist"
+    //   - Ok(true)  → file present → fall through to `Storage::open`
+    //   - Err(e)    → fs/permission metadata error → fall through to
+    //                 `Storage::open`, which surfaces the real cause as
+    //                 a `storage_open` fail (the existing error path).
     if let Some(p) = db {
-        if !p.exists() {
-            let path = p.display().to_string();
-            let msg = format!("doctor target DB does not exist: {path}");
-            if json {
-                let report = DoctorReport {
-                    report_type: "mandate.doctor.v1",
-                    overall: "fail",
-                    db_path: path,
-                    checks: vec![fail("storage_open", msg)],
-                };
-                println!("{}", serde_json::to_string_pretty(&report).unwrap());
-            } else {
-                eprintln!("mandate doctor: {msg}");
+        match p.try_exists() {
+            Ok(false) => {
+                let path = p.display().to_string();
+                let msg = format!("doctor target DB does not exist: {path}");
+                if json {
+                    let report = DoctorReport {
+                        report_type: "mandate.doctor.v1",
+                        overall: "fail",
+                        db_path: path,
+                        checks: vec![fail("storage_open", msg)],
+                    };
+                    println!("{}", serde_json::to_string_pretty(&report).unwrap());
+                } else {
+                    eprintln!("mandate doctor: {msg}");
+                }
+                return ExitCode::from(2);
             }
-            return ExitCode::from(2);
+            Ok(true) => {
+                // file is there; let Storage::open validate it
+            }
+            Err(_) => {
+                // metadata error (e.g. permission denied on parent
+                // directory). Don't claim "does not exist"; let the
+                // existing storage_open fail path surface the real
+                // OS-level error verbatim.
+            }
         }
     }
 

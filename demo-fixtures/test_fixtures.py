@@ -41,21 +41,40 @@ HERE = Path(__file__).resolve().parent
 # exact-host or safe-suffix membership makes the bypass structurally
 # impossible.
 #
-#   - exact hosts: 127.0.0.1, localhost, schemas.mandate.dev
-#   - safe suffixes (RFC 2606 / 6761 reserved):
-#       .invalid, .example, .test, .localhost
+# Codex P2 follow-up on PR #32 asked us to keep RFC 2606 §3 reserved
+# documentation domains (example.com / example.net / example.org)
+# usable in fixtures — they're the canonical "use this URL in docs"
+# hosts. Adding them as exact-match entries keeps `https://example.com`
+# safe, and adding the dotted forms (`.example.com`, …) as suffixes
+# keeps `https://docs.example.org/x` safe, while
+# `https://evilexample.com` (no leading dot) and
+# `https://example.com.evil.org` (different host entirely) both still
+# reject.
+#
+#   - exact hosts:
+#       127.0.0.1, localhost, schemas.mandate.dev,
+#       example.com, example.net, example.org
+#   - safe suffixes (RFC 2606 / 6761 reserved + RFC 2606 §3 docs):
+#       .invalid, .example, .test, .localhost,
+#       .example.com, .example.net, .example.org
 #     The leading dot is required so "evilexample" does NOT end with
-#     ".example".
+#     ".example" and "evilexample.com" does NOT end with ".example.com".
 SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
     "schemas.mandate.dev",
+    "example.com",
+    "example.net",
+    "example.org",
 })
 SAFE_HOST_SUFFIXES = (
     ".invalid",
     ".example",
     ".test",
     ".localhost",
+    ".example.com",
+    ".example.net",
+    ".example.org",
 )
 
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
@@ -214,6 +233,16 @@ def _self_test_url_safety() -> int:
             "no-leading-dot bypass: 'evilexample' does not end with '.example'",
         ),
         (
+            "https://evilexample.com/x",
+            False,
+            "no-leading-dot bypass on docs domain: 'evilexample.com' does not end with '.example.com'",
+        ),
+        (
+            "https://example.org.attacker.io/x",
+            False,
+            "infix bypass on RFC 2606 §3 docs domain: host is 'example.org.attacker.io', not 'example.org'",
+        ),
+        (
             "ftp://schemas.mandate.dev/x",
             False,
             "non-http(s) scheme: only http/https are allowed",
@@ -238,6 +267,26 @@ def _self_test_url_safety() -> int:
             "http://localhost/x",
             True,
             "exact-host 'localhost'",
+        ),
+        (
+            "https://example.com/x",
+            True,
+            "RFC 2606 §3 reserved docs domain (exact host)",
+        ),
+        (
+            "https://example.org/x",
+            True,
+            "RFC 2606 §3 reserved docs domain (exact host)",
+        ),
+        (
+            "https://docs.example.net/x",
+            True,
+            "subdomain of RFC 2606 §3 docs domain (suffix '.example.net')",
+        ),
+        (
+            "https://deeply.nested.example.com/x",
+            True,
+            "deep subdomain of docs domain (suffix '.example.com')",
         ),
     ]
 
