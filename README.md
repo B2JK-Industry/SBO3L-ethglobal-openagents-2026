@@ -29,7 +29,7 @@ cd mandate-ethglobal-openagents-2026
 bash demo-scripts/run-openagents-final.sh
 ```
 
-You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators. The demo runs in ~5 seconds and exercises all 11 steps including the audit-chain tamper detection.
+You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators. The demo runs in ~5 seconds and exercises 12 verification gates (schema, locked golden hash, audit chain, policy/budget/storage/server tests, agent harness, ENS, KeeperHub, Uniswap, red-team prompt-injection, audit-chain tamper detection, and an explicit agent no-key boundary proof) plus a deterministic transcript artifact written to [`demo-scripts/artifacts/latest-demo-summary.json`](demo-scripts/artifacts/).
 
 See [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) for the ETHGlobal submission narrative, [`SUBMISSION_FORM_DRAFT.md`](SUBMISSION_FORM_DRAFT.md) for copy-paste-ready ETHGlobal form text, and [`AI_USAGE.md`](AI_USAGE.md) for AI tooling disclosure.
 
