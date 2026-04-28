@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 use crate::hashing::canonical_json;
-use crate::signer::{verify_hex, DevSigner, VerifyError};
+use crate::signer::{verify_hex, SignerBackend, VerifyError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -75,7 +75,11 @@ pub struct UnsignedReceipt {
 }
 
 impl UnsignedReceipt {
-    pub fn sign(self, signer: &DevSigner) -> Result<PolicyReceipt> {
+    /// Sign the receipt with any [`SignerBackend`] — `DevSigner` for
+    /// the existing demo path, `MockKmsSigner` for the production-shaped
+    /// path. The receipt's `signature.key_id` is taken from the
+    /// backend's `current_key_id()` so verifiers can route the lookup.
+    pub fn sign<S: SignerBackend + ?Sized>(self, signer: &S) -> Result<PolicyReceipt> {
         // Build the receipt with a placeholder signature so we can compute the
         // canonical body bytes by stripping the `signature` key from the JSON.
         let placeholder = PolicyReceipt {
@@ -93,7 +97,7 @@ impl UnsignedReceipt {
             expires_at: self.expires_at,
             signature: EmbeddedSignature {
                 algorithm: SignatureAlgorithm::Ed25519,
-                key_id: signer.key_id.clone(),
+                key_id: signer.current_key_id().to_string(),
                 signature_hex: "placeholder".to_string(),
             },
         };
@@ -102,7 +106,7 @@ impl UnsignedReceipt {
         Ok(PolicyReceipt {
             signature: EmbeddedSignature {
                 algorithm: SignatureAlgorithm::Ed25519,
-                key_id: signer.key_id.clone(),
+                key_id: signer.current_key_id().to_string(),
                 signature_hex: sig_hex,
             },
             ..placeholder
@@ -128,6 +132,7 @@ fn canonicalize_body(receipt: &PolicyReceipt) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::signer::DevSigner;
 
     fn unsigned() -> UnsignedReceipt {
         UnsignedReceipt {

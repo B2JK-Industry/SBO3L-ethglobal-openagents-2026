@@ -10,7 +10,7 @@ use crate::error::Result;
 use crate::hashing::{canonical_json, sha256_hex};
 use crate::receipt::EmbeddedSignature as Signature;
 use crate::receipt::SignatureAlgorithm;
-use crate::signer::{verify_hex, DevSigner, VerifyError};
+use crate::signer::{verify_hex, SignerBackend, VerifyError};
 
 pub const ZERO_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -73,8 +73,11 @@ impl AuditEvent {
 impl SignedAuditEvent {
     /// Sign an `AuditEvent` and return the signed envelope. The signature is
     /// computed over the canonical JSON of the inner event; the same bytes are
-    /// used to derive `event_hash`.
-    pub fn sign(event: AuditEvent, signer: &DevSigner) -> Result<Self> {
+    /// used to derive `event_hash`. Accepts any [`SignerBackend`] — the
+    /// envelope's `signature.key_id` records the backend's
+    /// `current_key_id()` so a verifier can route the public-key lookup
+    /// (especially after a `MockKmsSigner` rotation).
+    pub fn sign<S: SignerBackend + ?Sized>(event: AuditEvent, signer: &S) -> Result<Self> {
         let v = serde_json::to_value(&event)?;
         let bytes = canonical_json(&v)?;
         let event_hash = sha256_hex(&bytes);
@@ -84,7 +87,7 @@ impl SignedAuditEvent {
             event_hash,
             signature: Signature {
                 algorithm: SignatureAlgorithm::Ed25519,
-                key_id: signer.key_id.clone(),
+                key_id: signer.current_key_id().to_string(),
                 signature_hex: sig_hex,
             },
         })
@@ -152,6 +155,7 @@ pub fn verify_chain(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::signer::DevSigner;
     use serde_json::json;
 
     fn ev(seq: u64, prev: &str, ts: &str) -> AuditEvent {
