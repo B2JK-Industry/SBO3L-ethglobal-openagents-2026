@@ -447,6 +447,26 @@ mod tests {
     }
 
     #[test]
+    fn emergency_freeze_all_denies_any_request() {
+        let mut p = policy();
+        p.emergency.freeze_all = true;
+        // `golden_aprp()` is the request that *normally* passes (active agent,
+        // trusted provider, allowed recipient, small amount). Using it here
+        // proves the kill switch overrides an otherwise-allowed request.
+        let outcome = decide(&p, &golden_aprp()).unwrap();
+        assert_eq!(outcome.decision, Decision::Deny);
+        assert_eq!(
+            outcome.deny_code.as_deref(),
+            Some("policy.deny_emergency_frozen"),
+            "global kill switch must fire from the deny-emergency-freeze rule"
+        );
+        assert_eq!(
+            outcome.matched_rule_id.as_deref(),
+            Some("deny-emergency-freeze")
+        );
+    }
+
+    #[test]
     fn safe_amount_f64_round_trips_small_values() {
         // The reference fixtures use small values; these must NOT be punted.
         assert_eq!(super::safe_amount_f64("0.05"), 0.05);
