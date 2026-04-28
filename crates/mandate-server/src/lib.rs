@@ -471,4 +471,41 @@ mod tests {
         assert_eq!(status1, StatusCode::OK);
         assert_eq!(status2, StatusCode::OK);
     }
+
+    #[tokio::test]
+    async fn replay_with_same_nonce_but_mutated_body_is_still_rejected() {
+        // Pin the security property: replay protection keys on `nonce`
+        // alone, so an attacker cannot bypass the gate by perturbing
+        // non-security fields (task_id, amount, etc.) while keeping the
+        // captured nonce. The dedup happens before request_hash, policy
+        // decide, budget, audit, and signing — so the second response is
+        // 409 `protocol.nonce_replay` with no audit/receipt side effects,
+        // even though the body differs from the first request.
+        let app = build_app();
+        let body1 = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+        let mut body2 = body1.clone();
+        // Same nonce as body1; mutate non-security fields.
+        body2["task_id"] = Value::String("demo-task-mutated".to_string());
+        body2["amount"]["value"] = Value::String("0.04".to_string());
+        assert_eq!(
+            body1["nonce"], body2["nonce"],
+            "test setup: nonce must match"
+        );
+        assert_ne!(body1, body2, "test setup: bodies must differ");
+
+        let (status1, v1) = post_json(app.clone(), "/v1/payment-requests", body1).await;
+        assert_eq!(status1, StatusCode::OK);
+        assert_eq!(v1["status"], "auto_approved");
+
+        let (status2, v2) = post_json(app, "/v1/payment-requests", body2).await;
+        assert_eq!(status2, StatusCode::CONFLICT);
+        assert_eq!(v2["code"], "protocol.nonce_replay");
+        // Replay rejection must not produce a receipt or audit_event_id —
+        // the response is the Problem object, not PaymentRequestResponse.
+        assert!(v2.get("receipt").is_none());
+        assert!(v2.get("audit_event_id").is_none());
+    }
 }
