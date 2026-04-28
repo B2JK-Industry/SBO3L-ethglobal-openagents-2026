@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::hashing::canonical_json;
 use crate::receipt::Decision;
-use crate::signer::{verify_hex, DevSigner, VerifyError};
+use crate::signer::{verify_hex, SignerBackend, VerifyError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,14 +55,17 @@ pub struct DecisionToken {
 }
 
 impl DecisionPayload {
-    pub fn sign(self, signer: &DevSigner) -> Result<DecisionToken> {
+    /// Sign the payload with any [`SignerBackend`]. The token records
+    /// the backend's *current* public key in `signing_pubkey_hex`, so a
+    /// verifier doesn't need access to the backend after the fact.
+    pub fn sign<S: SignerBackend + ?Sized>(self, signer: &S) -> Result<DecisionToken> {
         let value = serde_json::to_value(&self)?;
         let bytes = canonical_json(&value)?;
         let sig_hex = signer.sign_hex(&bytes);
         Ok(DecisionToken {
             payload: self,
             signature_hex: sig_hex,
-            signing_pubkey_hex: signer.verifying_key_hex(),
+            signing_pubkey_hex: signer.current_public_hex(),
         })
     }
 }
@@ -78,6 +81,7 @@ impl DecisionToken {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::signer::DevSigner;
 
     fn sample_payload() -> DecisionPayload {
         DecisionPayload {

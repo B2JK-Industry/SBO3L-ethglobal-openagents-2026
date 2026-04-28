@@ -1,8 +1,14 @@
-//! Local dev Ed25519 signer.
+//! Local dev Ed25519 signer + signer-backend trait.
 //!
 //! Production deployments use a TEE/HSM-backed signer (see
-//! `docs/spec/17_interface_contracts.md` §1). This module is the developer-mode
-//! backend used by demos and CI.
+//! `docs/spec/17_interface_contracts.md` §1). This module hosts:
+//!
+//! - `DevSigner`: the developer-mode Ed25519 signer used by demos and CI.
+//! - `SignerBackend`: the trait that decouples Mandate's signing code paths
+//!   (`UnsignedReceipt::sign`, `SignedAuditEvent::sign`, `DecisionPayload::sign`)
+//!   from any specific backend. `DevSigner` and the production-shaped
+//!   `MockKmsSigner` (in `crate::mock_kms`) both implement it. **Neither is a
+//!   real KMS or HSM.**
 
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
 use rand::rngs::OsRng;
@@ -57,6 +63,46 @@ impl DevSigner {
 
     pub fn sign_hex(&self, message: &[u8]) -> String {
         hex::encode(self.sign(message).to_bytes())
+    }
+}
+
+/// Backend abstraction for the three Mandate signing surfaces (policy
+/// receipt, audit event, decision token). Implementors must:
+///
+/// - report a stable `current_key_id()` that uniquely identifies the
+///   key version that produced a signature — verifiers carry this back
+///   in the `EmbeddedSignature.key_id` field;
+/// - produce hex-encoded Ed25519 signatures over the supplied bytes;
+/// - report the verifying key (hex) that corresponds to the
+///   *current* signing key, so a verifier can reconstruct trust without
+///   reaching into backend internals.
+///
+/// A backend that supports rotation (e.g. `MockKmsSigner`) MAY also
+/// expose historical keys via its own concrete API; the trait itself
+/// is intentionally minimal so callers don't depend on lifecycle
+/// details that don't apply to every backend.
+///
+/// **Truthfulness:** implementing this trait does NOT make a backend
+/// production-grade. `DevSigner` and `MockKmsSigner` are both local,
+/// non-HSM, non-KMS Ed25519 signers; production would replace them
+/// with a TEE/HSM-backed implementation behind the same trait.
+pub trait SignerBackend {
+    fn current_key_id(&self) -> &str;
+    fn sign_hex(&self, message: &[u8]) -> String;
+    fn current_public_hex(&self) -> String;
+}
+
+impl SignerBackend for DevSigner {
+    fn current_key_id(&self) -> &str {
+        &self.key_id
+    }
+    fn sign_hex(&self, message: &[u8]) -> String {
+        // Inherent method; same body. Keeping the inherent method for
+        // direct callers that don't go through the trait.
+        DevSigner::sign_hex(self, message)
+    }
+    fn current_public_hex(&self) -> String {
+        self.verifying_key_hex()
     }
 }
 
