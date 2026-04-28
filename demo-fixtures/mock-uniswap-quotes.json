@@ -1,0 +1,73 @@
+{
+  "schema": "mandate-mock-uniswap-quotes-v1",
+  "mock": true,
+  "explanation": "Catalogue of mock Uniswap quote envelopes shaped like what the Mandate Uniswap swap-policy guard (`mandate_execution::uniswap::evaluate_swap`) consumes. Three deterministic quotes — bounded happy path, slippage-cap violation, treasury-recipient-allowlist violation — give swap-policy authors a single file to dry-run their policy against. Distinct from the existing `demo-fixtures/uniswap/quote-USDC-{ETH,RUG}.json` per-quote files: this is the catalogue view for sponsor reviewers.",
+  "live_replacement": "Replace with live responses from the Uniswap Trading API quote endpoint. The `UniswapExecutor::live()` constructor in `crates/mandate-execution/src/uniswap.rs` is intentionally stubbed (`BackendOffline`) until that wiring lands — see FEEDBACK.md §Uniswap → 'Suggested improvements' for the signed-quote and route-token-enumeration asks.",
+  "host": "sandbox.uniswap.invalid",
+  "_host_note": "`*.invalid` is RFC 6761 §6.4 — guaranteed to never resolve. Sentinel host so the fixture cannot be mistaken for a live URL.",
+  "treasury_recipient_allowlist": [
+    "0x1111111111111111111111111111111111111111"
+  ],
+  "token_allowlist": ["USDC", "USDT", "DAI", "ETH", "WETH"],
+  "max_slippage_bps": 50,
+  "max_notional_usd": "20.00",
+  "fetched_at_unix": 1745798400,
+  "fetched_at_iso":  "2026-04-28T00:00:00Z",
+  "quotes": [
+    {
+      "id": "happy_path_within_caps",
+      "expected_swap_policy": "allow",
+      "expected_mandate_decision": "Allow",
+      "quote": {
+        "quote_id": "qt-MOCKUNIHAPPYPATH00000000",
+        "input":  { "token_symbol": "USDC", "amount": "5.00", "decimals": 6 },
+        "output": { "token_symbol": "ETH",  "amount": "0.0014", "decimals": 18 },
+        "route": [
+          { "token_symbol": "USDC" },
+          { "token_symbol": "ETH" }
+        ],
+        "expected_slippage_bps": 35,
+        "treasury_recipient": "0x1111111111111111111111111111111111111111",
+        "chain": "base"
+      }
+    },
+    {
+      "id": "slippage_violation",
+      "expected_swap_policy": "deny",
+      "expected_swap_policy_reason": "max_slippage_bps",
+      "expected_mandate_decision": "Deny",
+      "expected_mandate_deny_code": "policy.deny_recipient_not_allowlisted",
+      "quote": {
+        "quote_id": "qt-MOCKUNISLIPPAGEVIOLATION",
+        "input":  { "token_symbol": "USDC", "amount": "5.00", "decimals": 6 },
+        "output": { "token_symbol": "RUG",  "amount": "1000000", "decimals": 0 },
+        "route": [
+          { "token_symbol": "USDC" },
+          { "token_symbol": "RUG" }
+        ],
+        "expected_slippage_bps": 1500,
+        "treasury_recipient": "0x9999999999999999999999999999999999999999",
+        "chain": "base"
+      }
+    },
+    {
+      "id": "recipient_allowlist_violation",
+      "expected_swap_policy": "deny",
+      "expected_swap_policy_reason": "treasury_recipient_allowlisted",
+      "expected_mandate_decision": "Deny",
+      "expected_mandate_deny_code": "policy.deny_recipient_not_allowlisted",
+      "quote": {
+        "quote_id": "qt-MOCKUNIRECIPIENTVIOLATIO",
+        "input":  { "token_symbol": "USDC", "amount": "10.00", "decimals": 6 },
+        "output": { "token_symbol": "ETH",  "amount": "0.0028", "decimals": 18 },
+        "route": [
+          { "token_symbol": "USDC" },
+          { "token_symbol": "ETH" }
+        ],
+        "expected_slippage_bps": 30,
+        "treasury_recipient": "0x9999999999999999999999999999999999999999",
+        "chain": "base"
+      }
+    }
+  ]
+}

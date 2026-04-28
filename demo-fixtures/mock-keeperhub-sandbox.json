@@ -1,0 +1,96 @@
+{
+  "schema": "mandate-mock-keeperhub-sandbox-v1",
+  "mock": true,
+  "explanation": "Catalogue of the response envelopes Mandate's `KeeperHubExecutor::live()` would consume in production, modelled here against a deterministic local sandbox (NOT a real KeeperHub workflow). Each scenario shows what the live integration must parse: the success envelope (`executionId` parsing), the idempotency-conflict envelope, the not-approved envelope, and a status-lookup payload. Adapter authors can write the live parser against these shapes without ever calling KeeperHub. See `docs/keeperhub-live-spike.md` for the wire-format design notes that produced these shapes.",
+  "live_replacement": "Replace with real KeeperHub workflow webhook responses once a public submission/result schema and credentials are available. The four `mandate_*` envelope fields and the optional `X-Mandate-*` response headers are feedback asks — see FEEDBACK.md §KeeperHub. Switching is a `KeeperHubMode::Live(KeeperHubLiveConfig)` constructor in `crates/mandate-execution/src/keeperhub.rs`; this fixture documents the response shape Mandate would unwrap.",
+  "sponsor": "keeperhub",
+  "host": "sandbox.keeperhub.invalid",
+  "_host_note": "`*.invalid` is RFC 6761 §6.4 — guaranteed to never resolve, never make a real network call. Used here as a sentinel host so the fixture cannot be mistaken for a live URL.",
+  "scenarios": {
+    "submit_success": {
+      "request": {
+        "method": "POST",
+        "path": "/v1/workflows/run",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer <wfb_*-mock-token-redacted>"
+        },
+        "body": {
+          "aprp": "<canonical APRP body>",
+          "policy_receipt": "<signed PolicyReceipt JSON>",
+          "mandate_request_hash":      "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+          "mandate_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "mandate_receipt_signature": "<ed25519 hex>",
+          "mandate_audit_event_id":    "evt-MOCKKHSUCCESS00000000000A"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Mandate-Receipt-Signature": "<echoed; per FEEDBACK.md §KeeperHub ask>",
+          "X-Mandate-Policy-Hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf"
+        },
+        "body": {
+          "executionId":  "kh-MOCKKHSUCCESS00000000001B",
+          "status":       "submitted",
+          "submittedAt":  "2026-04-28T00:00:00Z"
+        }
+      }
+    },
+    "submit_idempotency_conflict": {
+      "request": {
+        "method": "POST",
+        "path": "/v1/workflows/run",
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "operator-side-key-aaaaaaaaaaaaaaaa",
+          "Authorization": "Bearer <wfb_*-mock-token-redacted>"
+        },
+        "body": {
+          "aprp": "<APRP body that differs from the first submission under the same key>",
+          "policy_receipt": "<receipt>",
+          "mandate_request_hash":      "9e6deead0f72284ce5002decb5dd6dacfd4eba15487b9a17050ce2bbf1f6fc3a",
+          "mandate_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "mandate_receipt_signature": "<ed25519 hex>",
+          "mandate_audit_event_id":    "evt-MOCKKHCONFLICT0000000000C"
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": { "Content-Type": "application/json" },
+        "body": {
+          "code": "keeperhub.idempotency_conflict",
+          "message": "Idempotency-Key reused with different request body."
+        }
+      }
+    },
+    "submit_not_approved_local": {
+      "_note": "Mandate's KeeperHubExecutor::execute() refuses denied receipts BEFORE any network call. This scenario shows the local-side refusal envelope so live-path authors don't accidentally emit a network request for denied receipts.",
+      "input_decision": "Deny",
+      "input_deny_code": "policy.deny_unknown_provider",
+      "behaviour": "ExecutionError::NotApproved is returned synchronously; no HTTP call is made; the workflow webhook URL is never contacted.",
+      "operator_console_pill": "keeperhub.refused: true"
+    },
+    "lookup_status": {
+      "_note": "Shape of the proposed `keeperhub.lookup_execution(execution_id)` MCP tool / GET endpoint; see FEEDBACK.md §KeeperHub → 'Suggested improvements'.",
+      "request": {
+        "method": "GET",
+        "path": "/v1/executions/kh-MOCKKHSUCCESS00000000001B"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "executionId":  "kh-MOCKKHSUCCESS00000000001B",
+          "status":       "completed",
+          "completedAt":  "2026-04-28T00:00:05Z",
+          "runLogPointer": "fixture://run-log/kh-MOCKKHSUCCESS00000000001B",
+          "mandate_request_hash":      "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+          "mandate_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "mandate_receipt_signature": "<ed25519 hex echoed back>",
+          "mandate_audit_event_id":    "evt-MOCKKHSUCCESS00000000000A"
+        }
+      }
+    }
+  }
+}
