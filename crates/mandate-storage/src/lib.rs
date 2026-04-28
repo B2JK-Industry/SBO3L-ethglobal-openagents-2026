@@ -3,6 +3,7 @@
 pub mod audit_store;
 pub mod db;
 pub mod error;
+pub mod idempotency_store;
 pub mod nonce_store;
 
 pub use audit_store::NewAuditEvent;
