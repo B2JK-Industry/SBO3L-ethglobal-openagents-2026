@@ -10,13 +10,17 @@ use crate::error::{StorageError, StorageResult};
 pub const V001_SQL: &str = include_str!("../../../migrations/V001__init.sql");
 pub const V002_SQL: &str = include_str!("../../../migrations/V002__nonce_replay.sql");
 pub const V004_SQL: &str = include_str!("../../../migrations/V004__idempotency_keys.sql");
+pub const V005_SQL: &str = include_str!("../../../migrations/V005__mock_kms_keys.sql");
 
-// V003 was reserved for a separate experiment that did not land; numbering
-// stays sparse intentionally so future migrations don't have to renumber.
+// V003 reserved for an experiment that did not land. V004 = PSM-A2
+// (idempotency_keys, merged in PR #23). V005 = PSM-A1.9
+// (mock_kms_keys, this PR). Sparse numbering kept intentional so
+// parallel branches don't collide on the same number.
 const MIGRATIONS: &[(i64, &str, &str)] = &[
     (1, "init", V001_SQL),
     (2, "nonce_replay", V002_SQL),
     (4, "idempotency_keys", V004_SQL),
+    (5, "mock_kms_keys", V005_SQL),
 ];
 
 pub struct Storage {

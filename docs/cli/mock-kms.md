@@ -64,11 +64,34 @@ mandate_core::signer::verify_hex(&v1.public_hex, b"some canonical bytes", &sig).
 - `role`, `version`, `key_id`, `public_hex`, `created_at`,
 - a `mock: bool` field that is **always `true`** so JSON / CLI output cannot drop the disclosure.
 
-## CLI
+## CLI (PSM-A1.9)
 
-The CLI commands `mandate key list --mock` and `mandate key rotate --mock` are tracked separately. They require a small storage table to persist rotation state across CLI invocations; see the production-shaped mock backlog (item PSM-A1.9) for follow-up.
+`mandate key {init,list,rotate}` operate on the persistent `mock_kms_keys` SQLite table (migration **V005**). Every operation requires `--mock` for explicit disclosure — these commands are NOT plug-compatible with a production KMS.
 
-For now, callers use `MockKmsSigner` programmatically (tests, in-process daemons, fixtures).
+```bash
+# Initialise role=audit-mock at v1, deterministic seed, in-process db.
+mandate key init --mock \
+  --role      audit-mock \
+  --root-seed 2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a \
+  --db        /var/lib/mandate/mandate.sqlite
+
+# List the keyring (filter by --role optional).
+mandate key list --mock --db /var/lib/mandate/mandate.sqlite
+
+# Rotate to next version. Reads max(version) for the role, derives v(n+1)
+# from (role, n+1, root_seed), inserts the row. Old version stays listed
+# so a verifier can resolve historical key_ids back to public keys.
+mandate key rotate --mock \
+  --role      audit-mock \
+  --root-seed 2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a \
+  --db        /var/lib/mandate/mandate.sqlite
+```
+
+The `--root-seed` is **never** stored in the SQLite database — only the resulting public-key metadata is persisted. The seed is supplied on every operation; rotation requires the same seed used at init (otherwise the derived public key wouldn't match what `MockKmsSigner` would produce).
+
+`init` is idempotent: re-running with the same args reports the existing v1 row and exits 0.
+
+`mandate doctor` automatically promotes the `mock_kms_keys` row from `skip` to `ok` once V005 has run and at least one keyring exists.
 
 ## Tests
 

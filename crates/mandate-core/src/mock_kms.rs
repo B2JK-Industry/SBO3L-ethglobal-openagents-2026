@@ -215,6 +215,19 @@ impl SignerBackend for MockKmsSigner {
     }
 }
 
+/// Build the `(key_id, public_hex)` pair that
+/// `MockKmsSigner::new` / `rotate` would produce for `(role, version,
+/// root_seed)`. Useful for callers that store keyring metadata
+/// externally (e.g. SQLite via `mandate-storage::mock_kms_store`) and
+/// need to derive the next version's public material without holding
+/// a `MockKmsSigner` instance.
+pub fn derive_key_metadata(role: &str, version: u32, root_seed: &[u8; 32]) -> (String, String) {
+    let signing_key = derive_signing_key(role, version, root_seed);
+    let public_hex = hex::encode(signing_key.verifying_key().to_bytes());
+    let key_id = format!("{role}-v{version}");
+    (key_id, public_hex)
+}
+
 /// Deterministic per-version seed. **Not** a production KDF — a real KMS
 /// would never derive private keys from a public-ish role+version tuple.
 /// This is sufficient for reproducible local testing where the same
