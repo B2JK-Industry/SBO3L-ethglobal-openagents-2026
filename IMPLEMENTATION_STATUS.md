@@ -2,14 +2,15 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **Mandate**.
 
-**Last updated:** 2026-04-28
-**Branch:** `main`
+**Last updated:** 2026-04-29
+**Branch:** `main` (HEAD `f789db8` — post-B2.v2)
 **Phase:** submission. `main` is implemented, reproducible, and ready to submit.
-**Open implementation PRs:** none.
+**Open implementation PRs:** **1** — A-side [#38](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/38) `fix: self-review truthfulness pass` (DIRTY against current `main`; A-side author rebases). The B5 PR for this snapshot is open separately and does not block submission.
 **CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI` + trust-badge regression test).
 **Blockers:** none.
 
-For the historical PR-by-PR audit trail, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
+For the **B5 final audit (current snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md).
+For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
 
 ## Verification summary
 
@@ -17,7 +18,7 @@ For the historical PR-by-PR audit trail, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --all-targets` | ✅ **215 / 215 pass** (0 fail, 0 ignored) |
+| `cargo test --workspace --all-targets` | ✅ **218 / 218 pass** (0 fail, 0 ignored) |
 | `python3 scripts/validate_schemas.py` | ✅ (6 schemas + 4 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |
