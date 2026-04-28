@@ -165,6 +165,33 @@ pub enum PolicyValidationError {
     DuplicateProviderId(String),
     #[error("recipients[] must be unique by (address, chain); '{address}@{chain}' duplicated")]
     DuplicateRecipient { address: String, chain: String },
+    /// `Budget` has no explicit `id` field, but the engine looks budgets up by
+    /// the tuple `(agent_id, scope, scope_key)` (see `BudgetTracker::check` in
+    /// `crates/mandate-policy/src/budget.rs`). Two entries with the same tuple
+    /// would silently shadow each other — the first one found via `iter()`
+    /// wins — so we reject that ambiguity at parse time. `scope_key` is
+    /// rendered as `<none>` when absent so the message is deterministic
+    /// regardless of which order the duplicates appear.
+    #[error(
+        "budgets[] must be unique by (agent_id, scope, scope_key); \
+         '{agent_id}/{scope}/{scope_key}' duplicated"
+    )]
+    DuplicateBudgetTuple {
+        agent_id: String,
+        scope: String,
+        scope_key: String,
+    },
+}
+
+fn budget_scope_label(s: BudgetScope) -> &'static str {
+    // Match the `serde(rename_all = "snake_case")` form on `BudgetScope` so
+    // error messages quote scopes the same way users wrote them in YAML/JSON.
+    match s {
+        BudgetScope::PerTx => "per_tx",
+        BudgetScope::Daily => "daily",
+        BudgetScope::Monthly => "monthly",
+        BudgetScope::PerProvider => "per_provider",
+    }
 }
 
 impl Policy {
@@ -215,6 +242,26 @@ impl Policy {
                 return Err(PolicyValidationError::DuplicateRecipient {
                     address: normalised,
                     chain: r.chain.clone(),
+                });
+            }
+        }
+        let mut budgets = HashSet::with_capacity(self.budgets.len());
+        for b in &self.budgets {
+            // The engine indexes budgets by (agent_id, scope, scope_key) — see
+            // the bucket key in `BudgetTracker::check`. Treat `None` and
+            // `Some("")` as distinct from every named key but equal to each
+            // other (both mean "no scope key"); the ord-stable representation
+            // is `Option::as_deref().unwrap_or("")`.
+            let key = (
+                b.agent_id.as_str(),
+                b.scope,
+                b.scope_key.as_deref().unwrap_or(""),
+            );
+            if !budgets.insert(key) {
+                return Err(PolicyValidationError::DuplicateBudgetTuple {
+                    agent_id: b.agent_id.clone(),
+                    scope: budget_scope_label(b.scope).to_string(),
+                    scope_key: b.scope_key.clone().unwrap_or_else(|| "<none>".to_string()),
                 });
             }
         }
@@ -353,6 +400,94 @@ mod tests {
             matches!(
                 err,
                 PolicyParseError::Validation(PolicyValidationError::DuplicateAgentId(_))
+            ),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn duplicate_budget_tuple_is_rejected() {
+        // `Budget` has no `id`. The engine looks budgets up by
+        // `(agent_id, scope, scope_key)`; two entries with the same tuple
+        // would silently shadow each other (first one wins), producing
+        // ambiguous policy semantics. Reject at parse time.
+        let mut p = base();
+        // The reference policy's first budget is per_tx for research-agent-01
+        // with no scope_key — clone it and push a duplicate.
+        let dup = p.budgets[0].clone();
+        let expected_agent = dup.agent_id.clone();
+        p.budgets.push(dup);
+        let err = p
+            .validate()
+            .expect_err("must reject duplicate budget tuple");
+        match err {
+            PolicyValidationError::DuplicateBudgetTuple {
+                agent_id,
+                scope,
+                scope_key,
+            } => {
+                assert_eq!(agent_id, expected_agent);
+                assert_eq!(scope, "per_tx");
+                // No scope_key on a per_tx budget → rendered as "<none>".
+                assert_eq!(scope_key, "<none>");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn duplicate_per_provider_budget_tuple_with_same_scope_key_is_rejected() {
+        // Same agent + scope + scope_key duplicates → reject.
+        let mut p = base();
+        // Index 2 in the reference policy is the per_provider/api.example.com
+        // budget. Clone it to force a real (agent_id, scope, scope_key) tuple
+        // collision (i.e. not the easier "no scope_key" case).
+        let dup = p.budgets[2].clone();
+        let expected_key = dup
+            .scope_key
+            .clone()
+            .expect("per_provider budget has scope_key");
+        p.budgets.push(dup);
+        let err = p
+            .validate()
+            .expect_err("must reject duplicate per_provider budget tuple");
+        match err {
+            PolicyValidationError::DuplicateBudgetTuple {
+                scope, scope_key, ..
+            } => {
+                assert_eq!(scope, "per_provider");
+                assert_eq!(scope_key, expected_key);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn distinct_budget_scopes_for_same_agent_are_allowed() {
+        // The reference policy already has three distinct budgets for
+        // research-agent-01 (per_tx, daily, per_provider+api.example.com) —
+        // pin that the new tuple check does not regress that valid case.
+        let p = base();
+        assert_eq!(p.budgets.len(), 3);
+        p.validate().expect("reference policy must remain valid");
+    }
+
+    #[test]
+    fn parse_yaml_rejects_duplicate_budget_tuple() {
+        // YAML path symmetry: same invariant must fire when policies are
+        // loaded as YAML. Mirrors `parse_yaml_runs_validation` but for the
+        // budget tuple instead of `agent_id`.
+        let raw = include_str!("../../../test-corpus/policy/reference_low_risk.json");
+        let mut value: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let extra = value["budgets"][0].clone();
+        value["budgets"].as_array_mut().unwrap().push(extra);
+        let bad_yaml = serde_yaml::to_string(&value).unwrap();
+        let err = Policy::parse_yaml(&bad_yaml)
+            .expect_err("YAML path must reject duplicate budget tuple");
+        assert!(
+            matches!(
+                err,
+                PolicyParseError::Validation(PolicyValidationError::DuplicateBudgetTuple { .. })
             ),
             "got {err:?}"
         );
