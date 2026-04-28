@@ -104,9 +104,14 @@ if have_subcmd doctor; then
     fail "mandate doctor reported a problem"
     exit 1
   fi
+  # Evidence capture for operator-console B2.v2 panel: also gather the
+  # JSON envelope (mandate.doctor.v1) so the panel renders structured
+  # check rows. Idempotent — runs against in-memory DB by default.
+  DOCTOR_JSON="$(./target/debug/mandate doctor --json 2>&1 || true)"
 else
   skip "blocked: waiting for \`mandate doctor\` (backlog PSM-A5)"
   note_skip "mandate doctor (operator readiness summary) — PSM-A5"
+  DOCTOR_JSON=""
 fi
 echo
 
@@ -131,22 +136,26 @@ if have_subcmd key list; then
   # verifying key is the audit-signer pubkey shipped in
   # `demo-fixtures/mock-kms-keys.json`.
   KMS_ROOT_SEED="$(python3 -c 'print("11"*32)')"
-  if ./target/debug/mandate key init --mock --role audit-mock \
-       --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1 | sed 's/^/    /' \
-     && ./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1 | sed 's/^/    /' \
-     && ./target/debug/mandate key rotate --mock --role audit-mock \
-       --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1 | sed 's/^/    /' \
-     && ./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1 | sed 's/^/    /'; then
-    ok "mandate key init/list/rotate --mock — full lifecycle exercised against fresh SQLite"
-    rm -rf "$KMS_TMP"
-  else
-    fail "mandate key CLI lifecycle returned non-zero"
-    rm -rf "$KMS_TMP"
-    exit 1
-  fi
+  # Capture each step's stdout into a variable for the operator-console
+  # evidence transcript (B2.v2), then mirror to the operator's terminal.
+  # `set -e` propagates command-substitution failures, so a non-zero
+  # exit aborts the runner exactly as the previous `&&` chain did.
+  KMS_INIT_OUT="$(./target/debug/mandate key init --mock --role audit-mock \
+       --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1)"
+  printf '%s\n' "$KMS_INIT_OUT" | sed 's/^/    /'
+  KMS_LIST1_OUT="$(./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1)"
+  printf '%s\n' "$KMS_LIST1_OUT" | sed 's/^/    /'
+  KMS_ROTATE_OUT="$(./target/debug/mandate key rotate --mock --role audit-mock \
+       --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1)"
+  printf '%s\n' "$KMS_ROTATE_OUT" | sed 's/^/    /'
+  KMS_LIST2_OUT="$(./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1)"
+  printf '%s\n' "$KMS_LIST2_OUT" | sed 's/^/    /'
+  ok "mandate key init/list/rotate --mock — full lifecycle exercised against fresh SQLite"
+  rm -rf "$KMS_TMP"
 else
   skip "signer + trait + rotation are merged in PR #22; waiting for \`mandate key list --mock\` / \`mandate key rotate --mock\` CLI + persistent mock-KMS storage table (backlog PSM-A1.9)"
   note_skip "Mock KMS CLI surface (\`mandate key list --mock\` / \`mandate key rotate --mock\`) + persistent mock-KMS storage table — PSM-A1.9"
+  KMS_INIT_OUT=""; KMS_ROTATE_OUT=""; KMS_LIST2_OUT=""
 fi
 echo
 
@@ -191,13 +200,11 @@ if have_subcmd policy current; then
     fail "mandate policy activate failed"
     exit 1
   fi
-  # 4d. current after activate -> ok with version + hash prefix
-  if ./target/debug/mandate policy current --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
-    ok "mandate policy current after activate (active row visible)"
-  else
-    fail "mandate policy current failed after activate"
-    exit 1
-  fi
+  # 4d. current after activate -> ok with version + hash prefix.
+  # Capture into a variable for the operator-console evidence transcript.
+  POLICY_CURRENT_OUT="$(./target/debug/mandate policy current --db "$POLICY_DB" 2>&1)"
+  printf '%s\n' "$POLICY_CURRENT_OUT" | sed 's/^/    /'
+  ok "mandate policy current after activate (active row visible)"
   # 4e. diff identical files -> exit 0
   if ./target/debug/mandate policy diff "$REF_POLICY" "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
     ok "mandate policy diff (identical files -> no differences)"
@@ -208,6 +215,7 @@ if have_subcmd policy current; then
 else
   skip "blocked: waiting for \`mandate policy current\` (backlog PSM-A3)"
   note_skip "Policy activation lifecycle (validate/current/activate/diff) — PSM-A3"
+  POLICY_CURRENT_OUT=""
 fi
 echo
 
@@ -452,38 +460,247 @@ if have_subcmd audit checkpoint; then
     fail "mandate audit checkpoint create returned non-zero"
     exit 1
   fi
-  if ./target/debug/mandate audit checkpoint verify "$CHECKPOINT_OUT" \
-       --db "$DB_PATH" 2>&1 | sed 's/^/    /'; then
-    ok "mandate audit checkpoint verify $(basename "$CHECKPOINT_OUT") --db $DB_PATH (chain_digest + anchor row + latest_event_hash all match)"
-  else
-    fail "mandate audit checkpoint verify returned non-zero"
-    exit 1
-  fi
+  # Capture verify output for the operator-console evidence transcript.
+  CHECKPOINT_VERIFY_OUT="$(./target/debug/mandate audit checkpoint verify "$CHECKPOINT_OUT" \
+       --db "$DB_PATH" 2>&1)"
+  printf '%s\n' "$CHECKPOINT_VERIFY_OUT" | sed 's/^/    /'
+  ok "mandate audit checkpoint verify $(basename "$CHECKPOINT_OUT") --db $DB_PATH (chain_digest + anchor row + latest_event_hash all match)"
 else
   skip "blocked: waiting for \`mandate audit checkpoint\` (backlog PSM-A4)"
   note_skip "Audit checkpoints + mock anchoring — PSM-A4"
+  CHECKPOINT_OUT=""
+  CHECKPOINT_VERIFY_OUT=""
 fi
 echo
 
 # ─── 11. Trust-badge / operator console build ────────────────────────────
 bold "11. Trust-badge build (judge-readable proof viewer)"
-TRUST_OUT="$(python3 trust-badge/build.py 2>&1)"
-echo "$TRUST_OUT" | sed 's/^/    /'
-if ! grep -q '^trust-badge: wrote' <<<"$TRUST_OUT"; then
-  fail "trust-badge/build.py did not produce the expected output"
-  exit 1
-fi
-ok "trust-badge/index.html generated from latest demo summary"
-
-if python3 trust-badge/test_build.py >/dev/null 2>&1; then
-  ok "trust-badge/test_build.py — render regression coverage green"
+# P1 review on PR #21: the default invocation (no --include-final-demo)
+# never runs the 13-gate final demo, which is the only source of
+# `demo-scripts/artifacts/latest-demo-summary.json` — the transcript
+# trust-badge/build.py requires. On a clean checkout that would crash
+# the runner here. Pre-check for the artifact and emit a deterministic
+# skip with the exact regenerate command, instead of letting the
+# downstream Python build crash the entire production-shaped run.
+DEMO_SUMMARY_PATH="demo-scripts/artifacts/latest-demo-summary.json"
+if [[ ! -s "$DEMO_SUMMARY_PATH" ]]; then
+  skip "trust-badge build skipped: \`$DEMO_SUMMARY_PATH\` not found (pass \`--include-final-demo\` or first run \`bash demo-scripts/run-openagents-final.sh\` to populate it)"
+  note_skip "Trust-badge regression coverage requires the demo-summary transcript"
 else
-  fail "trust-badge/test_build.py failed"
-  exit 1
+  TRUST_OUT="$(python3 trust-badge/build.py 2>&1)"
+  echo "$TRUST_OUT" | sed 's/^/    /'
+  if ! grep -q '^trust-badge: wrote' <<<"$TRUST_OUT"; then
+    fail "trust-badge/build.py did not produce the expected output"
+    exit 1
+  fi
+  ok "trust-badge/index.html generated from latest demo summary"
+
+  if python3 trust-badge/test_build.py >/dev/null 2>&1; then
+    ok "trust-badge/test_build.py — render regression coverage green"
+  else
+    fail "trust-badge/test_build.py failed"
+    exit 1
+  fi
 fi
 echo
 
-# ─── 12. Final summary ───────────────────────────────────────────────────
+# ─── 12. Operator-console evidence transcript (B2.v2) ────────────────────
+# Synthesise a `mandate-operator-evidence-v1` JSON capturing every
+# real-evidence panel the operator-console will render: PSM-A2
+# idempotency 4-case, PSM-A5 doctor JSON, PSM-A1.9 mock KMS keyring,
+# PSM-A3 active policy lifecycle, PSM-A4 audit checkpoints. Trust-badge
+# is intentionally untouched — it continues to consume only
+# `mandate-demo-summary-v1`. The new evidence file lives next to the
+# existing demo-summary transcript and is gitignored.
+bold "12. Operator-console evidence transcript (B2.v2)"
+mkdir -p demo-scripts/artifacts
+EVIDENCE_PATH="demo-scripts/artifacts/latest-operator-evidence.json"
+DEMO_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+GENERATED_AT_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+EVIDENCE_SCHEMA="mandate-operator-evidence-v1"
+
+# Bridge captured shell vars + temp file paths into python via env.
+# `${VAR:-}` makes the assignment safe if a step skipped (vars unset).
+DOCTOR_JSON="${DOCTOR_JSON:-}" \
+KMS_INIT_OUT="${KMS_INIT_OUT:-}" \
+KMS_LIST1_OUT="${KMS_LIST1_OUT:-}" \
+KMS_ROTATE_OUT="${KMS_ROTATE_OUT:-}" \
+KMS_LIST2_OUT="${KMS_LIST2_OUT:-}" \
+POLICY_CURRENT_OUT="${POLICY_CURRENT_OUT:-}" \
+CHECKPOINT_PATH="${CHECKPOINT_OUT:-}" \
+CHECKPOINT_VERIFY_OUT="${CHECKPOINT_VERIFY_OUT:-}" \
+RESP1_PATH="${TMPDIR_PSM:-/dev/null}/resp1.json" \
+RESP2_PATH="${TMPDIR_PSM:-/dev/null}/resp2.json" \
+RESP3_PATH="${TMPDIR_PSM:-/dev/null}/resp3.json" \
+RESP4_PATH="${TMPDIR_PSM:-/dev/null}/resp4.json" \
+DEMO_COMMIT="$DEMO_COMMIT" \
+GENERATED_AT_ISO="$GENERATED_AT_ISO" \
+EVIDENCE_SCHEMA="$EVIDENCE_SCHEMA" \
+EVIDENCE_PATH="$EVIDENCE_PATH" \
+python3 - <<'PY'
+import json, os, re
+
+def _read_text(env_key):
+    return os.environ.get(env_key, "") or ""
+
+def _read_json_file(env_key):
+    p = os.environ.get(env_key, "") or ""
+    if p and os.path.isfile(p):
+        try:
+            with open(p) as fh:
+                return json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            pass
+    return None
+
+def _read_bytes_file(env_key):
+    p = os.environ.get(env_key, "") or ""
+    if p and os.path.isfile(p):
+        try:
+            with open(p, "rb") as fh:
+                return fh.read()
+        except OSError:
+            pass
+    return None
+
+# 1. PSM-A5 — mandate doctor --json envelope.
+doctor_raw = _read_text("DOCTOR_JSON").strip()
+doctor_report = None
+checks_summary = {"ok": 0, "skip": 0, "fail": 0}
+malformed = False
+if doctor_raw:
+    try:
+        doctor_report = json.loads(doctor_raw)
+        for c in doctor_report.get("checks", []) or []:
+            s = c.get("status", "")
+            if s in checks_summary:
+                checks_summary[s] += 1
+    except json.JSONDecodeError:
+        malformed = True
+        doctor_report = {"_parse_error": "doctor --json output did not parse",
+                         "_raw_first_120": doctor_raw[:120]}
+
+# 2. PSM-A1.9 — mock KMS keyring. Parse the authoritative POST-ROTATE
+# `key list` table (KMS_LIST2_OUT) which has all rows in fixed shape:
+#   mock-kms:   <role>  <ver>  <key_id>  <public_hex>  <created_at>
+# Public verification keys only — no private/signing material is ever
+# logged by the CLI, by design.
+keys = []
+list2 = _read_text("KMS_LIST2_OUT")
+for line in list2.splitlines():
+    if not line.startswith("mock-kms:"):
+        continue
+    body = line[len("mock-kms:"):].strip()
+    if body.startswith("keyring") or body.startswith("role"):
+        continue  # header / count line
+    parts = body.split()
+    # Expect at least: role, ver, key_id, public_hex, created_at
+    if len(parts) < 5:
+        continue
+    role, ver, key_id, pub, created_at = parts[0], parts[1], parts[2], parts[3], " ".join(parts[4:])
+    try:
+        ver_i = int(ver)
+    except ValueError:
+        continue
+    keys.append({
+        "role": role,
+        "version": ver_i,
+        "key_id": key_id,
+        "verifying_key_hex": pub,
+        "verifying_key_hex_prefix": pub[:12] if pub else None,
+        "created_at": created_at,
+        "mock": True,
+    })
+
+# 3. PSM-A3 — active policy after activate.
+policy = {}
+for line in _read_text("POLICY_CURRENT_OUT").splitlines():
+    m = re.match(r'^\s+(version|policy_hash|source|activated_at):\s+(\S.*\S)\s*$', line)
+    if m:
+        policy[m.group(1)] = m.group(2)
+
+# 4. PSM-A4 — checkpoint create + verify.
+checkpoint_create = _read_json_file("CHECKPOINT_PATH")
+verify_lines = [
+    l.strip()
+    for l in _read_text("CHECKPOINT_VERIFY_OUT").splitlines()
+    if l.strip()
+]
+# P1 fix: each boolean must match `ok` on its OWN line. The previous
+# `_has_phrase("ok")` co-condition matched ANY line containing the
+# token "ok", so a `db cross-check: fail` line could still resolve
+# `db_cross_check_ok=true` simply because some other line said "ok"
+# (e.g. structural verify ok). That risked a false-positive evidence
+# panel claiming a verification succeeded that actually failed.
+def _line_status_ok(prefix):
+    pat = re.compile(re.escape(prefix) + r':\s*ok\b')
+    return any(pat.search(l) for l in verify_lines)
+checkpoint_verify = {
+    "raw_lines": verify_lines,
+    "structural_verify_ok": _line_status_ok("structural verify"),
+    "db_cross_check_ok":    _line_status_ok("db cross-check"),
+    "result_ok":            _line_status_ok("verify result"),
+}
+
+# 5. PSM-A2 — idempotency 4-case matrix.
+resp1 = _read_json_file("RESP1_PATH")
+resp2 = _read_json_file("RESP2_PATH")
+resp3 = _read_json_file("RESP3_PATH")
+resp4 = _read_json_file("RESP4_PATH")
+b1 = _read_bytes_file("RESP1_PATH")
+b2 = _read_bytes_file("RESP2_PATH")
+byte_identical = (b1 is not None and b2 is not None and b1 == b2)
+idempotency = {
+    "case_1_first_post": {
+        "http_status": 200 if resp1 else None,
+        "audit_event_id": (resp1 or {}).get("audit_event_id"),
+        "decision": (resp1 or {}).get("decision"),
+    },
+    "case_2_cached_replay": {
+        "http_status": 200 if resp2 else None,
+        "byte_identical_to_case_1": byte_identical,
+    },
+    "case_3_idempotency_conflict": {
+        "http_status": 409 if (resp3 and resp3.get("code") == "protocol.idempotency_conflict") else None,
+        "code": (resp3 or {}).get("code"),
+    },
+    "case_4_nonce_replay_with_new_key": {
+        "http_status": 409 if (resp4 and resp4.get("code") == "protocol.nonce_replay") else None,
+        "code": (resp4 or {}).get("code"),
+    },
+}
+
+evidence = {
+    "schema": os.environ["EVIDENCE_SCHEMA"],
+    "tagline": "Don't give your agent a wallet. Give it a mandate.",
+    "demo_commit": os.environ.get("DEMO_COMMIT", "unknown"),
+    "generated_at_iso": os.environ.get("GENERATED_AT_ISO", ""),
+    "psm_a1_9_mock_kms": {
+        "keys": keys,
+        "post_rotate_listing_text": _read_text("KMS_LIST2_OUT"),
+        "_mock_label": "Every entry above is from --mock keyring. Not production KMS.",
+    },
+    "psm_a2_idempotency": idempotency,
+    "psm_a3_active_policy": policy if policy else None,
+    "psm_a4_audit_checkpoints": {
+        "create": checkpoint_create,
+        "verify": checkpoint_verify,
+        "_mock_anchor_label": "Mock anchoring, NOT onchain.",
+    },
+    "psm_a5_doctor": {
+        "report": doctor_report,
+        "checks_summary": checks_summary,
+        "malformed": malformed,
+    },
+}
+with open(os.environ["EVIDENCE_PATH"], "w", encoding="utf-8") as fh:
+    json.dump(evidence, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
+ok "wrote $EVIDENCE_PATH ($(wc -c < "$EVIDENCE_PATH" | tr -d ' ') bytes, schema=$EVIDENCE_SCHEMA)"
+echo
+
+# ─── 13. Final summary ───────────────────────────────────────────────────
 bold "Production-shaped mock run complete."
 echo
 cat <<EOF
