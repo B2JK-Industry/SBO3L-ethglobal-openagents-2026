@@ -31,7 +31,7 @@ bash demo-scripts/run-openagents-final.sh
 
 You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators. The demo runs in ~5 seconds and exercises all 11 steps including the audit-chain tamper detection.
 
-See [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) for the ETHGlobal submission narrative and [`AI_USAGE.md`](AI_USAGE.md) for AI tooling disclosure.
+See [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) for the ETHGlobal submission narrative, [`SUBMISSION_FORM_DRAFT.md`](SUBMISSION_FORM_DRAFT.md) for copy-paste-ready ETHGlobal form text, and [`AI_USAGE.md`](AI_USAGE.md) for AI tooling disclosure.
 
 ## Repository layout
 
