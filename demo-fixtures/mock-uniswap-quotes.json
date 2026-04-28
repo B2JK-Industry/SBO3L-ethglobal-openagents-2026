@@ -1,7 +1,7 @@
 {
   "schema": "mandate-mock-uniswap-quotes-v1",
   "mock": true,
-  "explanation": "Catalogue of mock Uniswap quote envelopes shaped like what the Mandate Uniswap swap-policy guard (`mandate_execution::uniswap::evaluate_swap`) consumes. Three deterministic quotes — bounded happy path, slippage-cap violation, treasury-recipient-allowlist violation — give swap-policy authors a single file to dry-run their policy against. Distinct from the existing `demo-fixtures/uniswap/quote-USDC-{ETH,RUG}.json` per-quote files: this is the catalogue view for sponsor reviewers.",
+  "explanation": "Catalogue of mock Uniswap quote envelopes shaped like what the Mandate Uniswap swap-policy guard (`mandate_execution::uniswap::evaluate_swap`) consumes. Three deterministic quotes — bounded happy path, multi-violation rug quote, single-violation recipient-allowlist case — give swap-policy authors a single file to dry-run their policy against. The rug quote intentionally trips THREE checks (output token, slippage, recipient); `evaluate_swap` traverses checks in field order so the FIRST reported violation is `output_token_allowlisted`, not slippage. Distinct from the existing `demo-fixtures/uniswap/quote-USDC-{ETH,RUG}.json` per-quote files: this is the catalogue view for sponsor reviewers.",
   "live_replacement": "Replace with live responses from the Uniswap Trading API quote endpoint. The `UniswapExecutor::live()` constructor in `crates/mandate-execution/src/uniswap.rs` is intentionally stubbed (`BackendOffline`) until that wiring lands — see FEEDBACK.md §Uniswap → 'Suggested improvements' for the signed-quote and route-token-enumeration asks.",
   "host": "sandbox.uniswap.invalid",
   "_host_note": "`*.invalid` is RFC 6761 §6.4 — guaranteed to never resolve. Sentinel host so the fixture cannot be mistaken for a live URL.",
@@ -32,13 +32,15 @@
       }
     },
     {
-      "id": "slippage_violation",
+      "id": "multiple_violations_rug_quote",
       "expected_swap_policy": "deny",
-      "expected_swap_policy_reason": "max_slippage_bps",
+      "_swap_policy_reason_note": "`evaluate_swap` (`crates/mandate-execution/src/uniswap.rs`) traverses checks in field order: input_token → output_token → max_notional_usd → max_slippage_bps → quote_freshness → treasury_recipient. The first violation a consumer sees is therefore output_token, not slippage. All three violations below ARE reported in the returned `SwapPolicyOutcome.checks` vector.",
+      "expected_swap_policy_reason": "output_token_allowlisted",
+      "expected_additional_violations": ["max_slippage_bps", "treasury_recipient_allowlisted"],
       "expected_mandate_decision": "Deny",
       "expected_mandate_deny_code": "policy.deny_recipient_not_allowlisted",
       "quote": {
-        "quote_id": "qt-MOCKUNISLIPPAGEVIOLATION",
+        "quote_id": "qt-MOCKUNIRUGQUOTE0000000000",
         "input":  { "token_symbol": "USDC", "amount": "5.00", "decimals": 6 },
         "output": { "token_symbol": "RUG",  "amount": "1000000", "decimals": 0 },
         "route": [
