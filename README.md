@@ -10,7 +10,7 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Status
 
-Implementation complete. All hardening PRs (#5, #6, #7, #8, #9) are merged into `main`; `cargo test --workspace --all-targets` runs **90/90 green**; `bash demo-scripts/run-openagents-final.sh` runs end-to-end clean. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the post-merge snapshot and [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the submission-readiness audit.
+Implementation complete. All hardening PRs (#5, #6, #7, #8, #9, #11) are merged into `main`; `cargo test --workspace --all-targets` runs **96/96 green**; `bash demo-scripts/run-openagents-final.sh` runs end-to-end clean. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the post-merge snapshot and [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the submission-readiness audit.
 
 ## What this is
 
@@ -31,7 +31,7 @@ bash demo-scripts/run-openagents-final.sh
 
 You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators. The demo runs in ~5 seconds and exercises all 11 steps including the audit-chain tamper detection.
 
-See [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) for the ETHGlobal submission narrative and [`AI_USAGE.md`](AI_USAGE.md) for AI tooling disclosure.
+See [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) for the ETHGlobal submission narrative, [`SUBMISSION_FORM_DRAFT.md`](SUBMISSION_FORM_DRAFT.md) for copy-paste-ready ETHGlobal form text, and [`AI_USAGE.md`](AI_USAGE.md) for AI tooling disclosure.
 
 ## Repository layout
 
