@@ -84,6 +84,22 @@ struct Cli {
     /// check.
     #[arg(long, default_value_t = true)]
     relax_quote_freshness: bool,
+
+    /// Optional path to a persistent SQLite storage file for the in-process
+    /// daemon. When unset, the harness uses `Storage::open_in_memory()` (the
+    /// default for the existing 13-gate demo). When set, the same migrations
+    /// run against the on-disk file, the chain persists past the harness
+    /// process, and the file is suitable for `mandate audit export --db`.
+    /// Used by `demo-scripts/run-production-shaped-mock.sh`.
+    #[arg(long)]
+    storage_path: Option<std::path::PathBuf>,
+
+    /// Optional path to write the signed `PolicyReceipt` JSON returned by
+    /// the daemon. Lets downstream scripts (e.g. the production-shaped mock
+    /// runner) feed the receipt into `mandate audit export --receipt`
+    /// without parsing the harness's human-readable stdout.
+    #[arg(long)]
+    save_receipt: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -191,12 +207,18 @@ fn run_scenario(cli: &Cli, scenario_id: &str, policy: Policy) -> anyhow::Result<
         .map_err(|e| anyhow::anyhow!("read {}: {e}", aprp_path.display()))?;
     let aprp_value: Value = serde_json::from_str(&aprp_raw)?;
 
+    let storage_path = cli.storage_path.clone();
     let runtime = tokio::runtime::Runtime::new()?;
-    let response = runtime.block_on(async move { call_in_memory(aprp_value, policy).await })?;
+    let response = runtime.block_on(async move {
+        call_in_memory(aprp_value, policy, storage_path.as_deref()).await
+    })?;
 
     print_summary(scenario, &response);
     check_expectations(scenario, &response)?;
 
+    if let Some(out) = &cli.save_receipt {
+        save_receipt_json(out, &response)?;
+    }
     if cli.execute_keeperhub {
         keeperhub_route(&aprp_path, &response)?;
     }
@@ -219,11 +241,16 @@ fn run_uniswap(cli: &Cli, quote_path: &std::path::Path, policy: Policy) -> anyho
 
     let aprp_value = quote_to_aprp(&quote)?;
 
+    let storage_path = cli.storage_path.clone();
     let runtime = tokio::runtime::Runtime::new()?;
-    let response =
-        runtime.block_on(async move { call_in_memory(aprp_value.clone(), policy).await })?;
+    let response = runtime.block_on(async move {
+        call_in_memory(aprp_value.clone(), policy, storage_path.as_deref()).await
+    })?;
     print_uniswap_summary(&quote, &response);
 
+    if let Some(out) = &cli.save_receipt {
+        save_receipt_json(out, &response)?;
+    }
     if cli.execute_uniswap {
         uniswap_route(&quote, &response)?;
     }
@@ -346,8 +373,27 @@ fn uniswap_route(quote: &SwapQuote, response: &PaymentRequestResponse) -> anyhow
     Ok(())
 }
 
-async fn call_in_memory(aprp: Value, policy: Policy) -> anyhow::Result<PaymentRequestResponse> {
-    let storage = Storage::open_in_memory()?;
+fn save_receipt_json(
+    out: &std::path::Path,
+    response: &PaymentRequestResponse,
+) -> anyhow::Result<()> {
+    let body = serde_json::to_vec_pretty(&response.receipt)?;
+    std::fs::write(out, body)
+        .map_err(|e| anyhow::anyhow!("write receipt to {}: {e}", out.display()))?;
+    Ok(())
+}
+
+async fn call_in_memory(
+    aprp: Value,
+    policy: Policy,
+    storage_path: Option<&std::path::Path>,
+) -> anyhow::Result<PaymentRequestResponse> {
+    let storage = match storage_path {
+        Some(p) => {
+            Storage::open(p).map_err(|e| anyhow::anyhow!("open storage at {}: {e}", p.display()))?
+        }
+        None => Storage::open_in_memory()?,
+    };
     let state = AppState::new(policy, storage);
     let app = mandate_server::router(state);
 
