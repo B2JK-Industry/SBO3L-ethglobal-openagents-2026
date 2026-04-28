@@ -7,6 +7,8 @@ use mandate_core::audit_bundle::{self, AuditBundle};
 use mandate_core::receipt::PolicyReceipt;
 use mandate_core::{schema, SchemaError};
 
+mod doctor;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "mandate",
@@ -55,6 +57,26 @@ enum Command {
     Audit {
         #[command(subcommand)]
         op: AuditCmd,
+    },
+    /// Operator readiness summary.
+    ///
+    /// Inspects a Mandate SQLite database (or an in-memory fresh one) and
+    /// reports per-feature status: storage open, migrations applied, audit
+    /// chain integrity, nonce-replay table, idempotency table, mock KMS
+    /// keyring, active policy. Each check is **honest about scope** — a
+    /// feature that is not implemented yet surfaces as `skip`, never as
+    /// fake `ok`. Output is a human-readable summary by default; `--json`
+    /// emits a machine-readable envelope suitable for pipelines and the
+    /// production-shaped runner.
+    Doctor {
+        /// Path to a Mandate SQLite database. If omitted, opens a fresh
+        /// in-memory database (every check runs against a clean slate —
+        /// useful for verifying the binary itself works).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Emit JSON instead of human-readable text.
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
 }
 
@@ -183,6 +205,7 @@ fn main() -> ExitCode {
         Command::Audit {
             op: AuditCmd::VerifyBundle { path },
         } => cmd_audit_verify_bundle(&path),
+        Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
     }
 }
 

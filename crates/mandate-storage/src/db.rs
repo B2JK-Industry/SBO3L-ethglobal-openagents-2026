@@ -24,6 +24,49 @@ pub struct Storage {
 }
 
 impl Storage {
+    /// True if a table with the given name exists in the open database.
+    /// Used by `mandate doctor` to detect optional tables (e.g.
+    /// `idempotency_keys` from a future migration) without forcing a
+    /// migration order.
+    pub fn table_exists(&self, name: &str) -> StorageResult<bool> {
+        let n: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+            rusqlite::params![name],
+            |r| r.get(0),
+        )?;
+        Ok(n > 0)
+    }
+
+    /// List of `(version, description)` for every migration that has been
+    /// applied against this database. `mandate doctor` prints this to
+    /// reassure the operator that storage is current.
+    pub fn applied_migrations(&self) -> StorageResult<Vec<(i64, String)>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT version, description FROM schema_migrations ORDER BY version ASC")?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Count rows in a table that may not exist. Returns `Ok(None)` when
+    /// the table is missing — handy for the doctor's optional-feature
+    /// reporting where a missing table is "skip", not "fail".
+    pub fn optional_count(&self, table: &str) -> StorageResult<Option<u64>> {
+        if !self.table_exists(table)? {
+            return Ok(None);
+        }
+        // We control `table` (called only with hard-coded names from the
+        // CLI), so direct interpolation is fine — SQLite parameter
+        // bindings can't substitute table identifiers anyway.
+        let sql = format!("SELECT COUNT(*) FROM \"{table}\"");
+        let n: i64 = self.conn.query_row(&sql, [], |r| r.get(0))?;
+        Ok(Some(n as u64))
+    }
+}
+
+impl Storage {
     pub fn open_in_memory() -> StorageResult<Self> {
         let conn = Connection::open_in_memory().map_err(StorageError::Sqlite)?;
         Self::configure(&conn)?;
