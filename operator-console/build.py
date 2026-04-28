@@ -337,6 +337,13 @@ def verify_bundle(bundle_path: Path, mandate_bin: Path | None) -> dict:
     binary = mandate_bin or (REPO_ROOT / "target" / "debug" / "mandate")
     if not binary.is_file():
         return {"state": "binary_missing", "path": str(binary)}
+    # PR #24 P2 review: catch the full set of subprocess failures the
+    # `mandate audit verify-bundle` invocation can raise. The original
+    # only-FileNotFoundError handler crashed the whole build with a
+    # traceback for `subprocess.TimeoutExpired` (slow verify) or any
+    # `OSError` (e.g. PermissionError on a non-executable --mandate-bin),
+    # even though this panel is explicitly designed to render a failure
+    # state instead of aborting the render.
     try:
         proc = subprocess.run(
             [str(binary), "audit", "verify-bundle", "--path", str(bundle_path)],
@@ -344,6 +351,15 @@ def verify_bundle(bundle_path: Path, mandate_bin: Path | None) -> dict:
         )
     except FileNotFoundError:
         return {"state": "binary_missing", "path": str(binary)}
+    except subprocess.TimeoutExpired as e:
+        return {"state": "verify_failed", "rc": -1,
+                "stderr": f"verify-bundle timed out after {e.timeout}s "
+                          f"(binary may be hung).",
+                "stdout": ""}
+    except OSError as e:
+        return {"state": "verify_failed", "rc": -1,
+                "stderr": f"verify-bundle could not be invoked: {e}",
+                "stdout": ""}
     if proc.returncode != 0:
         return {"state": "verify_failed", "rc": proc.returncode,
                 "stderr": proc.stderr.strip(), "stdout": proc.stdout.strip()}

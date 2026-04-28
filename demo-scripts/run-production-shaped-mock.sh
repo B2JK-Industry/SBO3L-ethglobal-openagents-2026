@@ -475,19 +475,32 @@ echo
 
 # ─── 11. Trust-badge / operator console build ────────────────────────────
 bold "11. Trust-badge build (judge-readable proof viewer)"
-TRUST_OUT="$(python3 trust-badge/build.py 2>&1)"
-echo "$TRUST_OUT" | sed 's/^/    /'
-if ! grep -q '^trust-badge: wrote' <<<"$TRUST_OUT"; then
-  fail "trust-badge/build.py did not produce the expected output"
-  exit 1
-fi
-ok "trust-badge/index.html generated from latest demo summary"
-
-if python3 trust-badge/test_build.py >/dev/null 2>&1; then
-  ok "trust-badge/test_build.py — render regression coverage green"
+# P1 review on PR #21: the default invocation (no --include-final-demo)
+# never runs the 13-gate final demo, which is the only source of
+# `demo-scripts/artifacts/latest-demo-summary.json` — the transcript
+# trust-badge/build.py requires. On a clean checkout that would crash
+# the runner here. Pre-check for the artifact and emit a deterministic
+# skip with the exact regenerate command, instead of letting the
+# downstream Python build crash the entire production-shaped run.
+DEMO_SUMMARY_PATH="demo-scripts/artifacts/latest-demo-summary.json"
+if [[ ! -s "$DEMO_SUMMARY_PATH" ]]; then
+  skip "trust-badge build skipped: \`$DEMO_SUMMARY_PATH\` not found (pass \`--include-final-demo\` or first run \`bash demo-scripts/run-openagents-final.sh\` to populate it)"
+  note_skip "Trust-badge regression coverage requires the demo-summary transcript"
 else
-  fail "trust-badge/test_build.py failed"
-  exit 1
+  TRUST_OUT="$(python3 trust-badge/build.py 2>&1)"
+  echo "$TRUST_OUT" | sed 's/^/    /'
+  if ! grep -q '^trust-badge: wrote' <<<"$TRUST_OUT"; then
+    fail "trust-badge/build.py did not produce the expected output"
+    exit 1
+  fi
+  ok "trust-badge/index.html generated from latest demo summary"
+
+  if python3 trust-badge/test_build.py >/dev/null 2>&1; then
+    ok "trust-badge/test_build.py — render regression coverage green"
+  else
+    fail "trust-badge/test_build.py failed"
+    exit 1
+  fi
 fi
 echo
 
