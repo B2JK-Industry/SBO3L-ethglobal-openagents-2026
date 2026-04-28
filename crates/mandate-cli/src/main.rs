@@ -8,6 +8,7 @@ use mandate_core::receipt::PolicyReceipt;
 use mandate_core::{schema, SchemaError};
 
 mod doctor;
+mod key;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -77,6 +78,64 @@ enum Command {
         /// Emit JSON instead of human-readable text.
         #[arg(long, default_value_t = false)]
         json: bool,
+    },
+    /// Mock KMS keyring commands (PSM-A1.9).
+    ///
+    /// Operate on the persistent `mock_kms_keys` SQLite table (V005).
+    /// Every operation requires `--mock` for explicit disclosure — these
+    /// commands are NOT plug-compatible with a production KMS. See
+    /// `docs/cli/mock-kms.md`.
+    Key {
+        #[command(subcommand)]
+        op: KeyCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum KeyCmd {
+    /// Initialise a mock keyring's v1 row for the given `--role`.
+    /// Idempotent: running again with the same args is a no-op.
+    Init {
+        /// Required acknowledgement that this is mock KMS infrastructure.
+        #[arg(long)]
+        mock: bool,
+        /// Stable role name (e.g. `audit-mock`, `decision-mock`).
+        #[arg(long)]
+        role: String,
+        /// 32-byte deterministic root seed, hex-encoded (64 chars). The
+        /// seed never enters the SQLite database — only its derived
+        /// public keys do.
+        #[arg(long)]
+        root_seed: String,
+        /// Optional v1 timestamp (RFC3339). Defaults to "now()".
+        #[arg(long)]
+        genesis: Option<String>,
+        /// SQLite database path (the same one the daemon writes to).
+        #[arg(long)]
+        db: PathBuf,
+    },
+    /// List keyring rows in `(role, version)` order.
+    List {
+        #[arg(long)]
+        mock: bool,
+        /// Restrict to a single role.
+        #[arg(long)]
+        role: Option<String>,
+        #[arg(long)]
+        db: PathBuf,
+    },
+    /// Add the next version of `--role` to the keyring. Reads the
+    /// existing maximum version, derives the new version's public
+    /// material from `(role, n+1, root_seed)`, inserts the row.
+    Rotate {
+        #[arg(long)]
+        mock: bool,
+        #[arg(long)]
+        role: String,
+        #[arg(long)]
+        root_seed: String,
+        #[arg(long)]
+        db: PathBuf,
     },
 }
 
@@ -206,6 +265,28 @@ fn main() -> ExitCode {
             op: AuditCmd::VerifyBundle { path },
         } => cmd_audit_verify_bundle(&path),
         Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
+        Command::Key {
+            op:
+                KeyCmd::Init {
+                    mock,
+                    role,
+                    root_seed,
+                    genesis,
+                    db,
+                },
+        } => key::cmd_init(mock, &role, &root_seed, genesis.as_deref(), &db),
+        Command::Key {
+            op: KeyCmd::List { mock, role, db },
+        } => key::cmd_list(mock, role.as_deref(), &db),
+        Command::Key {
+            op:
+                KeyCmd::Rotate {
+                    mock,
+                    role,
+                    root_seed,
+                    db,
+                },
+        } => key::cmd_rotate(mock, &role, &root_seed, &db),
     }
 }
 
