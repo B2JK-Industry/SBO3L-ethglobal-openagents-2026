@@ -20,6 +20,11 @@ const SELECT_AUDIT_ALL_ORDERED: &str =
      policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
      signature_key_id, signature_hex FROM audit_events ORDER BY seq ASC";
 
+const SELECT_AUDIT_LAST: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events ORDER BY seq DESC LIMIT 1";
+
 fn row_to_signed_audit_event(r: &rusqlite::Row<'_>) -> rusqlite::Result<SignedAuditEvent> {
     let metadata_json: String = r.get(7)?;
     let metadata: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&metadata_json)
@@ -102,14 +107,18 @@ impl Storage {
         Ok(n as u64)
     }
 
+    /// Fetch the most recent audit event (highest `seq`) with a single query.
+    ///
+    /// Previously this was a `SELECT seq` followed by `audit_get(seq)`; the
+    /// extra round-trip is unnecessary because the same row mapper accepts
+    /// every column we need. `audit_list` was migrated to single-query in
+    /// `8809f48`; this brings `audit_last` in line with that change.
     pub fn audit_last(&self) -> StorageResult<Option<SignedAuditEvent>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT seq FROM audit_events ORDER BY seq DESC LIMIT 1")?;
-        let last_seq: Option<i64> = stmt.query_row([], |r| r.get(0)).ok();
-        match last_seq {
-            None => Ok(None),
-            Some(seq) => Ok(Some(self.audit_get(seq as u64)?)),
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_LAST)?;
+        match stmt.query_row([], row_to_signed_audit_event) {
+            Ok(row) => Ok(Some(row)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -212,6 +221,34 @@ mod tests {
 
         assert_eq!(s.audit_count().unwrap(), 2);
         s.audit_verify(Some(&signer.verifying_key_hex())).unwrap();
+    }
+
+    #[test]
+    fn audit_last_returns_none_for_empty_chain() {
+        let s = Storage::open_in_memory().unwrap();
+        assert!(s.audit_last().unwrap().is_none());
+    }
+
+    #[test]
+    fn audit_last_returns_highest_seq_after_appends() {
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        let _e1 = s
+            .audit_append(
+                NewAuditEvent::now("runtime_started", "mandate-server", "runtime"),
+                &signer,
+            )
+            .unwrap();
+        let e2 = s
+            .audit_append(
+                NewAuditEvent::now("config_loaded", "mandate-server", "config"),
+                &signer,
+            )
+            .unwrap();
+        let last = s.audit_last().unwrap().expect("last event present");
+        assert_eq!(last.event.seq, 2);
+        assert_eq!(last.event_hash, e2.event_hash);
+        assert_eq!(last.event.event_type, "config_loaded");
     }
 
     #[test]
