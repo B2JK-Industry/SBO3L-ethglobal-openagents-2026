@@ -26,7 +26,7 @@ All implementation code in this repository:
 - Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh`.
 - `demo-scripts/run-openagents-final.sh` — single-command demo runner with audit-chain tamper detection, agent no-key boundary proof, and a deterministic transcript artifact.
 - Static, offline trust-badge proof viewer (`trust-badge/build.py`) + stdlib regression test (`trust-badge/test_build.py`).
-- Static, offline operator console (`operator-console/build.py`) — sister surface to the trust-badge with three pending pills (PSM-A2 / PSM-A5 / PSM-A1.9 — backends merged, panels landing in B2.v2) and two blocked pills (PSM-A3 / PSM-A4).
+- Static, offline operator console (`operator-console/build.py`) — sister surface to the trust-badge with five pending pills (PSM-A2 / PSM-A5 / PSM-A1.9 / PSM-A3 / PSM-A4 — all backends merged, panels landing in B2.v2); zero blocked pills.
 - HTTP `Idempotency-Key` safe-retry (PSM-A2): persistent SQLite-backed dedup with the four-case behaviour matrix exercised by `demo-scripts/run-production-shaped-mock.sh` step 7 against a real `mandate-server` daemon.
 - `mandate doctor` (PSM-A5): operator readiness summary; refuses to open a missing DB (no write-on-typo); per-feature `ok`/`skip`/`warn`/`fail`; stable JSON envelope.
 - Mock KMS CLI surface + persistence (PSM-A1.9): `mandate key {init,list,rotate} --mock` with `mock_kms_keys` SQLite table (V005). Mock — not production-grade.

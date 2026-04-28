@@ -25,7 +25,7 @@ For the historical PR-by-PR audit trail, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md
 | `python3 trust-badge/build.py` | ✅ writes `trust-badge/index.html` (self-contained, no JS, no fetch) |
 | `python3 trust-badge/test_build.py` | ✅ 31 stdlib assertions on the rendered HTML |
 | `python3 operator-console/build.py` | ✅ writes `operator-console/index.html` (self-contained, no JS, no fetch) |
-| `python3 operator-console/test_build.py` | ✅ 51 stdlib assertions (PSM-A2 + PSM-A5 + PSM-A1.9 + PSM-A3 in pending pills; only PSM-A4 still blocked) |
+| `python3 operator-console/test_build.py` | ✅ 52 stdlib assertions (all five A-side backlog rows — PSM-A2 + PSM-A5 + PSM-A1.9 + PSM-A3 + PSM-A4 — surface as pending pills; no blocked pills remain) |
 | `python3 demo-fixtures/test_fixtures.py` | ✅ 4 mock fixtures clean + url-allowlist self-test |
 
 ## What is implemented
@@ -73,8 +73,8 @@ Full Open Agents vertical:
 - **HTTP `Idempotency-Key` safe-retry** (PSM-A2) — persistent SQLite-backed dedup; same-key/same-body → byte-identical cached response, no second audit row; same-key/different-body → 409 `protocol.idempotency_conflict`; different-key + same-nonce → 409 `protocol.nonce_replay` (defense in depth). Migration V004.
 - **`mandate doctor`** (PSM-A5) — operator readiness summary. Reports per-feature `ok`/`skip`/`warn`/`fail`; refuses to open a missing DB (no write-on-typo); falls through to real `storage_open` errors on permission/IO failures (not "does not exist"). Stable `mandate.doctor.v1` JSON envelope.
 - **Mock KMS CLI surface + persistence** (PSM-A1.9) — `mandate key {init,list,rotate} --mock`; persistent `mock_kms_keys` SQLite table (V005). Every CLI line `mock-kms:`-prefixed; `--mock` mandatory; rotate refuses on mismatched root-seed; current-version lookup propagates real DB errors. **Mock — not production-grade.**
-- **Production-shaped mock runner** (`demo-scripts/run-production-shaped-mock.sh`) — exercises the full PSM-A2 four-case matrix, PSM-A5 doctor, PSM-A1.9 init/list/rotate lifecycle end-to-end against real binaries; `Tally: 16 real, 0 mock, 3 skipped`.
-- **Static, offline operator console** (`operator-console/build.py`) — sister surface to the trust-badge: vertical timeline + multi-panel grid + backend-backlog placeholder grid. Three pending pills (PSM-A2, PSM-A5, PSM-A1.9 — backends merged, console panels landing in B2.v2); two blocked pills (PSM-A3, PSM-A4 — backends not yet merged).
+- **Production-shaped mock runner** (`demo-scripts/run-production-shaped-mock.sh`) — exercises the full PSM-A2 four-case matrix, PSM-A5 doctor, PSM-A1.9 init/list/rotate lifecycle, PSM-A3 active-policy lifecycle, and PSM-A4 audit-checkpoint create/verify with mock anchoring end-to-end against real binaries; `Tally: 23 real, 0 mock, 1 skipped`.
+- **Static, offline operator console** (`operator-console/build.py`) — sister surface to the trust-badge: vertical timeline + multi-panel grid + backend-backlog placeholder grid. Five pending pills (PSM-A2, PSM-A5, PSM-A1.9, PSM-A3, PSM-A4 — all backends merged, console panels landing in B2.v2); zero blocked pills.
 - **Production-shaped mock fixtures** (`demo-fixtures/mock-*.json`) — ENS multi-agent registry, KeeperHub workflow envelopes (success/conflict/refused/lookup), Uniswap quote catalogue (happy/multi-violation rug/recipient-allowlist), mock-KMS public keyring metadata. Plus stdlib validator (`test_fixtures.py`) with `urlparse`-based safe-host allowlist + URL-bypass self-test.
 - **Per-fixture production-transition guides** (`demo-fixtures/mock-*.md`) and a single **`docs/production-transition-checklist.md`** — every surface (ENS / KeeperHub / Uniswap / Signer-KMS-HSM) has env vars / endpoints / credentials / code-change steps / verification / truthfulness invariants spelled out.
 
@@ -84,7 +84,7 @@ Full Open Agents vertical:
 - Live ENS testnet resolver (offline fixture today; trait already abstracts the backend).
 - Live Uniswap quote backend (`UniswapExecutor::live()` is intentionally stubbed; demo uses `local_mock()`).
 - Production KMS / HSM signer (`MANDATE_SIGNER_BACKEND` selector + per-role `MANDATE_*_SIGNER_KEY_ID` env vars). The dev `DevSigner` and the persistent mock `MockKmsSigner` are both `⚠ DEV ONLY ⚠`; production injects real signers via `AppState::with_signers`.
-- B2.v2 — operator-console panels that *render* the merged backends inline (replacing the three pending pills). One panel per follow-up B-side PR.
+- B2.v2 — operator-console panels that *render* the merged backends inline (replacing the five pending pills). One panel per follow-up B-side PR.
 - PSM-A3 (active policy lifecycle: validate / current / activate / diff) and PSM-A4 (audit checkpoints) — still backlog A-side items.
 - Recorded demo video (3:30 cut). Script committed in `demo-scripts/demo-video-script.md`.
 - Pruned / Merkle-proof variants of the audit bundle, and optional embedded original APRP. Tracked in `docs/cli/audit-bundle.md`.
