@@ -175,7 +175,7 @@ note_skip "HTTP Idempotency-Key safe-retry semantics — PSM-A2"
 echo
 
 # ─── 8. Verifiable audit bundle from JSONL chain (REAL today) ────────────
-bold "8. Verifiable audit bundle — receipt + JSONL chain (PSM-A1, real today)"
+bold "8. Verifiable audit bundle — receipt + JSONL chain (real today)"
 # `mandate audit export` exists on main today (Developer A's PR #15). The
 # `--chain` form is exercised here against the bundled DB-backed export of
 # step 9 below; the full coverage of `--chain` is in
