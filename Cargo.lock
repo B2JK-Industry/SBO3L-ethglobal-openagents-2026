@@ -1038,6 +1038,7 @@ dependencies = [
  "mandate-core",
  "mandate-policy",
  "mandate-storage",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",

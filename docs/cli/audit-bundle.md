@@ -1,10 +1,27 @@
 # `mandate audit export` / `verify-bundle`
 
-> *Mandate does not just decide. It leaves behind verifiable proof.*
+> *Mandate does not just decide. It leaves behind verifiable proof — directly from its daemon storage.*
 
 A Mandate decision already produces three signed artefacts: the **policy receipt** (returned in the `POST /v1/payment-requests` response), the **audit event** (appended to the hash-chained log), and the **chain linkage** between successive events. The bundle commands package those artefacts into a single self-contained JSON file that anyone can re-verify offline.
 
 ## Export
+
+The export command takes a signed receipt plus an audit chain source. **Exactly one** of `--chain` or `--db` must be supplied:
+
+### From SQLite storage (production-style)
+
+```bash
+mandate audit export \
+  --receipt   path/to/receipt.json \
+  --db        path/to/mandate.sqlite \
+  --receipt-pubkey <hex> \
+  --audit-pubkey   <hex> \
+  --out       path/to/bundle.json
+```
+
+This is the realistic path: a Mandate daemon writes its audit log to SQLite (`MANDATE_DB`); the receipt comes back to the agent in the `POST /v1/payment-requests` response. The CLI opens the same SQLite file, slices the chain prefix from genesis through `receipt.audit_event_id`, **pre-flights the chain integrity** with `verify_chain` against `--audit-pubkey`, **pre-flights the receipt signature** against `--receipt-pubkey`, and only then writes the bundle. A failure on any of those checks aborts before the bundle file is created — so a downstream consumer never sees an unverifiable bundle.
+
+### From a JSONL chain file
 
 ```bash
 mandate audit export \
@@ -15,10 +32,25 @@ mandate audit export \
   --out       path/to/bundle.json
 ```
 
+Use this when you already have an exported chain JSONL (for example, from a fixture or an air-gapped environment without the live daemon).
+
+### Common flags
+
 - `--receipt` — the `receipt` field from a `POST /v1/payment-requests` response, saved as JSON.
-- `--chain` — the audit log as JSONL (one `SignedAuditEvent` per line). Must include the genesis event (seq=1) through the event referenced by `receipt.audit_event_id`, in seq order.
+- `--chain` — the audit log as JSONL (one `SignedAuditEvent` per line). Must include the genesis event (seq=1) through the event referenced by `receipt.audit_event_id`, in seq order. **Mutually exclusive with `--db`.**
+- `--db` — path to the Mandate daemon's SQLite store. The CLI reads the chain prefix through `receipt.audit_event_id` directly. **Mutually exclusive with `--chain`.**
 - `--receipt-pubkey` / `--audit-pubkey` — 32-byte Ed25519 public keys (hex). For the hackathon dev signers these are the deterministic seeds wired into `AppState::new`; production deployments substitute via `AppState::with_signers(...)`.
 - `--out` — output file. If omitted, the bundle is written to stdout (good for piping into `jq`).
+
+### Failure modes (DB-backed export)
+
+| Condition | Behaviour |
+|---|---|
+| `--db` path does not exist | Exits non-zero, error names the missing path; no bundle written. |
+| `receipt.audit_event_id` not present in DB | Exits non-zero, error echoes the missing id; no bundle written. |
+| Audit chain in DB is tampered (e.g. a row was rewritten outside `audit_append`) | Pre-flight `verify_chain` rejects; exits non-zero with `audit chain pre-flight failed: …`; no bundle written. |
+| Wrong `--audit-pubkey` (does not match the daemon's audit signer) | Same path as tampered chain — pre-flight signature check fails. |
+| Wrong `--receipt-pubkey` | Pre-flight receipt-signature check fails before the bundle is written. |
 
 ## Verify
 
@@ -70,3 +102,4 @@ Exit codes:
 - The chain segment must be the full prefix from genesis. Pruned / Merkle-proof variants are tracked separately.
 - The bundle does not include the original APRP payload — it includes the canonical `request_hash` only, which is enough to *re-verify* a request the verifier already has but not enough to *reconstruct* the request from the bundle alone. (Future revision: optional embedded APRP.)
 - No revocation / expiry semantics on the bundle itself; if you need expiring proofs, set `PolicyReceipt.expires_at` upstream.
+- The `--db` mode opens the SQLite file in normal mode (not read-only). Concurrent access against a running daemon is safe in WAL mode but the CLI does not enforce read-only; running it against a live daemon is fine but document it as such for production audits.

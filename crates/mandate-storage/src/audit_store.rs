@@ -137,6 +137,31 @@ impl Storage {
         Ok(rows)
     }
 
+    /// Fetch the chain prefix from genesis (seq=1) up to and including the
+    /// event with the given `event_id`, in seq order. Returns
+    /// `StorageError::AuditEventNotFound` if no such event exists in the log.
+    ///
+    /// The slice this returns is exactly what an `audit_bundle::AuditBundle`
+    /// needs as its `audit_chain_segment` for a receipt that points at
+    /// `event_id` — it includes every prev_event_hash predecessor needed for
+    /// chain verification, and stops at the receipt's referenced event so
+    /// the bundle is no larger than the proof requires.
+    pub fn audit_chain_prefix_through(
+        &self,
+        event_id: &str,
+    ) -> StorageResult<Vec<SignedAuditEvent>> {
+        let chain = self.audit_list()?;
+        let position = chain
+            .iter()
+            .position(|e| e.event.id == event_id)
+            .ok_or_else(|| StorageError::AuditEventNotFound {
+                id: event_id.to_string(),
+            })?;
+        let mut prefix = chain;
+        prefix.truncate(position + 1);
+        Ok(prefix)
+    }
+
     pub fn audit_append(
         &mut self,
         new_event: NewAuditEvent,
@@ -262,5 +287,63 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
         assert!(n >= 1, "at least one migration applied");
+    }
+
+    #[test]
+    fn audit_chain_prefix_through_returns_correct_slice() {
+        // The audit-bundle DB-backed export needs everything from genesis
+        // through the receipt's referenced event — no more, no less. Pin
+        // the slice contents by id and length on a 3-event chain.
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        let e1 = s
+            .audit_append(
+                NewAuditEvent::now("runtime_started", "mandate-server", "runtime"),
+                &signer,
+            )
+            .unwrap();
+        let e2 = s
+            .audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", "pr-001"),
+                &signer,
+            )
+            .unwrap();
+        let _e3 = s
+            .audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", "pr-002"),
+                &signer,
+            )
+            .unwrap();
+
+        // Slice through the middle event must be exactly [genesis, middle].
+        let prefix = s.audit_chain_prefix_through(&e2.event.id).unwrap();
+        assert_eq!(prefix.len(), 2);
+        assert_eq!(prefix[0].event.id, e1.event.id);
+        assert_eq!(prefix[1].event.id, e2.event.id);
+
+        // Slicing through the last event returns the entire chain.
+        let full = s.audit_chain_prefix_through(&_e3.event.id).unwrap();
+        assert_eq!(full.len(), 3);
+    }
+
+    #[test]
+    fn audit_chain_prefix_through_returns_not_found_for_unknown_id() {
+        // The DB-backed export must fail clearly when a receipt points at
+        // an event id the daemon never wrote. Carries the bad id in the
+        // error so the CLI can echo it back to the user verbatim.
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        s.audit_append(
+            NewAuditEvent::now("runtime_started", "mandate-server", "runtime"),
+            &signer,
+        )
+        .unwrap();
+        let err = s
+            .audit_chain_prefix_through("evt-DOES-NOT-EXIST")
+            .expect_err("must fail when id is missing");
+        match err {
+            StorageError::AuditEventNotFound { id } => assert_eq!(id, "evt-DOES-NOT-EXIST"),
+            other => panic!("unexpected: {other:?}"),
+        }
     }
 }

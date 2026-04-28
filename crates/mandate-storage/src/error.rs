@@ -18,6 +18,8 @@ pub enum StorageError {
     Json(#[from] serde_json::Error),
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+    #[error("audit_event id '{id}' not found in chain")]
+    AuditEventNotFound { id: String },
 }
 
 pub type StorageResult<T> = Result<T, StorageError>;
