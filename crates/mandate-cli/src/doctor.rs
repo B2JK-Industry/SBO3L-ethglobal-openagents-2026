@@ -265,6 +265,31 @@ fn render_human(report: &DoctorReport) -> String {
 /// `0` on `ok` / `warn`, `1` if any check failed, `2` if the database
 /// itself could not be opened.
 pub fn run(db: Option<&Path>, json: bool) -> ExitCode {
+    // doctor must be inspection-only. `Storage::open` (rusqlite default)
+    // would create a fresh SQLite file at `--db` if it didn't exist and
+    // run migrations against it — which silently mutates the operator's
+    // filesystem and produces a misleading "ok" report for a DB that
+    // never existed. Pre-check existence and refuse to open a missing
+    // path. Codex P1 review on PR #25.
+    if let Some(p) = db {
+        if !p.exists() {
+            let path = p.display().to_string();
+            let msg = format!("doctor target DB does not exist: {path}");
+            if json {
+                let report = DoctorReport {
+                    report_type: "mandate.doctor.v1",
+                    overall: "fail",
+                    db_path: path,
+                    checks: vec![fail("storage_open", msg)],
+                };
+                println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            } else {
+                eprintln!("mandate doctor: {msg}");
+            }
+            return ExitCode::from(2);
+        }
+    }
+
     let storage_result = match db {
         Some(p) => Storage::open(p),
         None => Storage::open_in_memory(),

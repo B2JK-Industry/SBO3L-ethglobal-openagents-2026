@@ -23,20 +23,40 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
 
-# Hostnames that are explicitly safe to reference in fixtures:
-#   - example.* (RFC 2606 §3) reserved for documentation
-#   - test/example/invalid/localhost TLDs (RFC 6761 / 2606)
-#   - schemas.mandate.dev / 127.0.0.1 — already in pre-existing fixtures
-SAFE_HOST_PATTERNS = [
-    re.compile(r"^https?://(?:[a-z0-9-]+\.)*example\.(?:com|net|org|test)\b", re.IGNORECASE),
-    re.compile(r"^https?://(?:[a-z0-9-]+\.)*invalid\b", re.IGNORECASE),
-    re.compile(r"^https?://(?:[a-z0-9-]+\.)*localhost\b", re.IGNORECASE),
-    re.compile(r"^https?://127\.0\.0\.1\b"),
-    re.compile(r"^https?://schemas\.mandate\.dev/", re.IGNORECASE),
-]
+# Hostnames that are explicitly safe to reference in fixtures.
+#
+# Codex P1 review on PR #30 caught that the previous regex-based
+# allowlist anchored only at the start of the URL and used `\b` (word
+# boundary) at the end of the host, which lets attacker-controlled
+# infixes slip through:
+#   "https://schemas.mandate.dev.attacker.io/x"
+# matches `^https?://schemas\.mandate\.dev/` only if anchored, but a
+# regex like `^https?://(?:[a-z0-9-]+\.)*example\.(?:com|net|org|test)\b`
+# does match `https://example.com.evil.org/x` because `\b` sits between
+# `m` and `.` (word↔non-word). Switching to `urllib.parse.urlparse` +
+# exact-host or safe-suffix membership makes the bypass structurally
+# impossible.
+#
+#   - exact hosts: 127.0.0.1, localhost, schemas.mandate.dev
+#   - safe suffixes (RFC 2606 / 6761 reserved):
+#       .invalid, .example, .test, .localhost
+#     The leading dot is required so "evilexample" does NOT end with
+#     ".example".
+SAFE_HOSTS_EXACT = frozenset({
+    "127.0.0.1",
+    "localhost",
+    "schemas.mandate.dev",
+})
+SAFE_HOST_SUFFIXES = (
+    ".invalid",
+    ".example",
+    ".test",
+    ".localhost",
+)
 
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
 SECRET_PATTERNS = [
@@ -58,7 +78,27 @@ def _fail(label: str, hint: str = "") -> None:
 
 
 def url_is_safe(url: str) -> bool:
-    return any(p.match(url) for p in SAFE_HOST_PATTERNS)
+    """True iff `url` is http(s) and its hostname is in the allowlist.
+
+    The hostname comes from `urllib.parse.urlparse(...).hostname`, which
+    extracts only the `host` component (port stripped, lowercased) — so
+    `https://schemas.mandate.dev.attacker.io/x` resolves to host
+    `schemas.mandate.dev.attacker.io`, which is neither in the exact set
+    nor ends with a safe suffix → reject.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = parsed.hostname
+    if not host:
+        return False
+    host = host.lower()
+    if host in SAFE_HOSTS_EXACT:
+        return True
+    return any(host.endswith(suffix) for suffix in SAFE_HOST_SUFFIXES)
 
 
 def find_urls(raw: str) -> list[str]:
@@ -146,21 +186,106 @@ def validate_one(path: Path) -> int:
     return failures
 
 
+def _self_test_url_safety() -> int:
+    """Pin the URL allowlist against past-bypass shapes.
+
+    Every case is a regression for the Codex P1 finding on PR #30: the
+    old regex anchored only at the start of the URL, which let
+    attacker-infixed hostnames pass. After switching to
+    `urlparse().hostname` + exact/safe-suffix membership, these all
+    resolve correctly.
+    """
+    cases: list[tuple[str, bool, str]] = [
+        # (url, expected_safe, why)
+        # --- bypass attempts MUST be rejected ---
+        (
+            "https://example.com.evil.org/x",
+            False,
+            "infix bypass: 'example.com' inside an attacker-controlled host",
+        ),
+        (
+            "https://schemas.mandate.dev.attacker.io/x",
+            False,
+            "infix bypass: 'schemas.mandate.dev' as a left-prefix of attacker host",
+        ),
+        (
+            "https://evilexample/x",
+            False,
+            "no-leading-dot bypass: 'evilexample' does not end with '.example'",
+        ),
+        (
+            "ftp://schemas.mandate.dev/x",
+            False,
+            "non-http(s) scheme: only http/https are allowed",
+        ),
+        # --- legitimate references MUST be accepted ---
+        (
+            "https://schemas.mandate.dev/x",
+            True,
+            "exact-host allowlist member",
+        ),
+        (
+            "https://research-agent.team.eth.invalid/x",
+            True,
+            "RFC 2606 reserved suffix '.invalid'",
+        ),
+        (
+            "http://127.0.0.1:8730/v1",
+            True,
+            "exact-host loopback IP with port",
+        ),
+        (
+            "http://localhost/x",
+            True,
+            "exact-host 'localhost'",
+        ),
+    ]
+
+    print("-- url_is_safe self-test --")
+    failures = 0
+    for url, expected, why in cases:
+        actual = url_is_safe(url)
+        verdict = "ok" if actual == expected else "FAIL"
+        marker = "accept" if expected else "reject"
+        if actual == expected:
+            _ok(f"url_is_safe({marker:>6}) {url}", why)
+        else:
+            failures += 1
+            _fail(
+                f"url_is_safe({marker:>6}) {url}",
+                f"expected {expected}, got {actual} — {why}",
+            )
+        # Surface the verdict variable so static-analysis tooling that
+        # walks the loop sees both branches; no behavioural change.
+        del verdict
+    return failures
+
+
 def main() -> int:
+    print("== url_is_safe self-test ==")
+    self_test_failures = _self_test_url_safety()
+    if self_test_failures:
+        print(
+            f"FAIL: url_is_safe self-test had {self_test_failures} failure(s)",
+            file=sys.stderr,
+        )
+        # Don't short-circuit — still validate fixtures so the operator
+        # sees the full picture, but the exit code reflects the failure.
+
     fixtures = sorted(HERE.glob("mock-*.json"))
     if not fixtures:
         _fail("no mock-*.json fixtures found", str(HERE))
         return 1
 
-    print(f"== validating {len(fixtures)} mock fixture(s) ==")
-    total_failures = 0
+    print(f"\n== validating {len(fixtures)} mock fixture(s) ==")
+    total_failures = self_test_failures
     for f in fixtures:
         print(f"\n-- {f.name} --")
         total_failures += validate_one(f)
 
     print()
     if total_failures == 0:
-        print(f"PASS: all {len(fixtures)} mock fixture(s) clean")
+        print(f"PASS: all {len(fixtures)} mock fixture(s) clean + url self-test")
         return 0
     print(f"FAIL: {total_failures} failure(s) across {len(fixtures)} fixture(s)", file=sys.stderr)
     return 1
