@@ -10,7 +10,7 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Status
 
-Implementation complete. All hardening PRs (#5, #6, #7, #8, #9) are merged into `main`; `cargo test --workspace --all-targets` runs **90/90 green**; `bash demo-scripts/run-openagents-final.sh` runs end-to-end clean. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the post-merge snapshot and [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the submission-readiness audit.
+Implementation complete. All hardening PRs (#5, #6, #7, #8, #9, #11) are merged into `main`; `cargo test --workspace --all-targets` runs **96/96 green**; `bash demo-scripts/run-openagents-final.sh` runs end-to-end clean. See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the post-merge snapshot and [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the submission-readiness audit.
 
 ## What this is
 

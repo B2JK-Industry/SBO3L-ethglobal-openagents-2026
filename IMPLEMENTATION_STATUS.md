@@ -2,9 +2,9 @@
 
 Post-merge snapshot for the ETHGlobal Open Agents 2026 submission.
 
-**Last updated:** 2026-04-28
-**Phase:** 5 — submission readiness; `main` is submission-ready after the documentation cleanup in PR #10.
-**Implementation PRs merged into `main`:** `#1`, `#2`, `#5`, `#6`, `#7`, `#8`, `#9`. **Documentation cleanup:** PR `#10` (this commit). **No implementation PRs remain open.**
+**Last updated:** 2026-04-28 (post-PR-#11 snapshot)
+**Phase:** 5 — submission readiness. `main` is submission-ready: PR #10 cleaned up the docs, PR #11 made the APRP nonce-replay store SQLite-backed and persistent.
+**Implementation PRs merged into `main`:** `#1`, `#2`, `#5`, `#6`, `#7`, `#8`, `#9`, `#11`. **Documentation cleanup:** PR `#10`. **No implementation PRs remain open.** PR #12 (`docs/submission-form-draft`) is open and is a docs-only addition (`SUBMISSION_FORM_DRAFT.md` + one-line README link), not core implementation.
 **CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
 **Blockers:** none.
 
@@ -19,6 +19,8 @@ Post-merge snapshot for the ETHGlobal Open Agents 2026 submission.
 | [#8](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/8) | `931fb28` | `tests: null comparison + emergency.freeze_all regressions` |
 | [#6](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/6) | `30fb407` | `perf: collapse audit_last into a single query` |
 | [#5](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/5) | `f52596c` | `refactor: deduplicate same_origin into mandate-policy::util` |
+| [#10](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/10) | `c4b30fc` | `docs: finalize ETHGlobal submission readiness` |
+| [#11](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/11) | `a29926d` | `feat: persist APRP nonce replay protection` |
 
 ## What is implemented
 
@@ -45,7 +47,8 @@ Full Open Agents vertical:
 
 ## Hardening landed during this phase
 
-- **PR #7** — APRP nonce replay protection (HTTP 409 `protocol.nonce_replay`). The replay gate fires before `request_hash` / policy / budget / audit / signing, so a duplicate nonce produces no audit/receipt side effects. Three regression tests cover (a) replay rejected, (b) distinct nonces independently processed, (c) replay with same nonce but mutated body still rejected. In-memory dedup set; resets on daemon restart (documented in `SUBMISSION_NOTES.md` "Known limitations").
+- **PR #11** — APRP nonce replay store made persistent. Replaces PR #7's in-memory `seen_nonces: Mutex<HashSet<String>>` with a SQLite-backed `nonce_replay` table (migration `V002__nonce_replay.sql`) accessed via `Storage::nonce_try_claim`. The PRIMARY KEY on `nonce` gives atomic INSERT-or-fail dedup. A daemon configured with `Storage::open(path)` rejects replays across process restart; the demo defaults to `Storage::open_in_memory()`, where SQLite-backed dedup persists for the lifetime of the demo process. New regression test `nonce_replay_rejection_persists_across_storage_reopen` exercises the persistence guarantee end-to-end at the storage layer.
+- **PR #7** — APRP nonce replay protection (HTTP 409 `protocol.nonce_replay`). The replay gate fires before `request_hash` / policy / budget / audit / signing, so a duplicate nonce produces no audit/receipt side effects. Three regression tests cover (a) replay rejected, (b) distinct nonces independently processed, (c) replay with same nonce but mutated body still rejected. The in-memory dedup set introduced in #7 was superseded by PR #11's SQLite-backed store (above); the gate's pre-state-mutation placement is unchanged.
 - **PR #9** — `Policy::parse_{json,yaml}` reject duplicate `agents[].agent_id`, `rules[].id`, `providers[].id`, `(recipients[].address.lc, chain)`, and `(budgets[].agent_id, scope, scope_key)`. Both parse paths route through the same `validate()` step.
 - **PR #8** — Regression tests for `null` comparison semantics in `expr.rs` and the `emergency.freeze_all` global kill-switch in `engine.rs`. Pure additive: `+57` lines across two `#[test]` modules.
 - **PR #6** — `audit_last` collapsed from a `SELECT seq` + `audit_get` two-roundtrip into a single `SELECT * ORDER BY seq DESC LIMIT 1`. Tightens error handling: previously `.ok()` swallowed every SQLite error into `Ok(None)`; now only `QueryReturnedNoRows` becomes `None`.
@@ -55,7 +58,7 @@ Full Open Agents vertical:
 
 - `cargo fmt --check` — ✅
 - `cargo clippy --workspace --all-targets -- -D warnings` — ✅ (no warnings)
-- `cargo test --workspace --all-targets` — ✅ **90 / 90 pass** (0 fail, 0 ignored)
+- `cargo test --workspace --all-targets` — ✅ **96 / 96 pass** (0 fail, 0 ignored)
 - `python3 scripts/validate_schemas.py` — ✅ (6 schemas + 4 corpus fixtures)
 - `python3 scripts/validate_openapi.py` — ✅ (`docs/api/openapi.json` valid)
 - `bash demo-scripts/run-openagents-final.sh` — ✅ all 11 steps green incl. audit-chain tamper detection (~5 seconds end-to-end)
