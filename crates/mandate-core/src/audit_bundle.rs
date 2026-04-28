@@ -93,6 +93,10 @@ pub struct VerifySummary {
     pub audit_chain_length: usize,
 }
 
+/// The single supported bundle format identity. Both fields are checked
+/// in `verify()`; either mismatching is a fail-closed format-confusion guard.
+const SUPPORTED_BUNDLE_VERSION: u32 = 1;
+
 #[derive(Debug, Error)]
 pub enum BundleError {
     #[error("bundle is missing a receipt's audit_event_id from the chain segment")]
@@ -115,6 +119,10 @@ pub enum BundleError {
     Signer(#[from] VerifyError),
     #[error("serde error: {0}")]
     Serde(#[from] serde_json::Error),
+    #[error("unsupported bundle version: {0} (this build supports v1)")]
+    UnsupportedVersion(u32),
+    #[error("unsupported bundle_type: only mandate.audit_bundle.v1 is accepted in this build")]
+    UnsupportedBundleType,
 }
 
 /// Build a bundle from already-signed pieces. Both signer public keys must
@@ -178,6 +186,23 @@ pub fn build(
 /// or chain. (The acceptance test for this is
 /// `verify_fails_when_summary_lies_about_decision`.)
 pub fn verify(bundle: &AuditBundle) -> Result<VerifySummary, BundleError> {
+    // 0. Format-confusion guard. A bundle with `version: 2` (or any other
+    //    value) MUST NOT verify as if it were v1, even if every signature
+    //    inside still happens to round-trip — a future v2 may carry
+    //    different fields, different canonical-body rules, or different
+    //    semantics, and silently accepting it under v1 rules would let an
+    //    attacker present a v2 bundle to a v1 verifier. Same reasoning for
+    //    `bundle_type`: serde already rejects unknown enum variants at
+    //    parse time, but the explicit `matches!` here is defence-in-depth
+    //    against future enum additions and against callers who construct
+    //    a bundle programmatically (bypassing serde).
+    if !matches!(bundle.bundle_type, BundleType::AuditBundleV1) {
+        return Err(BundleError::UnsupportedBundleType);
+    }
+    if bundle.version != SUPPORTED_BUNDLE_VERSION {
+        return Err(BundleError::UnsupportedVersion(bundle.version));
+    }
+
     // 1. Receipt signature — covers request_hash, policy_hash, decision,
     //    deny_code, audit_event_id, etc. via canonical-body signing.
     bundle
@@ -505,5 +530,70 @@ mod tests {
         bundle.verification_keys.receipt_signer_pubkey_hex = other.verifying_key_hex();
         let err = verify(&bundle).expect_err("must reject wrong receipt pubkey");
         assert!(matches!(err, BundleError::ReceiptSignatureInvalid));
+    }
+
+    #[test]
+    fn verify_fails_when_version_field_is_not_one() {
+        // Format-confusion guard: a bundle that claims to be v2 (or any
+        // value other than 1) must NOT verify under v1 rules even if every
+        // signature inside still happens to round-trip. This fires before
+        // any signature/chain check so a malicious v2 bundle never reaches
+        // the v1 verification path.
+        let (mut bundle, _, _) = fixture();
+        bundle.version = 2;
+        let err = verify(&bundle).expect_err("must reject unsupported bundle version");
+        assert!(
+            matches!(err, BundleError::UnsupportedVersion(2)),
+            "got {err:?}"
+        );
+
+        // Sanity: a fresh v1 bundle still verifies, so the gate isn't a
+        // false positive.
+        let (good, _, _) = fixture();
+        assert_eq!(good.version, 1);
+        verify(&good).expect("valid v1 bundle must still verify");
+    }
+
+    #[test]
+    fn verify_fails_when_version_is_unsupported_via_json_round_trip() {
+        // Same property as above, but exercised through the JSON path: the
+        // serde derive happily round-trips arbitrary u32 values for
+        // `version`, so a tampered exported bundle reaches `verify()` with
+        // a non-1 version. The gate must reject it.
+        let (bundle, _, _) = fixture();
+        let mut value: serde_json::Value = serde_json::to_value(&bundle).unwrap();
+        value["version"] = serde_json::Value::Number(serde_json::Number::from(2));
+        let tampered: AuditBundle = serde_json::from_value(value).expect(
+            "serde must deserialise an arbitrary u32; the format gate runs in verify(), not parse",
+        );
+        let err = verify(&tampered).expect_err("must reject v2 on disk");
+        assert!(matches!(err, BundleError::UnsupportedVersion(2)));
+    }
+
+    #[test]
+    fn unknown_bundle_type_string_is_rejected_by_serde_at_parse_time() {
+        // Belt-and-braces evidence that the bundle_type field is not a
+        // confusion vector. `BundleType` is a single-variant enum mapped
+        // to the literal `"mandate.audit_bundle.v1"`; serde refuses any
+        // other string before `verify()` is even called.
+        //
+        // The defensive `matches!` check inside `verify()` (covered by
+        // `verify_fails_when_bundle_type_is_unsupported_variant_in_future`
+        // would catch additions to the enum) is therefore unreachable
+        // through normal JSON paths today, but pins fail-closed semantics
+        // for the day a v2 variant is added.
+        let (bundle, _, _) = fixture();
+        let mut value: serde_json::Value = serde_json::to_value(&bundle).unwrap();
+        value["bundle_type"] = serde_json::Value::String("mandate.audit_bundle.v2".to_string());
+        let parse_err = serde_json::from_value::<AuditBundle>(value)
+            .expect_err("serde must reject an unknown bundle_type string before reaching verify()");
+        // The exact serde error message isn't part of the contract; we
+        // just assert that the parse fails so a v2 string never reaches
+        // the v1 verifier.
+        let msg = parse_err.to_string();
+        assert!(
+            msg.contains("bundle_type") || msg.contains("variant"),
+            "expected a serde enum-variant error mentioning bundle_type; got {msg}"
+        );
     }
 }
