@@ -25,8 +25,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT = REPO_ROOT / "demo-scripts" / "artifacts" / "latest-demo-summary.json"
+DEFAULT_EVIDENCE = REPO_ROOT / "demo-scripts" / "artifacts" / "latest-operator-evidence.json"
 DEFAULT_OUTPUT = REPO_ROOT / "operator-console" / "index.html"
 EXPECTED_SCHEMA = "mandate-demo-summary-v1"
+EXPECTED_EVIDENCE_SCHEMA = "mandate-operator-evidence-v1"
 
 # --- helpers ---------------------------------------------------------------
 
@@ -82,6 +84,218 @@ def pending_pill(backlog_id: str, evidence_path: str) -> str:
         f'<span class="pill pending">{esc(backlog_id)} merged · console panel landing in B2.v2 '
         f'(today: walked by <code>{esc(evidence_path)}</code>)</span>'
     )
+
+
+# --- evidence (operator-evidence-v1) ---------------------------------------
+
+
+def load_evidence(path: Path) -> tuple[dict | None, str]:
+    """
+    Load `mandate-operator-evidence-v1` evidence written by the
+    production-shaped runner's step 12.
+
+    Returns `(evidence_dict, "ok")` on success, or `(None, reason)` for
+    every failure mode the operator should see explicitly:
+
+      "missing"       — file does not exist
+      "unreadable"    — exists but cannot be opened
+      "parse_failed"  — exists but is not valid JSON
+      "wrong_schema"  — JSON parses but `schema` is not the expected id
+    """
+    if not path.is_file():
+        return None, "missing"
+    try:
+        with path.open(encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except OSError:
+        return None, "unreadable"
+    except json.JSONDecodeError:
+        return None, "parse_failed"
+    if doc.get("schema") != EXPECTED_EVIDENCE_SCHEMA:
+        return None, "wrong_schema"
+    return doc, "ok"
+
+
+def _evidence_unavailable_panel(panel_title: str, reason: str, expected_path: Path) -> str:
+    """Honest 'evidence not gathered' placeholder — never a fake-OK pill."""
+    return f"""
+<section class="panel full">
+<h2>{esc(panel_title)}</h2>
+<div class="body">
+<p class="empty">Real evidence not available — reason: <code>{esc(reason)}</code>. Expected at <code>{esc(str(expected_path))}</code>.</p>
+<p class="empty">Generate it with:<br><code>bash demo-scripts/run-production-shaped-mock.sh</code> (writes step 12's transcript at the path above; schema <code>{esc(EXPECTED_EVIDENCE_SCHEMA)}</code>).</p>
+</div>
+</section>"""
+
+
+def render_idempotency_panel(evidence: dict | None) -> str:
+    if evidence is None:
+        return _evidence_unavailable_panel(
+            "PSM-A2 · HTTP Idempotency-Key safe-retry (4-case behaviour matrix)",
+            "evidence file missing", DEFAULT_EVIDENCE,
+        )
+    idem = evidence.get("psm_a2_idempotency", {}) or {}
+    c1 = idem.get("case_1_first_post", {}) or {}
+    c2 = idem.get("case_2_cached_replay", {}) or {}
+    c3 = idem.get("case_3_idempotency_conflict", {}) or {}
+    c4 = idem.get("case_4_nonce_replay_with_new_key", {}) or {}
+    return f"""
+<section class="panel full">
+<h2>PSM-A2 · HTTP Idempotency-Key safe-retry (4-case behaviour matrix)</h2>
+<div class="body">
+<dl class="kv">
+<dt>case 1 — first POST (key=K1, body=B1)</dt><dd>{expect_pill(c1.get("http_status"), 200, label_ok="200", label_bad=str(c1.get("http_status")))} · audit_event=<code>{esc(c1.get("audit_event_id"))}</code> · decision=<code>{esc(c1.get("decision"))}</code></dd>
+<dt>case 2 — same key + same body retry</dt><dd>{expect_pill(c2.get("http_status"), 200, label_ok="200", label_bad=str(c2.get("http_status")))} · byte_identical_to_case_1={expect_pill(c2.get("byte_identical_to_case_1"), True, label_ok="true", label_bad="false")}</dd>
+<dt>case 3 — same key + mutated body</dt><dd>{expect_pill(c3.get("http_status"), 409, label_ok="409", label_bad=str(c3.get("http_status")))} · code=<code>{esc(c3.get("code"))}</code></dd>
+<dt>case 4 — new key + same nonce</dt><dd>{expect_pill(c4.get("http_status"), 409, label_ok="409", label_bad=str(c4.get("http_status")))} · code=<code>{esc(c4.get("code"))}</code></dd>
+</dl>
+<p class="empty">Source: <code>demo-scripts/run-production-shaped-mock.sh</code> step 7 (real <code>mandate-server</code> on <code>127.0.0.1:18730</code>, persistent SQLite).</p>
+</div>
+</section>"""
+
+
+def render_doctor_panel(evidence: dict | None) -> str:
+    if evidence is None:
+        return _evidence_unavailable_panel(
+            "PSM-A5 · mandate doctor", "evidence file missing", DEFAULT_EVIDENCE,
+        )
+    doc = evidence.get("psm_a5_doctor", {}) or {}
+    if doc.get("malformed"):
+        report = doc.get("report") or {}
+        return f"""
+<section class="panel full">
+<h2>PSM-A5 · mandate doctor</h2>
+<div class="body">
+<p class="empty">{pill("MALFORMED", "bad")} <code>mandate doctor --json</code> output did not parse. First 120 bytes: <code>{esc(report.get("_raw_first_120"))}</code></p>
+</div>
+</section>"""
+    report = doc.get("report") or {}
+    summary = doc.get("checks_summary") or {"ok": 0, "skip": 0, "fail": 0}
+    overall = report.get("overall")
+    rows_ok, rows_skip, rows_fail = [], [], []
+    for c in (report.get("checks") or []):
+        name = c.get("name", "?")
+        status = c.get("status", "?")
+        detail = c.get("detail") or c.get("reason") or ""
+        row = f'<dt><code>{esc(name)}</code></dt><dd>{esc(detail)}</dd>'
+        if status == "ok":
+            rows_ok.append(row)
+        elif status == "skip":
+            rows_skip.append(row)
+        elif status == "fail":
+            rows_fail.append(row)
+    def _group(label, kind, rows):
+        if not rows:
+            return ""
+        body = "\n".join(rows)
+        return f'<h3 class="group {kind}">{esc(label)} ({len(rows)})</h3><dl class="kv">{body}</dl>'
+    return f"""
+<section class="panel full">
+<h2>PSM-A5 · mandate doctor</h2>
+<div class="body">
+<p class="empty">overall={expect_pill(overall, "ok", label_ok="ok", label_bad=str(overall))} · ok={summary.get("ok", 0)} skip={summary.get("skip", 0)} fail={summary.get("fail", 0)} · report_type=<code>{esc(report.get("report_type"))}</code></p>
+{_group("ok", "ok", rows_ok)}
+{_group("skip", "skip", rows_skip)}
+{_group("fail", "fail", rows_fail)}
+<p class="empty">Source: <code>mandate doctor --json</code> (production-shaped runner step 2, in-memory DB).</p>
+</div>
+</section>"""
+
+
+def render_kms_panel(evidence: dict | None) -> str:
+    if evidence is None:
+        return _evidence_unavailable_panel(
+            "PSM-A1.9 · Mock KMS keyring (mock, not production KMS)",
+            "evidence file missing", DEFAULT_EVIDENCE,
+        )
+    kms = evidence.get("psm_a1_9_mock_kms", {}) or {}
+    keys = kms.get("keys") or []
+    if not keys:
+        rows_html = '<p class="empty">No keys captured. Run <code>bash demo-scripts/run-production-shaped-mock.sh</code> step 3 against a fresh DB.</p>'
+    else:
+        rows = []
+        for k in keys:
+            rows.append(
+                f'<tr><td><code>{esc(k.get("role"))}</code></td>'
+                f'<td>v{esc(k.get("version"))}</td>'
+                f'<td><code>{esc(k.get("key_id"))}</code></td>'
+                f'<td><code>{esc(k.get("verifying_key_hex_prefix"))}…</code></td>'
+                f'<td>{esc(k.get("created_at"))}</td>'
+                f'<td>{mock_pill(k.get("mock"))}</td></tr>'
+            )
+        rows_html = (
+            '<table class="evidence-table"><thead><tr>'
+            '<th>role</th><th>version</th><th>key_id</th><th>verifying_key_hex (prefix)</th><th>created_at</th><th>mock</th>'
+            '</tr></thead><tbody>'
+            + "\n".join(rows) + '</tbody></table>'
+        )
+    return f"""
+<section class="panel full">
+<h2>PSM-A1.9 · Mock KMS keyring <span class="pill neutral">mock, not production KMS</span></h2>
+<div class="body">
+{rows_html}
+<p class="empty">{esc(kms.get("_mock_label", ""))} Source: <code>mandate key list --mock --db &lt;path&gt;</code> (production-shaped runner step 3, post-rotate).</p>
+</div>
+</section>"""
+
+
+def render_policy_panel(evidence: dict | None) -> str:
+    if evidence is None:
+        return _evidence_unavailable_panel(
+            "PSM-A3 · Active policy lifecycle", "evidence file missing", DEFAULT_EVIDENCE,
+        )
+    p = evidence.get("psm_a3_active_policy")
+    if not p:
+        return f"""
+<section class="panel full">
+<h2>PSM-A3 · Active policy lifecycle</h2>
+<div class="body">
+<p class="empty">{pill("no active policy", "neutral")} The runner reached step 4 but no <code>active_policy</code> row was captured. <code>mandate policy current --db &lt;path&gt;</code> exits 3 on a fresh DB — that is the honest signal, not a fake "ok".</p>
+</div>
+</section>"""
+    return f"""
+<section class="panel full">
+<h2>PSM-A3 · Active policy lifecycle</h2>
+<div class="body">
+<dl class="kv">
+<dt>version</dt><dd><code>{esc(p.get("version"))}</code></dd>
+<dt>policy_hash</dt><dd><code>{esc(p.get("policy_hash"))}</code></dd>
+<dt>source</dt><dd><code>{esc(p.get("source"))}</code></dd>
+<dt>activated_at</dt><dd><code>{esc(p.get("activated_at"))}</code></dd>
+</dl>
+<p class="empty">Local production-shaped lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation; whoever opens the DB activates the policy. Source: <code>mandate policy current --db &lt;path&gt;</code> (production-shaped runner step 4 after <code>policy activate</code>).</p>
+</div>
+</section>"""
+
+
+def render_checkpoint_panel(evidence: dict | None) -> str:
+    if evidence is None:
+        return _evidence_unavailable_panel(
+            "PSM-A4 · Audit checkpoints — mock anchoring, NOT onchain",
+            "evidence file missing", DEFAULT_EVIDENCE,
+        )
+    cp = evidence.get("psm_a4_audit_checkpoints", {}) or {}
+    create = cp.get("create") or {}
+    verify = cp.get("verify") or {}
+    return f"""
+<section class="panel full">
+<h2>PSM-A4 · Audit checkpoints <span class="pill neutral">mock anchoring, NOT onchain</span></h2>
+<div class="body">
+<dl class="kv">
+<dt>schema</dt><dd><code>{esc(create.get("schema"))}</code></dd>
+<dt>sequence</dt><dd>{esc(create.get("sequence"))}</dd>
+<dt>latest_event_id</dt><dd><code>{esc(create.get("latest_event_id"))}</code></dd>
+<dt>latest_event_hash</dt><dd><code>{esc(create.get("latest_event_hash"))}</code></dd>
+<dt>chain_digest</dt><dd><code>{esc(create.get("chain_digest"))}</code></dd>
+<dt>mock_anchor_ref</dt><dd><code>{esc(create.get("mock_anchor_ref"))}</code></dd>
+<dt>created_at</dt><dd><code>{esc(create.get("created_at"))}</code></dd>
+<dt>structural_verify_ok</dt><dd>{expect_pill(verify.get("structural_verify_ok"), True, label_ok="true", label_bad="false")}</dd>
+<dt>db_cross_check_ok</dt><dd>{expect_pill(verify.get("db_cross_check_ok"), True, label_ok="true", label_bad="false")}</dd>
+<dt>verify result_ok</dt><dd>{expect_pill(verify.get("result_ok"), True, label_ok="true", label_bad="false")}</dd>
+</dl>
+<p class="empty">{esc(cp.get("_mock_anchor_label", "Mock anchoring, NOT onchain."))} Source: <code>mandate audit checkpoint create</code> + <code>verify</code> (production-shaped runner step 10).</p>
+</div>
+</section>"""
 
 
 # --- bundle verification (optional) ----------------------------------------
@@ -200,7 +414,7 @@ def render_bundle_panel(result: dict) -> str:
 # --- main render -----------------------------------------------------------
 
 
-def render(summary: dict, bundle_result: dict) -> str:
+def render(summary: dict, bundle_result: dict, evidence: dict | None) -> str:
     legit = summary.get("scenarios", {}).get("legit_x402", {}) or {}
     pi = summary.get("scenarios", {}).get("prompt_injection", {}) or {}
     nkp = summary.get("no_key_proof", {}) or {}
@@ -279,6 +493,13 @@ header.top .meta b{{color:#e6edf3;font-weight:500}}
 .has-tip{{cursor:help;border-bottom:1px dotted #484f58}}
 .na{{color:#484f58}}
 .empty{{color:#8b949e;margin:0 0 6px 0}}
+.evidence-table{{width:100%;border-collapse:collapse;font-size:12px}}
+.evidence-table th,.evidence-table td{{padding:4px 8px;border-bottom:1px solid #30363d;text-align:left;vertical-align:top;word-break:break-all}}
+.evidence-table th{{color:#8b949e;font-weight:500}}
+.group{{margin:8px 0 2px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}}
+.group.ok{{color:#3fb950}}
+.group.skip{{color:#d29922}}
+.group.fail{{color:#f85149}}
 footer{{margin-top:6px;color:#8b949e;font-size:11px;border-top:1px solid #30363d;padding-top:10px}}
 footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 </style>
@@ -345,18 +566,17 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 </div>
 
 <section class="panel full">
-<h2>Backend backlog (placeholders, not implemented yet)</h2>
+<h2>Real-evidence panels (B2.v2)</h2>
 <div class="body">
-<dl class="kv">
-<dt>HTTP <code>Idempotency-Key</code> safe-retry</dt><dd>{pending_pill("PSM-A2", "demo-scripts/run-production-shaped-mock.sh")}</dd>
-<dt>Active policy lifecycle (<code>mandate policy current</code> / <code>activate</code> / <code>diff</code>)</dt><dd>{pending_pill("PSM-A3", "demo-scripts/run-production-shaped-mock.sh")}</dd>
-<dt>Mock KMS CLI surface (<code>mandate key list --mock</code> / <code>key rotate --mock</code>) + storage</dt><dd>{pending_pill("PSM-A1.9", "demo-scripts/run-production-shaped-mock.sh")}</dd>
-<dt>Audit checkpoints (<code>mandate audit checkpoint create</code> / <code>verify</code>) — <strong>mock anchoring, not onchain</strong></dt><dd>{pending_pill("PSM-A4", "demo-scripts/run-production-shaped-mock.sh")}</dd>
-<dt>Operator readiness summary (<code>mandate doctor</code>)</dt><dd>{pending_pill("PSM-A5", "demo-scripts/run-production-shaped-mock.sh")}</dd>
-</dl>
-<p class="empty">Each placeholder lights up automatically once Developer A's corresponding PR lands and a follow-up B-side PR consumes the new value. The console renders honestly today: nothing is faked, nothing is hidden.</p>
+<p class="empty">Each panel below renders evidence captured by <code>demo-scripts/run-production-shaped-mock.sh</code>'s step 12 transcript (<code>{esc(EXPECTED_EVIDENCE_SCHEMA)}</code>). When the transcript is missing or unreadable, the panel says so explicitly — never a fake-OK.</p>
 </div>
 </section>
+
+{render_idempotency_panel(evidence)}
+{render_doctor_panel(evidence)}
+{render_kms_panel(evidence)}
+{render_policy_panel(evidence)}
+{render_checkpoint_panel(evidence)}
 
 <footer>
 Generated from <code>demo-scripts/artifacts/latest-demo-summary.json</code>.
@@ -387,6 +607,12 @@ def main() -> int:
     parser.add_argument("--mandate-bin", default=None,
                         help="Optional override for the `mandate` binary path "
                              "(default: target/debug/mandate). Only consulted when --bundle is set.")
+    parser.add_argument("--evidence", default=str(DEFAULT_EVIDENCE),
+                        help="Path to the operator-evidence transcript "
+                             "(default: %(default)s). Written by the production-shaped "
+                             "runner's step 12 with schema 'mandate-operator-evidence-v1'. "
+                             "When missing/malformed/wrong-schema, the five real-evidence "
+                             "panels render an explicit 'not gathered' placeholder.")
     args = parser.parse_args()
 
     in_path = Path(args.input)
@@ -420,8 +646,18 @@ def main() -> int:
             Path(args.mandate_bin) if args.mandate_bin else None,
         )
 
+    evidence, evidence_state = load_evidence(Path(args.evidence))
+    if evidence_state != "ok":
+        print(
+            f"operator-console: evidence not loaded (state={evidence_state}); "
+            f"the five real-evidence panels will render 'not gathered' placeholders. "
+            f"Run `bash demo-scripts/run-production-shaped-mock.sh` to populate "
+            f"{args.evidence}.",
+            file=sys.stderr,
+        )
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(render(summary, bundle_result), encoding="utf-8")
+    out_path.write_text(render(summary, bundle_result, evidence), encoding="utf-8")
     print(f"operator-console: wrote {out_path} ({out_path.stat().st_size} bytes)")
     return 0
 

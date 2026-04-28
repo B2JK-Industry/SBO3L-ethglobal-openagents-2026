@@ -1,0 +1,93 @@
+{
+  "schema": "mandate-operator-evidence-v1",
+  "tagline": "Don't give your agent a wallet. Give it a mandate.",
+  "demo_commit": "fedcba9876543210fedcba9876543210fedcba98",
+  "generated_at_iso": "2026-04-29T00:00:00Z",
+  "psm_a1_9_mock_kms": {
+    "_mock_label": "Every entry above is from --mock keyring. Not production KMS.",
+    "keys": [
+      {
+        "role": "audit-mock",
+        "version": 1,
+        "key_id": "audit-mock-v1",
+        "verifying_key_hex": "565c20f205e0914605b11edeb79c6aa6805b0c9e98f1002926df8e11284440b7",
+        "verifying_key_hex_prefix": "565c20f205e0",
+        "created_at": "2026-04-29T00:00:01Z",
+        "mock": true
+      },
+      {
+        "role": "audit-mock",
+        "version": 2,
+        "key_id": "audit-mock-v2",
+        "verifying_key_hex": "6fe0243c7b132a6bc995c34722aeed217667d4ceb47310560787249eb191a010",
+        "verifying_key_hex_prefix": "6fe0243c7b13",
+        "created_at": "2026-04-29T00:00:02Z",
+        "mock": true
+      }
+    ],
+    "post_rotate_listing_text": "mock-kms: keyring (2 rows):\nmock-kms:   role                  ver  key_id                 public_hex                                                                          created_at\nmock-kms:   audit-mock            1    audit-mock-v1          565c20f205e0914605b11edeb79c6aa6805b0c9e98f1002926df8e11284440b7  2026-04-29T00:00:01Z\nmock-kms:   audit-mock            2    audit-mock-v2          6fe0243c7b132a6bc995c34722aeed217667d4ceb47310560787249eb191a010  2026-04-29T00:00:02Z\n"
+  },
+  "psm_a2_idempotency": {
+    "case_1_first_post": {
+      "http_status": 200,
+      "audit_event_id": "evt-OPERATOREVIDENCEFIXTUREA",
+      "decision": "allow"
+    },
+    "case_2_cached_replay": {
+      "http_status": 200,
+      "byte_identical_to_case_1": true
+    },
+    "case_3_idempotency_conflict": {
+      "http_status": 409,
+      "code": "protocol.idempotency_conflict"
+    },
+    "case_4_nonce_replay_with_new_key": {
+      "http_status": 409,
+      "code": "protocol.nonce_replay"
+    }
+  },
+  "psm_a3_active_policy": {
+    "version": "v1",
+    "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+    "source": "operator-cli",
+    "activated_at": "2026-04-29T00:00:03Z"
+  },
+  "psm_a4_audit_checkpoints": {
+    "_mock_anchor_label": "Mock anchoring, NOT onchain.",
+    "create": {
+      "schema": "mandate.audit_checkpoint.v1",
+      "sequence": 2,
+      "latest_event_id": "evt-OPERATOREVIDENCEFIXTUREB",
+      "latest_event_hash": "3b14a381374c605dbab95d95dd89c5293f75bba850ecfb596d1ae7704f4dc6bb",
+      "chain_digest": "d376dba4aed8314c3ed09df75a9a7cee7a72701350fd8dbfc9785ba285a0cf61",
+      "mock_anchor_ref": "local-mock-anchor-fixturedeadbeef",
+      "created_at": "2026-04-29T00:00:04Z",
+      "mock_anchor": true
+    },
+    "verify": {
+      "raw_lines": [
+        "mock-anchor: structural verify: ok",
+        "mock-anchor: db cross-check:    ok (chain_digest, latest_event_hash, anchor row all match)",
+        "mock-anchor: verify result:     ok"
+      ],
+      "structural_verify_ok": true,
+      "db_cross_check_ok": true,
+      "result_ok": true
+    }
+  },
+  "psm_a5_doctor": {
+    "checks_summary": { "ok": 3, "skip": 1, "fail": 0 },
+    "malformed": false,
+    "report": {
+      "report_type": "mandate.doctor.v1",
+      "overall": "ok",
+      "db_path": ":memory:",
+      "checks": [
+        { "name": "migrations",       "status": "ok",   "detail": "V001..V007 applied" },
+        { "name": "nonce_replay",     "status": "ok",   "detail": "table present, rows=0" },
+        { "name": "idempotency_keys", "status": "ok",   "detail": "table present, rows=0" },
+        { "name": "audit_chain",      "status": "skip", "reason": "no audit events yet — fresh DB" }
+      ]
+    }
+  }
+}
