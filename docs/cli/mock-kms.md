@@ -110,10 +110,16 @@ The `--root-seed` is **never** stored in the SQLite database — only the result
 - end-to-end: receipt / audit event / decision token sign + verify through `MockKmsSigner`;
 - end-to-end: a pre-rotation receipt verifies under the resolved v1 pubkey after the keyring rotates to v2; a v2 pubkey rejects the v1 receipt.
 
+## What ships today (PSM-A1 + PSM-A1.9)
+
+- In-process `MockKmsSigner` (PSM-A1) — programmatic API for signing receipts / audit events / decision tokens through the `SignerBackend` trait.
+- Persistent mock keyring storage in SQLite (PSM-A1.9, migration V005 `mock_kms_keys`) — public-key metadata only; root seeds are never persisted.
+- `mandate key {init,list,rotate} --mock --db <path>` CLI — every operation requires `--mock`; every output line is `mock-kms:`-prefixed; rotate refuses on mismatched root-seed; current-version lookup propagates real DB errors (no silent "no keyring" mask).
+- `mandate doctor` reports `mock_kms_keys` as `ok` once V005 is applied.
+
 ## Limitations carried forward (truthful disclosure)
 
-- No persistence of rotation state across processes (programmatic only).
-- No CLI surface yet — see PSM-A1.9.
-- No live KMS / HSM backend implements `SignerBackend` in this build.
-- `derive_signing_key` is a deterministic seed-stretch, **not** a production KDF; do not adopt it for any non-mock context.
-- The daemon (`mandate-server`) still constructs `DevSigner` for receipts and audit events; wiring the daemon to use `MockKmsSigner` (and persisting rotation state) is also future work.
+- **`derive_signing_key` is a deterministic seed-stretch, not a production KDF.** Do not adopt it for any non-mock context.
+- **No live KMS / HSM backend.** Production deployments inject signers via `AppState::with_signers` (TEE/HSM-backed). The `MANDATE_SIGNER_BACKEND` selector and per-role `MANDATE_*_SIGNER_KEY_ID` env vars are documented in [`docs/production-transition-checklist.md`](../production-transition-checklist.md#signer--mock-kms--hsm); none of those wirings exist in this build.
+- **Daemon still constructs `DevSigner`.** `mandate-server` does not yet load the persistent mock keyring at startup. Wiring the daemon to read v(n) public keys from the mock-KMS table for receipt/audit signing is follow-up work, not part of PSM-A1.9.
+- **`--root-seed` is a CLI input, not a secret.** It is *never* persisted to the SQLite DB (only the per-version public material is). Operators must keep the seed out of shell history / process listings the same way they would treat any other key bootstrap input.

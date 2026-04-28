@@ -23,7 +23,7 @@ mandate doctor --db /var/lib/mandate/mandate.sqlite --json
 | `nonce_replay` | V002 table present + row count. (Implemented today.) |
 | `idempotency_keys` | V004 table present + row count. **Skip** if the migration hasn't run — reason references **PSM-A2** so an operator knows what to enable. |
 | `audit_chain` | Count + structural verify (`prev_event_hash` linkage and `event_hash` recompute). Signatures are **not** verified — the doctor doesn't have access to the daemon's signer pubkey. **Skip** if the chain is empty. |
-| `mock_kms_keys` | **Skip** today — Mock KMS keyring persistence is tracked as **PSM-A1.9**. The in-process `MockKmsSigner` (PSM-A1) still works without persistence. |
+| `mock_kms_keys` | V005 table present + row count. The persistent mock-KMS keyring shipped via **PSM-A1.9** (PR #28). **Mock — not production-grade.** **Skip** only if a daemon was upgraded without running V005. |
 | `active_policy` | **Skip** today — policy lifecycle is **PSM-A3**. The daemon currently uses the embedded reference policy. |
 | `payment_requests` | Core V001 table present + row count. |
 
