@@ -1,75 +1,78 @@
 # Implementation Status
 
-Post-merge snapshot for the ETHGlobal Open Agents 2026 submission.
+Current snapshot for the ETHGlobal Open Agents 2026 submission of **Mandate**.
 
-**Last updated:** 2026-04-28 (post-PR-#11 snapshot)
-**Phase:** 5 — submission readiness. `main` is submission-ready: PR #10 cleaned up the docs, PR #11 made the APRP nonce-replay store SQLite-backed and persistent.
-**Implementation PRs merged into `main`:** `#1`, `#2`, `#5`, `#6`, `#7`, `#8`, `#9`, `#11`. **Documentation cleanup:** PR `#10`. **No implementation PRs remain open.** PR #12 (`docs/submission-form-draft`) is open and is a docs-only addition (`SUBMISSION_FORM_DRAFT.md` + one-line README link), not core implementation.
-**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
+**Last updated:** 2026-04-28
+**Branch:** `main`
+**Phase:** submission. `main` is implemented, reproducible, and ready to submit.
+**Open implementation PRs:** none.
+**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI` + trust-badge regression test).
 **Blockers:** none.
 
-## Merged PRs
+For the historical PR-by-PR audit trail, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
 
-| PR | Merge SHA | Title |
-|----|-----------|-------|
-| [#1](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/1) | `6f137fb` | `[WIP] Implement Mandate ETHGlobal Open Agents vertical` (full vertical) |
-| [#2](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/2) | `f99cd2e` | `chore: add Codex (Claude Code) PR review workflow` |
-| [#7](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/7) | `2c3eb70` | `feat: enforce protocol.nonce_replay (HTTP 409) on reused APRP nonces` |
-| [#9](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/9) | `8e24154` | `feat: validate policy uniqueness invariants in Policy::parse_{json,yaml}` |
-| [#8](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/8) | `931fb28` | `tests: null comparison + emergency.freeze_all regressions` |
-| [#6](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/6) | `30fb407` | `perf: collapse audit_last into a single query` |
-| [#5](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/5) | `f52596c` | `refactor: deduplicate same_origin into mandate-policy::util` |
-| [#10](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/10) | `c4b30fc` | `docs: finalize ETHGlobal submission readiness` |
-| [#11](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/11) | `a29926d` | `feat: persist APRP nonce replay protection` |
+## Verification summary
+
+| Command | Result |
+|---|---|
+| `cargo fmt --check` | ✅ |
+| `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
+| `cargo test --workspace --all-targets` | ✅ **121 / 121 pass** (0 fail, 0 ignored) |
+| `python3 scripts/validate_schemas.py` | ✅ (6 schemas + 4 corpus fixtures) |
+| `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
+| `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |
+| `python3 trust-badge/build.py` | ✅ writes `trust-badge/index.html` (self-contained, no JS, no fetch) |
+| `python3 trust-badge/test_build.py` | ✅ 31 stdlib assertions on the rendered HTML |
 
 ## What is implemented
 
 Full Open Agents vertical:
 
-- Rust workspace (8 crates + research-agent demo bin).
-- `mandate` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit`.
+- Rust workspace (8 crates + research-agent demo binary).
+- `mandate` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit`, `audit export`, `audit verify-bundle`.
 - APRP v1 wire format with `serde(deny_unknown_fields)` end-to-end + JCS canonical request hashing (golden hash `c0bd2fab…` locked in test).
 - Strict JSON Schema validation (embedded, local refs, no network).
-- Ed25519 dev signer (deterministic seed; production path via `AppState::with_signers`).
+- Ed25519 dev signer (deterministic seed, public, demo-only; production path via `AppState::with_signers`).
 - Policy receipt v1, decision token v1, audit event v1 — all sign + verify + schema-validated.
-- Hash-chained audit log with `prev_event_hash` linkage and SQLite-backed storage.
+- Hash-chained audit log with `prev_event_hash` linkage, SQLite-backed storage, structural and strict-hash verifiers.
+- Verifiable audit bundle (`mandate.audit_bundle.v1`) with both JSONL-chain and DB-backed export paths. The DB-backed exporter pre-flights signature and chain integrity before writing the bundle file.
 - Tiny Rego-compatible expression evaluator + `decide()` + canonical policy hash.
-- Multi-scope budget tracker (`per_tx`, `daily`, `monthly`, `per_provider`) — accumulating where it should, non-accumulating where it shouldn't.
-- HTTP API: `POST /v1/payment-requests` (full pipeline: schema → request_hash → **nonce replay gate** → policy → budget → audit → signed receipt) + `GET /v1/health`.
+- Multi-scope budget tracker (`per_tx`, `daily`, `monthly`, `per_provider`).
+- HTTP API: `POST /v1/payment-requests` (full pipeline: schema → request_hash → **persistent SQLite-backed nonce replay gate** → policy → budget → audit → signed receipt) + `GET /v1/health`.
+- Persistent APRP nonce-replay store backed by SQLite (`nonce_replay` table, migration V002) accessed via `Storage::nonce_try_claim`. Atomic INSERT-or-fail dedup; survives daemon restart when `Storage::open(path)` is used.
 - Real research-agent harness (`legit-x402`, `prompt-injection`) using an in-memory daemon.
-- ENS identity adapter (offline fixture resolver + policy_hash verification).
+- ENS identity adapter (offline fixture resolver + policy_hash verification, trait-backed).
 - KeeperHub guarded-execution adapter (`local_mock` + `live` constructor pair; demo uses `local_mock`).
 - Uniswap guarded-swap adapter (token allowlist, max notional, max slippage, quote freshness, treasury recipient) + `UniswapExecutor::local_mock()`.
 - Sponsor demo scripts: `ens-agent-identity.sh`, `keeperhub-guarded-execution.sh`, `uniswap-guarded-swap.sh`.
 - Standalone red-team gate: `demo-scripts/red-team/prompt-injection.sh` (`D-RT-PI-01..03`).
 - Reset hook: `demo-scripts/reset.sh`.
-- Final demo runner: `bash demo-scripts/run-openagents-final.sh` — single command, 11 steps, ~5 seconds, includes audit-chain tamper detection.
+- Final demo runner: `bash demo-scripts/run-openagents-final.sh` — single command, **13 gates**, ~5 seconds. Includes: schema gate, locked golden hash, audit-chain structural + strict verify, live `cargo test` of policy/budget/storage/server, real research-agent harness, ENS identity proof, KeeperHub guarded execution, Uniswap guarded swap, red-team prompt-injection gate, audit-chain tamper detection, agent no-key boundary proof, deterministic transcript artifact.
+- Static, offline trust-badge proof viewer (`trust-badge/build.py`, stdlib Python) + stdlib regression test (`trust-badge/test_build.py`). No JS, no fetch, works from `file://`.
 
-## Hardening landed during this phase
+## Surfaces a judge can verify
 
-- **PR #11** — APRP nonce replay store made persistent. Replaces PR #7's in-memory `seen_nonces: Mutex<HashSet<String>>` with a SQLite-backed `nonce_replay` table (migration `V002__nonce_replay.sql`) accessed via `Storage::nonce_try_claim`. The PRIMARY KEY on `nonce` gives atomic INSERT-or-fail dedup. A daemon configured with `Storage::open(path)` rejects replays across process restart; the demo defaults to `Storage::open_in_memory()`, where SQLite-backed dedup persists for the lifetime of the demo process. New regression test `nonce_replay_rejection_persists_across_storage_reopen` exercises the persistence guarantee end-to-end at the storage layer.
-- **PR #7** — APRP nonce replay protection (HTTP 409 `protocol.nonce_replay`). The replay gate fires before `request_hash` / policy / budget / audit / signing, so a duplicate nonce produces no audit/receipt side effects. Three regression tests cover (a) replay rejected, (b) distinct nonces independently processed, (c) replay with same nonce but mutated body still rejected. The in-memory dedup set introduced in #7 was superseded by PR #11's SQLite-backed store (above); the gate's pre-state-mutation placement is unchanged.
-- **PR #9** — `Policy::parse_{json,yaml}` reject duplicate `agents[].agent_id`, `rules[].id`, `providers[].id`, `(recipients[].address.lc, chain)`, and `(budgets[].agent_id, scope, scope_key)`. Both parse paths route through the same `validate()` step.
-- **PR #8** — Regression tests for `null` comparison semantics in `expr.rs` and the `emergency.freeze_all` global kill-switch in `engine.rs`. Pure additive: `+57` lines across two `#[test]` modules.
-- **PR #6** — `audit_last` collapsed from a `SELECT seq` + `audit_get` two-roundtrip into a single `SELECT * ORDER BY seq DESC LIMIT 1`. Tightens error handling: previously `.ok()` swallowed every SQLite error into `Ok(None)`; now only `QueryReturnedNoRows` becomes `None`.
-- **PR #5** — `same_origin` deduplicated from `engine.rs` and `budget.rs` into `mandate-policy::util` (`pub(crate)`). Behaviour-preserving; substring-trap test pinned (`example.com.attacker.com` correctly rejected).
-
-## Tests / CI status
-
-- `cargo fmt --check` — ✅
-- `cargo clippy --workspace --all-targets -- -D warnings` — ✅ (no warnings)
-- `cargo test --workspace --all-targets` — ✅ **96 / 96 pass** (0 fail, 0 ignored)
-- `python3 scripts/validate_schemas.py` — ✅ (6 schemas + 4 corpus fixtures)
-- `python3 scripts/validate_openapi.py` — ✅ (`docs/api/openapi.json` valid)
-- `bash demo-scripts/run-openagents-final.sh` — ✅ all 11 steps green incl. audit-chain tamper detection (~5 seconds end-to-end)
+- Signed Ed25519 policy receipts (`receipt.signature`).
+- Canonical `request_hash` over the JCS-canonicalised APRP body.
+- `policy_hash` over the canonicalised active policy.
+- `audit_event_id` linking each receipt to a specific position in the audit chain.
+- Hash-chained audit log with structural verify (skip-hash) and strict-hash verify modes.
+- Audit-chain tamper detection — flip one byte and strict-hash verify rejects.
+- Persistent SQLite nonce-replay table — replay returns HTTP 409 `protocol.nonce_replay` before any side effects, persists across daemon restart.
+- Verifiable audit bundle (`mandate audit export` + `mandate audit verify-bundle`), DB-backed export path included.
+- Agent no-key proof gate — asserts zero signing references, zero key-material fixtures, no signing-related cargo deps in the agent crate.
+- Deterministic transcript artifact written to `demo-scripts/artifacts/latest-demo-summary.json` (consumed by the trust-badge).
+- Static, offline trust-badge / proof viewer rendered straight from that transcript.
 
 ## Pending / stretch (not blocking submission)
 
 - Live KeeperHub backend (one-constructor switch via `KeeperHubExecutor::live()`; demo uses `local_mock()`).
 - Live ENS testnet resolver (offline fixture today; trait already abstracts the backend).
 - Live Uniswap quote backend (`UniswapExecutor::live()` is intentionally stubbed; demo uses `local_mock()`).
-- Demo video (3:30 cut). Storyboard committed in `demo-scripts/demo-video-script.md`.
+- Recorded demo video (3:30 cut). Script committed in `demo-scripts/demo-video-script.md`.
+- Pruned / Merkle-proof variants of the audit bundle, and optional embedded original APRP. Tracked in `docs/cli/audit-bundle.md`.
+- Soft-cap warning emission in receipts (`Budget.soft_cap_usd` parsed but not enforced).
 
 ## Blockers
 
-**None.** See `FINAL_REVIEW.md` for the full submission-readiness audit.
+**None.**

@@ -1,12 +1,12 @@
 # Final Review — Mandate, ETHGlobal Open Agents 2026
 
+> **HISTORICAL DOCUMENT.** This review captured the submission-readiness audit at commit `f52596c` (post PR #5–#9, pre PR #11+). The current state of `main` is tracked in [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) — **121 / 121 tests** and **13 demo gates** (the original 11 plus the agent no-key boundary proof and the deterministic transcript artifact). Persistent SQLite-backed APRP nonce-replay protection, the verifiable audit bundle (with DB-backed export), and the static trust-badge proof viewer all landed in subsequent PRs (#11, #14, #15, #16, #17, #18, #19) and are reflected in [`SUBMISSION_FORM_DRAFT.md`](SUBMISSION_FORM_DRAFT.md). The findings table below is preserved for the audit trail.
+
 **Reviewed commit:** `f52596c433861c72c2f22ffe183674524d45e14d`
 **Date:** 2026-04-28
 **Scope:** Read-only audit of `main` after merging PRs #5, #6, #7, #8, #9.
 **Review verdict before this docs cleanup:** `READY_AFTER_FIXES` — no code/security/demo blockers; only doc staleness issues.
 **After the fixes in PR #10:** **`READY_FOR_SUBMISSION`** — all medium and low findings (M1–M4, L1, L2) are resolved by PR #10, as marked in §6 below.
-
-> **Note:** this review was originally captured after PR #10. Post-PR #11/#12 current status is tracked in [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) and is **96/96 tests** with persistent SQLite-backed APRP nonce-replay protection.
 
 ---
 
