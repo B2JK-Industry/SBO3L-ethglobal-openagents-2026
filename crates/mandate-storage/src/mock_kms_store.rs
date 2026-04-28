@@ -93,21 +93,21 @@ impl Storage {
 
     /// Highest existing version for `role`, or `None` if no keyring
     /// has been initialised.
+    ///
+    /// `SELECT MAX(...)` always returns exactly one row (a value or
+    /// SQL NULL), so `QueryReturnedNoRows` cannot happen here — `?`
+    /// propagates only real errors (schema drift, IO, corruption).
+    /// Codex P2 on PR #28 caught that the previous `.ok()` swallowed
+    /// every error as `None`, which would have made `cmd_rotate`
+    /// silently behave as if the keyring did not exist when in fact
+    /// the table was missing or unreadable.
     pub fn mock_kms_current_version(&self, role: &str) -> StorageResult<Option<u32>> {
-        let n: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT MAX(version) FROM mock_kms_keys WHERE role = ?1",
-                params![role],
-                |r| r.get(0),
-            )
-            .ok();
+        let n: Option<i64> = self.conn.query_row(
+            "SELECT MAX(version) FROM mock_kms_keys WHERE role = ?1",
+            params![role],
+            |r| r.get(0),
+        )?;
         match n {
-            // SQLite returns NULL via Option<i64>=Some(0)? Actually it
-            // returns Ok(NULL) which serde-rusqlite maps to None when
-            // you ask for Option<i64>. The .ok() above swallows
-            // QueryReturnedNoRows; for COUNT-like selects there's
-            // always one row returning either NULL or a value.
             None => Ok(None),
             // version=0 should never exist (we start at 1) — but defend
             // against a tampered DB by treating it as no initialised
@@ -219,6 +219,39 @@ mod tests {
         assert!(only_audit.iter().all(|r| r.role == "audit-mock"));
         let all = s.mock_kms_list(None).unwrap();
         assert_eq!(all.len(), 3);
+    }
+
+    #[test]
+    fn current_version_propagates_query_errors() {
+        // Codex P2 on PR #28: `mock_kms_current_version` previously
+        // converted every rusqlite error into `Ok(None)` via `.ok()`,
+        // which made schema drift / IO failure indistinguishable from
+        // "no keyring initialised yet". After the fix, propagation via
+        // `?` means a missing/broken table surfaces as `Err(Sqlite)`
+        // and callers (e.g. `mandate key rotate`) refuse to advance.
+        //
+        // We construct the failure shape by opening Storage normally
+        // (so migrations apply), then dropping the table out from
+        // under it via raw rusqlite. Re-opening Storage skips the
+        // already-recorded V005 migration, so the table stays gone.
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let path = tmp.path().to_path_buf();
+        {
+            let _ = Storage::open(&path).unwrap();
+        }
+        {
+            let conn = rusqlite::Connection::open(&path).unwrap();
+            conn.execute("DROP TABLE mock_kms_keys", []).unwrap();
+        }
+        let s = Storage::open(&path).unwrap();
+        let err = s
+            .mock_kms_current_version("audit-mock")
+            .expect_err("missing table must propagate as Err, not silently report None");
+        let msg = err.to_string();
+        assert!(
+            msg.to_lowercase().contains("mock_kms_keys") || msg.to_lowercase().contains("no such"),
+            "expected the error to mention the missing table; got: {msg}"
+        );
     }
 
     #[test]

@@ -15,6 +15,10 @@ fn cli_bin() -> PathBuf {
 /// **Mock** — never used outside the test suite.
 const TEST_ROOT_SEED: &str = "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a";
 
+/// A different deterministic seed used to exercise the
+/// "mismatched-seed rejected at rotate" path.
+const OTHER_ROOT_SEED: &str = "5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b";
+
 #[test]
 fn init_writes_v1_row_then_list_shows_it() {
     let tmp = tempfile::tempdir().unwrap();
@@ -299,5 +303,163 @@ fn list_filters_by_role_when_given() {
     assert!(
         !stdout.contains("decision-mock-v1"),
         "filtered listing must not leak other roles; got: {stdout}"
+    );
+}
+
+/// Codex P2 on PR #28: every output line of the non-empty `key list`
+/// path must carry the `mock-kms:` disclosure prefix. Previously only
+/// the header announced "mock-kms keyring", but the column header and
+/// row lines started with whitespace — so a single copy-pasted row
+/// could be misread as production KMS output. We seed two roles, run
+/// list, and assert that **every non-blank stdout line** begins with
+/// `mock-kms:` (including the column header and each data row).
+#[test]
+fn list_prefixes_every_line_with_mock_kms_disclosure() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("mandate.sqlite");
+    for role in ["audit-mock", "decision-mock"] {
+        let s = Command::new(cli_bin())
+            .args([
+                "key",
+                "init",
+                "--mock",
+                "--role",
+                role,
+                "--root-seed",
+                TEST_ROOT_SEED,
+                "--db",
+                db.to_str().unwrap(),
+            ])
+            .status()
+            .unwrap();
+        assert!(s.success(), "init for role {role} must succeed");
+    }
+    let list = Command::new(cli_bin())
+        .args(["key", "list", "--mock", "--db", db.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(list.status.success());
+    let stdout = String::from_utf8_lossy(&list.stdout);
+
+    let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
+    assert!(
+        lines.len() >= 4,
+        "non-empty list must produce at least header + col-header + 2 row lines; got: {stdout}"
+    );
+    for (i, line) in lines.iter().enumerate() {
+        assert!(
+            line.starts_with("mock-kms:"),
+            "line {i} ({line:?}) does not start with `mock-kms:`; full stdout:\n{stdout}"
+        );
+    }
+    // And confirm both roles' rows are still present (regression
+    // guard: changing the prefix must not have broken the data).
+    assert!(stdout.contains("audit-mock-v1"));
+    assert!(stdout.contains("decision-mock-v1"));
+}
+
+/// Codex P2 on PR #28: rotating with the wrong `--root-seed` must
+/// refuse, exit non-zero (we use `2` for "operator passed bad input"),
+/// and leave the keyring untouched. Without this check, a typo would
+/// silently insert a v2 row whose keys can't be re-derived from the
+/// "real" rotation seed — irrecoverable drift in the mock keyring's
+/// only authentication assumption.
+#[test]
+fn rotate_with_wrong_root_seed_refuses_and_does_not_advance() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("mandate.sqlite");
+
+    // init v1 with the canonical test seed.
+    let init = Command::new(cli_bin())
+        .args([
+            "key",
+            "init",
+            "--mock",
+            "--role",
+            "audit-mock",
+            "--root-seed",
+            TEST_ROOT_SEED,
+            "--db",
+            db.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(init.status.success());
+
+    // attempt rotate with the OTHER seed — must fail with exit 2.
+    let bad_rotate = Command::new(cli_bin())
+        .args([
+            "key",
+            "rotate",
+            "--mock",
+            "--role",
+            "audit-mock",
+            "--root-seed",
+            OTHER_ROOT_SEED,
+            "--db",
+            db.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !bad_rotate.status.success(),
+        "rotate with wrong --root-seed must fail; stdout={} stderr={}",
+        String::from_utf8_lossy(&bad_rotate.stdout),
+        String::from_utf8_lossy(&bad_rotate.stderr),
+    );
+    assert_eq!(
+        bad_rotate.status.code(),
+        Some(2),
+        "wrong-seed rotate should return exit 2 (bad operator input)"
+    );
+    let stderr = String::from_utf8_lossy(&bad_rotate.stderr);
+    assert!(
+        stderr.contains("--root-seed") && stderr.contains("does not match"),
+        "stderr must explain seed mismatch; got: {stderr}"
+    );
+
+    // list must still show only v1 — no v2 leaked through.
+    let list = Command::new(cli_bin())
+        .args([
+            "key",
+            "list",
+            "--mock",
+            "--role",
+            "audit-mock",
+            "--db",
+            db.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(list.status.success());
+    let list_stdout = String::from_utf8_lossy(&list.stdout);
+    assert!(
+        list_stdout.contains("audit-mock-v1"),
+        "v1 must still be present; got: {list_stdout}"
+    );
+    assert!(
+        !list_stdout.contains("audit-mock-v2"),
+        "rejected rotate must NOT have inserted v2; got: {list_stdout}"
+    );
+
+    // and a follow-up rotate WITH the correct seed must still succeed.
+    let good_rotate = Command::new(cli_bin())
+        .args([
+            "key",
+            "rotate",
+            "--mock",
+            "--role",
+            "audit-mock",
+            "--root-seed",
+            TEST_ROOT_SEED,
+            "--db",
+            db.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        good_rotate.status.success(),
+        "rotate with the right seed must succeed after a rejected attempt; stderr={}",
+        String::from_utf8_lossy(&good_rotate.stderr)
     );
 }

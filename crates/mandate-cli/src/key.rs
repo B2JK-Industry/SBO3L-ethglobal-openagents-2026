@@ -188,15 +188,19 @@ pub fn cmd_list(mock: bool, role: Option<&str>, db: &Path) -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
+    // Codex P2 on PR #28: every output line — header, column line,
+    // each row — must start with the `mock-kms:` disclosure so a human
+    // skimming a copy-pasted slice of the output cannot mistake any
+    // single line for production KMS material.
     println!(
-        "mock-kms keyring ({} row{}):",
+        "mock-kms: keyring ({} row{}):",
         rows.len(),
         if rows.len() == 1 { "" } else { "s" }
     );
-    println!("  role                  ver  key_id                 public_hex                                                                          created_at");
+    println!("mock-kms:   role                  ver  key_id                 public_hex                                                                          created_at");
     for r in rows {
         println!(
-            "  {role:<22}{version:<5}{key_id:<23}{public_hex}  {ts}",
+            "mock-kms:   {role:<22}{version:<5}{key_id:<23}{public_hex}  {ts}",
             role = r.role,
             version = r.version,
             key_id = r.key_id,
@@ -250,6 +254,49 @@ pub fn cmd_rotate(mock: bool, role: &str, root_seed_hex: &str, db: &Path) -> Exi
             return ExitCode::from(1);
         }
     };
+
+    // Codex P2 on PR #28: refuse to rotate when the supplied --root-seed
+    // doesn't match the seed that produced the existing v(current_version).
+    // Without this check, a typo or mismatched secret silently inserts a
+    // v(n+1) row that the daemon's keyring can't actually re-derive — the
+    // keyring would diverge from the operator's notion of "the rotation
+    // seed", which is the entire authentication contract for the mock
+    // KMS surface. We compare both `key_id` and `public_hex` because
+    // either alone would already reveal a seed mismatch.
+    let stored_current = match storage.mock_kms_list(Some(role)) {
+        Ok(rows) => rows.into_iter().find(|r| r.version == current_version),
+        Err(e) => {
+            eprintln!("mandate key rotate: failed to read existing keyring: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    let stored_current = match stored_current {
+        Some(r) => r,
+        None => {
+            // current_version came back Some(v) but the row vanished —
+            // means another process raced us between the two queries.
+            // Treat as a transient inconsistency, not a seed mismatch.
+            eprintln!(
+                "mandate key rotate: db inconsistency: current_version={current_version} \
+                 reported for role={role} but no matching row found"
+            );
+            return ExitCode::from(1);
+        }
+    };
+    let (expected_current_key_id, expected_current_public_hex) =
+        mock_kms::derive_key_metadata(role, current_version, &root_seed);
+    if stored_current.key_id != expected_current_key_id
+        || stored_current.public_hex != expected_current_public_hex
+    {
+        eprintln!(
+            "mandate key rotate: --root-seed does not match the seed that produced \
+             the stored v{current_version} for role={role}; refusing to rotate. \
+             Pass the same --root-seed used at `mandate key init` (or the most \
+             recent `mandate key rotate`)."
+        );
+        return ExitCode::from(2);
+    }
+
     let next_version = current_version + 1;
     let (key_id, public_hex) = mock_kms::derive_key_metadata(role, next_version, &root_seed);
     let now = Utc::now();
