@@ -140,10 +140,10 @@ def main() -> int:
         ("policy lifecycle panel",   "PSM-A3",   "policy lifecycle"),
         ("mock KMS CLI panel",       "PSM-A1.9", "Mock KMS CLI surface"),
         ("audit checkpoint panel",   "PSM-A4",   "Audit checkpoints"),
-        ("doctor panel",             "PSM-A5",   "Operator readiness summary"),
     ]
     pending = [
         ("Idempotency-Key panel",    "PSM-A2",   "Idempotency-Key"),
+        ("doctor panel",             "PSM-A5",   "Operator readiness summary"),
     ]
     blocked_pill_pattern = re.compile(
         r'class="pill blocked"[^>]*>not implemented yet — backlog ',
@@ -175,17 +175,19 @@ def main() -> int:
         else:
             _fail(label, f"backlog {backlog_id} or descr {descr!r} not in HTML")
             failures += 1
-    # PSM-A2 must NOT appear inside a blocked-pill — that would lie about
-    # the merged backend. Defensive negative assertion.
-    a2_blocked_pattern = re.compile(
-        r'class="pill blocked"[^>]*>not implemented yet — backlog\s*PSM-A2\b',
-        re.IGNORECASE,
-    )
-    if a2_blocked_pattern.search(html_text):
-        _fail("PSM-A2 must not be inside blocked-pill", "found a blocked-pill claiming PSM-A2 is unmerged")
-        failures += 1
-    else:
-        _ok("PSM-A2 not inside any blocked-pill (avoids false 'unmerged' claim)")
+    # PSM-A2 and PSM-A5 must NOT appear inside a blocked-pill — that would
+    # lie about merged backends. Defensive negative assertions.
+    for backlog_id in ("PSM-A2", "PSM-A5"):
+        pat = re.compile(
+            rf'class="pill blocked"[^>]*>not implemented yet — backlog\s*{re.escape(backlog_id)}\b',
+            re.IGNORECASE,
+        )
+        if pat.search(html_text):
+            _fail(f"{backlog_id} must not be inside blocked-pill",
+                  f"found a blocked-pill claiming {backlog_id} is unmerged")
+            failures += 1
+        else:
+            _ok(f"{backlog_id} not inside any blocked-pill (avoids false 'unmerged' claim)")
 
     # 3. Forbidden surface (case-insensitive).
     print("\n== forbidden surface ==")
@@ -213,7 +215,10 @@ def main() -> int:
 
     # required + (blocked-pill class) + (pending-pill class) + blocked + pending
     # + (PSM-A2-not-in-blocked negative) + forbidden + (html.parser).
-    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 1 + len(forbidden) + 1
+    # required + (blocked-pill class) + (pending-pill class) + blocked + pending
+    # + 2 negative assertions (PSM-A2 + PSM-A5 not in blocked-pill) + forbidden
+    # + (html.parser).
+    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 2 + len(forbidden) + 1
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")
