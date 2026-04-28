@@ -242,20 +242,37 @@ fn run_checks(storage: &Storage) -> Vec<Check> {
     match storage.optional_count("audit_checkpoints") {
         Ok(Some(_)) => match storage.audit_checkpoint_latest() {
             Ok(Some(rec)) => {
-                let total = storage.audit_checkpoint_count().unwrap_or(0);
-                let tail = rec
-                    .mock_anchor_ref
-                    .strip_prefix("local-mock-anchor-")
-                    .unwrap_or(&rec.mock_anchor_ref);
-                let prefix: String = tail.chars().take(12).collect();
-                checks.push(ok(
-                    "audit_checkpoints",
-                    format!(
-                        "table present, rows={total}, latest=seq{seq}, anchor={prefix}… \
-                         (mock — see docs/cli/audit-checkpoint.md)",
-                        seq = rec.sequence,
-                    ),
-                ));
+                // Self-review truthfulness fix: the previous shape
+                // used `unwrap_or(0)` here, which would have silently
+                // displayed `rows=0` if `audit_checkpoint_count()`
+                // failed — directly contradicting the `latest=seqX`
+                // half of the same line (we already know rows >= 1
+                // because `audit_checkpoint_latest()` returned Some).
+                // Surface the count failure honestly as a `fail` row.
+                match storage.audit_checkpoint_count() {
+                    Ok(total) => {
+                        let tail = rec
+                            .mock_anchor_ref
+                            .strip_prefix("local-mock-anchor-")
+                            .unwrap_or(&rec.mock_anchor_ref);
+                        let prefix: String = tail.chars().take(12).collect();
+                        checks.push(ok(
+                            "audit_checkpoints",
+                            format!(
+                                "table present, rows={total}, latest=seq{seq}, anchor={prefix}… \
+                                 (mock — see docs/cli/audit-checkpoint.md)",
+                                seq = rec.sequence,
+                            ),
+                        ));
+                    }
+                    Err(e) => checks.push(fail(
+                        "audit_checkpoints",
+                        format!(
+                            "latest checkpoint visible (seq{seq}) but row count failed: {e}",
+                            seq = rec.sequence,
+                        ),
+                    )),
+                }
             }
             Ok(None) => checks.push(skip(
                 "audit_checkpoints",
