@@ -1,0 +1,38 @@
+{
+  "schema": "mandate-mock-kms-keys-v1",
+  "mock": true,
+  "explanation": "Public verification-key metadata for Mandate's two demo signers — the same deterministic dev seeds that ship in `crates/mandate-server/src/lib.rs:54-55` and that the production-shaped runner's step 9 uses to verify audit bundles. NO private/signing material is included; only Ed25519 verification (public) keys, derived from the public seed bytes already committed in the open repo. This fixture demonstrates the *catalogue shape* a future `mandate key list --mock` CLI (PSM-A1.9) would emit, so adapter authors and operators can target a stable JSON shape now.",
+  "live_replacement": "Replace with the real-time output of a production KMS / HSM key-listing API (AWS KMS `ListKeys` + `GetPublicKey`, GCP KMS, Azure Key Vault, or an HSM-backed signer). Production deployments inject signers via `AppState::with_signers` (TEE/HSM-backed) — the dev signers in `mandate-server::lib.rs` are clearly labelled `⚠ DEV ONLY ⚠` and never ship as production keys.",
+  "no_private_material": true,
+  "_no_private_material_note": "Every entry below carries `verifying_key_hex` only. There are no `signing_key_hex`, `private_key_hex`, `seed_hex`, or PEM fields anywhere in this fixture. The `seed_source` field documents the *public* derivation path (already in the open repo) — it is not a secret.",
+  "keys": [
+    {
+      "key_id":             "audit-signer-v1",
+      "key_version":        1,
+      "algorithm":          "Ed25519",
+      "purpose":            "audit_event_signing",
+      "verifying_key_hex":  "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+      "seed_source":        "DevSigner::from_seed(\"audit-signer-v1\", [11u8; 32])",
+      "seed_source_path":   "crates/mandate-server/src/lib.rs:54",
+      "created_at_iso":     "2026-04-01T00:00:00Z",
+      "rotated_at_iso":     null,
+      "active":             true,
+      "mock":               true,
+      "production_warning": "DEV ONLY — public seed, deterministic derivation. Production signers are injected via AppState::with_signers and live in TEE/HSM."
+    },
+    {
+      "key_id":             "decision-signer-v1",
+      "key_version":        1,
+      "algorithm":          "Ed25519",
+      "purpose":            "policy_receipt_signing",
+      "verifying_key_hex":  "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "seed_source":        "DevSigner::from_seed(\"decision-signer-v1\", [7u8; 32])",
+      "seed_source_path":   "crates/mandate-server/src/lib.rs:55",
+      "created_at_iso":     "2026-04-01T00:00:00Z",
+      "rotated_at_iso":     null,
+      "active":             true,
+      "mock":               true,
+      "production_warning": "DEV ONLY — public seed, deterministic derivation. Production signers are injected via AppState::with_signers and live in TEE/HSM."
+    }
+  ]
+}

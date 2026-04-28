@@ -1,0 +1,29 @@
+{
+  "schema": "mandate-mock-ens-registry-v1",
+  "mock": true,
+  "explanation": "A multi-agent mock of an ENS text-record registry shaped like what Mandate's `mandate_identity::EnsResolver` consumes. Demonstrates the `mandate:*` text-record convention across three deterministic agent identities, so adapter authors can see the catalogue shape (not just the single-agent shape in `demo-fixtures/ens-records.json`). Every record set is local fixture data — there are no real ENS registrations involved.",
+  "live_replacement": "Replace with a live ENS resolver (mainnet or Sepolia testnet) reading text records via the public `ENS Registry` + `Public Resolver` contracts. The `mandate_identity::EnsResolver` trait already abstracts this; switching is a constructor swap once the resolver implementation lands. See `crates/mandate-identity/` and FEEDBACK.md §ENS.",
+  "registry": {
+    "research-agent.team.eth": {
+      "mandate:agent_id": "research-agent-01",
+      "mandate:endpoint": "http://127.0.0.1:8730/v1",
+      "mandate:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+      "mandate:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mandate:receipt_schema": "https://schemas.mandate.dev/policy-receipt/v1.json"
+    },
+    "trading-agent.team.eth": {
+      "mandate:agent_id": "trading-agent-01",
+      "mandate:endpoint": "http://127.0.0.1:8731/v1",
+      "mandate:policy_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "mandate:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mandate:receipt_schema": "https://schemas.mandate.dev/policy-receipt/v1.json"
+    },
+    "support-agent.team.eth": {
+      "mandate:agent_id": "support-agent-01",
+      "mandate:endpoint": "http://127.0.0.1:8732/v1",
+      "mandate:policy_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mandate:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mandate:receipt_schema": "https://schemas.mandate.dev/policy-receipt/v1.json"
+    }
+  }
+}
