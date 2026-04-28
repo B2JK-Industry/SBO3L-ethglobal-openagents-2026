@@ -19,6 +19,7 @@ use mandate_core::aprp::{Destination, PaymentRequest};
 
 use crate::expr;
 use crate::model::{AgentStatus, Policy, ProviderStatus, RecipientStatus, Rule, RuleEffect};
+use crate::util::same_origin;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -315,20 +316,6 @@ fn safe_amount_f64(s: &str) -> f64 {
         Some(back) if back == d => f,
         _ => AMOUNT_FAILSAFE_USD,
     }
-}
-
-fn same_origin(a: &str, b: &str) -> bool {
-    let normalize = |u: &str| u.trim_end_matches('/').to_string();
-    let a = normalize(a);
-    let b = normalize(b);
-    if a == b {
-        return true;
-    }
-    // Match by host: if `b` starts with `a/`, a is the origin.
-    if b.starts_with(&format!("{a}/")) || a.starts_with(&format!("{b}/")) {
-        return true;
-    }
-    false
 }
 
 #[cfg(test)]

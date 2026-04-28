@@ -15,6 +15,7 @@ use thiserror::Error;
 use mandate_core::aprp::PaymentRequest;
 
 use crate::model::{Budget, BudgetScope, Policy};
+use crate::util::same_origin;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BudgetError {
@@ -160,12 +161,6 @@ fn applies_to_request(budget: &Budget, request: &PaymentRequest, policy: &Policy
             }
         },
     }
-}
-
-fn same_origin(a: &str, b: &str) -> bool {
-    let a = a.trim_end_matches('/');
-    let b = b.trim_end_matches('/');
-    a == b || b.starts_with(&format!("{a}/")) || a.starts_with(&format!("{b}/"))
 }
 
 #[cfg(test)]

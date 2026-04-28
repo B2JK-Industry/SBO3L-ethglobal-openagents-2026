@@ -4,6 +4,7 @@ pub mod budget;
 pub mod engine;
 pub mod expr;
 pub mod model;
+mod util;
 
 pub use budget::{BudgetDeny, BudgetTracker};
 pub use engine::{decide, Decision, EngineError, Outcome};
