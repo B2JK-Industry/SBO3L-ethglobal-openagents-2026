@@ -277,3 +277,297 @@ fn verify_bundle_rejects_broken_chain_linkage() {
         "verify-bundle must reject broken linkage"
     );
 }
+
+// ----- DB-backed export ---------------------------------------------------
+//
+// The DB-backed export reads the audit chain directly from a Mandate
+// daemon's SQLite store via `mandate_storage::Storage`. The fixture below
+// builds a real on-disk DB by appending three events with the same
+// deterministic dev signers used by `build_fixture_files`, then writes a
+// signed receipt that points at the middle event. This is the realistic
+// shape: a long-running daemon's storage + a receipt the agent kept.
+
+use mandate_storage::audit_store::NewAuditEvent;
+use mandate_storage::Storage;
+
+fn build_db_fixture() -> (
+    tempfile::TempDir,
+    PathBuf, // db path
+    PathBuf, // receipt path
+    String,  // receipt pubkey hex
+    String,  // audit pubkey hex
+    String,  // audit_event_id the receipt references
+) {
+    let tmp = tempfile::tempdir().unwrap();
+    let db_path = tmp.path().join("mandate.sqlite");
+    let audit_signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+    let receipt_signer = DevSigner::from_seed("decision-signer-v1", [7u8; 32]);
+
+    let middle_event_id;
+    {
+        let mut storage = Storage::open(&db_path).unwrap();
+        storage
+            .audit_append(
+                NewAuditEvent::now("runtime_started", "mandate-server", "runtime"),
+                &audit_signer,
+            )
+            .unwrap();
+        let middle = storage
+            .audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", "pr-test-001"),
+                &audit_signer,
+            )
+            .unwrap();
+        storage
+            .audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", "pr-test-002"),
+                &audit_signer,
+            )
+            .unwrap();
+        middle_event_id = middle.event.id.clone();
+    } // Drop the Storage handle so the CLI can open its own connection.
+
+    let unsigned = UnsignedReceipt {
+        agent_id: "research-agent-01".to_string(),
+        decision: Decision::Allow,
+        deny_code: None,
+        request_hash: "1111111111111111111111111111111111111111111111111111111111111111"
+            .to_string(),
+        policy_hash: "2222222222222222222222222222222222222222222222222222222222222222".to_string(),
+        policy_version: Some(1),
+        audit_event_id: middle_event_id.clone(),
+        execution_ref: None,
+        issued_at: chrono::DateTime::parse_from_rfc3339("2026-04-27T12:00:01.500Z")
+            .unwrap()
+            .into(),
+        expires_at: None,
+    };
+    let receipt = unsigned.sign(&receipt_signer).unwrap();
+    let receipt_path = tmp.path().join("receipt.json");
+    std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+
+    (
+        tmp,
+        db_path,
+        receipt_path,
+        receipt_signer.verifying_key_hex(),
+        audit_signer.verifying_key_hex(),
+        middle_event_id,
+    )
+}
+
+#[test]
+fn db_backed_export_then_verify_bundle_succeeds() {
+    // Happy path: a real on-disk daemon DB + a signed receipt → export
+    // assembles a bundle without ever touching a JSONL file → verify
+    // round-trips clean. This is the "Mandate leaves behind verifiable
+    // proof directly from its daemon storage" claim end-to-end.
+    let (tmp, db, receipt, rpk, apk, target_id) = build_db_fixture();
+    let bundle_path = tmp.path().join("bundle.json");
+
+    let out = Command::new(cli_bin())
+        .args([
+            "audit",
+            "export",
+            "--receipt",
+            receipt.to_str().unwrap(),
+            "--db",
+            db.to_str().unwrap(),
+            "--receipt-pubkey",
+            &rpk,
+            "--audit-pubkey",
+            &apk,
+            "--out",
+            bundle_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "db-backed export must succeed; stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(bundle_path.exists());
+
+    let out = Command::new(cli_bin())
+        .args([
+            "audit",
+            "verify-bundle",
+            "--path",
+            bundle_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "verify-bundle must succeed; stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("ok: bundle verified"),
+        "unexpected stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains(&target_id),
+        "verify summary must name the audit_event_id; stdout={stdout}"
+    );
+
+    // Bundle's chain segment must be exactly genesis through the receipt's
+    // referenced event (length 2), not the entire DB chain (length 3).
+    let bundle: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&bundle_path).unwrap()).unwrap();
+    let segment = bundle["audit_chain_segment"].as_array().unwrap();
+    assert_eq!(segment.len(), 2, "DB-backed export must slice prefix");
+}
+
+#[test]
+fn db_backed_export_fails_when_db_path_missing() {
+    let (tmp, _db, receipt, rpk, apk, _) = build_db_fixture();
+    let bundle_path = tmp.path().join("bundle.json");
+    let nonexistent = tmp.path().join("does-not-exist.sqlite");
+
+    let out = Command::new(cli_bin())
+        .args([
+            "audit",
+            "export",
+            "--receipt",
+            receipt.to_str().unwrap(),
+            "--db",
+            nonexistent.to_str().unwrap(),
+            "--receipt-pubkey",
+            &rpk,
+            "--audit-pubkey",
+            &apk,
+            "--out",
+            bundle_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "must reject missing db path; stdout={}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("does not exist"),
+        "expected diagnostic naming the missing db; got {stderr}"
+    );
+    assert!(
+        !bundle_path.exists(),
+        "no bundle file should be written when export fails"
+    );
+}
+
+#[test]
+fn db_backed_export_fails_when_audit_event_id_not_in_db() {
+    // Receipt points at an audit_event_id the DB never wrote (typical
+    // cause: receipt and DB belong to different daemons). The error
+    // message must echo the missing id verbatim so the operator can
+    // diagnose it without re-reading the receipt.
+    let (tmp, db, _good_receipt, rpk, apk, _) = build_db_fixture();
+    let bundle_path = tmp.path().join("bundle.json");
+
+    // Build a fresh receipt that points at a bogus audit_event_id.
+    let receipt_signer = DevSigner::from_seed("decision-signer-v1", [7u8; 32]);
+    let bogus_id = "evt-DOES-NOT-EXIST-IN-DB-XX".to_string();
+    let unsigned = UnsignedReceipt {
+        agent_id: "research-agent-01".to_string(),
+        decision: Decision::Allow,
+        deny_code: None,
+        request_hash: "1111111111111111111111111111111111111111111111111111111111111111"
+            .to_string(),
+        policy_hash: "2222222222222222222222222222222222222222222222222222222222222222".to_string(),
+        policy_version: Some(1),
+        audit_event_id: bogus_id.clone(),
+        execution_ref: None,
+        issued_at: chrono::DateTime::parse_from_rfc3339("2026-04-27T12:00:01.500Z")
+            .unwrap()
+            .into(),
+        expires_at: None,
+    };
+    let receipt = unsigned.sign(&receipt_signer).unwrap();
+    let receipt_path = tmp.path().join("bad-receipt.json");
+    std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+
+    let out = Command::new(cli_bin())
+        .args([
+            "audit",
+            "export",
+            "--receipt",
+            receipt_path.to_str().unwrap(),
+            "--db",
+            db.to_str().unwrap(),
+            "--receipt-pubkey",
+            &rpk,
+            "--audit-pubkey",
+            &apk,
+            "--out",
+            bundle_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "must reject receipt pointing at unknown audit_event_id"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains(&bogus_id),
+        "diagnostic must echo the missing id; got {stderr}"
+    );
+    assert!(!bundle_path.exists(), "no bundle on failure");
+}
+
+#[test]
+fn db_backed_export_fails_when_db_chain_is_tampered() {
+    // Manually rewrite a row in the SQLite audit_events table to break
+    // the hash chain. The export's pre-flight `verify_chain` must catch
+    // this BEFORE writing any bundle, so a downstream consumer never
+    // sees an unverifiable bundle from a corrupted DB.
+    let (tmp, db, receipt, rpk, apk, _) = build_db_fixture();
+    let bundle_path = tmp.path().join("bundle.json");
+
+    // Mutate seq=2's actor — this changes its canonical hash, so the
+    // recorded event_hash and the chain's prev_event_hash linkage no
+    // longer match what `verify_chain` recomputes.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute(
+        "UPDATE audit_events SET actor = 'tampered-actor' WHERE seq = 2",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = Command::new(cli_bin())
+        .args([
+            "audit",
+            "export",
+            "--receipt",
+            receipt.to_str().unwrap(),
+            "--db",
+            db.to_str().unwrap(),
+            "--receipt-pubkey",
+            &rpk,
+            "--audit-pubkey",
+            &apk,
+            "--out",
+            bundle_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "must reject tampered DB chain at export time"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("audit chain pre-flight failed"),
+        "expected pre-flight diagnostic; got {stderr}"
+    );
+    assert!(
+        !bundle_path.exists(),
+        "no bundle should be written when the DB chain doesn't verify"
+    );
+}

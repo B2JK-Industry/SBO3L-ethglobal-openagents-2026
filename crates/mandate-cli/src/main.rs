@@ -60,18 +60,34 @@ enum Command {
 
 #[derive(Subcommand, Debug)]
 enum AuditCmd {
-    /// Build a verifiable bundle from a signed receipt + audit chain JSONL.
+    /// Build a verifiable bundle from a signed receipt + audit chain.
     ///
-    /// The chain JSONL must include the genesis event (seq=1) through the
-    /// event referenced by the receipt's `audit_event_id`, in seq order.
+    /// Exactly one chain source must be supplied:
+    ///   --chain <jsonl-path>  reads SignedAuditEvent[] from a JSONL file
+    ///                         (one event per line, genesis through the
+    ///                         receipt's `audit_event_id`, in seq order).
+    ///   --db    <sqlite-path> reads the chain directly from a Mandate
+    ///                         daemon's SQLite storage (`mandate-storage`),
+    ///                         slicing the prefix through the receipt's
+    ///                         `audit_event_id`. Performs a pre-flight
+    ///                         `verify_chain` and a receipt-signature
+    ///                         check before writing the bundle.
     Export {
         /// Path to the signed PolicyReceipt JSON (the body returned by
         /// `POST /v1/payment-requests`, field `receipt`).
         #[arg(long)]
         receipt: PathBuf,
         /// Path to a JSONL audit chain (one SignedAuditEvent per line).
-        #[arg(long)]
-        chain: PathBuf,
+        /// Mutually exclusive with `--db`; exactly one must be supplied.
+        #[arg(long, conflicts_with = "db", required_unless_present = "db")]
+        chain: Option<PathBuf>,
+        /// Path to a Mandate SQLite storage file (the `MANDATE_DB` the
+        /// daemon writes to). Mutually exclusive with `--chain`; exactly
+        /// one must be supplied. Reads the audit chain prefix through
+        /// the receipt's `audit_event_id` directly from the daemon's
+        /// persisted log — no out-of-band JSONL export required.
+        #[arg(long, conflicts_with = "chain", required_unless_present = "chain")]
+        db: Option<PathBuf>,
         /// Public verification key (hex) for the receipt signer (32 bytes).
         #[arg(long)]
         receipt_pubkey: String,
@@ -151,13 +167,15 @@ fn main() -> ExitCode {
                 AuditCmd::Export {
                     receipt,
                     chain,
+                    db,
                     receipt_pubkey,
                     audit_pubkey,
                     out,
                 },
         } => cmd_audit_export(
             &receipt,
-            &chain,
+            chain.as_deref(),
+            db.as_deref(),
             &receipt_pubkey,
             &audit_pubkey,
             out.as_deref(),
@@ -357,9 +375,42 @@ fn read_audit_chain_jsonl(path: &Path) -> anyhow::Result<Vec<SignedAuditEvent>> 
     Ok(events)
 }
 
+/// Open a Mandate SQLite store and slice the audit chain prefix through
+/// the receipt's `audit_event_id`. Pre-flights the chain segment with
+/// `verify_chain` against the supplied audit pubkey AND verifies the
+/// receipt signature against the supplied receipt pubkey, so a DB-backed
+/// export with mismatched keys or a corrupt chain fails immediately
+/// with a clear message instead of producing an unverifiable bundle.
+fn read_audit_chain_from_db(
+    db_path: &Path,
+    receipt: &PolicyReceipt,
+    receipt_pubkey_hex: &str,
+    audit_pubkey_hex: &str,
+) -> anyhow::Result<Vec<SignedAuditEvent>> {
+    if !db_path.exists() {
+        anyhow::bail!("db path does not exist: {}", db_path.display());
+    }
+    let storage = mandate_storage::Storage::open(db_path)
+        .map_err(|e| anyhow::anyhow!("opening db {}: {e}", db_path.display()))?;
+    let chain = storage
+        .audit_chain_prefix_through(&receipt.audit_event_id)
+        .map_err(|e| anyhow::anyhow!("reading chain prefix from db: {e}"))?;
+    // Pre-flight: chain integrity under the supplied audit pubkey. Catches
+    // (a) a tampered DB, (b) a wrong --audit-pubkey, (c) a malformed pubkey
+    // hex string — all surface here, not later in verify-bundle.
+    verify_chain(&chain, true, Some(audit_pubkey_hex))
+        .map_err(|e| anyhow::anyhow!("audit chain pre-flight failed: {e}"))?;
+    // Pre-flight: receipt signature under the supplied receipt pubkey.
+    receipt
+        .verify(receipt_pubkey_hex)
+        .map_err(|e| anyhow::anyhow!("receipt signature pre-flight failed: {e:?}"))?;
+    Ok(chain)
+}
+
 fn cmd_audit_export(
     receipt_path: &Path,
-    chain_path: &Path,
+    chain_path: Option<&Path>,
+    db_path: Option<&Path>,
     receipt_pubkey_hex: &str,
     audit_pubkey_hex: &str,
     out: Option<&Path>,
@@ -374,10 +425,27 @@ fn cmd_audit_export(
             return ExitCode::from(2);
         }
     };
-    let chain = match read_audit_chain_jsonl(chain_path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("error reading chain {}: {e}", chain_path.display());
+    // Clap enforces "exactly one of --chain / --db"; this match is a guard
+    // against future flag rearrangements that would break that invariant.
+    let chain = match (chain_path, db_path) {
+        (Some(p), None) => match read_audit_chain_jsonl(p) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("error reading chain {}: {e}", p.display());
+                return ExitCode::from(2);
+            }
+        },
+        (None, Some(p)) => {
+            match read_audit_chain_from_db(p, &receipt, receipt_pubkey_hex, audit_pubkey_hex) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("error reading chain from db {}: {e}", p.display());
+                    return ExitCode::from(1);
+                }
+            }
+        }
+        _ => {
+            eprintln!("internal error: exactly one of --chain or --db must be supplied");
             return ExitCode::from(2);
         }
     };
