@@ -1,10 +1,10 @@
 //! Mandate HTTP API.
 //!
 //! Exposes `POST /v1/payment-requests` and `GET /v1/health`. The handler runs
-//! the full pipeline: schema validate → request_hash → policy decide → budget
-//! check → audit append → policy receipt sign.
+//! the full pipeline: schema validate → request_hash → **persistent nonce
+//! replay claim** → policy decide → budget check → audit append → policy
+//! receipt sign.
 
-use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use axum::extract::State;
@@ -36,15 +36,6 @@ pub struct AppInner {
     pub budgets: Mutex<BudgetTracker>,
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
-    /// Per-process replay-protection set of APRP nonces. The spec
-    /// (`docs/spec/17_interface_contracts.md` §3.1, error code
-    /// `protocol.nonce_replay`) requires reused nonces to be rejected with
-    /// HTTP 409. We keep this in-memory: simple and correct for the hackathon
-    /// demo daemon, but **the audit log records nothing about a rejected
-    /// replay** — the gate fires before `audit_append` and short-circuits
-    /// with the 409 response. Surfacing replay attempts via a dedicated
-    /// `request_rejected` event is tracked as future work.
-    pub seen_nonces: Mutex<HashSet<String>>,
 }
 
 impl AppState {
@@ -79,7 +70,6 @@ impl AppState {
             budgets: Mutex::new(BudgetTracker::new()),
             audit_signer,
             receipt_signer,
-            seen_nonces: Mutex::new(HashSet::new()),
         }))
     }
 }
@@ -165,31 +155,53 @@ async fn create_payment_request(
         )
     })?;
 
-    // Replay protection. The APRP `nonce` must be unique per request — see
-    // `docs/spec/17_interface_contracts.md` §0 ("Object IDs: ULID") and §3.1
-    // (`protocol.nonce_replay` → HTTP 409). We register the nonce *before*
-    // running the rest of the pipeline so two concurrent replays cannot both
-    // pass; the first to win the lock claims the nonce, every other request
-    // with the same nonce is rejected.
+    // Replay protection — see `docs/spec/17_interface_contracts.md` §3.1
+    // (`protocol.nonce_replay` → HTTP 409). The nonce is claimed against
+    // the persistent `nonce_replay` SQLite table (migration V002) *before*
+    // any policy / budget / audit / signing work, so:
     //
-    // Tradeoff: this is rejection-only, not safe-retry. If a downstream step
-    // (request_hash, policy decide, audit_append, receipt sign) fails *after*
-    // the nonce is inserted, the nonce is permanently consumed — a client
-    // retry with the same body will see 409 `protocol.nonce_replay`, not the
-    // original 5xx. Idempotent-retry would require an `Idempotency-Key`
-    // header + cached response (RFC 8470-style); out of scope here.
+    // 1. A duplicate nonce is rejected without producing audit or receipt
+    //    side effects (the gate short-circuits with the 409 response).
+    // 2. Two concurrent requests with the same nonce both attempt the
+    //    INSERT; SQLite's PRIMARY KEY constraint serialises them, exactly
+    //    one wins, the loser surfaces `Ok(false)` and is rejected.
+    // 3. The dedup outlives a daemon restart when persistent storage is
+    //    used. The hackathon demo uses `Storage::open_in_memory()`, which
+    //    is dropped when the daemon process exits — see "Known limitations"
+    //    in `SUBMISSION_NOTES.md`.
+    //
+    // Fail closed on any other SQLite error: we never silently allow a
+    // request when we cannot verify whether its nonce was already seen.
+    //
+    // Tradeoff: this is rejection-only, not safe-retry. If a downstream
+    // step (request_hash, policy decide, audit_append, receipt sign) fails
+    // *after* the nonce is claimed, the nonce is permanently consumed —
+    // a client retry with the same body will see 409, not the original
+    // 5xx. RFC 8470-style `Idempotency-Key` semantics for safe-retry are
+    // tracked separately as backlog item PS-P1-02.
     {
-        let mut seen = inner.seen_nonces.lock().expect("nonce lock");
-        if !seen.insert(aprp.nonce.clone()) {
-            return Err(problem(
-                "protocol.nonce_replay",
-                409,
-                "Nonce has already been used",
-                format!(
-                    "agent_id={}, nonce={} — replay rejected",
-                    aprp.agent_id, aprp.nonce
-                ),
-            ));
+        let mut storage = inner.storage.lock().expect("storage lock");
+        match storage.nonce_try_claim(&aprp.nonce, &aprp.agent_id, Utc::now()) {
+            Ok(true) => {} // fresh — proceed
+            Ok(false) => {
+                return Err(problem(
+                    "protocol.nonce_replay",
+                    409,
+                    "Nonce has already been used",
+                    format!(
+                        "agent_id={}, nonce={} — replay rejected",
+                        aprp.agent_id, aprp.nonce
+                    ),
+                ));
+            }
+            Err(e) => {
+                return Err(problem(
+                    "audit.write_failed",
+                    500,
+                    "nonce store error",
+                    e.to_string(),
+                ));
+            }
         }
     }
 
@@ -507,5 +519,47 @@ mod tests {
         // the response is the Problem object, not PaymentRequestResponse.
         assert!(v2.get("receipt").is_none());
         assert!(v2.get("audit_event_id").is_none());
+    }
+
+    #[tokio::test]
+    async fn nonce_replay_rejection_persists_across_storage_reopen() {
+        // The point of PS-P1-01: replay protection survives a daemon
+        // restart against the same SQLite database. Open a tempfile-backed
+        // storage, post a request inside one AppState, drop that AppState
+        // (and the Storage handle it owns), reopen the same db file in a
+        // fresh AppState, and post the same body again. The second post
+        // must be rejected with HTTP 409 `protocol.nonce_replay` even
+        // though every in-memory cache has been thrown away.
+        //
+        // This test exercises the storage-layer `nonce_try_claim` end of
+        // the gate; the `mandate-storage::nonce_store` unit tests cover
+        // the SQLite primitives directly.
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let db_path = tmp.path().to_path_buf();
+        let body = aprp_value(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-corpus/aprp/golden_001_minimal.json"
+        ));
+
+        // First daemon instance — claims the nonce.
+        {
+            let storage = Storage::open(&db_path).unwrap();
+            let app = router(AppState::new(reference_policy(), storage));
+            let (status1, v1) = post_json(app, "/v1/payment-requests", body.clone()).await;
+            assert_eq!(status1, StatusCode::OK);
+            assert_eq!(v1["status"], "auto_approved");
+        }
+
+        // Second daemon instance against the same db — must reject the
+        // replay with 409 even though every in-memory state was dropped.
+        {
+            let storage = Storage::open(&db_path).unwrap();
+            let app = router(AppState::new(reference_policy(), storage));
+            let (status2, v2) = post_json(app, "/v1/payment-requests", body).await;
+            assert_eq!(status2, StatusCode::CONFLICT);
+            assert_eq!(v2["code"], "protocol.nonce_replay");
+            assert!(v2.get("receipt").is_none());
+            assert!(v2.get("audit_event_id").is_none());
+        }
     }
 }
