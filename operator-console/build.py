@@ -70,6 +70,20 @@ def blocked_pill(backlog_id: str) -> str:
     return f'<span class="pill blocked">not implemented yet — backlog {esc(backlog_id)}</span>'
 
 
+def pending_pill(backlog_id: str, evidence_path: str) -> str:
+    """
+    Backend already merged on `main`, console panel intentionally still
+    landing in a follow-up B2.v2 PR. We refuse to keep the placeholder as
+    `blocked_pill` once the backend lights up — that would lie about the
+    production-shaped state. The pill points the operator at the runner
+    that does exercise the backend today.
+    """
+    return (
+        f'<span class="pill pending">{esc(backlog_id)} merged · console panel landing in B2.v2 '
+        f'(today: walked by <code>{esc(evidence_path)}</code>)</span>'
+    )
+
+
 # --- bundle verification (optional) ----------------------------------------
 
 
@@ -261,6 +275,7 @@ header.top .meta b{{color:#e6edf3;font-weight:500}}
 .pill.bad{{background:#3a1216;color:#f85149;border:1px solid #f85149}}
 .pill.neutral{{background:#21262d;color:#8b949e;border:1px solid #30363d}}
 .pill.blocked{{background:#1f1810;color:#d29922;border:1px solid #d29922}}
+.pill.pending{{background:#0d2030;color:#58a6ff;border:1px solid #58a6ff}}
 .has-tip{{cursor:help;border-bottom:1px dotted #484f58}}
 .na{{color:#484f58}}
 .empty{{color:#8b949e;margin:0 0 6px 0}}
@@ -333,11 +348,11 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 <h2>Backend backlog (placeholders, not implemented yet)</h2>
 <div class="body">
 <dl class="kv">
-<dt>HTTP <code>Idempotency-Key</code> safe-retry</dt><dd>{blocked_pill("PSM-A2")}</dd>
+<dt>HTTP <code>Idempotency-Key</code> safe-retry</dt><dd>{pending_pill("PSM-A2", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 <dt>Active policy lifecycle (<code>mandate policy current</code> / <code>activate</code> / <code>diff</code>)</dt><dd>{blocked_pill("PSM-A3")}</dd>
-<dt>Mock KMS CLI surface (<code>mandate key list --mock</code> / <code>key rotate --mock</code>) + storage</dt><dd>{blocked_pill("PSM-A1.9")}</dd>
+<dt>Mock KMS CLI surface (<code>mandate key list --mock</code> / <code>key rotate --mock</code>) + storage</dt><dd>{pending_pill("PSM-A1.9", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 <dt>Audit checkpoints (<code>mandate audit checkpoint create</code> / <code>verify</code>)</dt><dd>{blocked_pill("PSM-A4")}</dd>
-<dt>Operator readiness summary (<code>mandate doctor</code>)</dt><dd>{blocked_pill("PSM-A5")}</dd>
+<dt>Operator readiness summary (<code>mandate doctor</code>)</dt><dd>{pending_pill("PSM-A5", "demo-scripts/run-production-shaped-mock.sh")}</dd>
 </dl>
 <p class="empty">Each placeholder lights up automatically once Developer A's corresponding PR lands and a follow-up B-side PR consumes the new value. The console renders honestly today: nothing is faked, nothing is hidden.</p>
 </div>

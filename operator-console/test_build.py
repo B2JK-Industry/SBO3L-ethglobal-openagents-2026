@@ -132,17 +132,26 @@ def main() -> int:
             _fail(label, f"needle {needle!r} not in HTML")
             failures += 1
 
-    # 2. Blocked panels — each PSM-* backlog item must surface with its label.
-    print("\n== blocked-panel placeholders ==")
+    # 2. Backlog panels — each PSM-* item must surface with its label.
+    # PSM-A2, PSM-A1.9, and PSM-A5 are "pending" (backends merged on main;
+    # console panels landing in B2.v2). PSM-A3 and PSM-A4 are still
+    # "blocked" (backends not merged yet).
+    print("\n== backlog placeholders ==")
     blocked = [
-        ("Idempotency-Key panel",    "PSM-A2",   "Idempotency-Key"),
         ("policy lifecycle panel",   "PSM-A3",   "policy lifecycle"),
-        ("mock KMS CLI panel",       "PSM-A1.9", "Mock KMS CLI surface"),
         ("audit checkpoint panel",   "PSM-A4",   "Audit checkpoints"),
+    ]
+    pending = [
+        ("Idempotency-Key panel",    "PSM-A2",   "Idempotency-Key"),
+        ("mock KMS CLI panel",       "PSM-A1.9", "Mock KMS CLI surface"),
         ("doctor panel",             "PSM-A5",   "Operator readiness summary"),
     ]
     blocked_pill_pattern = re.compile(
         r'class="pill blocked"[^>]*>not implemented yet — backlog ',
+        re.IGNORECASE,
+    )
+    pending_pill_pattern = re.compile(
+        r'class="pill pending"[^>]*>PSM-[A-Z0-9.]+ merged · console panel landing in B2\.v2 ',
         re.IGNORECASE,
     )
     if not blocked_pill_pattern.search(html_text):
@@ -150,12 +159,36 @@ def main() -> int:
         failures += 1
     else:
         _ok("blocked-pill class+text present")
+    if not pending_pill_pattern.search(html_text):
+        _fail("pending-pill class+text", "no <span class=\"pill pending\"> ... 'PSM-X merged · console panel landing in B2.v2'")
+        failures += 1
+    else:
+        _ok("pending-pill class+text present")
     for label, backlog_id, descr in blocked:
         if backlog_id in html_text and descr in html_text:
-            _ok(f"{label} ({backlog_id})", descr)
+            _ok(f"{label} ({backlog_id}) [blocked]", descr)
         else:
             _fail(label, f"backlog {backlog_id} or descr {descr!r} not in HTML")
             failures += 1
+    for label, backlog_id, descr in pending:
+        if backlog_id in html_text and descr in html_text:
+            _ok(f"{label} ({backlog_id}) [pending]", descr)
+        else:
+            _fail(label, f"backlog {backlog_id} or descr {descr!r} not in HTML")
+            failures += 1
+    # PSM-A2, PSM-A1.9, and PSM-A5 must NOT appear inside a blocked-pill —
+    # that would lie about merged backends. Defensive negative assertions.
+    for backlog_id in ("PSM-A2", "PSM-A1.9", "PSM-A5"):
+        pat = re.compile(
+            rf'class="pill blocked"[^>]*>not implemented yet — backlog\s*{re.escape(backlog_id)}\b',
+            re.IGNORECASE,
+        )
+        if pat.search(html_text):
+            _fail(f"{backlog_id} must not be inside blocked-pill",
+                  f"found a blocked-pill claiming {backlog_id} is unmerged")
+            failures += 1
+        else:
+            _ok(f"{backlog_id} not inside any blocked-pill (avoids false 'unmerged' claim)")
 
     # 3. Forbidden surface (case-insensitive).
     print("\n== forbidden surface ==")
@@ -181,7 +214,10 @@ def main() -> int:
         _fail("html.parser", str(e))
         failures += 1
 
-    total = len(required) + 1 + len(blocked) + len(forbidden) + 1
+    # required + (blocked-pill class) + (pending-pill class) + blocked + pending
+    # + 3 negative assertions (PSM-A2 + PSM-A1.9 + PSM-A5 not in blocked-pill)
+    # + forbidden + (html.parser).
+    total = len(required) + 1 + 1 + len(blocked) + len(pending) + 3 + len(forbidden) + 1
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")

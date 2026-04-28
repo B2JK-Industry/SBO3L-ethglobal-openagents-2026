@@ -164,14 +164,132 @@ fi
 ok "prompt-injection -> Deny + deny_code=$DENY_CODE + audit_event=$DENY_AUDIT_EVENT (denied action did not execute)"
 echo
 
-# ─── 7. Idempotency-Key safe retry (Developer A backlog) ─────────────────
+# ─── 7. Idempotency-Key safe retry (PSM-A2, REAL today) ──────────────────
 bold "7. Idempotency-Key safe retry (PSM-A2)"
-# Idempotency-Key is an HTTP header on POST /v1/payment-requests, gated by
-# Developer A's PSM-A2. There is no CLI subcommand to probe for it today, so
-# this step is unconditionally a SKIP until the OpenAPI document or release
-# notes state that the header is honoured. We do NOT fabricate retry output.
-skip "blocked: waiting for HTTP \`Idempotency-Key\` support (backlog PSM-A2)"
-note_skip "HTTP Idempotency-Key safe-retry semantics — PSM-A2"
+# PSM-A2 shipped in PR #23: persistent SQLite-backed idempotency-keys table
+# (migration V004) plus HTTP `Idempotency-Key` handling at the top of the
+# POST /v1/payment-requests pipeline. We exercise the full RFC-shaped
+# behaviour matrix against a real HTTP daemon spun up on a dedicated port
+# and SQLite file, then kill it. Four cases:
+#   1. K=K1, body=B1            → 200, response cached.
+#   2. K=K1, body=B1 (retry)    → 200, byte-identical body.
+#   3. K=K1, body=B2 (mutated)  → 409 protocol.idempotency_conflict.
+#   4. K=K2 (new), body=B1      → 409 protocol.nonce_replay (defense in
+#                                  depth: nonce was consumed in case 1).
+cargo build --quiet --bin mandate-server
+IDEM_DB="$TMPDIR_PSM/idempotency.db"
+IDEM_PORT="${MANDATE_PSM_IDEM_PORT:-18730}"
+IDEM_BASE="http://127.0.0.1:${IDEM_PORT}"
+SERVER_LOG="$TMPDIR_PSM/idempotency-server.log"
+
+# Spawn a fresh mandate-server. EXIT trap was set in step 5 to clean
+# $TMPDIR_PSM; we extend it to also kill the server PID.
+MANDATE_DB="$IDEM_DB" MANDATE_LISTEN="127.0.0.1:${IDEM_PORT}" \
+  ./target/debug/mandate-server >"$SERVER_LOG" 2>&1 &
+SERVER_PID=$!
+trap 'kill "${SERVER_PID:-0}" 2>/dev/null || true; rm -rf "$TMPDIR_PSM"' EXIT
+
+# Wait for /v1/health (max ~6s).
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+  if curl -sf "$IDEM_BASE/v1/health" >/dev/null 2>&1; then break; fi
+  sleep 0.2
+done
+if ! curl -sf "$IDEM_BASE/v1/health" >/dev/null 2>&1; then
+  fail "mandate-server did not come up on $IDEM_BASE — log:"
+  sed 's/^/    /' <"$SERVER_LOG" >&2
+  exit 1
+fi
+
+# Generate B1 (legit APRP with a fresh ULID-shape nonce, deterministic
+# task_id) and B2 (B1 with task_id mutated — different request_hash but
+# same nonce). Pure stdlib python; no schema bump anywhere.
+python3 - "$TMPDIR_PSM/idem-b1.json" "$TMPDIR_PSM/idem-b2.json" <<'PY'
+import json, secrets, sys
+crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+nonce = "01" + "".join(secrets.choice(crockford) for _ in range(24))
+with open("test-corpus/aprp/golden_001_minimal.json") as f:
+    aprp = json.load(f)
+aprp["nonce"] = nonce
+aprp["task_id"] = "psm-a2-runner-b1"
+with open(sys.argv[1], "w") as f:
+    json.dump(aprp, f, indent=2)
+aprp["task_id"] = "psm-a2-runner-b2-DIFFERENT"
+with open(sys.argv[2], "w") as f:
+    json.dump(aprp, f, indent=2)
+PY
+
+# 32-char keys (in spec range 16..=64).
+K1="psm-a2-runner-key-1-aaaaaaaaaaaaa"
+K2="psm-a2-runner-key-2-bbbbbbbbbbbbb"
+
+post_idem() {  # post_idem <key> <body-path> <out-resp> <out-status>
+  local key="$1" body="$2" out="$3" status_var="$4"
+  # shellcheck disable=SC2034
+  printf -v "$status_var" '%s' "$(curl -sS -o "$out" -w '%{http_code}' \
+    -X POST "$IDEM_BASE/v1/payment-requests" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $key" \
+    --data-binary @"$body")"
+}
+
+# Case 1: first POST with K1 + B1 → 200.
+post_idem "$K1" "$TMPDIR_PSM/idem-b1.json" "$TMPDIR_PSM/resp1.json" RESP1
+if [[ "$RESP1" != "200" ]]; then
+  fail "PSM-A2 case 1: K1 + B1 first POST expected 200, got $RESP1"
+  cat "$TMPDIR_PSM/resp1.json" >&2
+  exit 1
+fi
+ALLOW1_AUDIT_EVENT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["audit_event_id"])' "$TMPDIR_PSM/resp1.json")"
+ok "PSM-A2 case 1: K=K1, B=B1 → 200; audit_event=$ALLOW1_AUDIT_EVENT"
+
+# Case 2: retry K1 + B1 → 200, byte-identical body.
+post_idem "$K1" "$TMPDIR_PSM/idem-b1.json" "$TMPDIR_PSM/resp2.json" RESP2
+if [[ "$RESP2" != "200" ]]; then
+  fail "PSM-A2 case 2: K1 + B1 retry expected 200, got $RESP2"
+  cat "$TMPDIR_PSM/resp2.json" >&2
+  exit 1
+fi
+if ! diff -q "$TMPDIR_PSM/resp1.json" "$TMPDIR_PSM/resp2.json" >/dev/null; then
+  fail "PSM-A2 case 2: retry response is NOT byte-identical to original"
+  diff -u "$TMPDIR_PSM/resp1.json" "$TMPDIR_PSM/resp2.json" >&2 || true
+  exit 1
+fi
+ok "PSM-A2 case 2: K=K1, B=B1 retry → 200, response byte-identical to case 1 (cache replay, no second audit append)"
+
+# Case 3: K1 + B2 (mutated body) → 409 protocol.idempotency_conflict.
+post_idem "$K1" "$TMPDIR_PSM/idem-b2.json" "$TMPDIR_PSM/resp3.json" RESP3
+if [[ "$RESP3" != "409" ]]; then
+  fail "PSM-A2 case 3: K1 + B2 expected 409, got $RESP3"
+  cat "$TMPDIR_PSM/resp3.json" >&2
+  exit 1
+fi
+if ! grep -q '"code":"protocol.idempotency_conflict"' "$TMPDIR_PSM/resp3.json"; then
+  fail "PSM-A2 case 3: expected code=protocol.idempotency_conflict; got:"
+  cat "$TMPDIR_PSM/resp3.json" >&2
+  exit 1
+fi
+ok "PSM-A2 case 3: K=K1, B=B2 (mutated) → 409 protocol.idempotency_conflict"
+
+# Case 4: K2 (new) + B1 (same nonce as case 1) → 409 protocol.nonce_replay.
+# Defense in depth: a fresh idempotency key cannot bypass the nonce gate.
+post_idem "$K2" "$TMPDIR_PSM/idem-b1.json" "$TMPDIR_PSM/resp4.json" RESP4
+if [[ "$RESP4" != "409" ]]; then
+  fail "PSM-A2 case 4: K2 + B1 expected 409, got $RESP4"
+  cat "$TMPDIR_PSM/resp4.json" >&2
+  exit 1
+fi
+if ! grep -q '"code":"protocol.nonce_replay"' "$TMPDIR_PSM/resp4.json"; then
+  fail "PSM-A2 case 4: expected code=protocol.nonce_replay; got:"
+  cat "$TMPDIR_PSM/resp4.json" >&2
+  exit 1
+fi
+ok "PSM-A2 case 4: K=K2 (new), B=B1 (same nonce) → 409 protocol.nonce_replay (nonce gate still wins)"
+
+# Tear the server down so subsequent steps don't see a stray daemon.
+kill "$SERVER_PID" 2>/dev/null || true
+wait "$SERVER_PID" 2>/dev/null || true
+unset SERVER_PID
+trap 'rm -rf "$TMPDIR_PSM"' EXIT
 echo
 
 # ─── 8. Verifiable audit bundle from JSONL chain (REAL today) ────────────
@@ -275,6 +393,9 @@ cat <<EOF
   REAL today (executed by this run, no network):
     - persistent SQLite-backed APRP + nonce-replay (legit + prompt-injection)
     - signed Ed25519 policy receipts, hash-chained audit log
+    - HTTP \`Idempotency-Key\` safe-retry (PSM-A2): four-case behaviour
+      matrix exercised against a real mandate-server on 127.0.0.1:${IDEM_PORT}
+      with persistent SQLite at \`$(basename "$IDEM_DB")\`
     - \`mandate audit export --db\` over the live SQLite file
     - \`mandate audit verify-bundle\` round-trip
     - tamper detection on the exported bundle
