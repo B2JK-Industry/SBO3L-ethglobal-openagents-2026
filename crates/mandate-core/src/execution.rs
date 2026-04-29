@@ -122,16 +122,19 @@ impl MandateEnvelope {
         self
     }
 
-    /// Render to a `serde_json::Value` for embedding in a workflow
-    /// submission body. The five field order is deliberate: it matches
-    /// the JSON Schema sketch in
+    /// Returns the canonical wire-format String. Field order is honoured
+    /// via `derive(Serialize)` on the struct; this method bypasses
+    /// `serde_json::Value`, which would otherwise alphabetically reorder
+    /// keys under the workspace's no-`preserve_order` `serde_json` setup.
+    ///
+    /// The five-field declaration order matches the JSON Schema sketch in
     /// `docs/keeperhub-integration-paths.md` §IP-3 (request_hash →
     /// policy_hash → receipt_signature → audit_event_id →
     /// passport_capsule_hash) so KeeperHub-side auditors can byte-diff
     /// envelopes from different Mandate instances and not see spurious
     /// reorderings.
-    pub fn to_json_payload(&self) -> serde_json::Value {
-        serde_json::to_value(self)
+    pub fn to_json_payload(&self) -> String {
+        serde_json::to_string(self)
             .expect("MandateEnvelope's #[derive(Serialize)] is infallible for owned fields")
     }
 }
@@ -236,7 +239,13 @@ mod envelope_tests {
     fn envelope_capsule_hash_omitted_when_none_via_skip_serializing() {
         let r = fixture_receipt();
         let env = MandateEnvelope::from_receipt(&r, &r.audit_event_id);
-        let v = env.to_json_payload();
+        let payload = env.to_json_payload();
+        // Parse the canonical wire-form String into a Value purely for
+        // structural inspection. The Map sorts keys alphabetically here,
+        // but that's fine — this test asserts on the *field set*, not
+        // the order (`to_json_payload_preserves_documented_field_order`
+        // covers ordering).
+        let v: serde_json::Value = serde_json::from_str(&payload).expect("parse payload");
         let obj = v.as_object().expect("object");
         assert!(
             !obj.contains_key("mandate_passport_capsule_hash"),
@@ -259,7 +268,8 @@ mod envelope_tests {
         );
         // Round-trip via to_json_payload to be sure the field is on
         // the wire when populated.
-        let v = env.to_json_payload();
+        let payload = env.to_json_payload();
+        let v: serde_json::Value = serde_json::from_str(&payload).expect("parse payload");
         assert_eq!(
             v.get("mandate_passport_capsule_hash")
                 .and_then(|v| v.as_str()),
@@ -277,9 +287,45 @@ mod envelope_tests {
         let r = fixture_receipt();
         let original = MandateEnvelope::from_receipt(&r, &r.audit_event_id)
             .with_passport_capsule("9".repeat(64));
-        let v = original.to_json_payload();
+        let payload = original.to_json_payload();
         let round_tripped: MandateEnvelope =
-            serde_json::from_value(v).expect("round-trip deserialise");
+            serde_json::from_str(&payload).expect("round-trip deserialise");
         assert_eq!(round_tripped, original);
+    }
+
+    /// Codex P1 on PR #51 — pins the `to_json_payload` byte order
+    /// directly. The previous `envelope_serialises_with_documented_field_order`
+    /// test serialises the *struct* via `to_string(&env)` (which honours
+    /// declaration order via `derive(Serialize)`) and so missed a
+    /// regression in `to_json_payload` itself. Asserting against the
+    /// payload String now catches a future implementation that round-
+    /// trips through `serde_json::Value` (which would alphabetically
+    /// reorder keys under the workspace's no-`preserve_order` setup).
+    #[test]
+    fn to_json_payload_preserves_documented_field_order() {
+        let r = fixture_receipt();
+        let env = MandateEnvelope::from_receipt(&r, &r.audit_event_id)
+            .with_passport_capsule("c".repeat(64));
+        let payload = env.to_json_payload();
+        // Verify byte order of the field keys.
+        let order = [
+            "mandate_request_hash",
+            "mandate_policy_hash",
+            "mandate_receipt_signature",
+            "mandate_audit_event_id",
+            "mandate_passport_capsule_hash",
+        ];
+        let mut cursor = 0usize;
+        for key in order {
+            let needle = format!(r#""{key}":"#);
+            let pos = payload
+                .find(&needle)
+                .unwrap_or_else(|| panic!("missing key {key} in payload: {payload}"));
+            assert!(
+                pos >= cursor,
+                "field {key} appears out of documented order in payload: {payload}"
+            );
+            cursor = pos;
+        }
     }
 }

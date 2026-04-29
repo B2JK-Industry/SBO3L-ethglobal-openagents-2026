@@ -66,21 +66,24 @@ impl GuardedExecutor for KeeperHubExecutor {
                 ),
             }),
             KeeperHubMode::Live => {
-                // Build the IP-1 envelope alongside the still-stubbed
-                // network call. Constructing the payload here (rather
+                // Build the IP-1 envelope AND serialise it to its
+                // canonical wire-format String alongside the
+                // still-stubbed network call. Doing both here (rather
                 // than waiting for the live HTTP path to land) means
                 // the wire-format invariant — `mandate_*` fields agree
-                // with the receipt that triggered the call — is
-                // covered by tests *before* live submission turns on.
+                // with the receipt that triggered the call, in the
+                // documented field order — is covered by tests
+                // *before* live submission turns on.
                 //
                 // The payload is intentionally **dropped** below:
                 // P5.1's contract is "envelope is built and serialised
                 // in tests; HTTP send is not." Live submission lands
                 // in a follow-up PR with concrete credentials +
-                // `live_evidence`. The `let _ = …` is the explicit
-                // disclosure: we proved we *could* send this, we just
-                // don't.
+                // `live_evidence`. The `let _ = …` lines are the
+                // explicit disclosure: we proved we *could* send this,
+                // we just don't.
                 let _envelope = build_envelope(receipt);
+                let _payload_str = _envelope.to_json_payload();
                 Err(ExecutionError::BackendOffline(
                     "live KeeperHub backend not configured for this hackathon build; \
                      switch to KeeperHubMode::LocalMock or wire credentials"
