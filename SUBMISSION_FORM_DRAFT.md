@@ -188,7 +188,8 @@ Public proof URL (static, no JS, offline-verifiable):
 
 Recorded video:
     [VIDEO_URL_PENDING_RECORDING]
-    (single sed-replace before submission: sed -i '' 's|\[VIDEO_URL_PENDING_RECORDING\]|<actual URL>|' SUBMISSION_FORM_DRAFT.md)
+    (single in-place replace before submission, portable across BSD/macOS and GNU sed:
+        perl -pi -e 's|\[VIDEO_URL_PENDING_RECORDING\]|<actual URL>|' SUBMISSION_FORM_DRAFT.md)
 
 Backup live-demo command for any judge who can build from source:
     git clone https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026.git
