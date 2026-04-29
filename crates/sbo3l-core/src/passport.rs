@@ -1035,7 +1035,7 @@ mod tests {
                 "resolver": "offline-fixture",
                 "records": {
                     "sbo3l:policy_hash": policy_hash,
-                    "sbo3l:audit_root": "local-mock-anchor-strict-fixture-1",
+                    "sbo3l:audit_root": "local-mock-anchor-0123456789abcdef",
                     "sbo3l:passport_schema": "sbo3l.passport_capsule.v1"
                 }
             },
@@ -1078,7 +1078,7 @@ mod tests {
                     "latest_event_hash": e2.event_hash,
                     "chain_digest": ZERO_HASH,
                     "mock_anchor": true,
-                    "mock_anchor_ref": "local-mock-anchor-strict-fixture-1",
+                    "mock_anchor_ref": "local-mock-anchor-0123456789abcdef",
                     "created_at": "2026-04-29T12:00:30Z"
                 }
             },
