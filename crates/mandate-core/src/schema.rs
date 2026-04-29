@@ -15,6 +15,8 @@ pub const POLICY_RECEIPT_SCHEMA_JSON: &str =
 pub const DECISION_TOKEN_SCHEMA_JSON: &str =
     include_str!("../../../schemas/decision_token_v1.json");
 pub const AUDIT_EVENT_SCHEMA_JSON: &str = include_str!("../../../schemas/audit_event_v1.json");
+pub const PASSPORT_CAPSULE_SCHEMA_JSON: &str =
+    include_str!("../../../schemas/mandate.passport_capsule.v1.json");
 
 pub const APRP_SCHEMA_ID: &str = "https://schemas.mandate.dev/aprp/v1.json";
 pub const POLICY_SCHEMA_ID: &str = "https://schemas.mandate.dev/policy/v1.json";
@@ -22,6 +24,7 @@ pub const X402_SCHEMA_ID: &str = "https://schemas.mandate.dev/x402/v1.json";
 pub const POLICY_RECEIPT_SCHEMA_ID: &str = "https://schemas.mandate.dev/policy-receipt/v1.json";
 pub const DECISION_TOKEN_SCHEMA_ID: &str = "https://schemas.mandate.dev/decision-token/v1.json";
 pub const AUDIT_EVENT_SCHEMA_ID: &str = "https://schemas.mandate.dev/audit-event/v1.json";
+pub const PASSPORT_CAPSULE_SCHEMA_ID: &str = "https://schemas.mandate.dev/passport-capsule/v1.json";
 
 fn parse(schema: &str) -> Value {
     serde_json::from_str(schema).expect("invariant: embedded schema parses")
@@ -67,6 +70,11 @@ fn audit_event_schema() -> &'static JSONSchema {
     CELL.get_or_init(|| build_with_refs(parse(AUDIT_EVENT_SCHEMA_JSON), &[]))
 }
 
+fn passport_capsule_schema() -> &'static JSONSchema {
+    static CELL: OnceLock<JSONSchema> = OnceLock::new();
+    CELL.get_or_init(|| build_with_refs(parse(PASSPORT_CAPSULE_SCHEMA_JSON), &[]))
+}
+
 pub fn validate_aprp(value: &Value) -> std::result::Result<(), SchemaError> {
     validate(aprp_schema(), value)
 }
@@ -85,6 +93,15 @@ pub fn validate_decision_token(value: &Value) -> std::result::Result<(), SchemaE
 
 pub fn validate_audit_event(value: &Value) -> std::result::Result<(), SchemaError> {
     validate(audit_event_schema(), value)
+}
+
+/// Validate a `mandate.passport_capsule.v1` JSON document against the
+/// embedded schema. This is *purely structural* (shape, required fields,
+/// hex/UUID-ish patterns, `additionalProperties: false`). Cross-field
+/// truthfulness invariants (deny→no execution, live→evidence, hash
+/// internal-consistency) live in `crate::passport::verify_capsule`.
+pub fn validate_passport_capsule(value: &Value) -> std::result::Result<(), SchemaError> {
+    validate(passport_capsule_schema(), value)
 }
 
 fn validate(schema: &JSONSchema, value: &Value) -> std::result::Result<(), SchemaError> {

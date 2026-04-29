@@ -7,6 +7,7 @@ pub mod decision_token;
 pub mod error;
 pub mod hashing;
 pub mod mock_kms;
+pub mod passport;
 pub mod receipt;
 pub mod schema;
 pub mod signer;

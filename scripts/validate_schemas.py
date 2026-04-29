@@ -21,6 +21,7 @@ SCHEMAS = {
     "policy-receipt": REPO_ROOT / "schemas" / "policy_receipt_v1.json",
     "decision-token": REPO_ROOT / "schemas" / "decision_token_v1.json",
     "audit-event": REPO_ROOT / "schemas" / "audit_event_v1.json",
+    "passport-capsule": REPO_ROOT / "schemas" / "mandate.passport_capsule.v1.json",
 }
 
 
@@ -36,6 +37,60 @@ CORPUS: list[CorpusCase] = [
     CorpusCase("aprp", REPO_ROOT / "test-corpus/aprp/deny_prompt_injection_request.json", True),
     CorpusCase("aprp", REPO_ROOT / "test-corpus/aprp/adversarial_unknown_field.json", False),
     CorpusCase("policy", REPO_ROOT / "test-corpus/policy/reference_low_risk.json", True),
+    # Passport capsule (P1.1). Schema-only validation here; the cross-field
+    # truthfulness invariants (deny→no execution, live→evidence, hash internal-
+    # consistency) are tested by `cargo test -p mandate-core passport` and
+    # `cargo test -p mandate-cli --test passport_cli`. The fixtures below are
+    # *only* labelled `expect_valid` by their schema-shape outcome:
+    #   - golden_001: schema-valid.
+    #   - tampered_001 (deny+execution_ref): schema-valid; rejected at the
+    #     verifier layer, not at the schema layer.
+    #   - tampered_002 (mock_anchor=false): schema-INVALID via const true.
+    #   - tampered_003 (live+no_evidence): schema-valid; verifier-only.
+    #   - tampered_004/005 (hash mismatch): schema-valid; verifier-only.
+    #   - tampered_006 (bad mock_anchor_ref): schema-INVALID via pattern.
+    #   - tampered_007 (unknown root field): schema-INVALID via
+    #     additionalProperties=false.
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/golden_001_allow_keeperhub_mock.json",
+        True,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_001_deny_with_execution_ref.json",
+        True,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_002_mock_anchor_marked_live.json",
+        False,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_003_live_mode_without_evidence.json",
+        True,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_004_request_hash_mismatch.json",
+        True,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_005_policy_hash_mismatch.json",
+        True,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_006_malformed_checkpoint.json",
+        False,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_007_unknown_field.json",
+        False,
+    ),
 ]
 
 
