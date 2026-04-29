@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mandate.dev/passport-capsule/v1.json",
+  "title": "Mandate Passport Capsule v1",
+  "description": "Portable, offline-verifiable proof artifact that wraps one Mandate decision (allow or deny) plus its surrounding identity, request, policy, execution, audit, and verification context. Composed from existing Mandate primitives (APRP, PolicyReceipt, SignedAuditEvent, AuditCheckpoint, ENS records) — this schema does NOT redefine them, it only constrains how they appear together inside one capsule. Source of truth: docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at",
+    "agent",
+    "request",
+    "policy",
+    "decision",
+    "execution",
+    "audit",
+    "verification"
+  ],
+  "properties": {
+    "schema": {
+      "description": "Stable schema identifier so future capsule versions route to the right parser.",
+      "const": "mandate.passport_capsule.v1"
+    },
+    "generated_at": {
+      "description": "RFC 3339 timestamp at which this capsule was assembled.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "resolver"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$"
+        },
+        "ens_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolver": {
+          "description": "How `records` were obtained. `offline-fixture` reads from a JSON fixture and never calls the network. `live-ens` is reserved for a future live ENS resolver and is rejected by P1.1 verification (ENS records source must be source-labelled honestly).",
+          "type": "string",
+          "enum": [
+            "offline-fixture",
+            "live-ens"
+          ]
+        },
+        "records": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "ENS-style text records resolved for this agent. Keys follow the `mandate:*` convention from docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md."
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aprp",
+        "request_hash"
+      ],
+      "properties": {
+        "aprp": {
+          "description": "The exact APRP body the agent submitted. Validated as JSON object; full APRP-schema validation lives in `mandate-core::schema::validate_aprp` and is exercised by the audit-bundle path, not duplicated here.",
+          "type": "object"
+        },
+        "request_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "idempotency_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nonce": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_hash",
+        "policy_version",
+        "source"
+      ],
+      "properties": {
+        "policy_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "policy_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "activated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "receipt",
+        "receipt_signature"
+      ],
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "matched_rule": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deny_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receipt": {
+          "description": "Signed `mandate.policy_receipt.v1`. Schema-validated by `mandate-core::schema::validate_policy_receipt`; the verifier here only cross-checks fields against `request.request_hash` and `policy.policy_hash`.",
+          "type": "object"
+        },
+        "receipt_signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{128}$"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executor",
+        "mode",
+        "status"
+      ],
+      "properties": {
+        "executor": {
+          "type": "string",
+          "enum": [
+            "keeperhub",
+            "uniswap",
+            "none"
+          ]
+        },
+        "mode": {
+          "description": "`mock` is the only mode allowed without live evidence. `live` requires a non-null `live_evidence` object with at least one of `transport`/`response_ref`/`block_ref`. P1.1 verifier rejects live mode without live evidence (truthfulness invariant).",
+          "type": "string",
+          "enum": [
+            "mock",
+            "live"
+          ]
+        },
+        "execution_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "description": "`not_called` is mandatory for deny capsules — the verifier refuses any other status when `decision.result == \"deny\"`.",
+          "type": "string",
+          "enum": [
+            "submitted",
+            "succeeded",
+            "denied",
+            "not_called"
+          ]
+        },
+        "sponsor_payload_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "live_evidence": {
+          "description": "Required when `mode == \"live\"`. Records what proves the execution actually happened against a live backend (transport identifier, response reference, block reference). Must be absent / null in mock mode. P1.1 verifier enforces both directions.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "transport": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "response_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "block_ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_event_id",
+        "event_hash",
+        "prev_event_hash"
+      ],
+      "properties": {
+        "audit_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prev_event_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "event_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bundle_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checkpoint": {
+          "description": "Optional embedded checkpoint snapshot. Shape mirrors `mandate.audit_checkpoint.v1` from PSM-A4. Mock anchoring is enforced: `mock_anchor` is required and must be `true`. The capsule schema is the only place that calls this out — the audit_checkpoint schema itself is defined in the audit-checkpoint module/migration V007.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema",
+                "sequence",
+                "latest_event_hash",
+                "chain_digest",
+                "mock_anchor",
+                "mock_anchor_ref"
+              ],
+              "properties": {
+                "schema": {
+                  "const": "mandate.audit_checkpoint.v1"
+                },
+                "sequence": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "latest_event_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "latest_event_hash": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "chain_digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "mock_anchor": {
+                  "description": "MUST be `true`. The verifier rejects any capsule whose embedded checkpoint claims `mock_anchor: false` (PSM-A4 truthfulness rule: this CLI never produces or verifies real onchain anchors).",
+                  "const": true
+                },
+                "mock_anchor_ref": {
+                  "type": "string",
+                  "pattern": "^local-mock-anchor-[0-9a-f]{16}$"
+                },
+                "created_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doctor_status",
+        "offline_verifiable",
+        "live_claims"
+      ],
+      "properties": {
+        "doctor_status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "warn",
+            "skip",
+            "fail",
+            "not_run"
+          ]
+        },
+        "offline_verifiable": {
+          "type": "boolean"
+        },
+        "live_claims": {
+          "description": "List of capsule paths whose contents claim a live integration (e.g. `execution.mode`). Must be empty when no live evidence is present elsewhere in the capsule.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

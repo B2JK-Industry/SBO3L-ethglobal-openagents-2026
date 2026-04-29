@@ -1,0 +1,104 @@
+{
+  "schema": "mandate.passport_capsule.v1",
+  "generated_at": "2026-04-29T10:00:00Z",
+  "agent": {
+    "agent_id": "research-agent-01",
+    "ens_name": "research-agent.team.eth",
+    "resolver": "offline-fixture",
+    "records": {
+      "mandate:mcp_endpoint": "https://schemas.mandate.dev/passport-mcp/v1.json",
+      "mandate:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+      "mandate:audit_root": "local-mock-anchor-9202d6bc7b751225",
+      "mandate:passport_schema": "mandate.passport_capsule.v1"
+    }
+  },
+  "request": {
+    "aprp": {
+      "agent_id": "research-agent-01",
+      "task_id": "demo-task-1",
+      "intent": "purchase_api_call",
+      "amount": {
+        "value": "0.05",
+        "currency": "USD"
+      },
+      "token": "USDC",
+      "destination": {
+        "type": "x402_endpoint",
+        "url": "https://api.example.com/v1/inference",
+        "method": "POST",
+        "expected_recipient": "0x1111111111111111111111111111111111111111"
+      },
+      "payment_protocol": "x402",
+      "chain": "base",
+      "provider_url": "https://api.example.com",
+      "x402_payload": null,
+      "expiry": "2026-05-01T10:31:00Z",
+      "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGM",
+      "expected_result": null,
+      "risk_class": "low"
+    },
+    "request_hash": "c0bd2fab1234567890abcdef1234567890abcdef1234567890abcdef12345678",
+    "idempotency_key": "demo-key-1",
+    "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGM"
+  },
+  "policy": {
+    "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+    "policy_version": 1,
+    "activated_at": "2026-04-28T10:00:00Z",
+    "source": "operator-cli"
+  },
+  "decision": {
+    "result": "allow",
+    "matched_rule": "allow-low-risk-x402",
+    "deny_code": null,
+    "receipt": {
+      "receipt_type": "mandate.policy_receipt.v1",
+      "version": 1,
+      "agent_id": "research-agent-01",
+      "decision": "allow",
+      "deny_code": null,
+      "request_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+      "policy_version": 1,
+      "audit_event_id": "evt-01HTAWX5K3R8YV9NQB7C6P2DGR",
+      "execution_ref": "kh-01HTAWX5K3R8YV9NQB7C6P2DGS",
+      "issued_at": "2026-04-29T10:00:00Z",
+      "expires_at": null,
+      "signature": {
+        "algorithm": "ed25519",
+        "key_id": "decision-mock-v1",
+        "signature_hex": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    "receipt_signature": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "execution": {
+    "executor": "keeperhub",
+    "mode": "mock",
+    "execution_ref": "kh-01HTAWX5K3R8YV9NQB7C6P2DGS",
+    "status": "submitted",
+    "sponsor_payload_hash": "6cba2eed67c2dfd623521be0a692b8716f300eb27deb3a7e9ab06d5e8b3bb9e6",
+    "live_evidence": null
+  },
+  "audit": {
+    "audit_event_id": "evt-01HTAWX5K3R8YV9NQB7C6P2DGR",
+    "prev_event_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "event_hash": "6cba2eed67c2dfd623521be0a692b8716f300eb27deb3a7e9ab06d5e8b3bb9e6",
+    "bundle_ref": "mandate.audit_bundle.v1",
+    "checkpoint": {
+      "schema": "mandate.audit_checkpoint.v1",
+      "sequence": 1,
+      "latest_event_id": "evt-01HTAWX5K3R8YV9NQB7C6P2DGR",
+      "latest_event_hash": "6cba2eed67c2dfd623521be0a692b8716f300eb27deb3a7e9ab06d5e8b3bb9e6",
+      "chain_digest": "ed00a7f7d5caed85960dfb815d079531e6fd2f2019e61c655e5d156e5db0708a",
+      "mock_anchor": true,
+      "mock_anchor_ref": "local-mock-anchor-9202d6bc7b751225",
+      "created_at": "2026-04-28T19:58:54Z"
+    }
+  },
+  "verification": {
+    "doctor_status": "ok",
+    "offline_verifiable": true,
+    "live_claims": []
+  }
+}

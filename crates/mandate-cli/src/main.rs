@@ -10,6 +10,7 @@ use mandate_core::{schema, SchemaError};
 mod audit_checkpoint;
 mod doctor;
 mod key;
+mod passport;
 mod policy;
 
 #[derive(Parser, Debug)]
@@ -101,6 +102,32 @@ enum Command {
     Policy {
         #[command(subcommand)]
         op: PolicyCmd,
+    },
+    /// Mandate Passport — portable proof capsule (P1.1).
+    ///
+    /// `mandate passport verify --path <capsule>` runs schema and
+    /// cross-field structural verification against a
+    /// `mandate.passport_capsule.v1` artifact. P1.1 is structural-only
+    /// (no execution, no live integration). The `passport run` and
+    /// `explain` surfaces, plus full cryptographic verification, land
+    /// in P2.1. Source of truth:
+    /// `docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md`.
+    Passport {
+        #[command(subcommand)]
+        op: PassportCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum PassportCmd {
+    /// Verify a `mandate.passport_capsule.v1` JSON artifact against
+    /// the embedded schema and the cross-field truthfulness rules
+    /// (deny→no execution, live→evidence, request/policy hash
+    /// internal-consistency, etc.).
+    Verify {
+        /// Path to a capsule JSON file.
+        #[arg(long)]
+        path: PathBuf,
     },
 }
 
@@ -406,6 +433,9 @@ fn main() -> ExitCode {
         Command::Policy {
             op: PolicyCmd::Diff { a, b },
         } => policy::cmd_diff(&a, &b),
+        Command::Passport {
+            op: PassportCmd::Verify { path },
+        } => passport::cmd_verify(&path),
     }
 }
 
