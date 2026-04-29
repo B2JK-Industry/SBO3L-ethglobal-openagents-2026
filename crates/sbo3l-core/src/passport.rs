@@ -597,6 +597,10 @@ fn check_receipt_signature(capsule: &Value, pubkey_hex: Option<&str>) -> CheckOu
              canonical receipt body"
                 .into(),
         ),
+        Err(VerifyError::Hex(e)) => CheckOutcome::Failed(format!(
+            "capsule.decision.receipt.signature.signature_hex (or supplied receipt-pubkey) \
+             failed hex decoding: {e}"
+        )),
     }
 }
 
@@ -660,6 +664,8 @@ fn check_audit_event_link(capsule: &Value, bundle: Option<&AuditBundle>) -> Chec
 }
 
 
+#[cfg(test)]
+mod tests {
     use super::*;
 
     fn load(path: &str) -> Value {
