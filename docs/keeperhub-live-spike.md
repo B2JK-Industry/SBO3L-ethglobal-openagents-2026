@@ -27,7 +27,7 @@ Three blockers prevent the live wiring landing today:
 3. **No live network in CI.** Tests must stay deterministic and offline. The live path is implementable, but its CI coverage is a mock HTTP server inside the test, not a real KeeperHub call.
 
 When all three clear, the live path is a single Rust constructor body
-change in `crates/mandate-execution/src/keeperhub.rs` plus a thin
+change in `crates/mandate-keeperhub-adapter/src/lib.rs` plus a thin
 configuration shim. The bulk of the work is in this doc, not the code.
 
 ## Truthfulness invariants (must hold during and after the spike)
@@ -56,7 +56,7 @@ This is a sketch of the live constructor — **not** committed code. It
 exists here so a future PR can be reviewed against a known target.
 
 ```rust
-// crates/mandate-execution/src/keeperhub.rs (target shape — not landed)
+// crates/mandate-keeperhub-adapter/src/lib.rs (target shape — not landed)
 
 pub struct KeeperHubLiveConfig {
     pub webhook_url: String,
@@ -201,11 +201,11 @@ makes a sandbox available), the live PR is approximately:
 
 | File | Change |
 |---|---|
-| `crates/mandate-execution/Cargo.toml` | Add `reqwest` (or equivalent — minimal-feature, blocking-disabled, rustls-tls). |
-| `crates/mandate-execution/src/keeperhub.rs` | Add `KeeperHubLiveConfig`, `KeeperHubMode::Live(cfg)`, `execute_live`. |
-| `crates/mandate-execution/src/error.rs` (or equivalent) | Add `ExecutionError::Configuration`, `ExecutionError::Network`, `ExecutionError::HttpStatus(u16)`, `ExecutionError::Parse`. |
-| `crates/mandate-execution/tests/keeperhub_live_mock_server.rs` | New integration test driving an in-process HTTP server. |
-| `crates/mandate-execution/tests/keeperhub_unit.rs` | Or extend existing tests — unit cover for `execute_live` with a fake `HttpClient`. |
+| `crates/mandate-keeperhub-adapter/Cargo.toml` | Add `reqwest` (or equivalent — minimal-feature, blocking-disabled, rustls-tls). |
+| `crates/mandate-keeperhub-adapter/src/lib.rs` | Add `KeeperHubLiveConfig`, `KeeperHubMode::Live(cfg)`, `execute_live`. |
+| `crates/mandate-core/src/execution.rs` (or equivalent) | Add `ExecutionError::Configuration`, `ExecutionError::Network`, `ExecutionError::HttpStatus(u16)`, `ExecutionError::Parse`. |
+| `crates/mandate-keeperhub-adapter/tests/live_mock_server.rs` | New integration test driving an in-process HTTP server. |
+| `crates/mandate-keeperhub-adapter/src/lib.rs` | Or extend existing tests — unit cover for `execute_live` with a fake `HttpClient`. |
 | `demo-scripts/sponsors/keeperhub-guarded-execution.sh` | Add a one-line `if [ "$MANDATE_KEEPERHUB_LIVE" = "1" ]; then …` branch that calls a new `--execute-keeperhub-live` flag on the research-agent harness; the default still runs `local_mock`. |
 | `demo-agents/research-agent/src/main.rs` | New `--execute-keeperhub-live` flag (parallel to the existing `--execute-keeperhub`). Constructs `KeeperHubExecutor::live(KeeperHubLiveConfig::from_env()?)`. |
 | `docs/cli/keeperhub-live.md` | Operator-facing how-to: which env vars, expected output, failure modes. |

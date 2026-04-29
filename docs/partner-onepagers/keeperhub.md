@@ -17,7 +17,7 @@ Five **specific shapes** the KeeperHub team could merge or build on are catalogu
 | **IP-1** | `mandate_*` upstream-proof envelope fields on the workflow webhook | 4–5 optional string fields, echo on lookup |
 | **IP-2** | Public submission/result envelope JSON Schema | One JSON Schema file under your docs |
 | **IP-3** | `keeperhub.lookup_execution(execution_id)` MCP tool | One MCP tool definition + thin handler |
-| **IP-4** | Standalone `mandate-keeperhub-adapter` crate on crates.io | Listing on your "integrations" page |
+| **IP-4** | Standalone `mandate-keeperhub-adapter` Rust crate | Listing on your "integrations" page; crates.io publication target |
 | **IP-5** | Mandate Passport capsule URI on the execution row | One optional string column |
 
 Stacking the shapes gives **end-to-end offline auditability** of every KeeperHub execution that flowed through Mandate — anywhere in the chain, an auditor with the right keys can reconstruct what was authorised, who authorised it, which policy applied, and where the audit chain says it sits, without trusting any single party.
@@ -30,7 +30,7 @@ A KeeperHub auditor today reading an execution row has no cryptographic link bac
 
 ## What is implemented today (on `main`, this build)
 
-- **Adapter trait `GuardedExecutor` and concrete `KeeperHubExecutor`** ([`crates/mandate-execution/src/keeperhub.rs`](../../crates/mandate-execution/src/keeperhub.rs)) with two constructors:
+- **Adapter trait `GuardedExecutor` and concrete `KeeperHubExecutor`** ([`crates/mandate-keeperhub-adapter/`](../../crates/mandate-keeperhub-adapter/), re-exported by `mandate-execution`) with two constructors:
   - `KeeperHubExecutor::local_mock()` — used in every demo path today. Returns a deterministic `kh-<ULID>` execution_ref and prints `mock: true` in demo output.
   - `KeeperHubExecutor::live()` — present as a constructor; intentionally `BackendOffline` until a stable submission/result schema and credentials are available. **No live network call is made in this build.**
 - **Production-shaped runner step 6** walks the allow → KeeperHub mock path end-to-end. Step 6 also walks the prompt-injection deny path and proves the denied receipt never reaches the sponsor (`keeperhub_refused: true`, visible in transcript and operator console).
@@ -45,7 +45,7 @@ These are explicit *targets* — none claimed as shipped:
 
 - **Mandate Passport capsule end-to-end** — schema + verifier exist; producing the capsule from a real KeeperHub execution depends on the live wiring below.
 - **`KeeperHubExecutor::live()` actually calling KeeperHub** — wired through [`docs/keeperhub-live-spike.md` §Target shape](../keeperhub-live-spike.md). Gated behind `MANDATE_KEEPERHUB_LIVE=1`, never a silent fallback from mock. CI never sets the flag.
-- **`mandate-keeperhub-adapter` extracted as standalone crate** — IP-4 above; the adapter is structurally independent of the rest of the workspace today, the extraction is repo-mechanics not redesign.
+- **`mandate-keeperhub-adapter` extracted as standalone workspace crate** — IP-4 above; the adapter is structurally independent of the rest of the workspace today. Crates.io publication remains target.
 
 ## What we are asking for (concrete, scoped)
 
@@ -70,7 +70,7 @@ Honest disclosure stays in every demo output (`mock: true` lines, `keeperhub_ref
 ## Pointers in this repo
 
 - **Concrete integration paths (IP-1 … IP-5):** [`docs/keeperhub-integration-paths.md`](../keeperhub-integration-paths.md) ← **start here for the "merge or build on" answer**
-- Adapter source: [`crates/mandate-execution/src/keeperhub.rs`](../../crates/mandate-execution/src/keeperhub.rs)
+- Adapter source: [`crates/mandate-keeperhub-adapter/`](../../crates/mandate-keeperhub-adapter/)
 - Sponsor demo (mock today): [`demo-scripts/sponsors/keeperhub-guarded-execution.sh`](../../demo-scripts/sponsors/keeperhub-guarded-execution.sh)
 - Production-shaped runner step 6 walks both allow and deny paths: [`demo-scripts/run-production-shaped-mock.sh`](../../demo-scripts/run-production-shaped-mock.sh)
 - Live-spike design notes: [`docs/keeperhub-live-spike.md`](../keeperhub-live-spike.md)

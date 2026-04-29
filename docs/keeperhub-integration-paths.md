@@ -15,7 +15,7 @@ The naming convention below is `IP-#` ("Integration Path #") so the team can ref
 | **IP-1** | **`mandate_*` upstream-proof envelope fields** on the workflow webhook | A KeeperHub `executionId` row links cryptographically to the upstream Mandate decision, with no out-of-band correlation. | Documented end-to-end in [`docs/keeperhub-live-spike.md` §Wire format](keeperhub-live-spike.md) and [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md). | Schema-level: 4–5 optional string fields. |
 | **IP-2** | **Public submission/result envelope JSON Schema** | Third-party policy engines (us, others) validate locally before submission; mismatches surface at the policy boundary, not over the wire. | We propose schema shape; KeeperHub publishes canonical version. | Spec-only: one JSON Schema file under your docs. |
 | **IP-3** | **`keeperhub.lookup_execution(execution_id)` MCP tool** | Operators / auditors connect a KeeperHub execution row directly to the upstream Mandate audit bundle in one tool call. | Reference shape under [`docs/cli/audit-bundle.md`](cli/audit-bundle.md); a **functional `mandate-mcp` stdio JSON-RPC server** at [`crates/mandate-mcp/`](../crates/mandate-mcp/) (PR #46) already exposes the symmetric `mandate.audit_lookup` tool. | MCP tool definition + thin adapter on your side. |
-| **IP-4** | **Standalone Mandate adapter crate** | KeeperHub (or any agent framework) can `cargo add mandate-keeperhub-adapter` and get a `GuardedExecutor` that posts signed receipts to a workflow webhook with the IP-1 envelope. | Lives today as `crates/mandate-execution::keeperhub` inside the workspace; extractable to a separate publishable crate without changing the policy core. | Repo-level: extract one module to its own crate. We do the work; you review. |
+| **IP-4** | **Standalone Mandate adapter crate** | KeeperHub (or any agent framework) can depend on `mandate-keeperhub-adapter` and get a `GuardedExecutor` that posts signed receipts to a workflow webhook with the IP-1 envelope. | Lives today as [`crates/mandate-keeperhub-adapter/`](../crates/mandate-keeperhub-adapter/), re-exported by `mandate-execution` for back-compat; crates.io publication remains target. | Repo-level crate exists; KeeperHub reviews / optionally lists it. |
 | **IP-5** | **Mandate Passport capsule (`mandate.passport_capsule.v1`)** | A single self-contained JSON file per execution: APRP body, signed receipt, audit chain prefix, KeeperHub `executionId`, and (target) checkpoint. KeeperHub's audit log can attach the capsule URI as one extra string column. | Schema + verifier landed in PR [#42](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/42); productisation tracked in [`docs/product/MANDATE_PASSPORT_BACKLOG.md`](product/MANDATE_PASSPORT_BACKLOG.md). | Storage-level: one URI column in your execution row, OR full-bundle storage if you want it inline. |
 
 The rest of this document expands each path with concrete pointers, schemas, and the smallest reviewable PR shape.
@@ -113,13 +113,13 @@ The rest of this document expands each path with concrete pointers, schemas, and
 
 ## IP-4 — Standalone Mandate adapter crate
 
-**The problem you would solve.** Mandate's `KeeperHubExecutor` adapter sits inside our workspace today. If KeeperHub wants third-party agent frameworks to bring their own policy layer, they need a single dependency they can `cargo add` (or, in TypeScript, `npm install`) without taking the rest of the Mandate workspace. Extracting the adapter to its own crate makes it independently consumable.
+**The problem you would solve.** Mandate's `KeeperHubExecutor` adapter is now isolated in a one-internal-dependency Rust crate. If KeeperHub wants third-party agent frameworks to bring their own policy layer, they need a single dependency they can add (or, in TypeScript, `npm install`) without taking the rest of the Mandate workspace. The adapter crate makes that independently consumable.
 
 **Target crate shape.**
 
 ```
 mandate-keeperhub-adapter/
-  Cargo.toml         # cargo add mandate-keeperhub-adapter
+  Cargo.toml         # publishable as mandate-keeperhub-adapter
   src/
     lib.rs            # pub use { KeeperHubExecutor, GuardedExecutor }
     config.rs         # KeeperHubLiveConfig::from_env()
@@ -129,9 +129,9 @@ mandate-keeperhub-adapter/
   README.md           # 50-line how-to
 ```
 
-**Where it lives in our repo today.** [`crates/mandate-execution/src/keeperhub.rs`](../crates/mandate-execution/src/keeperhub.rs) contains the `KeeperHubExecutor` impl. The trait it implements (`GuardedExecutor`) is the only public surface needed; no `mandate-policy` / `mandate-storage` / `mandate-server` types leak into the adapter signature.
+**Where it lives in our repo today.** [`crates/mandate-keeperhub-adapter/`](../crates/mandate-keeperhub-adapter/) contains the `KeeperHubExecutor` impl plus README, changelog and an example. `mandate-execution` re-exports it for back-compat. The trait it implements (`GuardedExecutor`) is the only public surface needed; no `mandate-policy` / `mandate-storage` / `mandate-server` types leak into the adapter signature.
 
-**Smallest adoption shape on KeeperHub side.** A line on your "integrations" page: *"Bring your own policy layer — see `mandate-keeperhub-adapter` on crates.io."* You don't have to maintain the crate; we do. We just need the namespace blessing.
+**Smallest adoption shape on KeeperHub side.** A line on your "integrations" page: *"Bring your own policy layer — see the `mandate-keeperhub-adapter` crate."* You don't have to maintain the crate; we do. We just need the namespace blessing before crates.io publication.
 
 ---
 
@@ -198,7 +198,7 @@ If any of IP-1 through IP-5 is something the KeeperHub team would *consider* ado
 
 ## Pointers in this repo
 
-- Adapter source: [`crates/mandate-execution/src/keeperhub.rs`](../crates/mandate-execution/src/keeperhub.rs)
+- Adapter source: [`crates/mandate-keeperhub-adapter/`](../crates/mandate-keeperhub-adapter/)
 - Live-integration spike: [`docs/keeperhub-live-spike.md`](keeperhub-live-spike.md)
 - Builder feedback: [`FEEDBACK.md` §KeeperHub](../FEEDBACK.md)
 - KeeperHub partner one-pager: [`docs/partner-onepagers/keeperhub.md`](partner-onepagers/keeperhub.md)

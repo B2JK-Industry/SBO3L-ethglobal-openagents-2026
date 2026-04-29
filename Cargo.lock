@@ -1081,6 +1081,7 @@ dependencies = [
  "chrono",
  "hex",
  "mandate-core",
+ "mandate-keeperhub-adapter",
  "rust_decimal",
  "serde",
  "serde_json",
@@ -1099,6 +1100,19 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+]
+
+[[package]]
+name = "mandate-keeperhub-adapter"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "mandate-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "ulid",
 ]
 
 [[package]]

@@ -1,6 +1,12 @@
 # Implementation audit — KeeperHub IP-1..IP-5 adoption-readiness
 
-> **Audit performed at main = `65d2d12` (pre-PR #46 merge).** PR #46 (Passport P3.1 — functional `mandate-mcp` stdio server) has since merged to main and resolves the IP-3 surface gap noted in §IP-3 below; IP-1, IP-2, IP-4, IP-5 findings remain valid against current main.
+> **Historical audit performed at main = `65d2d12` (pre-PR #46 merge).**
+> The findings below are kept as an audit trail, not as the current
+> implementation snapshot. PR #46 resolved the IP-3 MCP gap, PR #49 moved
+> `GuardedExecutor` / `ExecutionReceipt` / `ExecutionError` into
+> `mandate-core`, PR #51 added the IP-1 envelope helper, PR #42/#44 landed
+> Passport schema + CLI, and the current IP-4 branch extracts the KeeperHub
+> adapter into `crates/mandate-keeperhub-adapter/`.
 
 **Audit branch:** `docs/kh-implementation-audit` (uncommitted, working tree only).
 **Audited against `main` HEAD:** `65d2d12` (`docs: respond to KeeperHub office-hours feedback (IP-1..IP-5 catalogue) (#45)`).

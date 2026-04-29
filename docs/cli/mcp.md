@@ -10,7 +10,7 @@ same truth the CLI and HTTP API already publish.
 
 - Source: [`crates/mandate-mcp/`](../../crates/mandate-mcp/).
 - Demo: [`demo-scripts/sponsors/mcp-passport.sh`](../../demo-scripts/sponsors/mcp-passport.sh) — exercises every tool and writes a transcript to `demo-scripts/artifacts/mcp-transcript.json`.
-- Tests: [`crates/mandate-mcp/tests/jsonrpc_integration.rs`](../../crates/mandate-mcp/tests/jsonrpc_integration.rs) — 22 integration tests across in-process dispatch and stdio child-process transport.
+- Tests: [`crates/mandate-mcp/tests/jsonrpc_integration.rs`](../../crates/mandate-mcp/tests/jsonrpc_integration.rs) — 29 integration tests across in-process dispatch, stdio child-process transport, and path-sandbox escape coverage.
 
 ## Wire format
 

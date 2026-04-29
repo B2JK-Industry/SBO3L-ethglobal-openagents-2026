@@ -6,6 +6,7 @@ members = [
     "crates/mandate-storage",
     "crates/mandate-identity",
     "crates/mandate-execution",
+    "crates/mandate-keeperhub-adapter",
     "crates/mandate-mcp",
     "crates/mandate-cli",
     "crates/mandate-server",
@@ -65,14 +66,22 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 url = "2"
 
 # internal
-mandate-core = { path = "crates/mandate-core" }
-mandate-policy = { path = "crates/mandate-policy" }
-mandate-storage = { path = "crates/mandate-storage" }
-mandate-identity = { path = "crates/mandate-identity" }
-mandate-execution = { path = "crates/mandate-execution" }
-mandate-mcp = { path = "crates/mandate-mcp" }
-mandate-cli = { path = "crates/mandate-cli" }
-mandate-server = { path = "crates/mandate-server" }
+#
+# Workspace-internal deps carry both `path` (used by every workspace
+# build) and `version` (used by `cargo publish` — when the manifest is
+# stripped for upload, the path goes away and the version constraint
+# survives). The IP-4 standalone adapter
+# (`crates/mandate-keeperhub-adapter`) needs `mandate-core` to be
+# publishable, which means the version must be declared here.
+mandate-core = { path = "crates/mandate-core", version = "0.1.0" }
+mandate-policy = { path = "crates/mandate-policy", version = "0.1.0" }
+mandate-storage = { path = "crates/mandate-storage", version = "0.1.0" }
+mandate-identity = { path = "crates/mandate-identity", version = "0.1.0" }
+mandate-execution = { path = "crates/mandate-execution", version = "0.1.0" }
+mandate-keeperhub-adapter = { path = "crates/mandate-keeperhub-adapter", version = "0.1.0" }
+mandate-mcp = { path = "crates/mandate-mcp", version = "0.1.0" }
+mandate-cli = { path = "crates/mandate-cli", version = "0.1.0" }
+mandate-server = { path = "crates/mandate-server", version = "0.1.0" }
 
 [profile.release]
 lto = "thin"
