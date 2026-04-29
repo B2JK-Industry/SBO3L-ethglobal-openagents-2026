@@ -21,7 +21,11 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use sbo3l_core::passport::{verify_capsule, CapsuleVerifyError};
+use sbo3l_core::audit_bundle::AuditBundle;
+use sbo3l_core::passport::{
+    verify_capsule, verify_capsule_strict, CapsuleVerifyError, CheckOutcome, StrictVerifyOpts,
+    StrictVerifyReport,
+};
 use sbo3l_core::schema::validate_passport_capsule;
 use sbo3l_execution::keeperhub::KeeperHubExecutor;
 use sbo3l_execution::uniswap::UniswapExecutor;
@@ -33,26 +37,148 @@ use sbo3l_storage::audit_checkpoint_store::compute_chain_digest;
 use sbo3l_storage::Storage;
 use serde_json::{json, Map, Value};
 
-/// `sbo3l passport verify --path <capsule>`
+/// `sbo3l passport verify --path <capsule> [--strict [--receipt-pubkey ...] [--audit-bundle ...] [--policy ...]]`
 ///
 /// Exit codes:
-/// - 0 — capsule verifies (schema + every cross-field invariant).
-/// - 1 — IO / parse failure (file missing, not JSON).
-/// - 2 — capsule is malformed, tampered, or internally inconsistent.
-pub fn cmd_verify(path: &Path) -> ExitCode {
-    let value = match load_capsule(path) {
+/// - 0 — capsule verifies (structural by default; strict iff `--strict` and
+///   no `Failed` outcomes — `Skipped` outcomes for absent aux inputs do
+///   not count as failures).
+/// - 1 — IO / parse failure (capsule file missing, audit-bundle/policy file
+///   missing, not JSON).
+/// - 2 — capsule is malformed, tampered, or fails any strict crypto check.
+pub struct VerifyArgs {
+    pub path: PathBuf,
+    pub strict: bool,
+    pub receipt_pubkey: Option<String>,
+    pub audit_bundle: Option<PathBuf>,
+    pub policy: Option<PathBuf>,
+}
+
+pub fn cmd_verify(args: VerifyArgs) -> ExitCode {
+    let value = match load_capsule(&args.path) {
         Ok(v) => v,
         Err(rc) => return rc,
     };
 
-    match verify_capsule(&value) {
-        Ok(()) => {
-            print_verify_summary(&value);
-            ExitCode::SUCCESS
+    if !args.strict {
+        return match verify_capsule(&value) {
+            Ok(()) => {
+                print_verify_summary(&value);
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("sbo3l passport verify: {} ({})", e, e.code());
+                ExitCode::from(2)
+            }
+        };
+    }
+
+    // Strict mode — load auxiliary inputs (each independent + optional).
+    let bundle: Option<AuditBundle> = match args.audit_bundle.as_ref() {
+        Some(p) => match load_audit_bundle(p) {
+            Ok(b) => Some(b),
+            Err(rc) => return rc,
+        },
+        None => None,
+    };
+    let policy_value: Option<Value> = match args.policy.as_ref() {
+        Some(p) => match load_policy_snapshot(p) {
+            Ok(v) => Some(v),
+            Err(rc) => return rc,
+        },
+        None => None,
+    };
+    let opts = StrictVerifyOpts {
+        receipt_pubkey_hex: args.receipt_pubkey.as_deref(),
+        audit_bundle: bundle.as_ref(),
+        policy_json: policy_value.as_ref(),
+    };
+    let report = verify_capsule_strict(&value, &opts);
+    print_strict_report(&report);
+    if report.is_ok() {
+        if !report.is_fully_ok() {
+            // Some checks were skipped due to absent aux inputs — that's
+            // acceptable but worth flagging so an operator who wanted full
+            // coverage doesn't mistake a partial pass for a complete one.
+            eprintln!(
+                "sbo3l passport verify --strict: PASSED (with skips — supply --receipt-pubkey, \
+                 --audit-bundle, --policy for full crypto coverage)"
+            );
         }
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("sbo3l passport verify --strict: FAILED");
+        ExitCode::from(2)
+    }
+}
+
+fn load_audit_bundle(path: &Path) -> Result<AuditBundle, ExitCode> {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("sbo3l passport verify: {} ({})", e, e.code());
-            ExitCode::from(2)
+            eprintln!(
+                "sbo3l passport verify --strict: read audit-bundle {} failed: {e}",
+                path.display()
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    serde_json::from_str(&raw).map_err(|e| {
+        eprintln!(
+            "sbo3l passport verify --strict: parse audit-bundle {} failed: {e}",
+            path.display()
+        );
+        ExitCode::from(1)
+    })
+}
+
+fn load_policy_snapshot(path: &Path) -> Result<Value, ExitCode> {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "sbo3l passport verify --strict: read policy snapshot {} failed: {e}",
+                path.display()
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    serde_json::from_str(&raw).map_err(|e| {
+        eprintln!(
+            "sbo3l passport verify --strict: parse policy snapshot {} failed: {e}",
+            path.display()
+        );
+        ExitCode::from(1)
+    })
+}
+
+fn outcome_label(o: &CheckOutcome) -> &'static str {
+    match o {
+        CheckOutcome::Passed => "PASSED",
+        CheckOutcome::Skipped(_) => "SKIPPED",
+        CheckOutcome::Failed(_) => "FAILED",
+    }
+}
+
+fn outcome_detail(o: &CheckOutcome) -> &str {
+    match o {
+        CheckOutcome::Passed => "",
+        CheckOutcome::Skipped(s) => s,
+        CheckOutcome::Failed(s) => s,
+    }
+}
+
+fn print_strict_report(report: &StrictVerifyReport) {
+    let labels = StrictVerifyReport::labels();
+    let outcomes: Vec<&CheckOutcome> = report.iter().collect();
+    println!("sbo3l passport verify --strict — per-check report:");
+    for (label, outcome) in labels.iter().zip(outcomes.iter()) {
+        let status = outcome_label(outcome);
+        let detail = outcome_detail(outcome);
+        if detail.is_empty() {
+            println!("  {label:30} {status}");
+        } else {
+            println!("  {label:30} {status} — {detail}");
         }
     }
 }
