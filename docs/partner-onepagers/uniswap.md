@@ -52,6 +52,17 @@ boundary and never reach the executor.
   [`demo-fixtures/uniswap/quote-USDC-ETH.json`](../../demo-fixtures/uniswap/quote-USDC-ETH.json)
   and
   [`demo-fixtures/uniswap/quote-USDC-RUG.json`](../../demo-fixtures/uniswap/quote-USDC-RUG.json).
+- **SBO3L Passport capsule — Uniswap quote evidence (P6.1, shipped).**
+  `sbo3l passport run --executor uniswap` emits a
+  `sbo3l.passport_capsule.v1` JSON whose `execution.executor_evidence`
+  slot carries the 10-field `UniswapQuoteEvidence` payload (`quote_id`,
+  `quote_source`, `input_token`, `output_token`, `route_tokens`,
+  `notional_in`, `slippage_cap_bps`, `quote_timestamp_unix`,
+  `quote_freshness_seconds`, `recipient_address`). The capsule
+  round-trips through `sbo3l passport verify` (exit 0). Source:
+  [`crates/sbo3l-execution/src/uniswap.rs`](../../crates/sbo3l-execution/src/uniswap.rs);
+  demo step:
+  [`demo-scripts/sponsors/uniswap-guarded-swap.sh`](../../demo-scripts/sponsors/uniswap-guarded-swap.sh).
 - Builder feedback (current): [`FEEDBACK.md` §Uniswap](../../FEEDBACK.md).
 
 ## What is target (SBO3L Passport phase, not on main yet)
@@ -59,23 +70,6 @@ boundary and never reach the executor.
 These are explicit *targets* documented for the team and for Uniswap
 reviewers — none of them are claimed as shipped:
 
-- **SBO3L Passport capsule (Uniswap-specific evidence target)** —
-  the capsule artefact (`sbo3l.passport_capsule.v1`) is on `main`
-  via PR #42 (schema + verifier) and PR #44 (`sbo3l passport run`
-  emit + verify). What is still target is **Uniswap-specific quote
-  evidence inside the capsule's `execution.live_evidence` slot** —
-  tracked as P6.1 in the SBO3L Passport backlog. Until P6.1 lands,
-  no UI claims a Uniswap-evidence capsule was produced.
-- **Capsule quote-evidence section (target)** — when P6.1 lands, the
-  Uniswap path will populate `execution.live_evidence` with:
-  - quote id / source;
-  - input / output token symbols;
-  - route token list (when surfaced by the API);
-  - notional + caps;
-  - slippage + caps;
-  - quote timestamp + freshness result;
-  - recipient check;
-  - per-violation deny reasons when denied.
 - **Live Trading API call (future, gated)** — wired through
   `UniswapExecutor::live()` and exposed via an explicit
   `SBO3L_UNISWAP_LIVE=1` env-var gate, never as a silent fallback from
@@ -131,10 +125,12 @@ These are the same asks recorded in
   transaction id.
 - This is **not** a Uniswap v4 hook project. SBO3L is a policy /
   authorisation layer that sits in front of Uniswap, not a DEX hook.
-- SBO3L Passport capsule + Uniswap quote-evidence section are **target
-  product framing**, not shipped artefacts in this build. The capsule
-  schema (A-side) lands in a later phase; this one-pager will be updated
-  to reference the actual schema once that PR is on `main`.
+- The Uniswap quote-evidence section of the SBO3L Passport capsule is
+  **shipped** (P6.1) — `executor_evidence` is a non-empty 10-field
+  object on the allow path, omitted on the deny path. The transport-
+  level `live_evidence` slot still stays `null` in mock mode (and the
+  verifier still rejects mock-with-evidence in either slot direction);
+  P6.1 only adds the new mode-agnostic `executor_evidence` slot.
 
 ## Pointers in this repo
 

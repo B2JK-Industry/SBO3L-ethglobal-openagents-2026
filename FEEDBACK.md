@@ -82,10 +82,63 @@ How SBO3L uses Uniswap: SBO3L sits in front of any agent that wants to swap. The
   - **Slippage-cap semantics, documented.** Whether `slippageBps` in the request is "max acceptable realised slippage" vs "request the route to target this slippage" is not obvious from the integration guide — third-party policy engines need that distinction explicit, with a worked example.
   - **Canonical quote hash.** A documented JCS-shape (or equivalent) over the quote response so third-party policy engines can hash deterministically without inventing a canonicalisation. SBO3L already canonicalises APRP via JCS for `request_hash`; a server-side canonical quote hash slots into the same pattern.
 
+### Friction we hit while wiring the P6.1 quote-evidence capsule
+
+These are concrete things that slowed us down while building
+`UniswapQuoteEvidence` against the demo's mock quote shape and
+projecting it into the Passport capsule's `execution.executor_evidence`
+slot. They are not blockers, but each of them would have shaved real
+implementation time off if the public Trading API surface answered them
+upstream:
+
+- **Freshness window is a guess.** `UniswapQuoteEvidence` ships with
+  `quote_freshness_seconds: 30` because that is conservative enough for
+  every single test fixture we have, but the *correct* value should
+  come from the quote response. Today we have to pick one number, hard-
+  code it, and surface a `(relaxed)` flag on the demo runner so judges
+  can see we relaxed it. A server-side `expires_at` (or
+  `freshness_horizon_seconds`) on the quote response — ideally on every
+  quote, not just paid plans — would let us drop the hard-coded
+  constant entirely.
+- **V2/V3 router-address split is invisible to the policy layer.** The
+  treasury-recipient allowlist is the same regardless of which router
+  contract is hit, but the *quote response* doesn't tell us which
+  router will execute. This is fine today (we're not on-chain), but
+  any policy engine that wants to maintain different allowlists for V2
+  vs V3 (or for upcoming Uniswap V4 hooks) would need that field to
+  appear in the canonical quote. We left the field unset in
+  `UniswapQuoteEvidence` rather than guess.
+- **Multi-hop route token enumeration is silent.** Our `route_tokens`
+  array currently echoes back input → output for the demo's direct
+  routes, but a multi-hop quote's intermediate tokens (e.g. a USDC →
+  WBTC → ETH path) aren't in the response shape we pinned. We'd want
+  every intermediate token spelled out so the swap-policy guard can
+  reject a route that touches a token the policy doesn't allow. Today
+  we treat that as deny-by-default; explicit per-path token enumeration
+  in the API response would let policy engines opt in or out at the
+  path level.
+- **Slippage-cap semantics ambiguity (still).** `slippage_cap_bps` in
+  `UniswapQuoteEvidence` is "max acceptable realised slippage on
+  execution" — the same cap the swap-policy guard checks. But when we
+  project this into a hypothetical live request, the spec is unclear
+  whether `slippageBps` in the request is "max acceptable" vs "target".
+  We left the evidence field with the strict-max semantics; we'd value
+  a documented `slippage_cap_semantics: "max_realised" | "target"`
+  field on the canonical quote response so third-party policy engines
+  don't have to pick one and hope.
+- **No canonical hash of the quote.** The capsule's
+  `executor_evidence` is byte-stable for the demo, but a third-party
+  re-verifier today has to canonicalise the quote on their side
+  (JCS-shape) to compare. A documented server-side canonical quote
+  hash (matching the JCS shape Mandate already uses for `request_hash`)
+  would let us anchor the hash directly into the Mandate decision
+  token without inventing a canonicalisation.
+
 ### Known limitations of the hackathon implementation
 
 - `demo-scripts/sponsors/uniswap-guarded-swap.sh` runs against a stored quote fixture. The live path (`UniswapExecutor::live()`) is intentionally stubbed in this hackathon build and would error with `BackendOffline`; the demo always uses `UniswapExecutor::local_mock()`. There is no env-var feature flag in this build — wiring up a real Uniswap Trading API endpoint is one function-body change.
 - The treasury recipient check uses the demo allowlist; production deployments should source it from the active SBO3L policy's `recipients` list (already supported by `sbo3l-policy::Policy`).
+- `UniswapQuoteEvidence::quote_source` is hard-coded to the string `"mock-uniswap-v3-router"` and the `quote_id` carries a `mock-` prefix on the demo path — explicit honest-disclosure so judges (and any auditor reading a capsule offline) cannot mistake the demo evidence for a real Trading API response. When the live path lands, both fields flip to the real router endpoint URL and the real server-issued quote id.
 
 ## General
 

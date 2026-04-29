@@ -848,3 +848,144 @@ fn run_rejects_requires_human_BEFORE_consuming_nonce() {
     );
     assert!(out_allow.exists(), "allow path must write capsule");
 }
+
+// ===========================================================================
+// P6.1 — `execution.executor_evidence` (Uniswap quote evidence carry-through)
+// ===========================================================================
+//
+// These tests pin the wire-form contract between the Uniswap mock executor
+// and the capsule's NEW `execution.executor_evidence` slot:
+//
+//   * On allow paths the slot is a non-null object with the documented
+//     10 keys and survives `sbo3l passport verify`.
+//   * On deny paths the slot is omitted (or null) — the executor never
+//     ran, so there is no quote to attach.
+//   * `live_evidence` stays null in mock mode regardless of evidence;
+//     the verifier's bidirectional invariant is unchanged. This is the
+//     point of putting evidence in a separate slot.
+
+const UNI_EVIDENCE_KEYS: &[&str] = &[
+    "quote_id",
+    "quote_source",
+    "input_token",
+    "output_token",
+    "route_tokens",
+    "notional_in",
+    "slippage_cap_bps",
+    "quote_timestamp_unix",
+    "quote_freshness_seconds",
+    "recipient_address",
+];
+
+#[test]
+fn uniswap_capsule_carries_executor_evidence_on_allow() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "uniswap", &out, &[]);
+    assert!(
+        r.status.success(),
+        "uniswap allow path must succeed; stderr={}",
+        String::from_utf8_lossy(&r.stderr)
+    );
+    let cap = read_capsule(&out);
+    let evidence = &cap["execution"]["executor_evidence"];
+    assert!(
+        evidence.is_object(),
+        "executor_evidence must be a non-null object on uniswap allow path; got: {evidence}"
+    );
+    let quote_id = evidence["quote_id"].as_str().unwrap_or("");
+    assert!(
+        quote_id.starts_with("mock-uniswap-quote-"),
+        "expected mock-prefixed quote_id; got: {quote_id}"
+    );
+    // `live_evidence` MUST stay null in mock mode — this test fails
+    // closed if a future refactor accidentally rewires evidence into
+    // the wrong slot (the bug the P6.1 schema bump exists to prevent).
+    assert!(
+        cap["execution"]["live_evidence"].is_null(),
+        "mock mode must keep live_evidence null even when executor_evidence is populated; got: {}",
+        cap["execution"]["live_evidence"]
+    );
+}
+
+#[test]
+fn uniswap_capsule_omits_executor_evidence_on_deny() {
+    // Deny path → `not_called` → executor never returns evidence →
+    // capsule omits the field (or carries null). Either is schema-valid;
+    // the test accepts both.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_DENY, &db, "uniswap", &out, &[]);
+    assert!(
+        r.status.success(),
+        "uniswap deny path must still emit a capsule; stderr={}",
+        String::from_utf8_lossy(&r.stderr)
+    );
+    let cap = read_capsule(&out);
+    assert_eq!(cap["decision"]["result"], "deny");
+    assert_eq!(cap["execution"]["status"], "not_called");
+    let evidence = &cap["execution"]["executor_evidence"];
+    assert!(
+        evidence.is_null(),
+        "deny path must NOT carry executor_evidence (executor never ran); got: {evidence}"
+    );
+    // Sanity: the verifier's existing deny-with-execution invariant
+    // still fires, and the round-trip verify exits 0.
+    verify_round_trip(&out);
+}
+
+#[test]
+fn uniswap_evidence_serialises_with_required_keys() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "uniswap", &out, &[]);
+    assert!(r.status.success());
+    let cap = read_capsule(&out);
+    let evidence = cap["execution"]["executor_evidence"]
+        .as_object()
+        .expect("executor_evidence must be an object on allow path");
+    for key in UNI_EVIDENCE_KEYS {
+        assert!(
+            evidence.contains_key(*key),
+            "executor_evidence missing required key {key:?}; got keys: {:?}",
+            evidence.keys().collect::<Vec<_>>()
+        );
+    }
+    // The 10-field struct is locked; new fields would need a deliberate
+    // schema-bump conversation. Pin the exact key count too.
+    assert_eq!(
+        evidence.len(),
+        UNI_EVIDENCE_KEYS.len(),
+        "expected {} keys in executor_evidence; got: {:?}",
+        UNI_EVIDENCE_KEYS.len(),
+        evidence.keys().collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn uniswap_capsule_passes_existing_verify_with_evidence_populated() {
+    // Round-trip: emit + verify on the new shape. This is the safety
+    // net for the schema bump — if `sbo3l passport run` ever produces
+    // a capsule that the (unchanged) verifier rejects, the bump
+    // accidentally broke compat.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "uniswap", &out, &[]);
+    assert!(r.status.success());
+    verify_round_trip(&out);
+    // Belt-and-suspenders: the verifier is already invoked inside
+    // cmd_run before the file is written, but a future refactor that
+    // accidentally bypasses self-verify must still fail this test.
+    let cap = read_capsule(&out);
+    assert_eq!(cap["execution"]["mode"], "mock");
+    assert!(cap["execution"]["executor_evidence"].is_object());
+    assert!(cap["execution"]["live_evidence"].is_null());
+}

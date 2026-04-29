@@ -150,6 +150,19 @@ submission turns on — is deliberate: it pins the `sbo3l_*` fields
 under regression tests in CI, so a future receipt-shape change can't
 silently desync the envelope from the receipt that triggered the call.
 
+**Capsule slot for the IP-1 envelope (target).** When live wiring lands
+and a real KeeperHub callback returns, the IP-1 envelope above flows
+into the Passport capsule via `ExecutionReceipt.evidence` →
+`capsule.execution.executor_evidence` (the new mode-agnostic
+sponsor-evidence slot introduced in P6.1, alongside Uniswap's
+`UniswapQuoteEvidence`). It is **not** the `execution.live_evidence`
+slot: that slot is reserved for transport-level proof (HTTP transport
+identifier, response reference, block reference) and the verifier's
+bidirectional invariant keeps it strictly live-only. The IP-1 envelope
+is sponsor-specific *business* data — `sbo3l_request_hash`,
+`sbo3l_policy_hash`, etc. — which is exactly what
+`executor_evidence` (`additionalProperties: true`) was added for.
+
 Expected response (target shape — see [`FEEDBACK.md`](../FEEDBACK.md) §KeeperHub for the schema-publication ask):
 
 ```json

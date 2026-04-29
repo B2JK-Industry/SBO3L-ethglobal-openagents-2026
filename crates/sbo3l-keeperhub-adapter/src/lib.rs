@@ -135,6 +135,18 @@ impl CoreGuardedExecutor for KeeperHubExecutor {
                     agent = request.agent_id,
                     intent = serde_json::to_string(&request.intent).unwrap_or_default(),
                 ),
+                // KeeperHub mock doesn't capture sponsor-specific evidence
+                // today. When KH IP-1 lands as live wire form, that
+                // envelope flows into `ExecutionReceipt.evidence` and
+                // surfaces in the capsule's NEW
+                // `execution.executor_evidence` slot — the same slot
+                // Uniswap populates today with `UniswapQuoteEvidence`
+                // (P6.1). It is NOT the `live_evidence` slot: that slot
+                // is transport-level (HTTP transport, response ref,
+                // block ref) and the verifier's bidirectional invariant
+                // keeps it strictly live-only. See
+                // `docs/keeperhub-live-spike.md`.
+                evidence: None,
             }),
             KeeperHubMode::Live => {
                 // P5.1 contract: build AND serialise the envelope before
@@ -250,6 +262,7 @@ mod tests {
             execution_ref: "kh-smoke".into(),
             mock: true,
             note: "smoke".into(),
+            evidence: None,
         };
         let r = receipt(Decision::Allow);
         let _: Sbo3lEnvelope = Sbo3lEnvelope::from_receipt(&r, &r.audit_event_id);

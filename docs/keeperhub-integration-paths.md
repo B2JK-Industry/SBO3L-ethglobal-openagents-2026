@@ -149,13 +149,25 @@ sbo3l-keeperhub-adapter/
   "request":       { /* APRP body + canonical request_hash + idempotency/nonce */ },
   "policy":        { /* policy_hash + version + activated_at + source */ },
   "decision":      { /* result + matched_rule + deny_code + embedded signed receipt + 128-hex signature */ },
-  "execution":     { /* executor + mode + execution_ref + status + sponsor_payload_hash + live_evidence */ },
+  "execution":     { /* executor + mode + execution_ref + status + sponsor_payload_hash + live_evidence + executor_evidence */ },
   "audit":         { /* audit_event_id + prev_event_hash + event_hash + bundle_ref + optional embedded checkpoint */ },
   "verification":  { /* doctor_status + offline_verifiable + live_claims */ }
 }
 ```
 
-Every hash field is constrained to `^[0-9a-f]{64}$`; signatures to `^[0-9a-f]{128}$`; `additionalProperties: false` at every object level. The `audit.bundle_ref` field points back at the `sbo3l.audit_bundle.v1` artefact for callers who want the full hash-chain prefix; the audit chain itself is not duplicated inside the capsule.
+Every hash field is constrained to `^[0-9a-f]{64}$`; signatures to `^[0-9a-f]{128}$`; `additionalProperties: false` at every object level *except* `execution.executor_evidence`, which is `additionalProperties: true` to let sponsor adapters carry their own structured data without further schema bumps. The `audit.bundle_ref` field points back at the `sbo3l.audit_bundle.v1` artefact for callers who want the full hash-chain prefix; the audit chain itself is not duplicated inside the capsule.
+
+**`execution` slot field reference.**
+
+| Field | Type | Mode | Notes |
+|---|---|---|---|
+| `executor` | enum | both | One of `keeperhub` / `uniswap` / `none`. |
+| `mode` | enum | both | `mock` or `live`. Drives the `live_evidence` invariant. |
+| `execution_ref` | string\|null | both | Sponsor-side correlation id. Always `null` on deny paths. |
+| `status` | enum | both | `submitted` / `succeeded` / `denied` / `not_called`. Deny paths must be `not_called`. |
+| `sponsor_payload_hash` | hex\|null | both | Hash over the sponsor request body, when emitted. |
+| `live_evidence` | null \| object | **live-only** | Transport-level proof: `transport`, `response_ref`, `block_ref`. Mock mode keeps it `null` (verifier rejects mock+evidence and live-without-evidence in both directions). |
+| `executor_evidence` | null \| object | **mode-agnostic** | Sponsor-specific business evidence (P6.1 — Uniswap quote shape today, KeeperHub IP-1 envelope tomorrow). `oneOf null / object minProperties:1`, `additionalProperties: true`. Verifier adds no new cross-field invariant; the schema is the single source of truth for the slot's shape. |
 
 **Where it lives in our repo.** Schema + verifier CLI ship in PR [#42 (`feat: add Passport capsule schema and verifier`)](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/42). Productisation is tracked in [`docs/product/SBO3L_PASSPORT_BACKLOG.md`](product/SBO3L_PASSPORT_BACKLOG.md). The Passport one-pagers in [`docs/partner-onepagers/`](partner-onepagers/) describe what each sponsor needs to do for capsule integration.
 

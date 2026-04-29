@@ -53,6 +53,10 @@ CORPUS: list[CorpusCase] = [
     #     additionalProperties=false.
     #   - tampered_008 (live+empty evidence): schema-INVALID via
     #     live_evidence.minProperties=1.
+    #   - tampered_009 (executor_evidence={}): schema-INVALID via the
+    #     P6.1-bumped `executor_evidence.minProperties=1` (the new
+    #     mode-agnostic sponsor-evidence slot — distinct from
+    #     `live_evidence`, which is strictly transport-level / live-only).
     CorpusCase(
         "passport-capsule",
         REPO_ROOT / "test-corpus/passport/golden_001_allow_keeperhub_mock.json",
@@ -96,6 +100,11 @@ CORPUS: list[CorpusCase] = [
     CorpusCase(
         "passport-capsule",
         REPO_ROOT / "test-corpus/passport/tampered_008_live_mode_empty_evidence.json",
+        False,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_009_executor_evidence_empty_object.json",
         False,
     ),
 ]
