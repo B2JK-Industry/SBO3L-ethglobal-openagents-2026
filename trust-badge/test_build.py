@@ -28,11 +28,22 @@ from urllib.parse import urlparse
 HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build.py"
 FIXTURE = HERE / "fixtures" / "demo-summary.json"
-# Passport P2.2: render path is exercised against the on-main golden capsule
-# fixture during STEP 1 (DRAFT). After P2.1 emits runtime artifacts the same
-# tests will move to `demo-scripts/artifacts/passport-allow.json`.
-CAPSULE_FIXTURE = HERE.parent / "test-corpus" / "passport" / "golden_001_allow_keeperhub_mock.json"
+# Passport P2.2 (post-P2.1 rebase): prefer the runtime capsule emitted by the
+# production-shaped runner's step 10b (P2.1 #44). Fall back to the on-main
+# golden fixture when the runtime artifact is absent — for example in CI,
+# which does not run the production-shaped runner before this test. The
+# assertion logic uses values read FROM the loaded capsule, so either source
+# produces a consistent, truthful test pass.
+RUNTIME_CAPSULE = HERE.parent / "demo-scripts" / "artifacts" / "passport-allow.json"
+GOLDEN_CAPSULE = HERE.parent / "test-corpus" / "passport" / "golden_001_allow_keeperhub_mock.json"
 TAMPERED_FIXTURE = HERE.parent / "test-corpus" / "passport" / "tampered_002_mock_anchor_marked_live.json"
+
+if RUNTIME_CAPSULE.is_file():
+    CAPSULE_FIXTURE = RUNTIME_CAPSULE
+    CAPSULE_SOURCE = "runtime artifact (demo-scripts/artifacts/passport-allow.json)"
+else:
+    CAPSULE_FIXTURE = GOLDEN_CAPSULE
+    CAPSULE_SOURCE = "on-main golden fixture (test-corpus/passport/golden_001_*.json)"
 
 # Same safe-host allowlist as `demo-fixtures/test_fixtures.py` so the
 # "no external URLs" check rejects unsafe URLs only — `schemas.mandate.dev`
@@ -101,6 +112,7 @@ def main() -> int:
         return 1
     with CAPSULE_FIXTURE.open(encoding="utf-8") as fh:
         capsule = json.load(fh)
+    print(f"  note: capsule source = {CAPSULE_SOURCE}")
 
     # 1. Drive build.py against the fixture into a temp file. We do not write
     #    the rendered HTML into trust-badge/index.html — generated artefacts

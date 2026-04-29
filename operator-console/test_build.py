@@ -29,11 +29,27 @@ HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build.py"
 FIXTURE = HERE / "fixtures" / "operator-summary.json"
 EVIDENCE_FIXTURE = HERE / "fixtures" / "operator-evidence.json"
-# Passport P2.2: render path is exercised against the on-main golden capsule
-# fixture during STEP 1 (DRAFT). After P2.1 emits runtime artifacts the same
-# tests will move to `demo-scripts/artifacts/passport-{allow,deny}.json`.
-CAPSULE_ALLOW_FIXTURE = HERE.parent / "test-corpus" / "passport" / "golden_001_allow_keeperhub_mock.json"
+# Passport P2.2 (post-P2.1 rebase): prefer the runtime capsules emitted by
+# the production-shaped runner's step 10b (P2.1 #44). When both runtime
+# artifacts are present, the deny tile is exercised against the REAL deny
+# capsule and the in-memory deny synthesiser is no longer needed. When the
+# runtime artifacts are absent (e.g. CI, which does not run the runner
+# before this test), fall back to the on-main golden allow fixture plus
+# the in-memory deny synthesis. Assertion logic uses values read FROM the
+# loaded capsules, so either source produces a consistent test pass.
+RUNTIME_CAPSULE_ALLOW = HERE.parent / "demo-scripts" / "artifacts" / "passport-allow.json"
+RUNTIME_CAPSULE_DENY = HERE.parent / "demo-scripts" / "artifacts" / "passport-deny.json"
+GOLDEN_CAPSULE_ALLOW = HERE.parent / "test-corpus" / "passport" / "golden_001_allow_keeperhub_mock.json"
 CAPSULE_TAMPERED_FIXTURE = HERE.parent / "test-corpus" / "passport" / "tampered_002_mock_anchor_marked_live.json"
+
+if RUNTIME_CAPSULE_ALLOW.is_file() and RUNTIME_CAPSULE_DENY.is_file():
+    CAPSULE_ALLOW_FIXTURE = RUNTIME_CAPSULE_ALLOW
+    CAPSULE_DENY_FIXTURE: Path | None = RUNTIME_CAPSULE_DENY
+    CAPSULE_SOURCE = "runtime artifacts (demo-scripts/artifacts/passport-{allow,deny}.json)"
+else:
+    CAPSULE_ALLOW_FIXTURE = GOLDEN_CAPSULE_ALLOW
+    CAPSULE_DENY_FIXTURE = None
+    CAPSULE_SOURCE = "on-main golden allow fixture + in-memory deny synthesiser"
 
 SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
@@ -121,17 +137,23 @@ def main() -> int:
         return 1
     with CAPSULE_ALLOW_FIXTURE.open(encoding="utf-8") as fh:
         capsule_allow = json.load(fh)
-    capsule_deny = _synth_deny_capsule(capsule_allow)
+    print(f"  note: capsule source = {CAPSULE_SOURCE}")
 
     # Drive build.py against both fixtures into a temp file. Generated HTML
     # must never appear in the working tree from a test run. The Passport
-    # P2.2 panel is exercised explicitly with the on-main golden allow
-    # capsule plus an in-memory synthesised deny capsule (DRAFT phase
-    # only — after P2.1 emits runtime deny capsules into
-    # `demo-scripts/artifacts/`, this synthesis can drop).
+    # P2.2 panel is exercised against (a) the runtime allow + deny capsules
+    # emitted by the production-shaped runner's step 10b, OR (b) the
+    # on-main golden allow fixture plus an in-memory synthesised deny
+    # capsule when runtime artifacts are absent (CI fallback).
     with tempfile.TemporaryDirectory() as tmp:
-        deny_path = Path(tmp) / "synth-deny-capsule.json"
-        deny_path.write_text(json.dumps(capsule_deny), encoding="utf-8")
+        if CAPSULE_DENY_FIXTURE is not None:
+            with CAPSULE_DENY_FIXTURE.open(encoding="utf-8") as fh:
+                capsule_deny = json.load(fh)
+            deny_path = CAPSULE_DENY_FIXTURE
+        else:
+            capsule_deny = _synth_deny_capsule(capsule_allow)
+            deny_path = Path(tmp) / "synth-deny-capsule.json"
+            deny_path.write_text(json.dumps(capsule_deny), encoding="utf-8")
         out_path = Path(tmp) / "index.html"
         proc = subprocess.run(
             [sys.executable, str(BUILD),
