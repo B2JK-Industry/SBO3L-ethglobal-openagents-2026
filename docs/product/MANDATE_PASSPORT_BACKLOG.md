@@ -79,7 +79,7 @@ tallies, or product claims must cite the command output it reflects.
 | 5 | P5.2 | B | KeeperHub feedback/issues/one-pager | P5.1 | Actionable feedback linked from repo. |
 | 6 | P6.1 | A | Uniswap guarded quote capsule evidence | P2.1 | Quote evidence appears in capsule. |
 | 6 | P6.2 | B | Uniswap FEEDBACK + one-pager | P6.1 | FEEDBACK meets prize requirement. |
-| 7 | P7.1 | B | GitHub Pages public proof site | P2.2 | Public static proof URL. |
+| 7 | P7.1 | B | GitHub Pages public proof site | P2.2 | Public static proof URL. **Open as PR off `main = 92e94e0`** — `.github/workflows/pages.yml` renders trust-badge + operator-console + golden capsule into a static `_site/` artefact and deploys via `actions/deploy-pages`; landing page at `site/index.html` is offline-only (no JS, no network), byte-grep clean. |
 | 7 | P7.2 | A+B | Final smoke, video, submission freeze | All must-have PRs | Fresh clone green, video URL inserted. |
 
 Phases 5 and 6 can run in parallel after P3.1 if Developer A can keep
@@ -602,6 +602,7 @@ that an agent can request a swap but cannot exceed policy.
 ### P7.1 - GitHub Pages Public Proof Site
 
 **Owner:** Developer B.
+**Status:** PR open off `main = 92e94e0`; deploy job runs on merge (or via `workflow_dispatch`) at `https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/`.
 
 **Why:** judges need a click target.
 

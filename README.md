@@ -12,6 +12,10 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 **Implemented and reproducible from a fresh clone.** `cargo test --workspace --all-targets` runs **292/292 green**. `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~5 seconds. `bash demo-scripts/run-production-shaped-mock.sh` exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with **Tally: 26 real, 0 mock, 1 skipped** (only the optional `--include-final-demo` flag remains on the SKIPPED list — every A-side backlog item has merged). See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
 
+## Verify the demo
+
+Public proof URL (deployed from `main` by [`.github/workflows/pages.yml`](.github/workflows/pages.yml)): **<https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/>** — landing page links to the trust-badge proof viewer, the operator-console evidence panels, and a downloadable Passport capsule (`mandate.passport_capsule.v1`) you can verify offline with `mandate passport verify --path capsule.json`. The site is plain static HTML, no JavaScript, no client-side network calls; the `_site/` build is rendered from the same deterministic regression fixtures `python3 trust-badge/test_build.py` + `python3 operator-console/test_build.py` validate on every CI run, so the URL shows the same shape on every visit.
+
 ## Three commands a judge needs
 
 ```bash
