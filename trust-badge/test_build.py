@@ -23,10 +23,63 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build.py"
 FIXTURE = HERE / "fixtures" / "demo-summary.json"
+# Passport P2.2 (post-P2.1 rebase): prefer the runtime capsule emitted by the
+# production-shaped runner's step 10b (P2.1 #44). Fall back to the on-main
+# golden fixture when the runtime artifact is absent — for example in CI,
+# which does not run the production-shaped runner before this test. The
+# assertion logic uses values read FROM the loaded capsule, so either source
+# produces a consistent, truthful test pass.
+RUNTIME_CAPSULE = HERE.parent / "demo-scripts" / "artifacts" / "passport-allow.json"
+GOLDEN_CAPSULE = HERE.parent / "test-corpus" / "passport" / "golden_001_allow_keeperhub_mock.json"
+TAMPERED_FIXTURE = HERE.parent / "test-corpus" / "passport" / "tampered_002_mock_anchor_marked_live.json"
+
+if RUNTIME_CAPSULE.is_file():
+    CAPSULE_FIXTURE = RUNTIME_CAPSULE
+    CAPSULE_SOURCE = "runtime artifact (demo-scripts/artifacts/passport-allow.json)"
+else:
+    CAPSULE_FIXTURE = GOLDEN_CAPSULE
+    CAPSULE_SOURCE = "on-main golden fixture (test-corpus/passport/golden_001_*.json)"
+
+# Same safe-host allowlist as `demo-fixtures/test_fixtures.py` so the
+# "no external URLs" check rejects unsafe URLs only — `schemas.mandate.dev`
+# (the canonical $id host for Mandate's own JSON-Schema files) and the
+# RFC 2606/6761 reserved suffixes remain allowed.
+SAFE_HOSTS_EXACT = frozenset({
+    "127.0.0.1",
+    "localhost",
+    "schemas.mandate.dev",
+    "example.com",
+    "example.net",
+    "example.org",
+})
+SAFE_HOST_SUFFIXES = (
+    ".invalid",
+    ".example",
+    ".test",
+    ".localhost",
+    ".example.com",
+    ".example.net",
+    ".example.org",
+)
+URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+
+
+def _url_is_safe(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    if host in SAFE_HOSTS_EXACT:
+        return True
+    return any(host.endswith(suffix) for suffix in SAFE_HOST_SUFFIXES)
 
 
 def _ok(label: str, hint: str = "") -> None:
@@ -54,14 +107,25 @@ def main() -> int:
     with FIXTURE.open(encoding="utf-8") as fh:
         summary = json.load(fh)
 
+    if not CAPSULE_FIXTURE.is_file():
+        _fail("capsule fixture not found", str(CAPSULE_FIXTURE))
+        return 1
+    with CAPSULE_FIXTURE.open(encoding="utf-8") as fh:
+        capsule = json.load(fh)
+    print(f"  note: capsule source = {CAPSULE_SOURCE}")
+
     # 1. Drive build.py against the fixture into a temp file. We do not write
     #    the rendered HTML into trust-badge/index.html — generated artefacts
     #    must never appear in the working tree from a test run.
+    #    The Passport-capsule tile is exercised explicitly with the on-main
+    #    golden fixture (STEP 1 / DRAFT). After P2.1 lands and emits runtime
+    #    artifacts, the same flag will point at `passport-allow.json`.
     with tempfile.TemporaryDirectory() as tmp:
         out_path = Path(tmp) / "index.html"
         proc = subprocess.run(
             [sys.executable, str(BUILD),
              "--input", str(FIXTURE),
+             "--capsule", str(CAPSULE_FIXTURE),
              "--output", str(out_path)],
             capture_output=True, text=True,
         )
@@ -127,12 +191,38 @@ def main() -> int:
             _fail(label, f"needle {needle!r} not in HTML")
             failures += 1
 
+    # 2b. Passport-capsule tile content. The capsule schema/verifier
+    #     landed in PR #42 (Passport P1.1); the trust-badge renders ONE
+    #     summary tile from a `mandate.passport_capsule.v1` artifact.
+    print("\n== passport capsule tile ==")
+    capsule_required = [
+        ("capsule tile header",              "Passport capsule"),
+        ("capsule agent ens_name",           capsule["agent"]["ens_name"]),
+        ("capsule resolver source",          capsule["agent"]["resolver"]),
+        ("capsule allow decision pill",      ">Allow<"),
+        ("capsule matched_rule",             capsule["decision"]["matched_rule"]),
+        ("capsule executor",                 capsule["execution"]["executor"]),
+        ("capsule execution_ref",            capsule["execution"]["execution_ref"]),
+        ("capsule mock_anchor_ref",          capsule["audit"]["checkpoint"]["mock_anchor_ref"]),
+        ("capsule mock-anchor pill",         "mock anchoring, NOT onchain"),
+        ("capsule offline_verifiable yes",   ">yes<"),
+    ]
+    for label, needle in capsule_required:
+        if not isinstance(needle, str):
+            _fail(label, f"non-string needle from capsule: {needle!r}")
+            failures += 1
+            continue
+        if needle in html_text:
+            _ok(label, _truncate(needle))
+        else:
+            _fail(label, f"needle {needle!r} not in HTML")
+            failures += 1
+
     # 3. Negative checks. Case-insensitive to catch <Script>, FETCH(, etc.
     print("\n== forbidden surface ==")
     forbidden = [
         ("no <script> element",             re.compile(r"<\s*script", re.IGNORECASE)),
         ("no fetch( call",                  re.compile(r"\bfetch\s*\(", re.IGNORECASE)),
-        ("no external http(s):// URL",      re.compile(r"https?://", re.IGNORECASE)),
     ]
     for label, regex in forbidden:
         m = regex.search(html_text)
@@ -141,6 +231,18 @@ def main() -> int:
             failures += 1
         else:
             _ok(label)
+
+    # 3b. URL-safety check. The Passport capsule tile renders agent
+    #     records like `mandate:mcp_endpoint` whose value is a URL; we
+    #     allow URLs only when the host is in the Mandate safe-host
+    #     allowlist (RFC 2606/6761 reserved + 127.0.0.1 +
+    #     schemas.mandate.dev). Anything else is a network-leak risk.
+    unsafe_urls = [u for u in URL_PATTERN.findall(html_text) if not _url_is_safe(u)]
+    if unsafe_urls:
+        _fail("no unsafe http(s):// URL", f"found unsafe URLs: {unsafe_urls[:3]}")
+        failures += 1
+    else:
+        _ok("no unsafe http(s):// URL (only RFC 2606 + schemas.mandate.dev)")
 
     # 4. Well-formedness — html.parser is lenient but catches obvious damage.
     print("\n== html parse ==")
@@ -151,7 +253,68 @@ def main() -> int:
         _fail("html.parser", str(e))
         failures += 1
 
-    total = len(required) + len(forbidden) + 1
+    # 5. Capsule failure-state propagation. The trust-badge MUST render
+    #    the "capsule evidence not gathered" placeholder when the capsule
+    #    is missing / parse-failed / wrong-schema / structurally tampered
+    #    — never a fake-OK summary tile.
+    print("\n== capsule failure-state propagation ==")
+    fallback_cases: list[tuple[str, str]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        # missing — no such file.
+        missing_path = Path(tmp) / "no-such-capsule.json"
+        fallback_cases.append(("missing", str(missing_path)))
+        # parse_failed — file exists but is not valid JSON.
+        parse_path = Path(tmp) / "malformed.json"
+        parse_path.write_text("{ this is not valid json", encoding="utf-8")
+        fallback_cases.append(("parse_failed", str(parse_path)))
+        # wrong_schema — valid JSON but schema id is not the expected one.
+        wrong_path = Path(tmp) / "wrong-schema.json"
+        wrong_path.write_text(
+            json.dumps({"schema": "mandate.audit_bundle.v1"}),
+            encoding="utf-8",
+        )
+        fallback_cases.append(("wrong_schema", str(wrong_path)))
+        # tampered — schema matches but a structural invariant fails.
+        fallback_cases.append(("tampered", str(TAMPERED_FIXTURE)))
+        for state, capsule_arg in fallback_cases:
+            out = Path(tmp) / f"index-{state}.html"
+            proc = subprocess.run(
+                [sys.executable, str(BUILD),
+                 "--input", str(FIXTURE),
+                 "--capsule", capsule_arg,
+                 "--output", str(out)],
+                capture_output=True, text=True,
+            )
+            if proc.returncode != 0:
+                _fail(f"capsule {state}: build.py rc={proc.returncode}",
+                      proc.stderr.strip())
+                failures += 1
+                continue
+            html_state = out.read_text(encoding="utf-8")
+            # Honest placeholder must be present.
+            if "capsule evidence not gathered" in html_state:
+                _ok(f"capsule {state}: placeholder rendered")
+            else:
+                _fail(f"capsule {state}: placeholder missing",
+                      "expected 'capsule evidence not gathered' in HTML")
+                failures += 1
+            # And the explicit reason must surface so operators are sent
+            # down the right remediation path — never misdiagnosed.
+            if f"reason=<code>{state}</code>" in html_state:
+                _ok(f"capsule {state}: reason text propagated")
+            else:
+                _fail(f"capsule {state}: reason text not propagated",
+                      f"expected 'reason=<code>{state}</code>'")
+                failures += 1
+
+    # required (demo summary) + capsule_required + forbidden + url-safety
+    # + html.parser + 4 fallback cases × 2 assertions.
+    total = (
+        len(required) + len(capsule_required) + len(forbidden)
+        + 1   # url-safety check
+        + 1   # html.parser
+        + (len(fallback_cases) * 2)
+    )
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")

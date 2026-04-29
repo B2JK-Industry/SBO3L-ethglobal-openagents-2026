@@ -29,6 +29,14 @@ DEFAULT_EVIDENCE = REPO_ROOT / "demo-scripts" / "artifacts" / "latest-operator-e
 DEFAULT_OUTPUT = REPO_ROOT / "operator-console" / "index.html"
 EXPECTED_SCHEMA = "mandate-demo-summary-v1"
 EXPECTED_EVIDENCE_SCHEMA = "mandate-operator-evidence-v1"
+# Passport capsule (P2.2). Defaults point at the post-P2.1 runtime artifacts;
+# during the P2.2 DRAFT phase (P2.1 not yet merged) the runner does not emit
+# these files, so the operator console falls through to the honest "capsule
+# evidence not gathered" placeholder. Tests pin the render path against the
+# on-main golden fixture in `test-corpus/passport/`.
+DEFAULT_CAPSULE_ALLOW = REPO_ROOT / "demo-scripts" / "artifacts" / "passport-allow.json"
+DEFAULT_CAPSULE_DENY = REPO_ROOT / "demo-scripts" / "artifacts" / "passport-deny.json"
+EXPECTED_CAPSULE_SCHEMA = "mandate.passport_capsule.v1"
 
 # --- helpers ---------------------------------------------------------------
 
@@ -449,8 +457,239 @@ def render_bundle_panel(result: dict) -> str:
 # --- main render -----------------------------------------------------------
 
 
+# --- passport capsule (P2.2) ----------------------------------------------
+
+
+def load_capsule(path: Path) -> tuple[dict | None, str]:
+    """
+    Load a `mandate.passport_capsule.v1` capsule emitted by Passport P2.1.
+
+    Returns `(capsule_dict, "ok")` on success, or `(None, reason)` for every
+    failure mode the operator console surfaces explicitly. The "tampered"
+    state is the Python-side mirror of the simple cross-field invariants
+    that `mandate passport verify` rejects, so a tampered capsule renders
+    an honest placeholder instead of a fake-OK tile.
+    """
+    if not path.is_file():
+        return None, "missing"
+    try:
+        with path.open(encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except OSError:
+        return None, "unreadable"
+    except json.JSONDecodeError:
+        return None, "parse_failed"
+    if not isinstance(doc, dict) or doc.get("schema") != EXPECTED_CAPSULE_SCHEMA:
+        return None, "wrong_schema"
+    if _capsule_structural_violation(doc) is not None:
+        return None, "tampered"
+    return doc, "ok"
+
+
+def _capsule_structural_violation(doc: dict) -> str | None:
+    """Mirror of the simple cross-field invariants in
+    `crates/mandate-core/src/passport.rs::verify_capsule`. Returns a one-line
+    reason on failure or None on pass. Python does not verify cryptographic
+    hashes — Rust `mandate passport verify` remains the source of truth."""
+    decision = doc.get("decision") or {}
+    execution = doc.get("execution") or {}
+    audit = doc.get("audit") or {}
+    checkpoint = audit.get("checkpoint") or {}
+    request = doc.get("request") or {}
+    policy = doc.get("policy") or {}
+    receipt = decision.get("receipt") or {}
+
+    if decision.get("result") == "deny":
+        if execution.get("status") != "not_called":
+            return "deny capsule must have execution.status='not_called'"
+        if execution.get("execution_ref") is not None:
+            return "deny capsule must not carry execution.execution_ref"
+
+    if checkpoint.get("mock_anchor") is not True:
+        return "audit.checkpoint.mock_anchor must be true (this build supports only mock anchoring)"
+
+    anchor_ref = checkpoint.get("mock_anchor_ref")
+    if not isinstance(anchor_ref, str) or not anchor_ref.startswith("local-mock-anchor-"):
+        return "audit.checkpoint.mock_anchor_ref must start with 'local-mock-anchor-'"
+
+    if execution.get("mode") == "live":
+        live_evidence = execution.get("live_evidence")
+        if not isinstance(live_evidence, dict) or not live_evidence:
+            return "live mode requires non-empty execution.live_evidence"
+        has_concrete = any(
+            isinstance(live_evidence.get(k), str) and live_evidence.get(k)
+            for k in ("transport", "response_ref", "block_ref")
+        )
+        if not has_concrete:
+            return "live mode requires concrete transport/response_ref/block_ref"
+
+    if request.get("request_hash") != receipt.get("request_hash"):
+        return "request.request_hash must match decision.receipt.request_hash"
+    if policy.get("policy_hash") != receipt.get("policy_hash"):
+        return "policy.policy_hash must match decision.receipt.policy_hash"
+
+    return None
+
+
+_CAPSULE_REASON_TEXT = {
+    "missing":      "capsule file missing",
+    "unreadable":   "capsule file present but unreadable (filesystem error)",
+    "parse_failed": "capsule file present but JSON parse failed",
+    "wrong_schema":
+        f"capsule file present but schema is not '{EXPECTED_CAPSULE_SCHEMA}'",
+    "tampered":
+        "capsule loaded and schema id matches, but a structural invariant "
+        "failed (deny/execution / mock_anchor / live evidence / hash "
+        "consistency). Run `mandate passport verify` for full detail.",
+}
+
+
+def _capsule_reason_text(state: str | None) -> str:
+    return _CAPSULE_REASON_TEXT.get(state, f"capsule not loaded (state={state!r})")
+
+
+def _short_hash(h: str | None, n: int = 12) -> str:
+    if not isinstance(h, str):
+        return ""
+    return h[:n]
+
+
+def _render_capsule_unavailable_tile(label: str, state: str,
+                                     capsule_path: Path) -> str:
+    reason = _capsule_reason_text(state)
+    return f"""
+<article class="capsule-tile unavailable">
+<header>{esc(label)} · {pill("capsule evidence not gathered", "bad")} reason=<code>{esc(state)}</code></header>
+<p class="empty">{esc(reason)}. Expected at <code>{esc(str(capsule_path))}</code> · schema <code>{esc(EXPECTED_CAPSULE_SCHEMA)}</code>.</p>
+<p class="empty">Once Passport P2.1 emits a capsule into <code>demo-scripts/artifacts/</code>, this tile renders the captured proof. Never a fake-OK.</p>
+</article>"""
+
+
+def _render_capsule_tile(label: str, capsule: dict) -> str:
+    agent = capsule.get("agent", {}) or {}
+    records = agent.get("records", {}) or {}
+    policy = capsule.get("policy", {}) or {}
+    decision = capsule.get("decision", {}) or {}
+    execution = capsule.get("execution", {}) or {}
+    audit = capsule.get("audit", {}) or {}
+    checkpoint = audit.get("checkpoint", {}) or {}
+    verification = capsule.get("verification", {}) or {}
+
+    # ENS records: render the raw key/value map, no invented values.
+    if records:
+        record_rows = "\n".join(
+            f'<dt><code>{esc(k)}</code></dt><dd><code>{esc(v)}</code></dd>'
+            for k, v in records.items()
+        )
+        records_block = f'<dl class="kv records">{record_rows}</dl>'
+    else:
+        records_block = '<p class="empty">No records published.</p>'
+
+    # Decision: pill + matched_rule (allow) or pill + deny_code (deny).
+    result = decision.get("result")
+    if result == "allow":
+        decision_block = (
+            f'{pill("Allow", "ok")} · matched_rule=<code>{esc(decision.get("matched_rule"))}</code>'
+        )
+    elif result == "deny":
+        decision_block = (
+            f'{pill("Deny", "ok")} · deny_code=<code>{esc(decision.get("deny_code"))}</code>'
+            + (f' · matched_rule=<code>{esc(decision.get("matched_rule"))}</code>'
+               if decision.get("matched_rule") else "")
+        )
+    else:
+        decision_block = pill("?", "bad") + f' · result=<code>{esc(result)}</code>'
+
+    # Execution: render executor + mode + execution_ref, OR "not_called" pill on deny.
+    if execution.get("status") == "not_called":
+        execution_block = (
+            f'<code>{esc(execution.get("executor"))}</code> '
+            f'{pill("not_called", "neutral")} · execution_ref=<code>{esc(execution.get("execution_ref"))}</code>'
+        )
+    else:
+        execution_block = (
+            f'<code>{esc(execution.get("executor"))}</code> '
+            f'{pill(execution.get("mode") or "?", "neutral")} · '
+            f'execution_ref=<code>{esc(execution.get("execution_ref"))}</code> · '
+            f'status=<code>{esc(execution.get("status"))}</code>'
+        )
+
+    # Audit checkpoint: explicit "mock anchoring, NOT onchain" pill when
+    # mock_anchor is true (the only mode this build supports).
+    if checkpoint.get("mock_anchor") is True:
+        anchor_pill = pill("mock anchoring, NOT onchain", "neutral")
+    else:
+        anchor_pill = pill("?", "bad")
+
+    # verification.live_claims: list of strings; render verbatim or "(none)".
+    live_claims = verification.get("live_claims") or []
+    if isinstance(live_claims, list) and live_claims:
+        live_claims_block = ", ".join(f'<code>{esc(c)}</code>' for c in live_claims)
+    else:
+        live_claims_block = '<span class="na">(none)</span>'
+
+    return f"""
+<article class="capsule-tile {esc(result or "unknown")}">
+<header>{esc(label)} · agent=<code>{esc(agent.get("ens_name"))}</code> · resolver=<code>{esc(agent.get("resolver"))}</code></header>
+<dl class="kv">
+<dt>ENS records</dt><dd>{records_block}</dd>
+<dt>active policy</dt><dd>policy_hash=<code>{esc(_short_hash(policy.get("policy_hash")))}…</code> · version=<code>{esc(policy.get("policy_version"))}</code> · activated_at=<code>{esc(policy.get("activated_at"))}</code> · source=<code>{esc(policy.get("source"))}</code></dd>
+<dt>decision</dt><dd>{decision_block}</dd>
+<dt>execution</dt><dd>{execution_block}</dd>
+<dt>audit checkpoint</dt><dd><code>{esc(checkpoint.get("mock_anchor_ref"))}</code> {anchor_pill} · sequence=<code>{esc(checkpoint.get("sequence"))}</code></dd>
+<dt>verification</dt><dd>doctor_status={pill(verification.get("doctor_status") or "?", "neutral")} · offline_verifiable={expect_pill(verification.get("offline_verifiable"), True, label_ok="yes", label_bad="no")} · live_claims=[{live_claims_block}]</dd>
+</dl>
+</article>"""
+
+
+def render_passport_panel(
+    capsule_allow: dict | None, allow_state: str, allow_path: Path,
+    capsule_deny: dict | None, deny_state: str, deny_path: Path,
+) -> str:
+    """
+    Render the Passport-capsule panel. Stacks one or two tiles depending on
+    which capsules loaded successfully:
+
+      - Allow capsule loads ok       → allow tile rendered with values.
+      - Allow capsule fails          → unavailable tile (placeholder).
+      - Deny capsule loads ok        → deny tile rendered with values.
+      - Deny capsule fails           → unavailable tile (placeholder).
+
+    Both tiles always render — never silently dropped. During the P2.2
+    DRAFT phase only the allow tile usually loads (against the on-main
+    `test-corpus/passport/golden_001_allow_keeperhub_mock.json` fixture);
+    the deny tile renders the honest placeholder until P2.1 emits a deny
+    capsule into `demo-scripts/artifacts/`.
+    """
+    if capsule_allow is not None:
+        allow_block = _render_capsule_tile("Allow capsule", capsule_allow)
+    else:
+        allow_block = _render_capsule_unavailable_tile(
+            "Allow capsule", allow_state, allow_path,
+        )
+    if capsule_deny is not None:
+        deny_block = _render_capsule_tile("Deny capsule", capsule_deny)
+    else:
+        deny_block = _render_capsule_unavailable_tile(
+            "Deny capsule", deny_state, deny_path,
+        )
+    return f"""
+<section class="panel full">
+<h2>Passport capsule (P2.2)</h2>
+<div class="body">
+<p class="empty">Each tile below renders one <code>{esc(EXPECTED_CAPSULE_SCHEMA)}</code> capsule (allow path / deny path). When a capsule file is missing, malformed, or carries the wrong schema, that tile says so explicitly — never a fake-OK.</p>
+{allow_block}
+{deny_block}
+</div>
+</section>"""
+
+
 def render(summary: dict, bundle_result: dict, evidence: dict | None,
-           evidence_state: str | None = None) -> str:
+           evidence_state: str | None = None,
+           capsule_allow: dict | None = None, allow_state: str = "missing",
+           allow_path: Path = DEFAULT_CAPSULE_ALLOW,
+           capsule_deny: dict | None = None, deny_state: str = "missing",
+           deny_path: Path = DEFAULT_CAPSULE_DENY) -> str:
     legit = summary.get("scenarios", {}).get("legit_x402", {}) or {}
     pi = summary.get("scenarios", {}).get("prompt_injection", {}) or {}
     nkp = summary.get("no_key_proof", {}) or {}
@@ -536,6 +775,12 @@ header.top .meta b{{color:#e6edf3;font-weight:500}}
 .group.ok{{color:#3fb950}}
 .group.skip{{color:#d29922}}
 .group.fail{{color:#f85149}}
+.capsule-tile{{border:1px solid #30363d;background:#0e1116;padding:8px 12px;margin:8px 14px}}
+.capsule-tile header{{font-size:12px;color:#e6edf3;margin-bottom:6px;border-bottom:1px solid #21262d;padding-bottom:4px}}
+.capsule-tile.allow{{border-left:3px solid #2ea043}}
+.capsule-tile.deny{{border-left:3px solid #f85149}}
+.capsule-tile.unavailable{{border-left:3px solid #d29922}}
+.records{{padding-left:14px;border-left:1px solid #21262d}}
 footer{{margin-top:6px;color:#8b949e;font-size:11px;border-top:1px solid #30363d;padding-top:10px}}
 footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 </style>
@@ -614,6 +859,8 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 {render_policy_panel(evidence, evidence_state)}
 {render_checkpoint_panel(evidence, evidence_state)}
 
+{render_passport_panel(capsule_allow, allow_state, allow_path, capsule_deny, deny_state, deny_path)}
+
 <footer>
 Generated from <code>demo-scripts/artifacts/latest-demo-summary.json</code>.
 KeeperHub and Uniswap executors are local mocks; ENS uses an offline resolver fixture; the dev signing seeds in <code>mandate-server</code> are deterministic public constants labelled <code>⚠ DEV ONLY ⚠</code>. Mocks remain explicitly labelled.
@@ -649,6 +896,17 @@ def main() -> int:
                              "runner's step 12 with schema 'mandate-operator-evidence-v1'. "
                              "When missing/malformed/wrong-schema, the five real-evidence "
                              "panels render an explicit 'not gathered' placeholder.")
+    parser.add_argument("--capsule-allow", default=str(DEFAULT_CAPSULE_ALLOW),
+                        help="Path to the allow-path Passport capsule "
+                             "(default: %(default)s). Schema "
+                             "'mandate.passport_capsule.v1'. When "
+                             "missing/malformed/wrong-schema, the allow tile "
+                             "renders an explicit 'capsule evidence not "
+                             "gathered' placeholder; never a fake-OK.")
+    parser.add_argument("--capsule-deny", default=str(DEFAULT_CAPSULE_DENY),
+                        help="Path to the deny-path Passport capsule "
+                             "(default: %(default)s). Same schema and "
+                             "placeholder semantics as --capsule-allow.")
     args = parser.parse_args()
 
     in_path = Path(args.input)
@@ -692,9 +950,29 @@ def main() -> int:
             file=sys.stderr,
         )
 
+    allow_path = Path(args.capsule_allow)
+    deny_path = Path(args.capsule_deny)
+    capsule_allow, allow_state = load_capsule(allow_path)
+    capsule_deny, deny_state = load_capsule(deny_path)
+    for label, path, state in (
+        ("allow", allow_path, allow_state),
+        ("deny", deny_path, deny_state),
+    ):
+        if state != "ok":
+            print(
+                f"operator-console: {label} capsule not loaded (state={state}); "
+                f"that tile will render the 'capsule evidence not gathered' "
+                f"placeholder. Expected at {path}.",
+                file=sys.stderr,
+            )
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
-        render(summary, bundle_result, evidence, evidence_state),
+        render(
+            summary, bundle_result, evidence, evidence_state,
+            capsule_allow, allow_state, allow_path,
+            capsule_deny, deny_state, deny_path,
+        ),
         encoding="utf-8",
     )
     print(f"operator-console: wrote {out_path} ({out_path.stat().st_size} bytes)")

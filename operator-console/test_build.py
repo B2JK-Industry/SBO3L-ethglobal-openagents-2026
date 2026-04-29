@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import subprocess
@@ -22,11 +23,82 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build.py"
 FIXTURE = HERE / "fixtures" / "operator-summary.json"
 EVIDENCE_FIXTURE = HERE / "fixtures" / "operator-evidence.json"
+# Passport P2.2 (post-P2.1 rebase): prefer the runtime capsules emitted by
+# the production-shaped runner's step 10b (P2.1 #44). When both runtime
+# artifacts are present, the deny tile is exercised against the REAL deny
+# capsule and the in-memory deny synthesiser is no longer needed. When the
+# runtime artifacts are absent (e.g. CI, which does not run the runner
+# before this test), fall back to the on-main golden allow fixture plus
+# the in-memory deny synthesis. Assertion logic uses values read FROM the
+# loaded capsules, so either source produces a consistent test pass.
+RUNTIME_CAPSULE_ALLOW = HERE.parent / "demo-scripts" / "artifacts" / "passport-allow.json"
+RUNTIME_CAPSULE_DENY = HERE.parent / "demo-scripts" / "artifacts" / "passport-deny.json"
+GOLDEN_CAPSULE_ALLOW = HERE.parent / "test-corpus" / "passport" / "golden_001_allow_keeperhub_mock.json"
+CAPSULE_TAMPERED_FIXTURE = HERE.parent / "test-corpus" / "passport" / "tampered_002_mock_anchor_marked_live.json"
+
+if RUNTIME_CAPSULE_ALLOW.is_file() and RUNTIME_CAPSULE_DENY.is_file():
+    CAPSULE_ALLOW_FIXTURE = RUNTIME_CAPSULE_ALLOW
+    CAPSULE_DENY_FIXTURE: Path | None = RUNTIME_CAPSULE_DENY
+    CAPSULE_SOURCE = "runtime artifacts (demo-scripts/artifacts/passport-{allow,deny}.json)"
+else:
+    CAPSULE_ALLOW_FIXTURE = GOLDEN_CAPSULE_ALLOW
+    CAPSULE_DENY_FIXTURE = None
+    CAPSULE_SOURCE = "on-main golden allow fixture + in-memory deny synthesiser"
+
+SAFE_HOSTS_EXACT = frozenset({
+    "127.0.0.1",
+    "localhost",
+    "schemas.mandate.dev",
+    "example.com",
+    "example.net",
+    "example.org",
+})
+SAFE_HOST_SUFFIXES = (
+    ".invalid",
+    ".example",
+    ".test",
+    ".localhost",
+    ".example.com",
+    ".example.net",
+    ".example.org",
+)
+URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+
+
+def _url_is_safe(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    if host in SAFE_HOSTS_EXACT:
+        return True
+    return any(host.endswith(suffix) for suffix in SAFE_HOST_SUFFIXES)
+
+
+def _synth_deny_capsule(allow: dict) -> dict:
+    """Construct a deny-path capsule by mutating the allow golden in-memory.
+    Used during the P2.2 DRAFT phase before P2.1 emits a runtime
+    `passport-deny.json`. Must produce a structurally-valid capsule (matches
+    every cross-field invariant in load_capsule)."""
+    deny = copy.deepcopy(allow)
+    deny["decision"]["result"] = "deny"
+    deny["decision"]["matched_rule"] = "deny-unknown-provider"
+    deny["decision"]["deny_code"] = "policy.deny_unknown_provider"
+    deny["decision"]["receipt"]["decision"] = "deny"
+    deny["decision"]["receipt"]["deny_code"] = "policy.deny_unknown_provider"
+    deny["decision"]["receipt"]["execution_ref"] = None
+    deny["execution"]["status"] = "not_called"
+    deny["execution"]["execution_ref"] = None
+    return deny
 
 
 def _ok(label: str, hint: str = "") -> None:
@@ -59,14 +131,36 @@ def main() -> int:
     with EVIDENCE_FIXTURE.open(encoding="utf-8") as fh:
         evidence = json.load(fh)
 
+    if not CAPSULE_ALLOW_FIXTURE.is_file():
+        _fail("passport allow capsule fixture not found",
+              str(CAPSULE_ALLOW_FIXTURE))
+        return 1
+    with CAPSULE_ALLOW_FIXTURE.open(encoding="utf-8") as fh:
+        capsule_allow = json.load(fh)
+    print(f"  note: capsule source = {CAPSULE_SOURCE}")
+
     # Drive build.py against both fixtures into a temp file. Generated HTML
-    # must never appear in the working tree from a test run.
+    # must never appear in the working tree from a test run. The Passport
+    # P2.2 panel is exercised against (a) the runtime allow + deny capsules
+    # emitted by the production-shaped runner's step 10b, OR (b) the
+    # on-main golden allow fixture plus an in-memory synthesised deny
+    # capsule when runtime artifacts are absent (CI fallback).
     with tempfile.TemporaryDirectory() as tmp:
+        if CAPSULE_DENY_FIXTURE is not None:
+            with CAPSULE_DENY_FIXTURE.open(encoding="utf-8") as fh:
+                capsule_deny = json.load(fh)
+            deny_path = CAPSULE_DENY_FIXTURE
+        else:
+            capsule_deny = _synth_deny_capsule(capsule_allow)
+            deny_path = Path(tmp) / "synth-deny-capsule.json"
+            deny_path.write_text(json.dumps(capsule_deny), encoding="utf-8")
         out_path = Path(tmp) / "index.html"
         proc = subprocess.run(
             [sys.executable, str(BUILD),
              "--input", str(FIXTURE),
              "--evidence", str(EVIDENCE_FIXTURE),
+             "--capsule-allow", str(CAPSULE_ALLOW_FIXTURE),
+             "--capsule-deny", str(deny_path),
              "--output", str(out_path)],
             capture_output=True, text=True,
         )
@@ -234,12 +328,53 @@ def main() -> int:
         else:
             _ok(f"{backlog_id} not inside any pending-pill")
 
-    # 4. Forbidden surface (case-insensitive).
+    # 3b. Passport-capsule panel (P2.2). Allow tile renders from the
+    #     on-main golden fixture; deny tile renders from an in-memory
+    #     synthesised deny capsule with `execution.status == not_called`.
+    print("\n== passport capsule panel (P2.2) ==")
+    capsule_required = [
+        ("Passport panel header",            "Passport capsule (P2.2)"),
+        ("schema id reference",              "mandate.passport_capsule.v1"),
+        ("Allow tile header",                "Allow capsule"),
+        ("Deny tile header",                 "Deny capsule"),
+        ("agent ens_name (allow tile)",      capsule_allow["agent"]["ens_name"]),
+        ("agent resolver source",            capsule_allow["agent"]["resolver"]),
+        ("ENS record key mandate:policy_hash", "mandate:policy_hash"),
+        ("policy_hash short prefix",         capsule_allow["policy"]["policy_hash"][:12]),
+        ("policy source (allow)",            capsule_allow["policy"]["source"]),
+        ("Allow decision pill in tile",      ">Allow<"),
+        ("matched_rule (allow)",             capsule_allow["decision"]["matched_rule"]),
+        ("Deny decision pill in tile",       ">Deny<"),
+        ("deny_code (deny tile)",            capsule_deny["decision"]["deny_code"]),
+        ("execution executor",               capsule_allow["execution"]["executor"]),
+        ("execution_ref (allow)",            capsule_allow["execution"]["execution_ref"]),
+        ("not_called pill (deny tile)",      ">not_called<"),
+        ("mock_anchor_ref (allow)",          capsule_allow["audit"]["checkpoint"]["mock_anchor_ref"]),
+        ("mock-anchor pill",                 "mock anchoring, NOT onchain"),
+        ("verification doctor_status",       "doctor_status"),
+        ("offline_verifiable yes pill",      ">yes<"),
+        ("live_claims label",                "live_claims"),
+    ]
+    for label, needle in capsule_required:
+        if not isinstance(needle, str):
+            _fail(label, f"non-string needle from capsule: {needle!r}")
+            failures += 1
+            continue
+        if needle in html_text:
+            _ok(label, _truncate(needle))
+        else:
+            _fail(label, f"needle {needle!r} not in HTML")
+            failures += 1
+
+    # 4. Forbidden surface (case-insensitive). The Passport panel renders
+    #    URL values from agent records (e.g. `mandate:mcp_endpoint`), so
+    #    the URL check uses the safe-host allowlist (RFC 2606/6761
+    #    reserved + 127.0.0.1 + schemas.mandate.dev) instead of refusing
+    #    every http(s):// occurrence.
     print("\n== forbidden surface ==")
     forbidden = [
         ("no <script> element",            re.compile(r"<\s*script", re.IGNORECASE)),
         ("no fetch( call",                 re.compile(r"\bfetch\s*\(", re.IGNORECASE)),
-        ("no external http(s):// URL",     re.compile(r"https?://", re.IGNORECASE)),
     ]
     for label, regex in forbidden:
         m = regex.search(html_text)
@@ -248,6 +383,12 @@ def main() -> int:
             failures += 1
         else:
             _ok(label)
+    unsafe_urls = [u for u in URL_PATTERN.findall(html_text) if not _url_is_safe(u)]
+    if unsafe_urls:
+        _fail("no unsafe http(s):// URL", f"found unsafe URLs: {unsafe_urls[:3]}")
+        failures += 1
+    else:
+        _ok("no unsafe http(s):// URL (only RFC 2606 + schemas.mandate.dev)")
 
     # 5. Well-formedness.
     print("\n== html parse ==")
@@ -318,10 +459,66 @@ def main() -> int:
             else:
                 _ok(f"fallback {state}: not misdiagnosed as 'evidence file missing'")
 
-    # required (v1) + evidence_required (v2) + 5×2 negative + forbidden + parse
-    # + 3 fallback states × 2 assertions (phrase present + not misdiagnosed).
-    total = (len(required) + len(evidence_required) + (5 * 2)
-             + len(forbidden) + 1 + (len(fallback_cases) * 2))
+    # 7. Passport capsule fallback-state propagation. Each non-ok state for
+    #    the allow tile (or the deny tile) must surface the SPECIFIC
+    #    "capsule evidence not gathered" placeholder — never a fake-OK
+    #    summary. Mirrors the evidence-load propagation above.
+    print("\n== passport capsule fallback-state propagation ==")
+    capsule_fallback_cases: list[tuple[str, str]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        missing_capsule = Path(tmp) / "no-such-capsule.json"
+        capsule_fallback_cases.append(("missing", str(missing_capsule)))
+        parse_capsule = Path(tmp) / "malformed-capsule.json"
+        parse_capsule.write_text("{ this is not valid json", encoding="utf-8")
+        capsule_fallback_cases.append(("parse_failed", str(parse_capsule)))
+        wrong_capsule = Path(tmp) / "wrong-schema-capsule.json"
+        wrong_capsule.write_text(
+            json.dumps({"schema": "mandate.audit_bundle.v1"}),
+            encoding="utf-8",
+        )
+        capsule_fallback_cases.append(("wrong_schema", str(wrong_capsule)))
+        capsule_fallback_cases.append(("tampered", str(CAPSULE_TAMPERED_FIXTURE)))
+        for state, capsule_arg in capsule_fallback_cases:
+            out = Path(tmp) / f"index-capsule-{state}.html"
+            proc = subprocess.run(
+                [sys.executable, str(BUILD),
+                 "--input", str(FIXTURE),
+                 "--evidence", str(EVIDENCE_FIXTURE),
+                 "--capsule-allow", capsule_arg,
+                 "--capsule-deny", str(missing_capsule),
+                 "--output", str(out)],
+                capture_output=True, text=True,
+            )
+            if proc.returncode != 0:
+                _fail(f"capsule {state}: build.py rc={proc.returncode}",
+                      proc.stderr.strip())
+                failures += 1
+                continue
+            html_state = out.read_text(encoding="utf-8")
+            if "capsule evidence not gathered" in html_state:
+                _ok(f"capsule {state}: placeholder rendered")
+            else:
+                _fail(f"capsule {state}: placeholder missing",
+                      "expected 'capsule evidence not gathered' in HTML")
+                failures += 1
+            if f"reason=<code>{state}</code>" in html_state:
+                _ok(f"capsule {state}: reason text propagated")
+            else:
+                _fail(f"capsule {state}: reason text not propagated",
+                      f"expected 'reason=<code>{state}</code>'")
+                failures += 1
+
+    # required (v1) + evidence_required (v2) + 5×2 negative + capsule_required
+    # + forbidden (script/fetch) + url-safety + parse + 3 evidence fallback
+    # states × 2 + 4 capsule fallback states × 2.
+    total = (
+        len(required) + len(evidence_required) + (5 * 2)
+        + len(capsule_required)
+        + len(forbidden) + 1   # url-safety
+        + 1                    # html.parser
+        + (len(fallback_cases) * 2)
+        + (len(capsule_fallback_cases) * 2)
+    )
     print()
     if failures == 0:
         print(f"PASS: {total} checks ok")
