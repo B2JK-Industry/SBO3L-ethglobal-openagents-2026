@@ -2,15 +2,14 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **Mandate**.
 
-**Last updated:** 2026-04-29
-**Branch:** `main` (HEAD `f789db8` — post-B2.v2)
-**Phase:** submission. `main` is implemented, reproducible, and ready to submit.
-**Open implementation PRs:** **1** — A-side [#38](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/38) `fix: self-review truthfulness pass` (DIRTY against current `main`; A-side author rebases). The B5 PR for this snapshot is open separately and does not block submission.
+**Last updated:** 2026-04-29 (post Passport P5.1 + P7.1)
+**Branch:** `main` (HEAD `8a198c5` — post `feat: KeeperHub mandate_* envelope helper (Passport P5.1, IP-1) (#51)`)
+**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired (Passport P7.2 in flight).
+**Open implementation PRs:** **1** open at audit time — [#48](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/48) `docs(audit): KeeperHub IP-1..IP-5 implementation-audit findings` (DRAFT, doc-only, B-side, awaiting Daniel review). This Passport P7.2 PR is open separately and does not block submission.
 **CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI` + trust-badge regression test).
 **Blockers:** none.
 
-For the **B5 final audit (current snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md).
-For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
+For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md). For the **KeeperHub IP-1..IP-5 implementation audit** see [PR #48](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/48) (DRAFT, doc-only, not yet on `main`; awaiting Daniel review). For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
 
 ## Verification summary
 
@@ -18,15 +17,15 @@ For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) s
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --all-targets` | ✅ **292 / 292 pass** (0 fail, 0 ignored) |
+| `cargo test --workspace --all-targets` | ✅ **300 / 300 pass** (0 fail, 0 ignored) |
 | `python3 scripts/validate_schemas.py` | ✅ (6 schemas + 4 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |
 | `bash demo-scripts/run-production-shaped-mock.sh` | ✅ **Tally: 26 real, 0 mock, 1 skipped** — PSM-A1.9 mock-KMS lifecycle + PSM-A2 four-case Idempotency-Key matrix + PSM-A3 active-policy lifecycle + **PSM-A4 audit checkpoint create/verify with mock anchoring** + PSM-A5 doctor + Passport P2.1 capsule emit/verify all walked end-to-end, plus step 12 emits the `mandate-operator-evidence-v1` transcript consumed by the operator console; only the optional `--include-final-demo` flag remains on the SKIPPED list |
 | `python3 trust-badge/build.py` | ✅ writes `trust-badge/index.html` (self-contained, no JS, no fetch) |
-| `python3 trust-badge/test_build.py` | ✅ 31 stdlib assertions on the rendered HTML |
+| `python3 trust-badge/test_build.py` | ✅ **49 stdlib assertions** on the rendered HTML (capsule summary tile + 4 fallback states added in Passport P2.2) |
 | `python3 operator-console/build.py` | ✅ writes `operator-console/index.html` (self-contained, no JS, no fetch) — renders the `mandate-demo-summary-v1` transcript plus the `mandate-operator-evidence-v1` evidence transcript, with one real panel per merged A-side surface |
-| `python3 operator-console/test_build.py` | ✅ 83 stdlib assertions (B2.v2 real-evidence panels — PSM-A2 + PSM-A5 + PSM-A1.9 + PSM-A3 + PSM-A4 — render values pulled directly from the evidence fixture; explicit negative assertions verify none of the five PSM-A* rows ever appear inside a `pill blocked` or `pill pending`) |
+| `python3 operator-console/test_build.py` | ✅ **118 stdlib assertions** (B2.v2 real-evidence panels — PSM-A2 + PSM-A5 + PSM-A1.9 + PSM-A3 + PSM-A4 — plus the Passport P2.2 capsule panel with both allow + deny tiles and 4 capsule fallback states) |
 | `python3 demo-fixtures/test_fixtures.py` | ✅ 4 mock fixtures clean + url-allowlist self-test |
 
 ## What is implemented
@@ -57,6 +56,11 @@ Full Open Agents vertical:
 - Audit checkpoints + mock anchoring: `mandate audit checkpoint {create, verify}` (PSM-A4) backed by SQLite migration V007 (`audit_checkpoints` table). This is **mock anchoring**, NOT real onchain anchoring — the `mock_anchor_ref` is a deterministic local id, never broadcast and never attested by any chain. Every CLI line carries a `mock-anchor:` prefix; `mock_anchor: true` is in every JSON artifact; the verifier refuses any artifact with `mock_anchor: false`. Documented in `docs/cli/audit-checkpoint.md`.
 - Active-policy lifecycle: `mandate policy {validate, current, activate, diff}` (PSM-A3) backed by SQLite migration V006 (`active_policy` table with partial UNIQUE singleton index). Local lifecycle, not remote governance — `docs/cli/policy.md` documents the scope honestly.
 - Static, offline trust-badge proof viewer (`trust-badge/build.py`, stdlib Python) + stdlib regression test (`trust-badge/test_build.py`). No JS, no fetch, works from `file://`.
+- **Mandate Passport capsule schema + verifier + CLI** (`schemas/mandate.passport_capsule.v1.json`, `crates/mandate-core/src/passport.rs`, `crates/mandate-cli/src/passport.rs`, Passport P1.1 + P2.1). `mandate passport run` drives the existing `POST /v1/payment-requests` pipeline in-process, reads back the audit event, builds a checkpoint, and self-verifies the capsule before atomic write. `mandate passport verify` runs the structural verifier against any capsule. 8 tampered fixtures pin every cross-field invariant.
+- **MCP-callable Mandate gateway** (`crates/mandate-mcp/`, Passport P3.1) — stdio JSON-RPC 2.0 server exposing `mandate.validate_aprp`, `mandate.decide`, `mandate.run_guarded_execution`, `mandate.verify_capsule`, and `mandate.audit_lookup` (the IP-3 sister tool to KeeperHub's proposed `keeperhub.lookup_execution`). 22 integration tests across in-process dispatch and stdio child-process transport. Judge-facing walk-through: [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md) (Passport P3.2). Sponsor demo: `bash demo-scripts/sponsors/mcp-passport.sh` (writes `demo-scripts/artifacts/mcp-transcript.json`).
+- **KeeperHub `mandate_*` envelope helper** (`crates/mandate-execution/src/keeperhub.rs::KeeperHubEnvelope`, Passport P5.1, IP-1) — composes `mandate_request_hash` + `mandate_policy_hash` + `mandate_receipt_signature` + `mandate_audit_event_id` (target: `mandate_passport_capsule_hash`) directly from an existing `PolicyReceipt` so a `KeeperHubExecutor::live()` body can drop it onto the workflow webhook submission. **Helper shipped; the live HTTP wiring is still gated on KeeperHub publishing a stable submission/result schema** (see `docs/keeperhub-live-spike.md` §Open questions).
+- **GuardedExecutor / ExecutionReceipt / ExecutionError moved to `mandate-core`** (`crates/mandate-core/src/execution.rs`, post-P5.1 IP-4 prerequisite, [#49](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/49)) — re-exported from `mandate-execution::lib` for back-compat. The standalone `mandate-keeperhub-adapter` crate that an `cargo add` consumer would pull (full IP-4) is still target; the type-move that unblocks it is on `main`.
+- **GitHub Pages public proof site** (`.github/workflows/pages.yml` + `site/index.html`, Passport P7.1) — deploys from `main`. Renders the trust-badge + operator-console + a downloadable Passport capsule into a stable static URL. Plain HTML, no JS, no client-side network calls, no external asset; byte-grep-clean against the same safe-host allowlist as `demo-fixtures/test_fixtures.py`.
 
 ## Surfaces a judge can verify
 
