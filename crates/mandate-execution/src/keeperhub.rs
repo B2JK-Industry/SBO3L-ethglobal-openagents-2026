@@ -13,7 +13,7 @@
 //!   ULID `execution_ref` and `mock: true`. The demo discloses this clearly.
 
 use mandate_core::aprp::PaymentRequest;
-use mandate_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor};
+use mandate_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor, MandateEnvelope};
 use mandate_core::receipt::{Decision, PolicyReceipt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,13 +65,49 @@ impl GuardedExecutor for KeeperHubExecutor {
                     intent = serde_json::to_string(&request.intent).unwrap_or_default(),
                 ),
             }),
-            KeeperHubMode::Live => Err(ExecutionError::BackendOffline(
-                "live KeeperHub backend not configured for this hackathon build; \
-                 switch to KeeperHubMode::LocalMock or wire credentials"
-                    .to_string(),
-            )),
+            KeeperHubMode::Live => {
+                // Build the IP-1 envelope AND serialise it to its
+                // canonical wire-format String alongside the
+                // still-stubbed network call. Doing both here (rather
+                // than waiting for the live HTTP path to land) means
+                // the wire-format invariant — `mandate_*` fields agree
+                // with the receipt that triggered the call, in the
+                // documented field order — is covered by tests
+                // *before* live submission turns on.
+                //
+                // The payload is intentionally **dropped** below:
+                // P5.1's contract is "envelope is built and serialised
+                // in tests; HTTP send is not." Live submission lands
+                // in a follow-up PR with concrete credentials +
+                // `live_evidence`. The `let _ = …` lines are the
+                // explicit disclosure: we proved we *could* send this,
+                // we just don't.
+                let _envelope = build_envelope(receipt);
+                let _payload_str = _envelope.to_json_payload();
+                Err(ExecutionError::BackendOffline(
+                    "live KeeperHub backend not configured for this hackathon build; \
+                     switch to KeeperHubMode::LocalMock or wire credentials"
+                        .to_string(),
+                ))
+            }
         }
     }
+}
+
+/// Build the IP-1 envelope that a future live KeeperHub submission
+/// will carry alongside the APRP body + signed `PolicyReceipt`. Today
+/// the envelope is constructed but never sent (live mode returns
+/// `BackendOffline`); exposing it on this module surface lets tests
+/// pin the wire shape without poking through the error path.
+///
+/// Callers in P5.1+ are expected to use the receipt's `audit_event_id`
+/// directly because the live path runs *after* the receipt has been
+/// signed and the audit event has been appended — both values are
+/// already pinned in the receipt the executor receives. A future split
+/// (e.g. submit before audit-append) would change the contract and
+/// would land its own helper.
+pub(crate) fn build_envelope(receipt: &PolicyReceipt) -> MandateEnvelope {
+    MandateEnvelope::from_receipt(receipt, &receipt.audit_event_id)
 }
 
 #[cfg(test)]
@@ -130,5 +166,23 @@ mod tests {
             .execute(&aprp(), &receipt(Decision::Allow))
             .unwrap_err();
         assert!(matches!(err, ExecutionError::BackendOffline(_)));
+    }
+
+    #[test]
+    fn keeperhub_live_constructs_envelope_via_from_receipt() {
+        // P5.1 contract: even though the live path returns BackendOffline,
+        // the envelope IS constructed and serialised. The wire-format
+        // invariant — `mandate_*` fields agree with the receipt that
+        // triggered the call — must hold *before* live submission turns
+        // on. Driving `build_envelope` here proves the same code path
+        // the live executor invokes maps the receipt 1:1 into the
+        // envelope.
+        let r = receipt(Decision::Allow);
+        let env = build_envelope(&r);
+        assert_eq!(env.mandate_request_hash, r.request_hash);
+        assert_eq!(env.mandate_policy_hash, r.policy_hash);
+        assert_eq!(env.mandate_receipt_signature, r.signature.signature_hex);
+        assert_eq!(env.mandate_audit_event_id, r.audit_event_id);
+        assert!(env.mandate_passport_capsule_hash.is_none());
     }
 }

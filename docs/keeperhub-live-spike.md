@@ -114,6 +114,18 @@ KeeperHub's actual schema will override; the four `mandate_*` fields are
 the only ones we need first-class on KeeperHub's side (per `FEEDBACK.md`
 §KeeperHub → "Suggested improvements").
 
+The `mandate_*` block is built and serialised by
+[`MandateEnvelope::to_json_payload()`](../crates/mandate-core/src/execution.rs)
+(landed in P5.1 / PR #51). `mandate_request_hash`,
+`mandate_policy_hash`, and `mandate_receipt_signature` come straight off
+the signed `PolicyReceipt`; `mandate_audit_event_id` is the receipt's
+own `audit_event_id` (already pinned to the just-appended audit chain
+event when the executor receives the receipt). The optional fifth field
+`mandate_passport_capsule_hash` is set via
+[`MandateEnvelope::with_passport_capsule()`](../crates/mandate-core/src/execution.rs)
+once a Passport capsule URI is published (P7.1); it is `serde(skip_serializing_if = "Option::is_none")`,
+so pre-Passport KeeperHub deployments don't see the field at all.
+
 ```http
 POST {webhook_url}
 Content-Type: application/json
@@ -122,12 +134,21 @@ Authorization: Bearer {token}
 {
   "aprp": { … the canonical APRP body, JCS-canonical bytes … },
   "policy_receipt": { … the signed PolicyReceipt JSON … },
-  "mandate_request_hash":      "<jcs-sha256-hex of aprp>",
-  "mandate_policy_hash":       "<canonical hash of the active policy>",
-  "mandate_receipt_signature": "<ed25519 hex>",
-  "mandate_audit_event_id":    "evt-<ULID>"
+  "mandate_request_hash":           "<jcs-sha256-hex of aprp>",
+  "mandate_policy_hash":            "<canonical hash of the active policy>",
+  "mandate_receipt_signature":      "<ed25519 hex>",
+  "mandate_audit_event_id":         "evt-<ULID>",
+  "mandate_passport_capsule_hash":  "<jcs-sha256-hex of capsule, omitted pre-Passport>"
 }
 ```
+
+The envelope IS constructed inside `KeeperHubExecutor::execute()`'s
+`Live` arm today, even though the live network call still returns
+`BackendOffline` (see PR #51's `keeperhub_live_constructs_envelope_via_from_receipt`
+test). That ordering — build the wire-format envelope *before* live
+submission turns on — is deliberate: it pins the `mandate_*` fields
+under regression tests in CI, so a future receipt-shape change can't
+silently desync the envelope from the receipt that triggered the call.
 
 Expected response (target shape — see [`FEEDBACK.md`](../FEEDBACK.md) §KeeperHub for the schema-publication ask):
 
