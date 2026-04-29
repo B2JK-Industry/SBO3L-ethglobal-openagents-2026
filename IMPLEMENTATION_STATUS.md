@@ -2,11 +2,11 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-04-29 (post Passport P5.1 + P7.1)
-**Branch:** `main` (HEAD `8a198c5` — post `feat: KeeperHub sbo3l_* envelope helper (Passport P5.1, IP-1) (#51)`)
-**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired (Passport P7.2 in flight).
-**Open implementation PRs:** **1** open at audit time — [#48](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/48) `docs(audit): KeeperHub IP-1..IP-5 implementation-audit findings` (DRAFT, doc-only, B-side, awaiting Daniel review). This Passport P7.2 PR is open separately and does not block submission.
-**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI` + trust-badge regression test).
+**Last updated:** 2026-04-29 (post Uniswap P6.1 + rebrand to SBO3L)
+**Branch:** `main` (HEAD `6ffb5eb` — post `feat: Uniswap P6.1 — Passport capsule quote evidence (#57)`, with rebrand `(#58)` and standalone KeeperHub adapter `(#56)` already in)
+**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired. Polishing and dev review in flight (Dev A positioning + sponsor depth, Dev B cryptographic verifier + IP audit).
+**Open implementation PRs:** **2** open at audit time — [#59](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/59) `chore: align repo URL references with new SBO3L slug` and the present cleanup PR (`chore: post-rename truth + brand cleanup`). Both chore-only; neither blocks submission.
+**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
 **Blockers:** none.
 
 For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md). For the **KeeperHub IP-1..IP-5 implementation audit** see [PR #48](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/48) (DRAFT, doc-only, not yet on `main`; awaiting Daniel review). For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
@@ -17,7 +17,7 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --all-targets` | ✅ **300 / 300 pass** (0 fail, 0 ignored) |
+| `cargo test --workspace --all-targets` | ✅ **317 / 317 pass** (0 fail, 0 ignored) |
 | `python3 scripts/validate_schemas.py` | ✅ (6 schemas + 4 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |

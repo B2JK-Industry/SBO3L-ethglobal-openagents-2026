@@ -39,7 +39,7 @@ All implementation code in this repository:
 - **KeeperHub `sbo3l_*` envelope helper** (`sbo3l_keeperhub_adapter::build_envelope`, Passport P5.1, IP-1) — composes `sbo3l_request_hash` / `sbo3l_policy_hash` / `sbo3l_receipt_signature` / `sbo3l_audit_event_id` directly from an existing `PolicyReceipt`. Helper shipped; live KeeperHub HTTP wiring still gated on KeeperHub publishing a stable submission/result schema (open questions in `docs/keeperhub-live-spike.md`).
 - **Standalone `sbo3l-keeperhub-adapter` workspace crate** (IP-4) — `KeeperHubExecutor`, `GuardedExecutor` re-exports, `build_envelope`, README, changelog and runnable example live under `crates/sbo3l-keeperhub-adapter/`; `sbo3l-execution` re-exports it for back-compat. Crates.io publication remains a target, not a shipped claim.
 - **GitHub Pages public proof site** (`.github/workflows/pages.yml` + `site/index.html`, Passport P7.1) — deploys from `main` to `https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/`. Plain HTML, no JS, no client-side network calls; same offline-only ground rules as trust-badge / operator-console.
-- CI: fmt, clippy, tests (310 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
+- CI: fmt, clippy, tests (317 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
 - Production-shaped mock runner: `bash demo-scripts/run-production-shaped-mock.sh` walks the operator surface end-to-end (doctor, mock KMS CLI, full PSM-A3 policy lifecycle, **PSM-A4 audit checkpoint create/verify with mock anchoring**, persistent SQLite allow + deny, audit-bundle export, Passport P2.1 capsule emit/verify, plus the `sbo3l-operator-evidence-v1` transcript consumed by the operator console). Tally: **26 real / 0 mock / 1 skipped** — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list.
 - Self-audit artefact: [`SECURITY_NOTES.md`](SECURITY_NOTES.md) documents the known scope limitations a production deployment would need to address (daemon authentication, production signer wiring, budget tracker persistence, idempotency in-flight semantics, Passport verifier scope). Honest disclosure, not a roadmap promise.
 
@@ -65,7 +65,7 @@ These are documentation/specifications, not prior product code. See [`AI_USAGE.m
 - KeeperHub adapter — local mock (`KeeperHubExecutor::local_mock()`). The adapter boundary is real; the live constructor exists but is not exercised in the demo.
 - Uniswap adapter — local mock (`UniswapExecutor::local_mock()`). The swap-policy guard runs before any executor call. `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`.
 - Signing seeds — deterministic dev seeds in `AppState::new` are public and demo-only. Production deployments inject real signers via `AppState::with_signers`. We do not claim production readiness for TEE/HSM in this build.
-- There is **no** `MANDATE_*_LIVE` environment variable feature flag in this build.
+- There is **no** `SBO3L_*_LIVE` environment variable feature flag in this build.
 
 ## Known limitations (hackathon scope)
 
