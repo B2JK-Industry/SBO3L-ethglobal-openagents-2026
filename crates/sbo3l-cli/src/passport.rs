@@ -842,7 +842,28 @@ fn call_mock_executor(
     );
     block.insert("status".into(), Value::String("submitted".to_string()));
     block.insert("sponsor_payload_hash".into(), Value::Null);
+    // P6.1: `live_evidence` stays Null in mock mode — the verifier's
+    // bidirectional invariant (mock ⇒ no `live_evidence`, live ⇒
+    // `live_evidence` populated with a concrete transport/response/
+    // block ref) is unchanged by this round of work. Sponsor-specific
+    // business evidence goes into the NEW optional `executor_evidence`
+    // slot below: it is mode-agnostic (the schema permits it in both
+    // mock and live modes) and `additionalProperties: true`, so each
+    // sponsor adapter can carry its own structured payload without
+    // another schema bump.
     block.insert("live_evidence".into(), Value::Null);
+    // Uniswap's `LocalMock` arm attaches a 10-field
+    // `UniswapQuoteEvidence` payload via `ExecutionReceipt.evidence`;
+    // KeeperHub leaves it `None` today. Forward `None` → omit the
+    // field (the schema's `oneOf null/object` accepts a missing
+    // field; the executor_evidence_null_accepted unit test pins
+    // this), `Some(obj)` → the object verbatim. An executor that
+    // ever produces `Some(empty_object)` would trip the schema's
+    // `minProperties: 1`; the self-verify step at the end of
+    // `cmd_run` catches that before the file is written.
+    if let Some(evidence) = exec_receipt.evidence {
+        block.insert("executor_evidence".into(), evidence);
+    }
     Ok(block)
 }
 

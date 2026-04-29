@@ -31,6 +31,26 @@ pub struct ExecutionReceipt {
     pub execution_ref: String,
     pub mock: bool,
     pub note: String,
+    /// Sponsor-specific evidence captured at execution time. Today this
+    /// is populated by the Uniswap mock executor with a
+    /// `UniswapQuoteEvidence` payload (P6.1 — see
+    /// `sbo3l_execution::uniswap::UniswapQuoteEvidence`); KeeperHub
+    /// leaves it `None`. The CLI's `passport run` reads this field and
+    /// puts the value into the capsule's NEW
+    /// `execution.executor_evidence` slot (P6.1 schema bump — distinct
+    /// from the transport-level `live_evidence` slot, which stays
+    /// strictly live-only via the verifier's bidirectional invariant).
+    /// The schema requires `executor_evidence` to be either `null` /
+    /// omitted, or a non-empty object (`minProperties: 1`,
+    /// `additionalProperties: true`).
+    ///
+    /// `None` means "no sponsor evidence captured" and the CLI omits
+    /// the field from the capsule's `execution` block (the schema
+    /// permits the missing field via the `oneOf null / object` slot).
+    /// To attach evidence, executors set this to
+    /// `Some(serde_json::Value::Object(map))` where the map has at
+    /// least one property.
+    pub evidence: Option<serde_json::Value>,
 }
 
 /// Contract every sponsor adapter implements. An executor takes a

@@ -207,6 +207,114 @@ pub fn evaluate_swap(
     SwapPolicyOutcome { blocked, checks }
 }
 
+// ---------------------------------------------------------------------------
+// P6.1 — Uniswap quote evidence
+// ---------------------------------------------------------------------------
+
+/// Compact ref to a token in the IP-1 / capsule-evidence wire form.
+/// Mirrors what a real Uniswap V3 router quote response carries; the
+/// mock variant uses the demo-fixture sentinel addresses
+/// (`0x111…111` for treasury allowlist, `0x999…999` for the rug case)
+/// so reviewers can grep for them across logs and capsules.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TokenRef {
+    pub symbol: String,
+    pub address: String,
+}
+
+/// Sponsor-specific evidence captured by `UniswapExecutor` when an
+/// allow-path swap goes through. Surfaced verbatim through
+/// `ExecutionReceipt.evidence` and serialised into the capsule's
+/// `execution.executor_evidence` slot by `sbo3l passport run`. The
+/// schema constrains `executor_evidence` to be either `null`, omitted,
+/// or a non-empty object (`oneOf null / object minProperties:1`,
+/// `additionalProperties: true`); the ten fields below all serialise
+/// to the same JSON shape, so an auditor reading the capsule sees the
+/// same wire form they would from a real Uniswap V3 router quote.
+///
+/// `executor_evidence` is *mode-agnostic* — distinct from the
+/// transport-level `live_evidence` slot (strictly live-only via the
+/// verifier's bidirectional invariant). A mock allow path therefore
+/// emits `live_evidence: null` AND a populated `executor_evidence`,
+/// which is exactly what the demo's `uniswap-guarded-swap.sh` step
+/// pins.
+///
+/// The struct is **mock-only today**: `quote_source` is hard-coded to
+/// `"mock-uniswap-v3-router"` and the quote_id carries a `mock-…`
+/// prefix, so demo output cannot accidentally pass for a live quote.
+/// When live trading lands (P6.1 follow-up), the constructor signature
+/// changes to take a real quote and `quote_source` flips to the real
+/// router endpoint URL.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UniswapQuoteEvidence {
+    pub quote_id: String,
+    pub quote_source: String,
+    pub input_token: TokenRef,
+    pub output_token: TokenRef,
+    pub route_tokens: Vec<TokenRef>,
+    pub notional_in: String,
+    pub slippage_cap_bps: u32,
+    pub quote_timestamp_unix: i64,
+    pub quote_freshness_seconds: u32,
+    pub recipient_address: String,
+}
+
+impl UniswapQuoteEvidence {
+    /// Build a deterministic mock evidence payload from the request the
+    /// executor is about to run. Fields not derivable from `request`
+    /// (slippage cap, freshness window, treasury recipient) come from
+    /// the demo-fixture defaults (`50 bps`, `30 s`, the
+    /// `0x111…111` recipient sentinel) so the wire shape matches what
+    /// the demo's `evaluate_swap` consumes.
+    ///
+    /// Designed for the executor's `LocalMock` arm only — see
+    /// `UniswapExecutor::execute`. Live mode currently returns
+    /// `BackendOffline` and never invokes this constructor.
+    pub fn mock_from_request(request: &PaymentRequest) -> Self {
+        let now = chrono::Utc::now().timestamp();
+        let notional_in = request.amount.value.clone();
+        Self {
+            quote_id: format!("mock-uniswap-quote-{}", ulid::Ulid::new()),
+            quote_source: "mock-uniswap-v3-router".to_string(),
+            input_token: TokenRef {
+                symbol: "USDC".to_string(),
+                address: "0x0000000000000000000000000000000000000000".to_string(),
+            },
+            output_token: TokenRef {
+                symbol: "ETH".to_string(),
+                address: "0x0000000000000000000000000000000000000001".to_string(),
+            },
+            route_tokens: vec![
+                TokenRef {
+                    symbol: "USDC".to_string(),
+                    address: "0x0000000000000000000000000000000000000000".to_string(),
+                },
+                TokenRef {
+                    symbol: "ETH".to_string(),
+                    address: "0x0000000000000000000000000000000000000001".to_string(),
+                },
+            ],
+            notional_in,
+            slippage_cap_bps: 50,
+            quote_timestamp_unix: now,
+            quote_freshness_seconds: 30,
+            recipient_address: "0x1111111111111111111111111111111111111111".to_string(),
+        }
+    }
+
+    /// Serialise to a `serde_json::Value::Object` for embedding in
+    /// `ExecutionReceipt.evidence` and downstream
+    /// `execution.executor_evidence`. Always returns an `Object` with
+    /// at least 10 properties, satisfying the capsule schema's
+    /// `executor_evidence.minProperties: 1` invariant.
+    pub fn to_value(&self) -> serde_json::Value {
+        serde_json::to_value(self)
+            .expect("UniswapQuoteEvidence's #[derive(Serialize)] is infallible for owned fields")
+    }
+}
+
 /// Guarded executor mirroring KeeperHub's pattern. Refuses anything that is
 /// not an explicit `allow` policy receipt before any sponsor backend is
 /// touched.
@@ -249,16 +357,29 @@ impl GuardedExecutor for UniswapExecutor {
             return Err(ExecutionError::NotApproved(receipt.decision.clone()));
         }
         match self.mode {
-            UniswapMode::LocalMock => Ok(ExecutionReceipt {
-                sponsor: "uniswap",
-                execution_ref: format!("uni-{}", ulid::Ulid::new()),
-                mock: true,
-                note: format!(
-                    "local mock: would route {agent}/{intent} via Uniswap Trading API",
-                    agent = request.agent_id,
-                    intent = serde_json::to_string(&request.intent).unwrap_or_default(),
-                ),
-            }),
+            UniswapMode::LocalMock => {
+                // P6.1: attach concrete quote evidence on the allow path.
+                // The CLI's `passport run` reads `ExecutionReceipt.evidence`
+                // and copies it into `capsule.execution.executor_evidence`
+                // (NOT `live_evidence` — that slot is strictly transport
+                // -level and live-only via the verifier's bidirectional
+                // invariant). The schema requires `executor_evidence` to
+                // be either `null` / omitted, or an object with at least
+                // one property; `UniswapQuoteEvidence::to_value`
+                // satisfies the latter (10 properties).
+                let evidence = UniswapQuoteEvidence::mock_from_request(request).to_value();
+                Ok(ExecutionReceipt {
+                    sponsor: "uniswap",
+                    execution_ref: format!("uni-{}", ulid::Ulid::new()),
+                    mock: true,
+                    note: format!(
+                        "local mock: would route {agent}/{intent} via Uniswap Trading API",
+                        agent = request.agent_id,
+                        intent = serde_json::to_string(&request.intent).unwrap_or_default(),
+                    ),
+                    evidence: Some(evidence),
+                })
+            }
             UniswapMode::Live => Err(ExecutionError::BackendOffline(
                 "live Uniswap backend not configured for this hackathon build; \
                  switch to UniswapMode::LocalMock or wire credentials"

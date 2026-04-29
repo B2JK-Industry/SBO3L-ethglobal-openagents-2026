@@ -233,6 +233,13 @@
               }
             }
           ]
+        },
+        "executor_evidence": {
+          "description": "Sponsor-specific business evidence (e.g. Uniswap quote shape, KeeperHub IP-1 envelope). Optional; omitted or null when not populated. Mode-agnostic (allowed in both mock and live modes, unlike the transport-level `live_evidence` slot which is strictly live-only). additionalProperties: true so sponsor adapters can carry their own structured data without further schema bumps.",
+          "oneOf": [
+            { "type": "null" },
+            { "type": "object", "minProperties": 1, "additionalProperties": true }
+          ]
         }
       }
     },

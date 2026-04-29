@@ -418,6 +418,86 @@ mod tests {
         assert_eq!(err.code(), "capsule.schema_invalid", "{err}");
     }
 
+    // -----------------------------------------------------------------
+    // P6.1 — `execution.executor_evidence` (mode-agnostic sponsor slot)
+    // -----------------------------------------------------------------
+    //
+    // The verifier adds NO new cross-field invariant for
+    // `executor_evidence`: the schema is the single source of truth for
+    // the slot's shape (`oneOf null / object minProperties:1`,
+    // `additionalProperties: true`). The two tests below pin the two
+    // behaviours the verifier MUST exhibit:
+    //
+    // 1. A capsule with `executor_evidence: null` (or omitted) verifies.
+    // 2. A capsule with arbitrary, freeform `executor_evidence` content
+    //    verifies — the schema validates the slot's shape; the
+    //    bidirectional `live_evidence` invariant continues to hold
+    //    because `executor_evidence` is a separate slot.
+
+    #[test]
+    fn executor_evidence_null_accepted() {
+        // The golden allow capsule omits `executor_evidence` entirely
+        // (the schema's `oneOf null / object` accepts a missing field
+        // when the property has no required entry). Adding `null`
+        // explicitly should also pass — both forms are equivalent on
+        // the wire and the verifier must treat them identically.
+        let v_missing = corpus("golden_001_allow_keeperhub_mock.json");
+        verify_capsule(&v_missing).expect("golden (executor_evidence missing) must verify");
+
+        let mut v_null = corpus("golden_001_allow_keeperhub_mock.json");
+        v_null["execution"]
+            .as_object_mut()
+            .unwrap()
+            .insert("executor_evidence".into(), Value::Null);
+        verify_capsule(&v_null).expect("explicit executor_evidence: null must verify");
+    }
+
+    #[test]
+    fn executor_evidence_arbitrary_object_accepted() {
+        // The schema is `additionalProperties: true` for the
+        // executor_evidence slot, so any non-empty object passes
+        // schema-level validation. The verifier (this module) adds no
+        // shape rules of its own — sponsor adapters carry their own
+        // structured payload here. We pin both a single-key shape
+        // (KeeperHub IP-1 envelope progenitor) and a Uniswap-flavoured
+        // multi-key shape so the test fails closed if a future change
+        // accidentally tightens the slot.
+        let mut v_min = corpus("golden_001_allow_keeperhub_mock.json");
+        v_min["execution"].as_object_mut().unwrap().insert(
+            "executor_evidence".into(),
+            serde_json::json!({ "quote_id": "x" }),
+        );
+        verify_capsule(&v_min).expect("single-key executor_evidence must verify");
+
+        let mut v_uni = corpus("golden_001_allow_keeperhub_mock.json");
+        v_uni["execution"].as_object_mut().unwrap().insert(
+            "executor_evidence".into(),
+            serde_json::json!({
+                "quote_id": "mock-uniswap-quote-X",
+                "quote_source": "mock-uniswap-v3-router",
+                "input_token": { "symbol": "USDC", "address": "0x0" },
+                "output_token": { "symbol": "ETH", "address": "0x1" },
+                "route_tokens": [],
+                "notional_in": "0.05",
+                "slippage_cap_bps": 50,
+                "quote_timestamp_unix": 1_700_000_000,
+                "quote_freshness_seconds": 30,
+                "recipient_address": "0x1111111111111111111111111111111111111111"
+            }),
+        );
+        verify_capsule(&v_uni).expect("uniswap-shaped executor_evidence must verify");
+    }
+
+    #[test]
+    fn tampered_executor_evidence_empty_object_is_rejected_by_schema() {
+        // tampered_009 sets `executor_evidence: {}` — schema's
+        // `oneOf null / object minProperties:1` rejects this; the
+        // verifier surfaces it as `capsule.schema_invalid`.
+        let v = corpus("tampered_009_executor_evidence_empty_object.json");
+        let err = verify_capsule(&v).expect_err("must fail");
+        assert_eq!(err.code(), "capsule.schema_invalid", "{err}");
+    }
+
     #[test]
     fn schema_compiles() {
         // Pin: the embedded schema must compile at startup. Caught by

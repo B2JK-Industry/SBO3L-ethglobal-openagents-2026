@@ -77,7 +77,7 @@ tallies, or product claims must cite the command output it reflects.
 | 4 | P4.2 | B | ENS reward one-pager + proof UI | P4.1 | ENS records visible and non-cosmetic. |
 | 5 | P5.1 | A | KeeperHub proof handoff envelope | P3.1 | Mock server test proves envelope fields. |
 | 5 | P5.2 | B | KeeperHub feedback/issues/one-pager | P5.1 | Actionable feedback linked from repo. |
-| 6 | P6.1 | A | Uniswap guarded quote capsule evidence | P2.1 | Quote evidence appears in capsule. |
+| 6 | P6.1 | A | Uniswap guarded quote capsule evidence | P2.1 | **Shipped** — schema bumped with optional `execution.executor_evidence`; Uniswap mock executor populates 10-field `UniswapQuoteEvidence` on allow path; round-trips through `sbo3l passport verify`. PR off `feat/uniswap-p6.1-capsule-quote-evidence`. |
 | 6 | P6.2 | B | Uniswap FEEDBACK + one-pager | P6.1 | FEEDBACK meets prize requirement. |
 | 7 | P7.1 | B | GitHub Pages public proof site | P2.2 | Public static proof URL. **Open as PR off `main = 92e94e0`** — `.github/workflows/pages.yml` renders trust-badge + operator-console + golden capsule into a static `_site/` artefact and deploys via `actions/deploy-pages`; landing page at `site/index.html` is offline-only (no JS, no network), byte-grep clean. |
 | 7 | P7.2 | A+B | Final smoke, video, submission freeze | All must-have PRs | Fresh clone green, video URL inserted. |
@@ -536,6 +536,18 @@ CI must never require it.
 ## Phase 6: Uniswap Guarded Finance
 
 ### P6.1 - Uniswap Quote Evidence In Passport Capsule
+
+**Status:** **Shipped** on `feat/uniswap-p6.1-capsule-quote-evidence`.
+The capsule schema gained an optional, mode-agnostic
+`execution.executor_evidence` slot (`oneOf null / object minProperties:1`,
+`additionalProperties: true`); the Uniswap mock executor now populates
+it with a 10-field `UniswapQuoteEvidence` payload on the allow path,
+the deny path omits the field, and `sbo3l passport verify` exits 0
+on the round-trip. The transport-level `live_evidence` slot was NOT
+touched: it stays strictly live-only, and the verifier's bidirectional
+invariant (mock ⇒ no `live_evidence`, live ⇒ `live_evidence` populated)
+is unchanged. KeeperHub's IP-1 envelope will land in the same
+`executor_evidence` slot when live wiring ships.
 
 **Owner:** Developer A.
 

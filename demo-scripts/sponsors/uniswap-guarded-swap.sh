@@ -38,3 +38,44 @@ echo
   --swap-policy demo-fixtures/uniswap/swap-policy.json \
   --policy demo-fixtures/uniswap/sbo3l-policy.json \
   --execute-uniswap
+
+echo
+bold "Uniswap guarded swap — Passport capsule with executor_evidence (P6.1)"
+echo
+# Build the CLI binary, emit a Passport capsule for the allow-path APRP
+# via UniswapExecutor::local_mock(), print the executor_evidence block,
+# and round-trip-verify the capsule. The block should be a 10-field
+# UniswapQuoteEvidence object (mock-prefixed quote_id, USDC->ETH route,
+# 50 bps slippage cap, treasury sentinel `0x111…111`).
+#
+# The capsule's `live_evidence` slot stays null in mock mode — the
+# verifier's bidirectional invariant (mock ⇒ no live_evidence) is
+# unchanged by P6.1. Sponsor business evidence lives in the new
+# mode-agnostic `executor_evidence` slot.
+cargo build --quiet --bin sbo3l
+TMPDIR_PASSPORT="$(mktemp -d -t sbo3l-uniswap-passport-XXXXXX)"
+trap 'rm -rf "$TMPDIR_PASSPORT"' EXIT
+
+DB="$TMPDIR_PASSPORT/m.db"
+CAPSULE="$TMPDIR_PASSPORT/uniswap-capsule.json"
+
+./target/debug/sbo3l policy activate \
+  test-corpus/policy/reference_low_risk.json \
+  --db "$DB" >/dev/null
+
+./target/debug/sbo3l passport run \
+  test-corpus/aprp/golden_001_minimal.json \
+  --db "$DB" \
+  --agent research-agent.team.eth \
+  --resolver offline-fixture \
+  --ens-fixture demo-fixtures/ens-records.json \
+  --executor uniswap \
+  --mode mock \
+  --out "$CAPSULE"
+
+echo
+echo "  capsule.execution.executor_evidence (P6.1 — Uniswap quote evidence):"
+jq '.execution.executor_evidence' "$CAPSULE"
+
+echo
+./target/debug/sbo3l passport verify --path "$CAPSULE"
