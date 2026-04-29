@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mandate · Public Proof</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#0e1116;color:#e6edf3;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  font-size:13px;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding:24px}
+header{border:1px solid #30363d;padding:16px 18px;margin-bottom:18px;background:#161b22}
+header h1{margin:0 0 4px 0;font-size:18px;font-weight:600;letter-spacing:.2px}
+header .tag{color:#8b949e;font-size:13px}
+header .meta{color:#8b949e;font-size:11px;margin-top:8px}
+header .meta b{color:#e6edf3;font-weight:500}
+section.panel{border:1px solid #30363d;background:#161b22;margin-bottom:14px}
+section.panel h2{margin:0;padding:10px 16px;border-bottom:1px solid #30363d;
+  font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#8b949e}
+section.panel .body{padding:14px 16px}
+section.panel p{margin:0 0 8px 0}
+section.panel p:last-child{margin-bottom:0}
+.proof-list{list-style:none;padding:0;margin:0}
+.proof-list li{padding:10px 0;border-bottom:1px solid #21262d}
+.proof-list li:last-child{border-bottom:0}
+.proof-list a{color:#58a6ff;text-decoration:none;font-weight:600}
+.proof-list a:hover{text-decoration:underline}
+.proof-list .desc{color:#8b949e;font-size:12px;margin-top:4px}
+code{background:#21262d;padding:1px 5px;border-radius:2px;font-size:12px}
+.pill{display:inline-block;padding:1px 7px;border-radius:2px;font-size:11px;
+  font-weight:600;letter-spacing:.3px;font-family:inherit}
+.pill.neutral{background:#21262d;color:#8b949e;border:1px solid #30363d}
+.pill.ok{background:#0f2b15;color:#3fb950;border:1px solid #2ea043}
+footer{margin-top:8px;color:#8b949e;font-size:11px;border-top:1px solid #30363d;padding-top:12px}
+footer a{color:#58a6ff;text-decoration:none}
+footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+<h1>Mandate · Public Proof</h1>
+<div class="tag">"Don't give your agent a wallet. Give it a mandate."</div>
+<div class="meta"><span><b>tagline</b> proof-carrying execution for AI agents</span></div>
+</header>
+
+<section class="panel">
+<h2>What this site is</h2>
+<div class="body">
+<p>Mandate is a local policy / budget / receipt / audit firewall for AI agents — the agent never holds a private key; Mandate decides, signs, and audits. This page is the <b>public, static proof surface</b> for the ETHGlobal Open Agents 2026 submission.</p>
+<p>Everything below is generated from the deterministic regression fixtures committed alongside the source. No JavaScript, no client-side network calls, no external asset; the same HTML works from <code>file://</code> after a fresh clone. <span class="pill neutral">no JS</span> <span class="pill neutral">no network</span> <span class="pill ok">offline-verifiable</span></p>
+</div>
+</section>
+
+<section class="panel">
+<h2>What you can verify</h2>
+<div class="body">
+<ul class="proof-list">
+
+<li>
+<a href="trust-badge/index.html">Trust badge — judge-readable proof viewer</a>
+<div class="desc">One-screen, side-by-side allow + deny scenarios from the deterministic demo fixture. Request hash, policy hash, signed receipt, audit-event id, no-key proof, audit-chain tamper detection — all rendered server-side at build time. Same HTML as <code>python3 trust-badge/build.py</code> emits locally.</div>
+</li>
+
+<li>
+<a href="operator-console/index.html">Operator console — multi-panel evidence</a>
+<div class="desc">The longer operational view. Allow / deny timeline, no-key proof, audit-chain tamper detection, mock sponsor disclosure (KeeperHub <code>local_mock</code> / Uniswap <code>local_mock</code> / ENS <code>offline-fixture</code> / mock KMS), and the five PSM-A* real-evidence panels — all rendered from the operator-evidence fixture. Bundle and Passport-capsule tiles fall through to the explicit "evidence not gathered" placeholder when their inputs aren't on the deploy environment.</div>
+</li>
+
+<li>
+<a href="capsule.json">Mandate Passport capsule — <code>mandate.passport_capsule.v1</code></a>
+<div class="desc">A self-contained, offline-verifiable proof artefact for one Allow decision. Schema + structural verifier shipped in PR #42; the passport CLI MVP shipped in PR #44. Download this file and run <code>mandate passport verify --path capsule.json</code> from a fresh clone — every signature, hash, and link should re-derive without any daemon.</div>
+</li>
+
+</ul>
+</div>
+</section>
+
+<section class="panel">
+<h2>What this site is NOT</h2>
+<div class="body">
+<p>Not a daemon. Not a hosted API. Not a live KeeperHub / live Uniswap / live ENS integration — every sponsor adapter in this build is a clearly-disclosed local mock or offline fixture. The "live" path is documented in <code>docs/keeperhub-live-spike.md</code> with the eight open questions for the KeeperHub team and the file-by-file shopping list for the live PR; it is not exercised here. Mocks remain explicitly labelled — this site never silently upgrades a mock to a live claim.</p>
+</div>
+</section>
+
+<footer>
+Source: <code>B2JK-Industry/mandate-ethglobal-openagents-2026</code> on GitHub · ETHGlobal Open Agents 2026 submission. <span class="pill neutral">no external links on this page (offline-verifiable surface)</span>
+</footer>
+
+</div>
+</body>
+</html>

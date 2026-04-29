@@ -47,3 +47,4 @@ __pycache__/
 
 # Logs
 *.log
+_site/

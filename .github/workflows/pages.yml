@@ -1,0 +1,119 @@
+name: Pages
+
+# Deploys the Mandate public proof surface to GitHub Pages.
+#
+# What gets deployed (per docs/product/MANDATE_PASSPORT_BACKLOG.md §P7.1):
+#   - site/index.html              — committed landing page.
+#   - site/README.md               — committed deploy-source README.
+#   - site/trust-badge/index.html  — built by trust-badge/build.py from
+#                                    the committed trust-badge fixture.
+#   - site/operator-console/index.html
+#                                  — built by operator-console/build.py
+#                                    from the committed operator-console
+#                                    fixtures + golden Passport capsule.
+#   - site/capsule.json            — copy of the on-main golden Passport
+#                                    capsule fixture (test-corpus/passport/).
+#
+# Why fixtures, not runtime artefacts: see site/README.md. Stable URL,
+# deterministic content, no Rust build required, no external fetches.
+#
+# Risk: if GitHub Pages is not enabled in repo settings (Settings → Pages
+# → Source: GitHub Actions), the deploy job will fail with a clear error.
+# Build job stays green either way — the site/ artefact is still uploaded.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Single in-flight deploy per ref. Do not cancel the in-progress run —
+# Pages deploys are short and queueing is the right behaviour.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build static site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Render trust-badge from committed fixture
+        run: |
+          mkdir -p _site/trust-badge
+          python3 trust-badge/build.py \
+            --input trust-badge/fixtures/demo-summary.json \
+            --capsule test-corpus/passport/golden_001_allow_keeperhub_mock.json \
+            --output _site/trust-badge/index.html
+
+      - name: Render operator-console from committed fixtures
+        run: |
+          mkdir -p _site/operator-console
+          python3 operator-console/build.py \
+            --input operator-console/fixtures/operator-summary.json \
+            --evidence operator-console/fixtures/operator-evidence.json \
+            --capsule-allow test-corpus/passport/golden_001_allow_keeperhub_mock.json \
+            --output _site/operator-console/index.html
+
+      - name: Copy committed landing page + golden capsule into _site/
+        run: |
+          # site/README.md is intentionally NOT copied — it is source-side
+          # documentation describing this workflow + the directory layout
+          # for someone reading `git log site/`, not visitor-facing copy.
+          # See site/README.md for the rationale.
+          cp site/index.html _site/index.html
+          cp test-corpus/passport/golden_001_allow_keeperhub_mock.json _site/capsule.json
+
+      - name: Byte-grep for unsafe surface (defence in depth)
+        run: |
+          python3 - <<'PY'
+          import re, sys, pathlib
+          # Same allowlist as demo-fixtures/test_fixtures.py:
+          # RFC 2606 / 6761 reserved + 127.0.0.1 + schemas.mandate.dev.
+          pat = re.compile(
+              r'<script|fetch\(|https?://(?!localhost|127\.0\.0\.1'
+              r'|.*\.invalid|.*\.example|.*\.test|schemas\.mandate\.dev)',
+              re.IGNORECASE,
+          )
+          fail = 0
+          for path in pathlib.Path('_site').rglob('*'):
+              if not path.is_file() or path.suffix not in {'.html', '.md'}:
+                  continue
+              text = path.read_text(encoding='utf-8', errors='replace')
+              hits = pat.findall(text)
+              if hits:
+                  print(f'FAIL {path}: {hits[:5]}', file=sys.stderr)
+                  fail += 1
+          if fail:
+              print(f'\nbyte-grep fail: {fail} file(s) carry unsafe surface', file=sys.stderr)
+              sys.exit(1)
+          print('byte-grep clean — no <script>, no fetch(, no unsafe URL in deployed _site/')
+          PY
+
+      - name: Upload Pages artefact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

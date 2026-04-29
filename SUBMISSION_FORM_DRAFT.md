@@ -178,7 +178,11 @@ In this hackathon build the demo always constructs `UniswapExecutor::local_mock(
 ## Demo link
 
 ```
-<TODO: paste recorded demo URL (YouTube unlisted or Loom) before submission>
+Public proof URL (static, no JS, offline-verifiable):
+    https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/
+
+Recorded video:
+    <TODO: paste recorded demo URL (YouTube unlisted or Loom) before submission>
 
 Backup live-demo command for any judge who can build from source:
     git clone https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026.git
@@ -187,6 +191,8 @@ Backup live-demo command for any judge who can build from source:
     python3 trust-badge/build.py
     # then open trust-badge/index.html
 ```
+
+The public proof URL is deployed from `main` by `.github/workflows/pages.yml` (Passport P7.1) and links to: the trust-badge proof viewer, the operator-console evidence panels, and a downloadable `mandate.passport_capsule.v1` Passport capsule a judge can verify offline with `mandate passport verify --path capsule.json`. The deployed surface is plain static HTML — no JavaScript, no client-side network calls, no external CDN/font/script — and is rendered from the same deterministic regression fixtures the trust-badge / operator-console test suites validate on every CI run, so the URL shows the same shape on every visit.
 
 ## GitHub repo link
 
