@@ -23,7 +23,7 @@ The IP-3 sister tool to `keeperhub.lookup_execution`. Given an audit-event id + 
 }
 ```
 
-Response — `bundle.summary` excerpt, copied verbatim from [`demo-scripts/artifacts/mcp-transcript.json`](../demo-scripts/artifacts/mcp-transcript.json) (regenerate with the run command below):
+Response — `bundle.summary` excerpt, copied verbatim from `demo-scripts/artifacts/mcp-transcript.json` (regenerate with the run command below):
 
 ```json
 {
