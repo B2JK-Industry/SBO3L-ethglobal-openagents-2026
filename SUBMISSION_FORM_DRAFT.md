@@ -74,7 +74,7 @@ Rust workspace (8 crates + research-agent demo binary):
   - mandate-server      axum HTTP server, POST /v1/payment-requests pipeline, persistent SQLite-backed APRP nonce-replay gate.
   - mandate-execution   Guarded-executor adapters (KeeperHub, Uniswap) with explicit local_mock / live constructors.
   - mandate-identity    ENS resolver trait + offline fixture resolver + policy_hash drift check.
-  - mandate-mcp         MCP tool surface skeleton.
+  - mandate-mcp         Functional MCP stdio JSON-RPC server (PR #46): mandate.validate_aprp / mandate.decide / mandate.run_guarded_execution / mandate.verify_capsule / mandate.audit_lookup.
   - mandate-cli         `mandate` CLI: aprp validate|hash|run-corpus, schema, verify-audit, audit export, audit verify-bundle.
 
 Cryptography & wire format:
@@ -122,6 +122,8 @@ Not present in this build (intentional):
   - No `MANDATE_*_LIVE` environment variable feature flag — switching any sponsor adapter from mock to live is a single-constructor-call change, not a runtime toggle.
   - No RFC 8470-style `Idempotency-Key` semantics for safe-retry on 5xx — a 5xx after the nonce is consumed will surface as a 409 `protocol.nonce_replay` on retry rather than replaying the original response.
   - No real secrets, API keys, private keys or wallet keys committed anywhere.
+
+Self-audit artefact: SECURITY_NOTES.md at the repo root documents the known scope limitations a production deployment would need to address (daemon authentication, production signer wiring, budget tracker persistence, idempotency in-flight semantics, Passport verifier scope). Honest disclosure, not a roadmap promise.
 ```
 
 ## Partner prize notes
