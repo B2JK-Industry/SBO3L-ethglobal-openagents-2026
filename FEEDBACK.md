@@ -2,6 +2,8 @@
 
 Notes for partner sponsors during the ETHGlobal Open Agents 2026 build of **Mandate**. This file is required for some partner prizes (e.g. Uniswap API integration) and is offered to all selected partners.
 
+> **Mandate Passport context.** The asks below are organised around what the *Mandate Passport* product target needs from each partner surface in order to compose into a single proof-carrying execution flow. Mandate Passport is *target product framing* — the capsule schema and verifier are tracked as A-side work in [`docs/product/MANDATE_PASSPORT_BACKLOG.md`](docs/product/MANDATE_PASSPORT_BACKLOG.md) and are not yet on `main`. Partner-specific one-pagers separate "what is implemented today" from "what is target": [`docs/partner-onepagers/keeperhub.md`](docs/partner-onepagers/keeperhub.md), [`docs/partner-onepagers/ens.md`](docs/partner-onepagers/ens.md), [`docs/partner-onepagers/uniswap.md`](docs/partner-onepagers/uniswap.md). Source of truth: [`docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md`](docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md).
+
 ## KeeperHub
 
 How Mandate uses KeeperHub: *Mandate decides, KeeperHub executes.* After Mandate signs an `allow` policy receipt, the receipt and the underlying APRP are handed to `KeeperHubExecutor::execute()`. Denied receipts are refused before any sponsor call. The same signed receipt can be packaged into a verifiable audit bundle (`mandate audit export` / `mandate audit verify-bundle`) so downstream audits can re-derive what KeeperHub was asked to execute, what was approved, and which audit-chain position the decision occupies.
@@ -25,6 +27,9 @@ The "execution layer for AI agents onchain" framing maps directly onto our `Guar
   - `mandate_policy_hash` — canonical hash of the policy that authorised the action.
   - `mandate_receipt_signature` — Ed25519 signature of the policy receipt (hex).
   - `mandate_audit_event_id` — ULID of the audit-chain event the decision occupies.
+  - `mandate_passport_capsule_hash` — content hash of the Mandate Passport capsule (target field; populated once the Passport capsule schema lands on `main` — A-side work tracked at [`docs/product/MANDATE_PASSPORT_BACKLOG.md` §P1.1](docs/product/MANDATE_PASSPORT_BACKLOG.md)).
+- **Idempotency semantics on workflow webhooks.** Mandate already enforces HTTP `Idempotency-Key` safe-retry on its own ingest (PR #23 + #29). Documenting which header / field KeeperHub honours for caller-supplied retry keys, and what KeeperHub does on duplicate delivery (cached response vs new execution), would let policy engines safely retry a webhook submit without double-spending an authorisation.
+- **Webhook signing / callback authenticity.** When a workflow webhook fires back to a Mandate-style consumer, a documented signature scheme (e.g. `X-KeeperHub-Signature: sha256=<hex>` over the raw body, with a documented secret-rotation path) lets the consumer trust the inbound result without a side-channel.
 - **MCP tool: `keeperhub.lookup_execution(execution_id)`** — returns status + run-log pointer + the `mandate_*` fields above (echoed back). Lets a Mandate operator (or any auditor) connect a KeeperHub execution row directly to the upstream Mandate authorization proof without out-of-band correlation.
 - **Optional webhook headers from KeeperHub → caller.** When a workflow webhook fires back to a Mandate-style consumer, attach two optional headers so the consumer can verify the upstream proof in one network round trip:
   - `X-Mandate-Receipt-Signature: <hex>`
@@ -52,8 +57,10 @@ How Mandate uses ENS: ENS is the agent's public identity. `research-agent.team.e
 - **What worked:** text records are perfect for arbitrary structured metadata — no custom contract needed. The "policy hash matches what is published" pattern is a one-line check that gives judges immediate confidence.
 - **What was unclear:** there is no canonical reverse pointer from a Mandate-style identity back to its ENS name. The text-record namespace is a soft convention; we picked the `mandate:*` prefix and would happily move under a blessed `agent:*` namespace if the ecosystem standardises one.
 - **Suggested improvements:**
-  - A blessed text-record namespace for autonomous agents to prevent fragmentation.
-  - A canonical record for "policy commitment" so multiple security tools can share a slot rather than each picking their own key.
+  - A blessed text-record namespace for autonomous agents to prevent fragmentation. Today the `mandate:*` prefix is a soft convention; a standardised `agent:*` (or similar) namespace would let tooling agree without ad-hoc keys.
+  - A canonical record for **policy commitment** so multiple security tools can share a slot rather than each picking their own key. Mandate would publish its active policy hash there.
+  - A canonical record for **proof URI** — a standardised slot for "where the public proof / capsule for this agent lives", so any client can find the proof without out-of-band convention. (For Mandate this corresponds to the future `mandate.passport_capsule.v1` artefact published at the `mandate:proof_uri` value, target — see [`docs/partner-onepagers/ens.md`](docs/partner-onepagers/ens.md).)
+  - **Endpoint-record guidance for agents.** Where the MCP/API endpoint a third-party tool should call to talk to the agent's policy gateway should live (alongside `url`, in a sub-namespace, etc.) is not standardised. The shipped offline ENS fixture currently uses `mandate:endpoint`; the Passport target introduces a more specific `mandate:mcp_endpoint` (or future blessed equivalent) once the MCP surface lands.
 
 ## Uniswap (stretch)
 
@@ -68,9 +75,12 @@ How Mandate uses Uniswap: Mandate sits in front of any agent that wants to swap.
   - Quote freshness is implicit. We approximate freshness from local timestamps; the demo's static fixture has to relax this and we surface a `(relaxed)` flag explicitly so judges see it. Server-issued `quote_id` + `expires_at` would let policy engines anchor cryptographically into the receipt.
   - Multi-hop routes occasionally touch tokens that are not on our allowlist. We treat that as deny by default; explicit per-path token enumeration in the API response would let policy engines opt in or out at the path level.
 - **Suggested improvements:**
-  - **Signed quotes** — server-signed `quote_id + expires_at + canonical hash`. We would embed the hash into the Mandate decision token so the on-chain executor can require the same quote.
-  - **Route token enumeration** — list every intermediate token, not just input/output.
-  - **First-class slippage caps in the request** — letting the API reject a quote whose realised slippage already exceeds the caller's cap removes a class of agent footguns.
+  - **Signed quotes** — server-signed `quote_id + expires_at + canonical hash`. We would embed the canonical hash into the Mandate decision token (and, target, into the `mandate.passport_capsule.v1` Uniswap evidence section — see [`docs/partner-onepagers/uniswap.md`](docs/partner-onepagers/uniswap.md)) so the on-chain executor can require the same quote that authorised the action.
+  - **`expires_at` on the quote response.** Today freshness is approximated from local timestamps; the demo's static fixture has to relax this and we surface a `(relaxed)` flag explicitly so judges see it. A server-side `expires_at` removes the approximation entirely.
+  - **Route token enumeration** — list every intermediate token, not just input/output, so per-path swap-policy guards can opt in or out of multi-hop routes at the path level instead of denying by default.
+  - **First-class slippage caps in the request** — letting the API reject a quote whose realised slippage already exceeds the caller's cap removes a class of agent footguns at the network boundary, before Mandate's `evaluate_swap` ever sees the quote.
+  - **Slippage-cap semantics, documented.** Whether `slippageBps` in the request is "max acceptable realised slippage" vs "request the route to target this slippage" is not obvious from the integration guide — third-party policy engines need that distinction explicit, with a worked example.
+  - **Canonical quote hash.** A documented JCS-shape (or equivalent) over the quote response so third-party policy engines can hash deterministically without inventing a canonicalisation. Mandate already canonicalises APRP via JCS for `request_hash`; a server-side canonical quote hash slots into the same pattern.
 
 ### Known limitations of the hackathon implementation
 
