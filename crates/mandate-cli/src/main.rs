@@ -129,6 +129,76 @@ enum PassportCmd {
         #[arg(long)]
         path: PathBuf,
     },
+    /// Run an APRP through the existing Mandate offline pipeline
+    /// (schema → request_hash → policy → budget → audit → signed
+    /// receipt) and emit one `mandate.passport_capsule.v1` JSON to
+    /// `--out`. Wraps existing primitives — no policy/audit/crypto
+    /// rewrite. P2.1 supports `--mode mock` only; `--mode live` is
+    /// rejected (live integration is P5.1/P6.1 work).
+    Run {
+        /// Path to an APRP JSON file (the request body the agent
+        /// would normally POST to `/v1/payment-requests`).
+        aprp: PathBuf,
+        /// Mandate SQLite database path. The active policy is
+        /// looked up here via the PSM-A3 storage API.
+        #[arg(long)]
+        db: PathBuf,
+        /// ENS-style agent name (e.g. `research-agent.team.eth`).
+        /// Looked up in the ENS fixture; the resulting records map
+        /// is captured into the capsule's `agent.records` block.
+        #[arg(long)]
+        agent: String,
+        /// How `agent.records` are obtained. P2.1 only supports
+        /// `offline-fixture`; `live-ens` is reserved for P4.1.
+        #[arg(long, value_enum, default_value_t = ResolverChoiceArg::OfflineFixture)]
+        resolver: ResolverChoiceArg,
+        /// Path to the ENS fixture. Required when
+        /// `--resolver offline-fixture`.
+        #[arg(long)]
+        ens_fixture: Option<PathBuf>,
+        /// Mock executor that receives the allow-path receipt.
+        /// Deny-path capsules never call the executor regardless of
+        /// this value (status=not_called is hard-enforced).
+        #[arg(long, value_enum)]
+        executor: ExecutorChoiceArg,
+        /// Execution mode. P2.1 only supports `mock`. `live` is
+        /// rejected with exit 2 (truthfulness rule: live claims
+        /// require real evidence). Live mode lands in P5.1 / P6.1.
+        #[arg(long, value_enum, default_value_t = ModeChoiceArg::Mock)]
+        mode: ModeChoiceArg,
+        /// Output path for the capsule JSON. Written atomically
+        /// (tempfile + rename); never leaves a half-written file.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Verify a capsule and print a concise human (or `--json`)
+    /// summary suitable for judges and operators.
+    Explain {
+        /// Path to a capsule JSON file.
+        #[arg(long)]
+        path: PathBuf,
+        /// Emit JSON instead of human text.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum ResolverChoiceArg {
+    OfflineFixture,
+    LiveEns,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum ExecutorChoiceArg {
+    Keeperhub,
+    Uniswap,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum ModeChoiceArg {
+    Mock,
+    Live,
 }
 
 #[derive(Subcommand, Debug)]
@@ -436,6 +506,40 @@ fn main() -> ExitCode {
         Command::Passport {
             op: PassportCmd::Verify { path },
         } => passport::cmd_verify(&path),
+        Command::Passport {
+            op:
+                PassportCmd::Run {
+                    aprp,
+                    db,
+                    agent,
+                    resolver,
+                    ens_fixture,
+                    executor,
+                    mode,
+                    out,
+                },
+        } => passport::cmd_run(passport::RunArgs {
+            aprp_path: aprp,
+            db_path: db,
+            agent,
+            resolver: match resolver {
+                ResolverChoiceArg::OfflineFixture => passport::ResolverChoice::OfflineFixture,
+                ResolverChoiceArg::LiveEns => passport::ResolverChoice::LiveEns,
+            },
+            ens_fixture,
+            executor: match executor {
+                ExecutorChoiceArg::Keeperhub => passport::ExecutorChoice::Keeperhub,
+                ExecutorChoiceArg::Uniswap => passport::ExecutorChoice::Uniswap,
+            },
+            mode: match mode {
+                ModeChoiceArg::Mock => passport::ModeChoice::Mock,
+                ModeChoiceArg::Live => passport::ModeChoice::Live,
+            },
+            out_path: out,
+        }),
+        Command::Passport {
+            op: PassportCmd::Explain { path, json },
+        } => passport::cmd_explain(&path, json),
     }
 }
 

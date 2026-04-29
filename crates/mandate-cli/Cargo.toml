@@ -15,6 +15,14 @@ path = "src/main.rs"
 mandate-core = { workspace = true }
 mandate-policy = { workspace = true }
 mandate-storage = { workspace = true }
+# Passport P2.1: `mandate passport run` orchestrates the existing
+# `POST /v1/payment-requests` pipeline in-process (research-agent
+# pattern). Pulling mandate-server / -identity / -execution + the
+# axum/tower/http stack here matches what research-agent's Cargo.toml
+# already does — no new transitives in the workspace.
+mandate-server = { path = "../mandate-server" }
+mandate-identity = { workspace = true }
+mandate-execution = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_json_canonicalizer = { workspace = true }
@@ -22,9 +30,16 @@ clap = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
 hex = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+ulid = { workspace = true }
+# Used by `mandate passport run` for atomic capsule writes
+# (tempfile in same dir + rename). Promoted from dev-dep to dep.
+tempfile = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
 rusqlite = { workspace = true }
