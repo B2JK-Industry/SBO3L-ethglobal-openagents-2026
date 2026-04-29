@@ -585,3 +585,149 @@ fn explain_fails_on_missing_file() {
     assert!(!e.status.success());
     assert_eq!(e.status.code(), Some(1));
 }
+
+// ===========================================================================
+// Codex P1/P2 fixes on PR #44 — coverage tests
+// ===========================================================================
+
+#[test]
+fn run_returns_exit_1_on_missing_aprp_file() {
+    // Codex P2: APRP IO failure must exit 1 (infrastructure error),
+    // not exit 2 (semantic invalid input). The brief locks the exact
+    // stderr format we surface here.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = Command::new(cli_bin())
+        .args(["passport", "run", "/no/such/aprp/file.json", "--db"])
+        .arg(&db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--ens-fixture",
+            ENS_FIXTURE,
+            "--executor",
+            "keeperhub",
+            "--mode",
+            "mock",
+            "--out",
+        ])
+        .arg(&out)
+        .output()
+        .expect("spawn passport run");
+    assert_eq!(r.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        stderr.contains("failed to read APRP file"),
+        "stderr must lock the documented format; got: {stderr}"
+    );
+    assert!(!out.exists(), "no capsule should be written on IO error");
+}
+
+#[test]
+fn run_returns_exit_1_on_malformed_aprp_json() {
+    // Codex P2: APRP parse failure also exits 1, with a distinct
+    // stderr shape so consumers can branch on read-vs-parse.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    let aprp = tmp.path().join("bad.json");
+    std::fs::write(&aprp, b"{not json").unwrap();
+    activate_policy(&db);
+    let r = Command::new(cli_bin())
+        .args(["passport", "run"])
+        .arg(&aprp)
+        .args(["--db"])
+        .arg(&db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--ens-fixture",
+            ENS_FIXTURE,
+            "--executor",
+            "keeperhub",
+            "--mode",
+            "mock",
+            "--out",
+        ])
+        .arg(&out)
+        .output()
+        .expect("spawn passport run");
+    assert_eq!(r.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        stderr.contains("failed to parse APRP JSON"),
+        "stderr must lock the documented format; got: {stderr}"
+    );
+    assert!(!out.exists());
+}
+
+#[test]
+fn run_rejects_requires_human_decision_with_clear_error() {
+    // Codex P1: when the policy returns a `requires_human` outcome,
+    // the capsule schema's `decision.result` enum has no value for it
+    // (only allow|deny). The CLI must reject **before** building the
+    // capsule — otherwise the self-verify step catches the
+    // contradiction late, after running the entire pipeline. We
+    // construct the requires_human shape by activating a custom
+    // policy whose `default_decision` is `requires_human` and whose
+    // rules don't match the legit-x402 APRP, so the engine falls
+    // through to the default.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    let policy_path = tmp.path().join("requires-human-policy.json");
+
+    // Read the reference policy and mutate it minimally:
+    //   * default_decision = requires_human
+    //   * remove the matching `allow-small-x402-api-call` rule so
+    //     no rule fires for the legit fixture
+    let mut policy: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(REF_POLICY).unwrap()).unwrap();
+    policy["policy_id"] = serde_json::Value::String("requires-human-test".into());
+    policy["description"] = serde_json::Value::String(
+        "Test policy for requires_human path; default is requires_human \
+         and no rule matches the legit-x402 fixture."
+            .into(),
+    );
+    policy["default_decision"] = serde_json::Value::String("requires_human".into());
+    let rules = policy["rules"].as_array_mut().unwrap();
+    rules.retain(|r| {
+        r["id"]
+            .as_str()
+            .map(|s| s != "allow-small-x402-api-call")
+            .unwrap_or(true)
+    });
+    std::fs::write(&policy_path, serde_json::to_vec_pretty(&policy).unwrap()).unwrap();
+
+    let pol = Command::new(cli_bin())
+        .args(["policy", "activate"])
+        .arg(&policy_path)
+        .args(["--db"])
+        .arg(&db)
+        .output()
+        .expect("policy activate");
+    assert!(
+        pol.status.success(),
+        "policy activate must succeed: stderr={}",
+        String::from_utf8_lossy(&pol.stderr)
+    );
+
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        stderr.contains("requires_human policy outcomes"),
+        "stderr must explain why we reject: {stderr}"
+    );
+    assert!(
+        !out.exists(),
+        "requires_human rejection must NOT have written a capsule"
+    );
+}

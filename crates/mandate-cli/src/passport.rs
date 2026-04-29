@@ -472,18 +472,31 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
         }
     };
 
-    // 2. Read the APRP body. Pure JSON parse here; full APRP schema
-    // validation happens inside the existing pipeline.
-    let aprp_value: Value = match std::fs::read_to_string(&args.aprp_path)
-        .map_err(|e| format!("read aprp {}: {e}", args.aprp_path.display()))
-        .and_then(|raw| {
-            serde_json::from_str(&raw)
-                .map_err(|e| format!("parse aprp {}: {e}", args.aprp_path.display()))
-        }) {
+    // 2. Read + parse the APRP body. IO failure (file missing,
+    // permission denied, …) and parse failure (malformed JSON) are
+    // both **infrastructure** errors and surface as exit 1, matching
+    // the contract in `docs/cli/passport.md`. Exit 2 is reserved for
+    // semantic invalid-input cases (bad mode, missing ens-fixture,
+    // no active policy, requires_human, …) — Codex P2 on PR #44
+    // pointed out the original code conflated these.
+    let aprp_raw = match std::fs::read_to_string(&args.aprp_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "passport run: failed to read APRP file {}: {e}",
+                args.aprp_path.display()
+            );
+            return ExitCode::from(1);
+        }
+    };
+    let aprp_value: Value = match serde_json::from_str(&aprp_raw) {
         Ok(v) => v,
-        Err(msg) => {
-            eprintln!("mandate passport run: {msg}");
-            return ExitCode::from(2);
+        Err(e) => {
+            eprintln!(
+                "passport run: failed to parse APRP JSON in {}: {e}",
+                args.aprp_path.display()
+            );
+            return ExitCode::from(1);
         }
     };
 
@@ -587,6 +600,40 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+
+    // 6b. Reject `requires_human` BEFORE any capsule assembly.
+    //
+    // Codex P1 on PR #44: the original code mapped
+    // `Decision::RequiresHuman → "deny"` inside `build_capsule`, which
+    // produced an internally-inconsistent capsule (receipt says
+    // `requires_human`, capsule's `decision.result` says `deny`). The
+    // self-verify step at the end then caught the
+    // `DecisionResultMismatch` invariant and returned exit 2 — but
+    // only AFTER running the entire pipeline + executor branch.
+    //
+    // The honest scope for P2.1 is rejection at the boundary, not a
+    // mis-encoded capsule discovered late. Schema's
+    // `decision.result` enum is `{allow, deny}`; a `requires_human`
+    // outcome simply has no representation in
+    // `mandate.passport_capsule.v1`. Pattern parallels the
+    // `--mode live` rejection up top (exit 2, clear stderr, no
+    // partial work persisted).
+    if matches!(
+        response.receipt.decision,
+        mandate_core::receipt::Decision::RequiresHuman
+    ) {
+        let matched = response
+            .matched_rule_id
+            .as_deref()
+            .unwrap_or("(no matched rule)");
+        eprintln!(
+            "passport run does not support requires_human policy outcomes \
+             in this build; mandate.passport_capsule.v1 only encodes \
+             allow/deny. The decision was requires_human (matched_rule={matched}); \
+             use the regular API surface for human-review workflows."
+        );
+        return ExitCode::from(2);
+    }
 
     // 7. Allow path → call mock executor; deny path → execution.status
     // = "not_called" (HARD invariant — verified by tampered_001 in
@@ -920,10 +967,19 @@ fn build_capsule(args: BuildCapsuleArgs) -> Value {
         Value::String(args.active_policy.source.clone()),
     );
 
+    // `requires_human` is rejected up in `cmd_run` (Codex P1 on PR #44)
+    // before this function runs — the capsule schema's
+    // `decision.result` enum is `{allow, deny}` only. The
+    // `unreachable!` is defense-in-depth: if a future refactor
+    // bypasses the early reject, we panic loudly rather than silently
+    // collapse the third decision into "deny" and ship a misleading
+    // capsule.
     let result = match args.response.decision {
         mandate_core::receipt::Decision::Allow => "allow",
         mandate_core::receipt::Decision::Deny => "deny",
-        mandate_core::receipt::Decision::RequiresHuman => "deny",
+        mandate_core::receipt::Decision::RequiresHuman => {
+            unreachable!("requires_human must be rejected by cmd_run before build_capsule runs")
+        }
     };
     let mut decision_block = Map::new();
     decision_block.insert("result".into(), Value::String(result.to_string()));
