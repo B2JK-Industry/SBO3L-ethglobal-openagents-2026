@@ -5,6 +5,7 @@ pub mod audit;
 pub mod audit_bundle;
 pub mod decision_token;
 pub mod error;
+pub mod execution;
 pub mod hashing;
 pub mod mock_kms;
 pub mod passport;
