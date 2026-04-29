@@ -36,6 +36,14 @@ For a verifiable, offline-portable proof of a single decision, see [`docs/cli/au
 - Signed Ed25519 policy receipts and a hash-chained, tamper-evident audit log persisted in SQLite.
 - A verifiable audit-bundle export and a static, offline trust-badge proof viewer.
 
+## How Mandate plugs into KeeperHub
+
+> *KeeperHub executes. Mandate proves the execution was authorised.*
+
+Mandate sits **in front of** KeeperHub as the policy / budget / signing / audit boundary. Allow receipts flow into `KeeperHubExecutor::execute()`; Deny receipts are refused before any sponsor call. Five concrete integration paths the KeeperHub team could merge or build on — `mandate_*` upstream-proof envelope fields (IP-1), submission JSON Schema (IP-2), `keeperhub.lookup_execution` MCP tool (IP-3), standalone `mandate-keeperhub-adapter` crate (IP-4), Passport capsule URI on the execution row (IP-5) — are catalogued in [`docs/keeperhub-integration-paths.md`](docs/keeperhub-integration-paths.md). Each is independently small, independently reviewable, and pointed at the place in this repo where the corresponding work lives.
+
+The demo today always constructs `KeeperHubExecutor::local_mock()` (clearly disclosed); the live shape is documented end-to-end in [`docs/keeperhub-live-spike.md`](docs/keeperhub-live-spike.md) including the eight open questions for the KeeperHub team, the offline-CI test strategy, and the file-by-file shopping list for the live PR (~250 lines of Rust).
+
 ## What is real vs mocked in this build
 
 End-to-end real: APRP wire format, JCS canonical request hashing, JSON Schema validation, policy engine, multi-scope budget tracker, persistent SQLite-backed APRP nonce-replay protection, signed receipts / decision tokens / audit events, hash-chained audit log with structural and strict-hash verifiers, audit-bundle export and verify, no-key proof, trust-badge render.
