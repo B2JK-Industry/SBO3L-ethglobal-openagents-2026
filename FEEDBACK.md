@@ -60,7 +60,7 @@ How Mandate uses ENS: ENS is the agent's public identity. `research-agent.team.e
   - A blessed text-record namespace for autonomous agents to prevent fragmentation. Today the `mandate:*` prefix is a soft convention; a standardised `agent:*` (or similar) namespace would let tooling agree without ad-hoc keys.
   - A canonical record for **policy commitment** so multiple security tools can share a slot rather than each picking their own key. Mandate would publish its active policy hash there.
   - A canonical record for **proof URI** — a standardised slot for "where the public proof / capsule for this agent lives", so any client can find the proof without out-of-band convention. (For Mandate this corresponds to the future `mandate.passport_capsule.v1` artefact published at the `mandate:proof_uri` value, target — see [`docs/partner-onepagers/ens.md`](docs/partner-onepagers/ens.md).)
-  - **Endpoint-record guidance for agents.** Where the MCP/API endpoint a third-party tool should call to talk to the agent's policy gateway should live (alongside `url`, in a sub-namespace, etc.) is not standardised; today we self-publish under `mandate:mcp_endpoint`.
+  - **Endpoint-record guidance for agents.** Where the MCP/API endpoint a third-party tool should call to talk to the agent's policy gateway should live (alongside `url`, in a sub-namespace, etc.) is not standardised. The shipped offline ENS fixture currently uses `mandate:endpoint`; the Passport target introduces a more specific `mandate:mcp_endpoint` (or future blessed equivalent) once the MCP surface lands.
 
 ## Uniswap (stretch)
 

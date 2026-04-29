@@ -43,8 +43,9 @@ These are explicit *targets* documented for the team and for ENS reviewers
 
 - **`mandate:*` text-record namespace (target).** A blessed set of agent
   metadata records:
-  - `mandate:mcp_endpoint` — MCP/API surface an agent can ask for
-    decisions.
+  - `mandate:mcp_endpoint` — target MCP/API surface an agent can ask for
+    decisions. The shipped offline fixture currently uses the generic
+    `mandate:endpoint` key.
   - `mandate:policy_hash` — canonical hash of the active policy.
   - `mandate:audit_root` — current audit-chain / mock-checkpoint
     commitment (mock today; real onchain later).
@@ -84,10 +85,11 @@ These are the same asks recorded in
 3. **A canonical `proof_uri` record.** A standardised slot for "where the
    public proof / capsule for this agent lives", so any client can find
    the proof without out-of-band convention.
-4. **Guidance for endpoint records on agents.** Where should
-   `mandate:mcp_endpoint` (or the future blessed equivalent) live —
-   alongside `url` text records, under a sub-namespace, etc. Today it is
-   self-published.
+4. **Guidance for endpoint records on agents.** Where should a policy
+   gateway endpoint live — alongside `url` text records, under a
+   sub-namespace, etc.? Today the shipped fixture uses
+   `mandate:endpoint`; the Passport target would prefer
+   `mandate:mcp_endpoint` or a future blessed equivalent.
 
 ## What this one-pager will NOT claim
 

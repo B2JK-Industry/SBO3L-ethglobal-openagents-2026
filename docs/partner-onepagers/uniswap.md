@@ -14,8 +14,9 @@ interaction into policy-controlled finance: the agent emits a swap intent
 through APRP, a swap-policy guard enforces token allowlists, max
 notional, max slippage, quote freshness, and treasury recipient, and
 Mandate's policy boundary independently denies if any of those checks
-fail. Approved quotes are routed to the executor; denied quotes die at
-the policy boundary and never produce a signed receipt.
+fail. Approved quotes are routed to the executor; denied quotes still
+produce signed deny receipts for auditability, but they die at the policy
+boundary and never reach the executor.
 
 ## What is implemented today (on `main`, this build)
 
