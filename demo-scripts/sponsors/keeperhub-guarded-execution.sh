@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Sponsor demo: KeeperHub guarded execution for Mandate.
+# Sponsor demo: KeeperHub guarded execution for SBO3L.
 #
-# Mandate decides, KeeperHub executes. Approved actions are routed to a
+# SBO3L decides, KeeperHub executes. Approved actions are routed to a
 # KeeperHub local-mock executor; denied actions never reach the sponsor.
 set -euo pipefail
 cd "$(dirname "$0")/../.."

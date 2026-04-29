@@ -1,6 +1,6 @@
 # Operator Console — local proof + readiness viewer
 
-A static, offline operator surface for Mandate. Sister artefact to
+A static, offline operator surface for SBO3L. Sister artefact to
 `trust-badge/`: where the trust badge is the dense **one-screen judge**
 view, the operator console is the longer **operational** view — same
 offline / no-JS / no-network discipline, more panels, with **real**
@@ -8,7 +8,7 @@ evidence rendered straight from the production-shaped runner's transcript
 for every merged A-side surface (PSM-A1.9 / A2 / A3 / A4 / A5).
 
 This is **B2.v2**. All five A-side backlog items have merged on `main`,
-the production-shaped runner emits a deterministic `mandate-operator-evidence-v1`
+the production-shaped runner emits a deterministic `sbo3l-operator-evidence-v1`
 transcript, and each former pending-pill panel now renders the actual
 captured values. When the evidence transcript is missing/malformed/wrong-schema
 each panel renders an honest "evidence not gathered" placeholder — never
@@ -25,7 +25,7 @@ Two separate static surfaces, intentionally distinct:
 | Layout | One-screen, dense, side-by-side allow/deny | Vertical timeline + multi-panel grid |
 | Size | ~5 KB | ~13 KB |
 | Panels | 4 functional | 11 functional (6 demo-summary + 5 real-evidence) |
-| Schema | `mandate-demo-summary-v1` | `mandate-demo-summary-v1` (timeline / no-key / audit-chain / mock disclosure / bundle) **+** `mandate-operator-evidence-v1` (PSM-A* real-evidence panels) |
+| Schema | `sbo3l-demo-summary-v1` | `sbo3l-demo-summary-v1` (timeline / no-key / audit-chain / mock disclosure / bundle) **+** `sbo3l-operator-evidence-v1` (PSM-A* real-evidence panels) |
 | Build | `python3 trust-badge/build.py` | `python3 operator-console/build.py` |
 | Test | `python3 trust-badge/test_build.py` | `python3 operator-console/test_build.py` |
 
@@ -36,7 +36,7 @@ mock disclosure, the no-network surface, and `html.parser` well-formedness.
 
 ## What it shows today
 
-**Demo-summary panels (rendered from `mandate-demo-summary-v1`):**
+**Demo-summary panels (rendered from `sbo3l-demo-summary-v1`):**
 
 - **Header** — `agent_id`, `demo_commit` (12-char visible, full 40-char SHA in a `title=""` tooltip), `generated_at_iso`, `schema`, tagline.
 - **Allow / deny timeline** — both demo scenarios as ordered events:
@@ -45,15 +45,15 @@ mock disclosure, the no-network surface, and `html.parser` well-formedness.
 - **No-key proof** — `status` (PASS/FAIL pill) + the three falsifiable counts.
 - **Audit-chain tamper detection** — both verifier outcomes as boolean pills.
 - **Mock sponsor disclosure** — KeeperHub allow path + mock tag, KeeperHub deny path refusal, denied-action-executed status, ENS offline-fixture pill, Uniswap `local_mock` pill.
-- **Audit-bundle verification (optional)** — when invoked with `--bundle <path>`, runs `mandate audit verify-bundle` and renders the parsed result. Without `--bundle`, renders an honest "bundle not provided" state with the exact commands to produce one.
+- **Audit-bundle verification (optional)** — when invoked with `--bundle <path>`, runs `sbo3l audit verify-bundle` and renders the parsed result. Without `--bundle`, renders an honest "bundle not provided" state with the exact commands to produce one.
 
-**Real-evidence panels (rendered from `mandate-operator-evidence-v1`):**
+**Real-evidence panels (rendered from `sbo3l-operator-evidence-v1`):**
 
-- **PSM-A2 · HTTP Idempotency-Key safe-retry (4-case behaviour matrix)** — case 1 first POST (200, audit_event_id, decision), case 2 same key + same body retry (200 byte-identical), case 3 same key + mutated body (409 `protocol.idempotency_conflict`), case 4 new key + same nonce (409 `protocol.nonce_replay`). Captured by `demo-scripts/run-production-shaped-mock.sh` step 7 against a real `mandate-server` daemon on `127.0.0.1:18730` with persistent SQLite at `idempotency.db`.
-- **PSM-A5 · `mandate doctor`** — `report_type`, overall pill, ok/skip/fail counts, plus per-status grouped check rows (color-coded green/yellow/red). Captured from `mandate doctor --json` (production-shaped runner step 2).
-- **PSM-A1.9 · Mock KMS keyring (mock, not production KMS)** — tabular keyring listing with role, version, key_id, public-key hex prefix, created_at, mock-pill. Captured from `mandate key list --mock --db` (production-shaped runner step 3, post-rotate). Every line carries the `mock-kms:` prefix in the runner output.
-- **PSM-A3 · Active policy lifecycle** — version, policy_hash, source, activated_at. Captured from `mandate policy current --db` (production-shaped runner step 4 after `policy activate`). Local lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation; the panel says so explicitly.
-- **PSM-A4 · Audit checkpoints (mock anchoring, NOT onchain)** — schema, sequence, latest_event_id, latest_event_hash, chain_digest, mock_anchor_ref, created_at, plus three boolean pills for `structural_verify_ok`, `db_cross_check_ok`, and `verify result_ok`. Captured from `mandate audit checkpoint create` + `verify` (production-shaped runner step 10). Every line in the runner output carries the `mock-anchor:` prefix.
+- **PSM-A2 · HTTP Idempotency-Key safe-retry (4-case behaviour matrix)** — case 1 first POST (200, audit_event_id, decision), case 2 same key + same body retry (200 byte-identical), case 3 same key + mutated body (409 `protocol.idempotency_conflict`), case 4 new key + same nonce (409 `protocol.nonce_replay`). Captured by `demo-scripts/run-production-shaped-mock.sh` step 7 against a real `sbo3l-server` daemon on `127.0.0.1:18730` with persistent SQLite at `idempotency.db`.
+- **PSM-A5 · `sbo3l doctor`** — `report_type`, overall pill, ok/skip/fail counts, plus per-status grouped check rows (color-coded green/yellow/red). Captured from `sbo3l doctor --json` (production-shaped runner step 2).
+- **PSM-A1.9 · Mock KMS keyring (mock, not production KMS)** — tabular keyring listing with role, version, key_id, public-key hex prefix, created_at, mock-pill. Captured from `sbo3l key list --mock --db` (production-shaped runner step 3, post-rotate). Every line carries the `mock-kms:` prefix in the runner output.
+- **PSM-A3 · Active policy lifecycle** — version, policy_hash, source, activated_at. Captured from `sbo3l policy current --db` (production-shaped runner step 4 after `policy activate`). Local lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation; the panel says so explicitly.
+- **PSM-A4 · Audit checkpoints (mock anchoring, NOT onchain)** — schema, sequence, latest_event_id, latest_event_hash, chain_digest, mock_anchor_ref, created_at, plus three boolean pills for `structural_verify_ok`, `db_cross_check_ok`, and `verify result_ok`. Captured from `sbo3l audit checkpoint create` + `verify` (production-shaped runner step 10). Every line in the runner output carries the `mock-anchor:` prefix.
 
 When the evidence transcript is missing, unreadable, fails JSON parse, or
 carries a wrong `schema`, each of the five panels renders an explicit
@@ -69,7 +69,7 @@ From the repo root:
 # 1. Run the demo. Step 13 writes the deterministic JSON used by the demo-summary panels.
 bash demo-scripts/run-openagents-final.sh
 
-# 2. Run the production-shaped runner. Step 12 writes the mandate-operator-evidence-v1
+# 2. Run the production-shaped runner. Step 12 writes the sbo3l-operator-evidence-v1
 #    transcript used by the five real-evidence panels.
 bash demo-scripts/run-production-shaped-mock.sh
 
@@ -92,14 +92,14 @@ render normally.
 
 ### Optional: render the audit-bundle verification panel
 
-If you've produced a `mandate.audit_bundle.v1` JSON file (e.g. via the
+If you've produced a `sbo3l.audit_bundle.v1` JSON file (e.g. via the
 production-shaped runner), pass its path:
 
 ```bash
 python3 operator-console/build.py --bundle /path/to/bundle.json
 ```
 
-The build will run `mandate audit verify-bundle --path /path/to/bundle.json`
+The build will run `sbo3l audit verify-bundle --path /path/to/bundle.json`
 once and render its parsed `decision`, `deny_code`, `chain_length` and
 `audit_event_id`. Verification failures and missing-binary / missing-bundle
 states render as explicit failure panels — never silently skipped.
@@ -130,29 +130,29 @@ fictional values (no real secrets, no real signatures).
 ## CLI
 
 ```text
-python3 operator-console/build.py [--input PATH] [--evidence PATH] [--output PATH] [--bundle PATH] [--mandate-bin PATH]
+python3 operator-console/build.py [--input PATH] [--evidence PATH] [--output PATH] [--bundle PATH] [--sbo3l-bin PATH]
 
-  --input         Demo summary JSON (mandate-demo-summary-v1)
+  --input         Demo summary JSON (sbo3l-demo-summary-v1)
                   (default: demo-scripts/artifacts/latest-demo-summary.json)
-  --evidence      Operator evidence JSON (mandate-operator-evidence-v1)
+  --evidence      Operator evidence JSON (sbo3l-operator-evidence-v1)
                   (default: demo-scripts/artifacts/latest-operator-evidence.json)
                   Written by the production-shaped runner's step 12. When
                   missing/malformed/wrong-schema, the five real-evidence
                   panels render an explicit 'not gathered' placeholder.
   --output        Static HTML console
                   (default: operator-console/index.html)
-  --bundle        Optional path to a `mandate.audit_bundle.v1` JSON file. When set,
-                  build runs `mandate audit verify-bundle --path <path>` and renders
+  --bundle        Optional path to a `sbo3l.audit_bundle.v1` JSON file. When set,
+                  build runs `sbo3l audit verify-bundle --path <path>` and renders
                   the parsed result. When unset, the console renders an honest
                   'bundle not provided' state.
-  --mandate-bin   Optional override for the `mandate` binary path
-                  (default: target/debug/mandate). Only consulted when --bundle is set.
+  --sbo3l-bin   Optional override for the `sbo3l` binary path
+                  (default: target/debug/sbo3l). Only consulted when --bundle is set.
 ```
 
 The script refuses to render if the input's `"schema"` field is anything
-other than `mandate-demo-summary-v1` — protects against silent drift if the
+other than `sbo3l-demo-summary-v1` — protects against silent drift if the
 JSON contract changes in a future PR. The evidence transcript is checked
-against `mandate-operator-evidence-v1` separately; mismatches there fall
+against `sbo3l-operator-evidence-v1` separately; mismatches there fall
 through to the explicit 'wrong schema' placeholder rather than aborting
 the render.
 
@@ -173,9 +173,9 @@ operator-console/
 
 - **Sister surface, not a replacement.** The trust badge stays the
   one-screen judge artefact. The operator console is the longer
-  operational view. Both consume the same `mandate-demo-summary-v1`
+  operational view. Both consume the same `sbo3l-demo-summary-v1`
   transcript without changing it. The operator console additionally
-  consumes `mandate-operator-evidence-v1` for the PSM-A* panels — a
+  consumes `sbo3l-operator-evidence-v1` for the PSM-A* panels — a
   separate transcript so the trust-badge contract is untouched.
 - **Mocks remain mocks.** The console renders KeeperHub / Uniswap
   executors with `mock` / `local_mock` tags and reproduces the demo's
@@ -188,5 +188,5 @@ operator-console/
   `wrong_schema`) and the exact command to regenerate the transcript
   when it cannot be read.
 - **Verifies, does not validate.** Where the optional `--bundle` panel
-  verifies, it does so by spawning the real `mandate audit verify-bundle`
+  verifies, it does so by spawning the real `sbo3l audit verify-bundle`
   CLI — no in-Python re-implementation of any cryptographic claim.

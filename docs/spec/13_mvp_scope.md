@@ -8,7 +8,7 @@
 
 | Release | Includes phases | Externe sa dá popísať ako |
 |---|---|---|
-| **R1 — Hackathon Demo** | P0–P4 + Open Agents adapters + P8 selectively | "Mandate: Open Agent Payment Firewall s policy receipts, ENS identity a sponsor-native execution adaptermi" |
+| **R1 — Hackathon Demo** | P0–P4 + Open Agents adapters + P8 selectively | "SBO3L: Open Agent Payment Firewall s policy receipts, ENS identity a sponsor-native execution adaptermi" |
 | **R2 — HSM Production** | P5 + P6 | "Production-grade vault s HSM + multi-admin governance" |
 | **R3 — Sovereign TEE** | P7 + P8 + P9 | "Plne sovereign vault s TEE attestation + on-chain verifier + marketplace" |
 | **R4 — v1.0 Release** | P10 | "Open source v1.0 s externý security audit + appliance image" |
@@ -200,7 +200,7 @@ S paralelizáciou cez AI agentov (per `18_agent_assignment.md`) sa to dá scalov
 
 ### Pre-R1 (sa rozhoduje teraz)
 - Voľba HSM vendor pre R2 (Nitrokey HSM 2 vs YubiHSM 2 — viď OQ-06).
-- Marketing meno: **Mandate** public brand, `mandate` technical namespace — viď OQ-15.
+- Marketing meno: **SBO3L** public brand, `mandate` technical namespace — viď OQ-15.
 - Decision: pôjde R1 na live mainnet alebo iba testnet? **Návrh: testnet pre demo, mainnet ready pre R2.**
 
 ### Post-R1 (po hackathone)

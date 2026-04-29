@@ -146,19 +146,19 @@ free -h  # Swap row should be 0
 
 ```bash
 # Latest release from GitHub
-MANDATE_VERSION="v0.1.0"  # adjust
-curl -L -O "https://github.com/<org>/mandate/releases/download/${MANDATE_VERSION}/mandate-${MANDATE_VERSION}-x86_64-linux-musl.tar.gz"
-curl -L -O "https://github.com/<org>/mandate/releases/download/${MANDATE_VERSION}/mandate-${MANDATE_VERSION}-x86_64-linux-musl.tar.gz.cosign-bundle"
+SBO3L_VERSION="v0.1.0"  # adjust
+curl -L -O "https://github.com/<org>/mandate/releases/download/${SBO3L_VERSION}/mandate-${SBO3L_VERSION}-x86_64-linux-musl.tar.gz"
+curl -L -O "https://github.com/<org>/mandate/releases/download/${SBO3L_VERSION}/mandate-${SBO3L_VERSION}-x86_64-linux-musl.tar.gz.cosign-bundle"
 
 # Verify signature with cosign v3
 cosign verify-blob \
-  --bundle mandate-${MANDATE_VERSION}-x86_64-linux-musl.tar.gz.cosign-bundle \
-  --certificate-identity "https://github.com/<org>/mandate/.github/workflows/release.yml@refs/tags/${MANDATE_VERSION}" \
+  --bundle mandate-${SBO3L_VERSION}-x86_64-linux-musl.tar.gz.cosign-bundle \
+  --certificate-identity "https://github.com/<org>/mandate/.github/workflows/release.yml@refs/tags/${SBO3L_VERSION}" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  mandate-${MANDATE_VERSION}-x86_64-linux-musl.tar.gz
+  mandate-${SBO3L_VERSION}-x86_64-linux-musl.tar.gz
 
 # Extract & install
-tar xzf mandate-${MANDATE_VERSION}-x86_64-linux-musl.tar.gz
+tar xzf mandate-${SBO3L_VERSION}-x86_64-linux-musl.tar.gz
 sudo install -o root -g root -m 0755 mandate /usr/bin/mandate
 mandate --version
 ```
@@ -166,27 +166,27 @@ mandate --version
 ### §3.2 Profil "PRODUCTION" — `.deb` package
 
 ```bash
-curl -L -O "https://github.com/<org>/mandate/releases/download/${MANDATE_VERSION}/mandate_${MANDATE_VERSION}_amd64.deb"
-curl -L -O "https://github.com/<org>/mandate/releases/download/${MANDATE_VERSION}/mandate_${MANDATE_VERSION}_amd64.deb.cosign-bundle"
+curl -L -O "https://github.com/<org>/mandate/releases/download/${SBO3L_VERSION}/mandate_${SBO3L_VERSION}_amd64.deb"
+curl -L -O "https://github.com/<org>/mandate/releases/download/${SBO3L_VERSION}/mandate_${SBO3L_VERSION}_amd64.deb.cosign-bundle"
 
 # Verify
 cosign verify-blob \
-  --bundle mandate_${MANDATE_VERSION}_amd64.deb.cosign-bundle \
+  --bundle mandate_${SBO3L_VERSION}_amd64.deb.cosign-bundle \
   --certificate-identity "..." \
   --certificate-oidc-issuer "..." \
-  mandate_${MANDATE_VERSION}_amd64.deb
+  mandate_${SBO3L_VERSION}_amd64.deb
 
 # Install — creates user `mandate`, dirs, systemd unit (disabled by default)
-sudo dpkg -i mandate_${MANDATE_VERSION}_amd64.deb
+sudo dpkg -i mandate_${SBO3L_VERSION}_amd64.deb
 ```
 
 `.deb` postinst:
 - Vytvorí systémového usera `mandate` (uid < 1000)
 - Vytvorí adresáre s permissions:
-  - `/etc/mandate/` (`0750 root:mandate`)
-  - `/var/lib/mandate/` (`0700 mandate:mandate`)
+  - `/etc/sbo3l/` (`0750 root:mandate`)
+  - `/var/lib/sbo3l/` (`0700 mandate:mandate`)
   - `/var/log/mandate/` (`0750 mandate:mandate`)
-  - `/run/mandate/` (vytvára systemd-tmpfiles, `0750 mandate:mandate`)
+  - `/run/sbo3l/` (vytvára systemd-tmpfiles, `0750 mandate:mandate`)
 - Inštaluje systemd unit `/usr/lib/systemd/system/mandate.service` (NIE enabled)
 - Inštaluje AppArmor profil `/etc/apparmor.d/usr.bin.mandate`
 
@@ -204,21 +204,21 @@ Wizard prejde cez:
 2. **Vault private CA** — generuje sa nový Ed25519 keypair pre podpisovanie agentových mTLS cert. V production-HSM profile sa kľúč generuje v HSM.
 3. **Audit signer key** — separátny Ed25519 keypair pre podpisovanie audit eventov.
 4. **Decision signer key** — separátny Ed25519 keypair pre internal decision token signing.
-5. **Default config** — vytvorí `/etc/mandate/mandate.toml` s baseline (mode=dev). Treba edit pred enabledením v production.
+5. **Default config** — vytvorí `/etc/sbo3l/mandate.toml` s baseline (mode=dev). Treba edit pred enabledením v production.
 6. **Default policy** — uloží `policy://default-deny-all` ako baseline.
 
 Po wizardovi vault NIE je zapnutý. Treba edit configu, potom `systemctl enable --now`.
 
 ---
 
-## §5 Configuration — `/etc/mandate/mandate.toml`
+## §5 Configuration — `/etc/sbo3l/mandate.toml`
 
 Plný reference v `17_interface_contracts.md §1`. Minimálny production config:
 
 ```toml
 [server]
 mode = "production"
-unix_socket_path = "/run/mandate/mandate.sock"
+unix_socket_path = "/run/sbo3l/sbo3l.sock"
 unix_socket_owner = "mandate"
 unix_socket_perms = "0600"
 tcp_listen = "127.0.0.1:8730"   # NIKDY 0.0.0.0
@@ -227,7 +227,7 @@ max_request_bytes = 65536
 shutdown_grace_seconds = 30
 
 [storage]
-db_path = "/var/lib/mandate/mandate.db"
+db_path = "/var/lib/sbo3l/sbo3l.db"
 wal_mode = true
 journal_size_limit_mb = 64
 
@@ -252,7 +252,7 @@ multisig_required = true
 
 [audit]
 hash_algorithm = "sha256"
-audit_signer_key_path = "/var/lib/mandate/keys/audit-signer.age"
+audit_signer_key_path = "/var/lib/sbo3l/keys/audit-signer.age"
 on_chain_anchor_enabled = true
 anchor_chain = "base"
 anchor_period_hours = 24
@@ -290,8 +290,8 @@ is_stablecoin = true
 Validuj pred štartom:
 
 ```bash
-sudo -u mandate mandate config check --config /etc/mandate/mandate.toml
-sudo -u mandate mandate config check --production --config /etc/mandate/mandate.toml
+sudo -u mandate mandate config check --config /etc/sbo3l/mandate.toml
+sudo -u mandate mandate config check --production --config /etc/sbo3l/mandate.toml
 ```
 
 ---
@@ -318,7 +318,7 @@ User=mandate
 Group=mandate
 UMask=0077
 
-ExecStart=/usr/bin/mandate serve --config /etc/mandate/mandate.toml
+ExecStart=/usr/bin/mandate serve --config /etc/sbo3l/mandate.toml
 ExecReload=/bin/kill -HUP $MAINPID
 
 # Credentials (TPM-encrypted passphrases)
@@ -540,10 +540,10 @@ sudo -u mandate mandate health
 ## §12 Backup procedure
 
 Backup target: ALL of:
-- `/etc/mandate/` (config + policies)
-- `/var/lib/mandate/mandate.db` (state)
-- `/var/lib/mandate/keys/*.age` (encrypted keys; passphrase backed up SEPARATELY)
-- `/var/lib/mandate/audit/manifests/` (signed audit roots)
+- `/etc/sbo3l/` (config + policies)
+- `/var/lib/sbo3l/sbo3l.db` (state)
+- `/var/lib/sbo3l/keys/*.age` (encrypted keys; passphrase backed up SEPARATELY)
+- `/var/lib/sbo3l/audit/manifests/` (signed audit roots)
 - HSM backup (vendor-specific; e.g. `sc-hsm-tool --create-dkek-share` for Nitrokey HSM 2)
 
 ```bash
@@ -561,10 +561,10 @@ systemctl stop mandate
 # Snapshot
 tar czf "$BACKUP_DIR/mandate-${TS}.tar.gz" \
   /etc/mandate \
-  /var/lib/mandate/mandate.db \
-  /var/lib/mandate/mandate.db-wal \
-  /var/lib/mandate/keys \
-  /var/lib/mandate/audit/manifests
+  /var/lib/sbo3l/sbo3l.db \
+  /var/lib/sbo3l/sbo3l.db-wal \
+  /var/lib/sbo3l/keys \
+  /var/lib/sbo3l/audit/manifests
 
 systemctl start mandate
 
@@ -654,7 +654,7 @@ Setup ntfy alebo similar **on a separate host** (nie na rovnakom serveri ako vau
 
 ## §15 Common gotchas (compiled list)
 
-- **Disk full (audit log) → vault halts.** Set `space_left_action = HALT` in `auditd.conf` for the mandate audit (per `19_knowledge_base.md §9`). Monitor disk usage.
+- **Disk full (audit log) → vault halts.** Set `space_left_action = HALT` in `auditd.conf` for the sbo3l audit (per `19_knowledge_base.md §9`). Monitor disk usage.
 - **Time skew** → x402 challenges expire silently. Run `chronyc tracking` to verify drift < 1s.
 - **HSM USB reconnect** sometimes requires re-enroll. `mandate signer reconnect <key_id>` recovers.
 - **AppArmor `complain` mode** during dev; switch to `enforce` for production: `sudo aa-enforce /etc/apparmor.d/usr.bin.mandate`.

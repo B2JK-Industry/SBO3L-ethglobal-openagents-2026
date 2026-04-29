@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Generate operator-console/index.html from the demo runner's deterministic
 # transcript JSON (`demo-scripts/artifacts/latest-demo-summary.json`,
-# schema `mandate-demo-summary-v1`).
+# schema `sbo3l-demo-summary-v1`).
 #
 # This is a separate surface from `trust-badge/build.py`. The trust badge is
 # the dense one-screen judge artefact. The operator console is the longer
@@ -27,8 +27,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT = REPO_ROOT / "demo-scripts" / "artifacts" / "latest-demo-summary.json"
 DEFAULT_EVIDENCE = REPO_ROOT / "demo-scripts" / "artifacts" / "latest-operator-evidence.json"
 DEFAULT_OUTPUT = REPO_ROOT / "operator-console" / "index.html"
-EXPECTED_SCHEMA = "mandate-demo-summary-v1"
-EXPECTED_EVIDENCE_SCHEMA = "mandate-operator-evidence-v1"
+EXPECTED_SCHEMA = "sbo3l-demo-summary-v1"
+EXPECTED_EVIDENCE_SCHEMA = "sbo3l-operator-evidence-v1"
 # Passport capsule (P2.2). Defaults point at the post-P2.1 runtime artifacts;
 # during the P2.2 DRAFT phase (P2.1 not yet merged) the runner does not emit
 # these files, so the operator console falls through to the honest "capsule
@@ -36,7 +36,7 @@ EXPECTED_EVIDENCE_SCHEMA = "mandate-operator-evidence-v1"
 # on-main golden fixture in `test-corpus/passport/`.
 DEFAULT_CAPSULE_ALLOW = REPO_ROOT / "demo-scripts" / "artifacts" / "passport-allow.json"
 DEFAULT_CAPSULE_DENY = REPO_ROOT / "demo-scripts" / "artifacts" / "passport-deny.json"
-EXPECTED_CAPSULE_SCHEMA = "mandate.passport_capsule.v1"
+EXPECTED_CAPSULE_SCHEMA = "sbo3l.passport_capsule.v1"
 
 # --- helpers ---------------------------------------------------------------
 
@@ -99,7 +99,7 @@ def pending_pill(backlog_id: str, evidence_path: str) -> str:
 
 def load_evidence(path: Path) -> tuple[dict | None, str]:
     """
-    Load `mandate-operator-evidence-v1` evidence written by the
+    Load `sbo3l-operator-evidence-v1` evidence written by the
     production-shaped runner's step 12.
 
     Returns `(evidence_dict, "ok")` on success, or `(None, reason)` for
@@ -174,7 +174,7 @@ def render_idempotency_panel(evidence: dict | None, evidence_state: str | None =
 <dt>case 3 — same key + mutated body</dt><dd>{expect_pill(c3.get("http_status"), 409, label_ok="409", label_bad=str(c3.get("http_status")))} · code=<code>{esc(c3.get("code"))}</code></dd>
 <dt>case 4 — new key + same nonce</dt><dd>{expect_pill(c4.get("http_status"), 409, label_ok="409", label_bad=str(c4.get("http_status")))} · code=<code>{esc(c4.get("code"))}</code></dd>
 </dl>
-<p class="empty">Source: <code>demo-scripts/run-production-shaped-mock.sh</code> step 7 (real <code>mandate-server</code> on <code>127.0.0.1:18730</code>, persistent SQLite).</p>
+<p class="empty">Source: <code>demo-scripts/run-production-shaped-mock.sh</code> step 7 (real <code>sbo3l-server</code> on <code>127.0.0.1:18730</code>, persistent SQLite).</p>
 </div>
 </section>"""
 
@@ -182,7 +182,7 @@ def render_idempotency_panel(evidence: dict | None, evidence_state: str | None =
 def render_doctor_panel(evidence: dict | None, evidence_state: str | None = None) -> str:
     if evidence is None:
         return _evidence_unavailable_panel(
-            "PSM-A5 · mandate doctor",
+            "PSM-A5 · sbo3l doctor",
             _evidence_reason_text(evidence_state), DEFAULT_EVIDENCE,
         )
     doc = evidence.get("psm_a5_doctor", {}) or {}
@@ -190,9 +190,9 @@ def render_doctor_panel(evidence: dict | None, evidence_state: str | None = None
         report = doc.get("report") or {}
         return f"""
 <section class="panel full">
-<h2>PSM-A5 · mandate doctor</h2>
+<h2>PSM-A5 · sbo3l doctor</h2>
 <div class="body">
-<p class="empty">{pill("MALFORMED", "bad")} <code>mandate doctor --json</code> output did not parse. First 120 bytes: <code>{esc(report.get("_raw_first_120"))}</code></p>
+<p class="empty">{pill("MALFORMED", "bad")} <code>sbo3l doctor --json</code> output did not parse. First 120 bytes: <code>{esc(report.get("_raw_first_120"))}</code></p>
 </div>
 </section>"""
     report = doc.get("report") or {}
@@ -217,13 +217,13 @@ def render_doctor_panel(evidence: dict | None, evidence_state: str | None = None
         return f'<h3 class="group {kind}">{esc(label)} ({len(rows)})</h3><dl class="kv">{body}</dl>'
     return f"""
 <section class="panel full">
-<h2>PSM-A5 · mandate doctor</h2>
+<h2>PSM-A5 · sbo3l doctor</h2>
 <div class="body">
 <p class="empty">overall={expect_pill(overall, "ok", label_ok="ok", label_bad=str(overall))} · ok={summary.get("ok", 0)} skip={summary.get("skip", 0)} fail={summary.get("fail", 0)} · report_type=<code>{esc(report.get("report_type"))}</code></p>
 {_group("ok", "ok", rows_ok)}
 {_group("skip", "skip", rows_skip)}
 {_group("fail", "fail", rows_fail)}
-<p class="empty">Source: <code>mandate doctor --json</code> (production-shaped runner step 2, in-memory DB).</p>
+<p class="empty">Source: <code>sbo3l doctor --json</code> (production-shaped runner step 2, in-memory DB).</p>
 </div>
 </section>"""
 
@@ -260,7 +260,7 @@ def render_kms_panel(evidence: dict | None, evidence_state: str | None = None) -
 <h2>PSM-A1.9 · Mock KMS keyring <span class="pill neutral">mock, not production KMS</span></h2>
 <div class="body">
 {rows_html}
-<p class="empty">{esc(kms.get("_mock_label", ""))} Source: <code>mandate key list --mock --db &lt;path&gt;</code> (production-shaped runner step 3, post-rotate).</p>
+<p class="empty">{esc(kms.get("_mock_label", ""))} Source: <code>sbo3l key list --mock --db &lt;path&gt;</code> (production-shaped runner step 3, post-rotate).</p>
 </div>
 </section>"""
 
@@ -277,7 +277,7 @@ def render_policy_panel(evidence: dict | None, evidence_state: str | None = None
 <section class="panel full">
 <h2>PSM-A3 · Active policy lifecycle</h2>
 <div class="body">
-<p class="empty">{pill("no active policy", "neutral")} The runner reached step 4 but no <code>active_policy</code> row was captured. <code>mandate policy current --db &lt;path&gt;</code> exits 3 on a fresh DB — that is the honest signal, not a fake "ok".</p>
+<p class="empty">{pill("no active policy", "neutral")} The runner reached step 4 but no <code>active_policy</code> row was captured. <code>sbo3l policy current --db &lt;path&gt;</code> exits 3 on a fresh DB — that is the honest signal, not a fake "ok".</p>
 </div>
 </section>"""
     return f"""
@@ -290,7 +290,7 @@ def render_policy_panel(evidence: dict | None, evidence_state: str | None = None
 <dt>source</dt><dd><code>{esc(p.get("source"))}</code></dd>
 <dt>activated_at</dt><dd><code>{esc(p.get("activated_at"))}</code></dd>
 </dl>
-<p class="empty">Local production-shaped lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation; whoever opens the DB activates the policy. Source: <code>mandate policy current --db &lt;path&gt;</code> (production-shaped runner step 4 after <code>policy activate</code>).</p>
+<p class="empty">Local production-shaped lifecycle, not remote governance — there is no on-chain anchor, no consensus, no signing on activation; whoever opens the DB activates the policy. Source: <code>sbo3l policy current --db &lt;path&gt;</code> (production-shaped runner step 4 after <code>policy activate</code>).</p>
 </div>
 </section>"""
 
@@ -320,7 +320,7 @@ def render_checkpoint_panel(evidence: dict | None, evidence_state: str | None = 
 <dt>db_cross_check_ok</dt><dd>{expect_pill(verify.get("db_cross_check_ok"), True, label_ok="true", label_bad="false")}</dd>
 <dt>verify result_ok</dt><dd>{expect_pill(verify.get("result_ok"), True, label_ok="true", label_bad="false")}</dd>
 </dl>
-<p class="empty">{esc(cp.get("_mock_anchor_label", "Mock anchoring, NOT onchain."))} Source: <code>mandate audit checkpoint create</code> + <code>verify</code> (production-shaped runner step 10).</p>
+<p class="empty">{esc(cp.get("_mock_anchor_label", "Mock anchoring, NOT onchain."))} Source: <code>sbo3l audit checkpoint create</code> + <code>verify</code> (production-shaped runner step 10).</p>
 </div>
 </section>"""
 
@@ -328,28 +328,28 @@ def render_checkpoint_panel(evidence: dict | None, evidence_state: str | None = 
 # --- bundle verification (optional) ----------------------------------------
 
 
-def verify_bundle(bundle_path: Path, mandate_bin: Path | None) -> dict:
+def verify_bundle(bundle_path: Path, sbo3l_bin: Path | None) -> dict:
     """
-    Run `mandate audit verify-bundle --path <bundle>` and parse its stdout.
+    Run `sbo3l audit verify-bundle --path <bundle>` and parse its stdout.
 
     Returns one of:
       {"state": "not_provided"}                       — no --bundle flag
       {"state": "ok", "decision": …, "deny_code": …, "chain_length": …, "audit_event_id": …}
       {"state": "bundle_missing", "path": str}        — file does not exist
-      {"state": "binary_missing", "path": str}        — `mandate` binary not found
+      {"state": "binary_missing", "path": str}        — `sbo3l` binary not found
       {"state": "verify_failed", "rc": int, "stderr": str, "stdout": str}
       {"state": "parse_failed", "stdout": str}        — verify exited 0 but output unrecognised
     """
     if not bundle_path.is_file():
         return {"state": "bundle_missing", "path": str(bundle_path)}
-    binary = mandate_bin or (REPO_ROOT / "target" / "debug" / "mandate")
+    binary = sbo3l_bin or (REPO_ROOT / "target" / "debug" / "sbo3l")
     if not binary.is_file():
         return {"state": "binary_missing", "path": str(binary)}
     # PR #24 P2 review: catch the full set of subprocess failures the
-    # `mandate audit verify-bundle` invocation can raise. The original
+    # `sbo3l audit verify-bundle` invocation can raise. The original
     # only-FileNotFoundError handler crashed the whole build with a
     # traceback for `subprocess.TimeoutExpired` (slow verify) or any
-    # `OSError` (e.g. PermissionError on a non-executable --mandate-bin),
+    # `OSError` (e.g. PermissionError on a non-executable --sbo3l-bin),
     # even though this panel is explicitly designed to render a failure
     # state instead of aborting the render.
     try:
@@ -395,10 +395,10 @@ def render_bundle_panel(result: dict) -> str:
 <section class="panel">
 <h2>Audit-bundle verification</h2>
 <div class="body">
-<p class="empty">Bundle not provided. Pass <code>--bundle &lt;path&gt;</code> to render the verification result of a previously-exported <code>mandate.audit_bundle.v1</code> file. {pill("not provided", "neutral")}</p>
+<p class="empty">Bundle not provided. Pass <code>--bundle &lt;path&gt;</code> to render the verification result of a previously-exported <code>sbo3l.audit_bundle.v1</code> file. {pill("not provided", "neutral")}</p>
 <p class="empty">Build a bundle from a live demo run with:
 <br><code>./demo-agents/research-agent/run --scenario legit-x402 --storage-path /tmp/m.db --save-receipt /tmp/r.json</code>
-<br><code>./target/debug/mandate audit export --receipt /tmp/r.json --db /tmp/m.db --receipt-pubkey &lt;hex&gt; --audit-pubkey &lt;hex&gt; --out /tmp/bundle.json</code></p>
+<br><code>./target/debug/sbo3l audit export --receipt /tmp/r.json --db /tmp/m.db --receipt-pubkey &lt;hex&gt; --audit-pubkey &lt;hex&gt; --out /tmp/bundle.json</code></p>
 </div>
 </section>"""
     if state == "ok":
@@ -428,7 +428,7 @@ def render_bundle_panel(result: dict) -> str:
 <section class="panel">
 <h2>Audit-bundle verification</h2>
 <div class="body">
-<p class="empty">Cannot run <code>mandate audit verify-bundle</code> — the <code>mandate</code> binary was not found at <code>{esc(result.get("path"))}</code>. Run <code>cargo build --bin mandate</code> first. {pill("binary missing", "bad")}</p>
+<p class="empty">Cannot run <code>sbo3l audit verify-bundle</code> — the <code>sbo3l</code> binary was not found at <code>{esc(result.get("path"))}</code>. Run <code>cargo build --bin sbo3l</code> first. {pill("binary missing", "bad")}</p>
 </div>
 </section>"""
     if state == "verify_failed":
@@ -462,12 +462,12 @@ def render_bundle_panel(result: dict) -> str:
 
 def load_capsule(path: Path) -> tuple[dict | None, str]:
     """
-    Load a `mandate.passport_capsule.v1` capsule emitted by Passport P2.1.
+    Load a `sbo3l.passport_capsule.v1` capsule emitted by Passport P2.1.
 
     Returns `(capsule_dict, "ok")` on success, or `(None, reason)` for every
     failure mode the operator console surfaces explicitly. The "tampered"
     state is the Python-side mirror of the simple cross-field invariants
-    that `mandate passport verify` rejects, so a tampered capsule renders
+    that `sbo3l passport verify` rejects, so a tampered capsule renders
     an honest placeholder instead of a fake-OK tile.
     """
     if not path.is_file():
@@ -488,9 +488,9 @@ def load_capsule(path: Path) -> tuple[dict | None, str]:
 
 def _capsule_structural_violation(doc: dict) -> str | None:
     """Mirror of the simple cross-field invariants in
-    `crates/mandate-core/src/passport.rs::verify_capsule`. Returns a one-line
+    `crates/sbo3l-core/src/passport.rs::verify_capsule`. Returns a one-line
     reason on failure or None on pass. Python does not verify cryptographic
-    hashes — Rust `mandate passport verify` remains the source of truth."""
+    hashes — Rust `sbo3l passport verify` remains the source of truth."""
     decision = doc.get("decision") or {}
     execution = doc.get("execution") or {}
     audit = doc.get("audit") or {}
@@ -540,7 +540,7 @@ _CAPSULE_REASON_TEXT = {
     "tampered":
         "capsule loaded and schema id matches, but a structural invariant "
         "failed (deny/execution / mock_anchor / live evidence / hash "
-        "consistency). Run `mandate passport verify` for full detail.",
+        "consistency). Run `sbo3l passport verify` for full detail.",
 }
 
 
@@ -733,7 +733,7 @@ def render(summary: dict, bundle_result: dict, evidence: dict | None,
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mandate · Operator Console</title>
+<title>SBO3L · Operator Console</title>
 <style>
 *{{box-sizing:border-box}}
 html,body{{margin:0;padding:0;background:#0e1116;color:#e6edf3;
@@ -789,7 +789,7 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 <div class="wrap">
 
 <header class="top">
-<h1>Mandate · Operator Console</h1>
+<h1>SBO3L · Operator Console</h1>
 <div class="tag">"Don't give your agent a wallet. Give it a mandate."</div>
 <div class="meta">
 <span><b>agent</b> {esc(summary.get("agent_id"))}</span>
@@ -863,7 +863,7 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 
 <footer>
 Generated from <code>demo-scripts/artifacts/latest-demo-summary.json</code>.
-KeeperHub and Uniswap executors are local mocks; ENS uses an offline resolver fixture; the dev signing seeds in <code>mandate-server</code> are deterministic public constants labelled <code>⚠ DEV ONLY ⚠</code>. Mocks remain explicitly labelled.
+KeeperHub and Uniswap executors are local mocks; ENS uses an offline resolver fixture; the dev signing seeds in <code>sbo3l-server</code> are deterministic public constants labelled <code>⚠ DEV ONLY ⚠</code>. Mocks remain explicitly labelled.
 </footer>
 </div>
 </body>
@@ -883,23 +883,23 @@ def main() -> int:
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT),
                         help="Path to write the static HTML console (default: %(default)s)")
     parser.add_argument("--bundle", default=None,
-                        help="Optional path to a `mandate.audit_bundle.v1` JSON file. "
-                             "When set, runs `mandate audit verify-bundle` against it "
+                        help="Optional path to a `sbo3l.audit_bundle.v1` JSON file. "
+                             "When set, runs `sbo3l audit verify-bundle` against it "
                              "and renders the parsed result. When unset, the console "
                              "renders an honest 'bundle not provided' state.")
-    parser.add_argument("--mandate-bin", default=None,
-                        help="Optional override for the `mandate` binary path "
-                             "(default: target/debug/mandate). Only consulted when --bundle is set.")
+    parser.add_argument("--sbo3l-bin", default=None,
+                        help="Optional override for the `sbo3l` binary path "
+                             "(default: target/debug/sbo3l). Only consulted when --bundle is set.")
     parser.add_argument("--evidence", default=str(DEFAULT_EVIDENCE),
                         help="Path to the operator-evidence transcript "
                              "(default: %(default)s). Written by the production-shaped "
-                             "runner's step 12 with schema 'mandate-operator-evidence-v1'. "
+                             "runner's step 12 with schema 'sbo3l-operator-evidence-v1'. "
                              "When missing/malformed/wrong-schema, the five real-evidence "
                              "panels render an explicit 'not gathered' placeholder.")
     parser.add_argument("--capsule-allow", default=str(DEFAULT_CAPSULE_ALLOW),
                         help="Path to the allow-path Passport capsule "
                              "(default: %(default)s). Schema "
-                             "'mandate.passport_capsule.v1'. When "
+                             "'sbo3l.passport_capsule.v1'. When "
                              "missing/malformed/wrong-schema, the allow tile "
                              "renders an explicit 'capsule evidence not "
                              "gathered' placeholder; never a fake-OK.")
@@ -937,7 +937,7 @@ def main() -> int:
     else:
         bundle_result = verify_bundle(
             Path(args.bundle),
-            Path(args.mandate_bin) if args.mandate_bin else None,
+            Path(args.sbo3l_bin) if args.sbo3l_bin else None,
         )
 
     evidence, evidence_state = load_evidence(Path(args.evidence))

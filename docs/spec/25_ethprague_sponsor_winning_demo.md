@@ -218,9 +218,9 @@ Pridat:
 
 - `research-agent.team.eth`
 - ENS text record:
-  - `mandate:agent_id=research-agent-01`
-  - `mandate:policy_hash=0x...`
-  - `mandate:endpoint=https://mandate.team.example`
+  - `sbo3l:agent_id=research-agent-01`
+  - `sbo3l:policy_hash=0x...`
+  - `sbo3l:endpoint=https://mandate.team.example`
 
 Demo veta:
 

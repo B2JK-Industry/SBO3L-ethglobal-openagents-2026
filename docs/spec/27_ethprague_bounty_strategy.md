@@ -1,14 +1,14 @@
-# Mandate ETHPrague 2026 Bounty Strategy
+# SBO3L ETHPrague 2026 Bounty Strategy
 
 **Datum:** 2026-04-26  
-**Ucel:** Jednoznacne urcit, na ktore ETHPrague 2026 ceny **Mandate** (technical namespace `mandate`) cieli, na ktore necieli a ake minimum scope treba mat, aby submission nebol iba technicky dobry, ale aj strategicky trafeny.  
+**Ucel:** Jednoznacne urcit, na ktore ETHPrague 2026 ceny **SBO3L** (technical namespace `mandate`) cieli, na ktore necieli a ake minimum scope treba mat, aby submission nebol iba technicky dobry, ale aj strategicky trafeny.  
 **Source check:** ETHPrague Devfolio prizes + sponsor bounty pages, overit znovu 7 dni pred submission.
 
 ---
 
 ## 1. Hlavny smer
 
-**Mandate** nesutazi ako "wallet app". Sutazi ako **bezpecnostna a ekonomicka infrastruktura pre autonomous agent economy**.
+**SBO3L** nesutazi ako "wallet app". Sutazi ako **bezpecnostna a ekonomicka infrastruktura pre autonomous agent economy**.
 
 Hlavny claim:
 
@@ -27,7 +27,7 @@ Slovensky:
 | Prize | Ideme? | Preco |
 |---|---:|---|
 | **ETHPrague Network Economy** | YES - primary main prize | Najsilnejsi main-track fit: agenti ako ekonomicki akteri, x402 platby, policy-bound spend, audit, local sovereignty. |
-| **Umia - Best Agentic Venture** | YES - primary sponsor prize | Mandate je treasury/payment safety layer pre agentic ventures. Treba ukazat agent venture loop, nie iba isolated security demo. |
+| **Umia - Best Agentic Venture** | YES - primary sponsor prize | SBO3L je treasury/payment safety layer pre agentic ventures. Treba ukazat agent venture loop, nie iba isolated security demo. |
 | **The FinTechers Track** | YES - primary sponsor prize | Payments, money movement, risk/compliance, audit trail, policy engine, AI guardrails. Velmi silny fit. |
 
 ### Tier B - sekundarne, vysoko efektivne
@@ -121,9 +121,9 @@ Toto je dost na "agentic venture" bez toho, aby sme stavali full Umia marketplac
 
 - **Files:** `/demo-scripts/sponsors/ens-agent-identity.sh`
 - **Acceptance:** resolver alebo mocked resolver ukaze:
-  - `mandate:agent_id=research-agent-01`
-  - `mandate:policy_hash=0x...`
-  - `mandate:endpoint=...`
+  - `sbo3l:agent_id=research-agent-01`
+  - `sbo3l:policy_hash=0x...`
+  - `sbo3l:endpoint=...`
 - **Targets:** ENS AI Agents, Network Economy.
 
 ### ADD-04 - Hardware/privacy proof screen
@@ -134,7 +134,7 @@ Toto je dost na "agentic venture" bez toho, aby sme stavali full Umia marketplac
 
 ### ADD-05 - Optional Sourcify contract pre-check
 
-- **Files:** `/demo-scripts/sponsors/sourcify-contract-check.sh`, later `/crates/mandate-onchain/src/contract_verification.rs`
+- **Files:** `/demo-scripts/sponsors/sourcify-contract-check.sh`, later `/crates/sbo3l-onchain/src/contract_verification.rs`
 - **Acceptance:** unknown/unverified contract call is denied before signing.
 - **Targets:** Sourcify only.
 - **Decision:** do only after Tier A/B demo is stable.
@@ -250,7 +250,7 @@ Po re-checku ETHPrague/Devfolio, Umia, x402, AP2, ENSIP-25, Sourcify a SpaceComp
 - ENS AI Agents hladaju verifiable agent identity.
 - x402/AP2 trend hovori: agents will pay, but trust/authorization/accountability is the open problem.
 
-Preto by Mandate nemal byt pitchovany iba ako:
+Preto by SBO3L nemal byt pitchovany iba ako:
 
 > local signer for AI agents
 
@@ -267,11 +267,11 @@ Toto nie je zmena jadra produktu. Je to presnejsi packaging + maly scope overlay
 
 Najlepsia veta:
 
-> Mandate turns an AI agent from a hot-wallet bot into a policy-bound, auditable economic actor.
+> SBO3L turns an AI agent from a hot-wallet bot into a policy-bound, auditable economic actor.
 
 Slovensky:
 
-> Mandate spravi z AI agenta ekonomickeho aktora, ale nie nebezpecnu hot wallet.
+> SBO3L spravi z AI agenta ekonomickeho aktora, ale nie nebezpecnu hot wallet.
 
 ---
 
@@ -349,7 +349,7 @@ Kazda platba/deny event generuje receipt:
 
 ```json
 {
-  "receipt_type": "mandate.policy_receipt.v1",
+  "receipt_type": "sbo3l.policy_receipt.v1",
   "agent_id": "research-agent-01",
   "decision": "deny",
   "deny_code": "policy.deny_recipient_not_allowlisted",
@@ -422,9 +422,9 @@ Tieto veci zneistia porotu a rozbiju demo. Najlepsi tah je: **one agent, one ven
 
 ## 14. Final recommendation
 
-Projekt nemenit z Mandate na nieco ine. Rozsirit ho takto:
+Projekt nemenit z SBO3L na nieco ine. Rozsirit ho takto:
 
-> Mandate is the Agent Venture Firewall: a local, policy-bound payment vault that lets autonomous AI ventures spend, earn and prove compliance without ever holding their own private keys.
+> SBO3L is the Agent Venture Firewall: a local, policy-bound payment vault that lets autonomous AI ventures spend, earn and prove compliance without ever holding their own private keys.
 
 To je najvyssia sanca na multi-prize win, lebo jeden produkt naraz trafia:
 

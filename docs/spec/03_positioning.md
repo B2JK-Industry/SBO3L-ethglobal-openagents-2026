@@ -6,7 +6,7 @@
 **Oni:** "Hardvérová peňaženka pre človeka, ktorý fyzicky podpisuje každú transakciu."
 **My:** "Hardvérovo izolovaný platobný koprocesor pre AI agenta, ktorý rozhoduje podľa programovateľnej, podpísanej a auditovanej policy."
 
-Trezor predpokladá, že potvrdzovateľ je *človek pri zariadení*. Mandate predpokladá, že potvrdzovateľ je *deterministická policy*, a človek je až eskalačný bod (approval gateway, kill switch).
+Trezor predpokladá, že potvrdzovateľ je *človek pri zariadení*. SBO3L predpokladá, že potvrdzovateľ je *deterministická policy*, a človek je až eskalačný bod (approval gateway, kill switch).
 
 ### vs. MetaMask / browser wallet
 **Oni:** "Wallet pre interaktívneho usera v prehliadači."
@@ -51,22 +51,22 @@ x402 nehovorí *kde* žije kľúč, *kto* rozhoduje, alebo *ako* sa to auditovuj
 | TEE | Izolovaný runtime | Bezpečné vykonávanie kódu |
 | Smart account | On-chain policy vrstva | On-chain validácia |
 | x402 | Payment protokol | Štandardizácia mikroplatby |
-| **Mandate** | **Lokálny agent mandate/payment control plane** | **Rozhoduje, podpisuje, auditovuje, attestuje** |
+| **SBO3L** | **Lokálny agent mandate/payment control plane** | **Rozhoduje, podpisuje, auditovuje, attestuje** |
 
-Mandate je *kontrolná rovina* (control plane) pre agentické platby a on-chain akcie. Stretáva sa všetkým — HSM používa ako backend, TEE ako runtime, smart account ako settlement layer, x402 ako protocol — ale je samostatný, doménovo zameraný produkt. Interný daemon/protokol môže v kóde stále niesť namespace `mandate`.
+SBO3L je *kontrolná rovina* (control plane) pre agentické platby a on-chain akcie. Stretáva sa všetkým — HSM používa ako backend, TEE ako runtime, smart account ako settlement layer, x402 ako protocol — ale je samostatný, doménovo zameraný produkt. Interný daemon/protokol môže v kóde stále niesť namespace `mandate`.
 
 ---
 
 ## C.3 Tri positioning vety
 
 ### 1. Technická veta (security architekt)
-> "Mandate je policy-driven, attestable, lokálne hostovaný platobný koprocesor pre AI agentov, ktorý oddeľuje rozhodnutie od podpisu cez podpísanú policy-as-code a HSM/TEE-backed signer, takže žiadny kompromitovaný agent runtime nedokáže obísť spending limity ani exfiltrovať private key."
+> "SBO3L je policy-driven, attestable, lokálne hostovaný platobný koprocesor pre AI agentov, ktorý oddeľuje rozhodnutie od podpisu cez podpísanú policy-as-code a HSM/TEE-backed signer, takže žiadny kompromitovaný agent runtime nedokáže obísť spending limity ani exfiltrovať private key."
 
 ### 2. Investor veta (VC / strategic)
-> "Postavili sme Mandate: open-source spending mandate layer pre AI agentov, ktorý umožňuje vývojárom a firmám prevádzkovať autonómnych agentov s reálnymi peniazmi na vlastnom hardware bez toho, aby museli zveriť kľúče Coinbase alebo Turnkey — odomykáme sovereign agentic economy."
+> "Postavili sme SBO3L: open-source spending mandate layer pre AI agentov, ktorý umožňuje vývojárom a firmám prevádzkovať autonómnych agentov s reálnymi peniazmi na vlastnom hardware bez toho, aby museli zveriť kľúče Coinbase alebo Turnkey — odomykáme sovereign agentic economy."
 
 ### 3. Developer veta (engineer / DevRel)
-> "Daj svojmu agentovi mandát cez `POST /v1/payment-requests` a Mandate sa postará o policy, x402, simulation, signing a audit. Agent nikdy neuvidí private key. Beží lokálne, deployuje sa cez `docker compose up` alebo cez appliance image, a vie podpisovať cez tvoj YubiHSM, TPM, alebo SGX/TDX enclave."
+> "Daj svojmu agentovi mandát cez `POST /v1/payment-requests` a SBO3L sa postará o policy, x402, simulation, signing a audit. Agent nikdy neuvidí private key. Beží lokálne, deployuje sa cez `docker compose up` alebo cez appliance image, a vie podpisovať cez tvoj YubiHSM, TPM, alebo SGX/TDX enclave."
 
 ---
 

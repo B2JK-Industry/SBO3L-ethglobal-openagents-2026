@@ -19,12 +19,12 @@
 
 ---
 
-## §1 Configuration Schema (`/etc/mandate/mandate.toml`)
+## §1 Configuration Schema (`/etc/sbo3l/mandate.toml`)
 
 ```toml
 [server]
 mode = "dev" | "production"            # production reject if dev_key/encrypted_file backend
-unix_socket_path = "/run/mandate/mandate.sock"
+unix_socket_path = "/run/sbo3l/sbo3l.sock"
 unix_socket_owner = "mandate"
 unix_socket_perms = "0600"
 tcp_listen = "127.0.0.1:8730"          # null to disable
@@ -33,7 +33,7 @@ max_request_bytes = 65536
 shutdown_grace_seconds = 30
 
 [storage]
-db_path = "/var/lib/mandate/mandate.db"
+db_path = "/var/lib/sbo3l/sbo3l.db"
 wal_mode = true
 journal_size_limit_mb = 64
 
@@ -45,14 +45,14 @@ attestation_required_default = true
 [[signing.keys]]
 id = "agent-research-01-key"
 backend = "encrypted_file"
-backend_config = { path = "/var/lib/mandate/keys/agent-research-01.age" }
+backend_config = { path = "/var/lib/sbo3l/keys/agent-research-01.age" }
 purpose = "operational"                # operational | treasury | admin | audit | attestation
 attestation_required = true
 multisig_required = false
 
 [audit]
 hash_algorithm = "sha256"
-audit_signer_key_path = "/var/lib/mandate/keys/audit-signer.age"
+audit_signer_key_path = "/var/lib/sbo3l/keys/audit-signer.age"
 on_chain_anchor_enabled = false
 anchor_chain = "base"
 anchor_period_hours = 24
@@ -101,7 +101,7 @@ status = "trusted"                     # trusted | allowed | denied | observatio
 ## §2 Agent Payment Request Protocol (APRP) v1
 
 ### §2.1 Schema location
-`/schemas/aprp_v1.json` — JSON Schema 2020-12, `$id = "https://schemas.mandate.dev/aprp/v1.json"`.
+`/schemas/aprp_v1.json` — JSON Schema 2020-12, `$id = "https://schemas.sbo3l.dev/aprp/v1.json"`.
 
 ### §2.2 Canonical Rust struct
 
@@ -173,7 +173,7 @@ JCS implementation: **`serde_json_canonicalizer`** crate (NOT `serde_jcs` — th
 
 ## §3 Error Catalog
 
-Top-level enum `mandate_core::Error`. Každý variant má:
+Top-level enum `sbo3l_core::Error`. Každý variant má:
 
 | Field | Type | Description |
 |---|---|---|
@@ -290,7 +290,7 @@ pub enum Error {
 
 ```json
 {
-  "type": "https://schemas.mandate.dev/errors/policy.deny_blacklisted_recipient",
+  "type": "https://schemas.sbo3l.dev/errors/policy.deny_blacklisted_recipient",
   "title": "Recipient is blacklisted by policy",
   "status": 403,
   "detail": "Recipient 0xDEAD...beef on chain 'base' is in deny list",
@@ -488,7 +488,7 @@ runtime_shutdown
 ## §7 File System Layout
 
 ```
-/etc/mandate/
+/etc/sbo3l/
 ├── mandate.toml                  # main config (0640 mandate:mandate)
 ├── policies/                   # active YAML policies (0640)
 │   └── default.yaml
@@ -497,10 +497,10 @@ runtime_shutdown
     ├── ca.crt                  # vault CA cert
     └── ca.key                  # vault CA private key (HSM-backed in prod)
 
-/var/lib/mandate/
-├── mandate.db                    # SQLite (0600 mandate:mandate)
-├── mandate.db-wal
-├── mandate.db-shm
+/var/lib/sbo3l/
+├── sbo3l.db                    # SQLite (0600 mandate:mandate)
+├── sbo3l.db-wal
+├── sbo3l.db-shm
 ├── keys/                       # encrypted keys (0600)
 │   ├── audit-signer.age
 │   ├── decision-signer.age
@@ -512,8 +512,8 @@ runtime_shutdown
 └── attestation/
     └── evidence/               # cached attestation quotes
 
-/run/mandate/
-└── mandate.sock                  # Unix socket (0600 mandate:mandate)
+/run/sbo3l/
+└── sbo3l.sock                  # Unix socket (0600 mandate:mandate)
 
 /var/log/mandate/
 └── mandate.log                   # if not using journald
@@ -530,15 +530,15 @@ runtime_shutdown
 /Cargo.toml                                # workspace root
 /Cargo.lock
 /crates/
-  mandate-core/                        # library: protocol, server, signer trait, etc.
-  mandate-policy/                      # library: YAML→Rego compiler + evaluator
-  mandate-storage/                     # library: SQLite repositories
+  sbo3l-core/                        # library: protocol, server, signer trait, etc.
+  sbo3l-policy/                      # library: YAML→Rego compiler + evaluator
+  sbo3l-storage/                     # library: SQLite repositories
   mandate-onchain/                     # library: smart account + RPC client
-  mandate-mcp/                         # library: MCP server adapter
+  sbo3l-mcp/                         # library: MCP server adapter
   mandate-push/                        # library: push notification client
   mandate-zk/                          # library: ZK proof of policy eval (P9)
-  mandate-cli/                         # binary: `mandate` CLI
-  mandate-server/                      # binary: `mandate` daemon
+  sbo3l-cli/                         # binary: `sbo3l` CLI
+  sbo3l-server/                      # binary: `mandate` daemon
   mandate-web/                         # binary: web UI server (P6)
   mandate-bots/                        # binary: telegram/signal bot adapter
 /sdks/
@@ -604,7 +604,7 @@ runtime_shutdown
 | Policy YAML schema v1 | **stable** — additions backward-compat |
 | Decision token format v1 | **stable** — internal but versioned |
 | Audit event format v1 | **stable** — versioned per event |
-| Rust crate APIs (`mandate-core`) | **unstable** until 1.0 — minor breaks ok |
+| Rust crate APIs (`sbo3l-core`) | **unstable** until 1.0 — minor breaks ok |
 | MCP tool surface | **stable** since 1.0 |
 | Python/TS SDK | **stable** since 1.0 — semver |
 | Solidity contracts | **immutable** post-deploy; new deploy = new addr |
@@ -619,7 +619,7 @@ To prevent race conditions when multiple agents implement different modules:
 2. **Error code first.** No module may add new error variant without updating `§3.1` table.
 3. **Migration first.** No module may CREATE TABLE outside `/migrations/`.
 4. **No cross-crate `pub use` re-exports** unless declared here. (Prevents accidental coupling.)
-5. **Telemetry metrics:** all metric names must match regex `^mandate_[a-z_]+(_total|_seconds|_bytes|_count|_status)$`. Document each in `mandate-core/src/telemetry/metrics.rs`.
+5. **Telemetry metrics:** all metric names must match regex `^mandate_[a-z_]+(_total|_seconds|_bytes|_count|_status)$`. Document each in `sbo3l-core/src/telemetry/metrics.rs`.
 6. **Audit event types:** can only be added if listed in `§5.4`. Adding a new type = update this file in same PR.
 7. **Capability tokens:** every internal cross-zone call must carry a capability token (HMAC of action name + allowed-key-id-set + expiry). No bare RPC.
 

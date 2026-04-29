@@ -1,6 +1,6 @@
 # AI Usage Disclosure
 
-We used AI tools as coding assistants and reviewers throughout the ETHGlobal Open Agents 2026 build of **Mandate**.
+We used AI tools as coding assistants and reviewers throughout the ETHGlobal Open Agents 2026 build of **SBO3L**.
 
 ## Tools used
 
@@ -22,7 +22,7 @@ We used AI tools as coding assistants and reviewers throughout the ETHGlobal Ope
 
 ## Human-led areas
 
-- Product direction, brand and pitch (`Mandate` — "Don't give your agent a wallet. Give it a mandate.").
+- Product direction, brand and pitch (`SBO3L` — "Don't give your agent a wallet. Give it a mandate.").
 - Sponsor prize selection (KeeperHub, ENS, Uniswap stretch).
 - Architecture decisions (3-layer separation: agent boundary / policy / signer; hash-chained audit; signed receipts; verifiable audit bundle; offline trust-badge).
 - Interface contracts: locked wire formats in [`docs/spec/17_interface_contracts.md`](docs/spec/17_interface_contracts.md).

@@ -11,17 +11,17 @@ Before coding, both developers must read `30_ethglobal_submission_compliance.md`
 
 ## 1. Product target for this build
 
-Build target is **Mandate** end to end. Public brand is **Mandate**; implementation namespace is `mandate` for daemon, CLI, crates, paths and schema IDs.
+Build target is **SBO3L** end to end. Public brand is **SBO3L**; implementation namespace is `mandate` for daemon, CLI, crates, paths and schema IDs.
 
 Build target is:
 
-> **Mandate** - spending mandates for autonomous agents; a local policy, budget, receipt and audit layer that decides whether an AI agent may execute an onchain/payment action.
+> **SBO3L** - spending mandates for autonomous agents; a local policy, budget, receipt and audit layer that decides whether an AI agent may execute an onchain/payment action.
 
 Submission package must prove:
 
 1. A real agent can ask for a payment/action.
-2. Mandate can allow a legitimate action.
-3. Mandate can deny a malicious prompt-injection action.
+2. SBO3L can allow a legitimate action.
+3. SBO3L can deny a malicious prompt-injection action.
 4. A signed policy receipt proves why.
 5. ENS can identify the agent and publish policy/audit metadata.
 6. At least one sponsor-native adapter runs: KeeperHub first, Uniswap second.
@@ -34,9 +34,9 @@ Submission package must prove:
 
 Owns:
 
-- `/crates/mandate-core/`
-- `/crates/mandate-server/`
-- `/crates/mandate-cli/`
+- `/crates/sbo3l-core/`
+- `/crates/sbo3l-server/`
+- `/crates/sbo3l-cli/`
 - `/schemas/`
 - `/test-corpus/`
 - `/migrations/`
@@ -60,10 +60,10 @@ Owns:
 
 - `/demo-agents/research-agent/`
 - `/demo-scripts/`
-- `/crates/mandate-mcp/`
-- `/crates/mandate-execution/`
-- `/crates/mandate-identity/`
-- `/crates/mandate-receipts/` if split from core later
+- `/crates/sbo3l-mcp/`
+- `/crates/sbo3l-execution/`
+- `/crates/sbo3l-identity/`
+- `/crates/sbo3l-receipts/` if split from core later
 - `/web-ui/` or static trust badge if implemented
 
 Responsibilities:
@@ -101,8 +101,8 @@ Owner: Developer A
 
 Done when:
 
-- `mandate aprp validate test-corpus/aprp/golden_001_minimal.json` passes.
-- `mandate aprp validate test-corpus/aprp/adversarial_unknown_field.json` fails with `schema.unknown_field`.
+- `sbo3l aprp validate test-corpus/aprp/golden_001_minimal.json` passes.
+- `sbo3l aprp validate test-corpus/aprp/adversarial_unknown_field.json` fails with `schema.unknown_field`.
 - `POST /v1/payment-requests` accepts valid APRP.
 - Invalid or unknown agent is rejected.
 - Decision token exists but can be dev-signed.
@@ -246,10 +246,10 @@ Two developers are done when a judge can see this in under three minutes:
 
 1. "This agent has an ENS identity and policy."
 2. "It asks to do a legitimate onchain/payment action."
-3. "Mandate allows it and emits a receipt."
+3. "SBO3L allows it and emits a receipt."
 4. "The action routes to a sponsor-native integration."
 5. "Prompt injection tries to spend incorrectly."
-6. "Mandate denies it before execution."
+6. "SBO3L denies it before execution."
 7. "Audit verifies the whole thing."
 
 If that works, the project is contest-ready.

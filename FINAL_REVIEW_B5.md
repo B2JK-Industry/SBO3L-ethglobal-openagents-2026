@@ -1,4 +1,4 @@
-# Final Review (B5) — Mandate, ETHGlobal Open Agents 2026
+# Final Review (B5) — SBO3L, ETHGlobal Open Agents 2026
 
 **Reviewed commit:** `f789db8` (post-B2.v2) plus the B5 branch
 `feat/b5-final-submission-package` (this PR).
@@ -41,11 +41,11 @@ All commands run on this B5 branch on top of `main = f789db8`.
 
 | ID | Title | Merged in PR | Status |
 |---|---|---|---|
-| PSM-A1.9 | Mock KMS CLI surface + persistence (`mandate key {init,list,rotate} --mock`) | [#28](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/28) | merged |
+| PSM-A1.9 | Mock KMS CLI surface + persistence (`sbo3l key {init,list,rotate} --mock`) | [#28](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/28) | merged |
 | PSM-A2 | HTTP `Idempotency-Key` safe-retry (4-case behaviour matrix) | [#23](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/23) + [#29](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/29) | merged |
-| PSM-A3 | Active-policy lifecycle (`mandate policy {validate,current,activate,diff}`) | [#35](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/35) | merged |
-| PSM-A4 | Audit checkpoints with mock anchoring (`mandate audit checkpoint {create,verify}`) | [#36](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/36) | merged |
-| PSM-A5 | `mandate doctor` — operator readiness summary (stable `mandate.doctor.v1` JSON) | [#25](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/25) | merged |
+| PSM-A3 | Active-policy lifecycle (`sbo3l policy {validate,current,activate,diff}`) | [#35](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/35) | merged |
+| PSM-A4 | Audit checkpoints with mock anchoring (`sbo3l audit checkpoint {create,verify}`) | [#36](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/36) | merged |
+| PSM-A5 | `sbo3l doctor` — operator readiness summary (stable `sbo3l.doctor.v1` JSON) | [#25](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/25) | merged |
 | B1 | Production-shaped mock runner | [#21](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/21) | merged |
 | B2 / B2.v2 | Operator-console panels (initial + real-evidence rewrite) | [#24](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/24) + [#37](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/37) | merged |
 | B3 | Production-shaped mock fixtures (ENS, KeeperHub, Uniswap, KMS) | [#30](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/30) | merged |
@@ -62,13 +62,13 @@ Every item below is explicitly mocked / offline / local in this build. **No part
 
 | Surface | Today | Production target |
 |---|---|---|
-| KeeperHub guarded execution | `KeeperHubExecutor::local_mock()` (in-process) | `KeeperHubExecutor::live()` against the real workflow webhook under `MANDATE_KEEPERHUB_LIVE=1`. Wire-format design notes: [`docs/keeperhub-live-spike.md`](docs/keeperhub-live-spike.md). |
-| Uniswap guarded swap | `UniswapExecutor::local_mock()` (deterministic quote fixture) | `UniswapExecutor::live()` against the Uniswap Trading API quote endpoint under `MANDATE_UNISWAP_LIVE=1`. Notes: [`demo-fixtures/mock-uniswap-quotes.md`](demo-fixtures/mock-uniswap-quotes.md). |
-| ENS resolver | `OfflineEnsResolver` (offline JSON fixture) | `LiveEnsResolver` against a real ENS testnet/mainnet RPC under `MANDATE_ENS_LIVE=1`. Notes: [`demo-fixtures/mock-ens-registry.md`](demo-fixtures/mock-ens-registry.md). |
-| Signing | `DevSigner` (deterministic dev seed, **⚠ DEV ONLY ⚠** label) and `MockKmsSigner` (V005-persisted mock keyring with `mock-kms:` prefix on every output line, **also dev-only**) | Real KMS / HSM via `MANDATE_SIGNER_BACKEND=aws-kms` (or equivalent) + per-role `MANDATE_AUDIT_SIGNER_KEY_ID` / `MANDATE_RECEIPT_SIGNER_KEY_ID`. Notes: [`demo-fixtures/mock-kms-keys.md`](demo-fixtures/mock-kms-keys.md). |
-| Audit checkpoints | `mandate audit checkpoint {create, verify}` writing rows to V007's `audit_checkpoints` SQLite table; every output line carries the `mock-anchor:` prefix; the verifier refuses any artefact with `mock_anchor: false`. **Mock anchoring, NOT onchain.** | Real onchain anchor (e.g. Ethereum transaction publishing the chain digest, or a `BlockhashStore` contract). The PSM-A4 surface is the *operational shape* — not a chain commitment. Notes: [`docs/cli/audit-checkpoint.md`](docs/cli/audit-checkpoint.md). |
-| Active-policy lifecycle | `mandate policy activate` against V006's `active_policy` SQLite table — local lifecycle only; whoever holds the DB activates the policy. | Remote governance with on-chain attestation, multi-admin signing, optional pause / freeze. Notes: [`docs/cli/policy.md`](docs/cli/policy.md). |
-| Pruned / Merkle-proof audit bundles | Full chain-prefix bundle today (`mandate audit export --db --receipt`). | Optional Merkle-proof variant + embedded original APRP. Tracked in [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md). |
+| KeeperHub guarded execution | `KeeperHubExecutor::local_mock()` (in-process) | `KeeperHubExecutor::live()` against the real workflow webhook under `SBO3L_KEEPERHUB_LIVE=1`. Wire-format design notes: [`docs/keeperhub-live-spike.md`](docs/keeperhub-live-spike.md). |
+| Uniswap guarded swap | `UniswapExecutor::local_mock()` (deterministic quote fixture) | `UniswapExecutor::live()` against the Uniswap Trading API quote endpoint under `SBO3L_UNISWAP_LIVE=1`. Notes: [`demo-fixtures/mock-uniswap-quotes.md`](demo-fixtures/mock-uniswap-quotes.md). |
+| ENS resolver | `OfflineEnsResolver` (offline JSON fixture) | `LiveEnsResolver` against a real ENS testnet/mainnet RPC under `SBO3L_ENS_LIVE=1`. Notes: [`demo-fixtures/mock-ens-registry.md`](demo-fixtures/mock-ens-registry.md). |
+| Signing | `DevSigner` (deterministic dev seed, **⚠ DEV ONLY ⚠** label) and `MockKmsSigner` (V005-persisted mock keyring with `mock-kms:` prefix on every output line, **also dev-only**) | Real KMS / HSM via `SBO3L_SIGNER_BACKEND=aws-kms` (or equivalent) + per-role `SBO3L_AUDIT_SIGNER_KEY_ID` / `SBO3L_RECEIPT_SIGNER_KEY_ID`. Notes: [`demo-fixtures/mock-kms-keys.md`](demo-fixtures/mock-kms-keys.md). |
+| Audit checkpoints | `sbo3l audit checkpoint {create, verify}` writing rows to V007's `audit_checkpoints` SQLite table; every output line carries the `mock-anchor:` prefix; the verifier refuses any artefact with `mock_anchor: false`. **Mock anchoring, NOT onchain.** | Real onchain anchor (e.g. Ethereum transaction publishing the chain digest, or a `BlockhashStore` contract). The PSM-A4 surface is the *operational shape* — not a chain commitment. Notes: [`docs/cli/audit-checkpoint.md`](docs/cli/audit-checkpoint.md). |
+| Active-policy lifecycle | `sbo3l policy activate` against V006's `active_policy` SQLite table — local lifecycle only; whoever holds the DB activates the policy. | Remote governance with on-chain attestation, multi-admin signing, optional pause / freeze. Notes: [`docs/cli/policy.md`](docs/cli/policy.md). |
+| Pruned / Merkle-proof audit bundles | Full chain-prefix bundle today (`sbo3l audit export --db --receipt`). | Optional Merkle-proof variant + embedded original APRP. Tracked in [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md). |
 | Soft-cap warning emission in receipts | `Budget.soft_cap_usd` parsed but not enforced at receipt-emission time. | Surface a soft-cap warning field on receipts for over-soft-cap (yet-still-allowed) transactions. |
 | Recorded demo video | Script + checklist committed at [`demo-scripts/demo-video-script.md`](demo-scripts/demo-video-script.md). | 3:30 recording uploaded to the submission form. |
 

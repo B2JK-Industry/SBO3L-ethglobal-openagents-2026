@@ -1,7 +1,7 @@
 # `mock-kms-keys.json` — production-shaped mock-KMS key catalogue
 
-Public verification-key metadata for Mandate's two demo signers — same
-deterministic dev seeds that ship in `crates/mandate-server/src/lib.rs:54-55`
+Public verification-key metadata for SBO3L's two demo signers — same
+deterministic dev seeds that ship in `crates/sbo3l-server/src/lib.rs:54-55`
 and that the production-shaped runner's step 9
 (`demo-scripts/run-production-shaped-mock.sh`) uses to verify audit
 bundles. **Public Ed25519 verification keys only — no private/signing
@@ -9,7 +9,7 @@ material is included.**
 
 ## What it demonstrates
 
-- The catalogue shape that the `mandate key list --mock` CLI (PSM-A1.9,
+- The catalogue shape that the `sbo3l key list --mock` CLI (PSM-A1.9,
   shipped in PR #28) emits today. Adapter authors can dry-run their
   KMS-listing parsers against this fixture without invoking the binary;
   the CLI's actual output uses the same field set.
@@ -34,7 +34,7 @@ A real KMS / HSM key-listing API output:
 - Self-hosted HSM — vendor-specific key-listing API.
 
 Production deployments inject signers via `AppState::with_signers`
-(TEE/HSM-backed). The dev signers in `mandate-server::lib.rs` are
+(TEE/HSM-backed). The dev signers in `sbo3l-server::lib.rs` are
 clearly labelled `⚠ DEV ONLY ⚠` and never ship as production keys.
 
 ## Exact replacement step
@@ -44,14 +44,14 @@ CLI surface that materialises this fixture's shape from a real local
 SQLite keyring — **landed in PR #28**. **Stage 2** (production) swaps
 the mock keyring for a real KMS / HSM client.
 
-### Stage 1 — `mandate key list --mock` CLI (PSM-A1.9 — DONE)
+### Stage 1 — `sbo3l key list --mock` CLI (PSM-A1.9 — DONE)
 
 PSM-A1.9 shipped in PR #28. The CLI exists today:
 
 ```bash
-mandate key init   --mock --role audit-mock    --root-seed <hex64> --db <path>
-mandate key list   --mock                                          --db <path>
-mandate key rotate --mock --role audit-mock    --root-seed <hex64> --db <path>
+sbo3l key init   --mock --role audit-mock    --root-seed <hex64> --db <path>
+sbo3l key list   --mock                                          --db <path>
+sbo3l key rotate --mock --role audit-mock    --root-seed <hex64> --db <path>
 ```
 
 Every operation requires `--mock` (production KMS backends are not
@@ -60,17 +60,17 @@ Every output line is `mock-kms:`-prefixed. `rotate` refuses with exit 2
 if the supplied `--root-seed` does not derive the stored current
 version's public material — preventing accidental mixed-seed keyrings.
 The persistent `mock_kms_keys` table is migration V005; the daemon's
-`mandate doctor` reports it as `ok` once V005 is applied.
+`sbo3l doctor` reports it as `ok` once V005 is applied.
 
 The fixture stays as the **public shape reference** — useful for
 adapter authors writing KMS-listing parsers and for verification tests
 that don't want to execute the binary. The fixture's `verifying_key_hex`
 values are the same dev-signer pubkeys the runner uses today; they are
 deterministically derivable from the public dev seeds at
-`crates/mandate-server/src/lib.rs:54-55`. **Mock — not production-grade.**
+`crates/sbo3l-server/src/lib.rs:54-55`. **Mock — not production-grade.**
 
 A future B-side follow-up can teach `demo-scripts/run-production-shaped-mock.sh`
-step 9 to read the verification pubkeys from `mandate key list --mock`
+step 9 to read the verification pubkeys from `sbo3l key list --mock`
 output instead of the hardcoded constants — an internal cleanup, not a
 correctness fix.
 
@@ -81,10 +81,10 @@ correctness fix.
    - HSM — vendor SDK `signer.sign(...)`.
 2. Configure via env vars (canonical names — see
    [`docs/production-transition-checklist.md` §Signer](../docs/production-transition-checklist.md#signer--mock-kms--hsm)):
-   - `MANDATE_SIGNER_BACKEND` — `dev` | `mock_kms` | `aws_kms` | `hsm`.
-   - `MANDATE_AUDIT_SIGNER_KEY_ID` — KMS key id for the audit signer.
-   - `MANDATE_RECEIPT_SIGNER_KEY_ID` — KMS key id for the receipt signer.
-   - `MANDATE_KMS_REGION` / `MANDATE_KMS_ENDPOINT` for the KMS API
+   - `SBO3L_SIGNER_BACKEND` — `dev` | `mock_kms` | `aws_kms` | `hsm`.
+   - `SBO3L_AUDIT_SIGNER_KEY_ID` — KMS key id for the audit signer.
+   - `SBO3L_RECEIPT_SIGNER_KEY_ID` — KMS key id for the receipt signer.
+   - `SBO3L_KMS_REGION` / `SBO3L_KMS_ENDPOINT` for the KMS API
      (vendor-specific equivalents apply for non-AWS backends).
 3. Construct `AppState::with_signers(...)` from the configured backend
    instead of the dev signers. Existing `AppState::new()` continues to
@@ -122,4 +122,4 @@ for the env-var / endpoint / credentials matrix.
 - The two `verifying_key_hex` values match the constants in
   `demo-scripts/run-production-shaped-mock.sh` step 9 (production-shaped
   runner — verifies audit bundles using these public keys).
-- The seed sources match `crates/mandate-server/src/lib.rs:54-55`.
+- The seed sources match `crates/sbo3l-server/src/lib.rs:54-55`.

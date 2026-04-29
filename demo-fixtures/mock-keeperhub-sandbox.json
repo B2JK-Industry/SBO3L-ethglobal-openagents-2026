@@ -1,8 +1,8 @@
 {
-  "schema": "mandate-mock-keeperhub-sandbox-v1",
+  "schema": "sbo3l-mock-keeperhub-sandbox-v1",
   "mock": true,
-  "explanation": "Catalogue of the response envelopes Mandate's `KeeperHubExecutor::live()` would consume in production, modelled here against a deterministic local sandbox (NOT a real KeeperHub workflow). Each scenario shows what the live integration must parse: the success envelope (`executionId` parsing), the idempotency-conflict envelope, the not-approved envelope, and a status-lookup payload. Adapter authors can write the live parser against these shapes without ever calling KeeperHub. See `docs/keeperhub-live-spike.md` for the wire-format design notes that produced these shapes.",
-  "live_replacement": "Replace with real KeeperHub workflow webhook responses once a public submission/result schema and credentials are available. The four `mandate_*` envelope fields and the optional `X-Mandate-*` response headers are feedback asks — see FEEDBACK.md §KeeperHub. Switching is a `KeeperHubMode::Live(KeeperHubLiveConfig)` constructor in `crates/mandate-execution/src/keeperhub.rs`; this fixture documents the response shape Mandate would unwrap.",
+  "explanation": "Catalogue of the response envelopes SBO3L's `KeeperHubExecutor::live()` would consume in production, modelled here against a deterministic local sandbox (NOT a real KeeperHub workflow). Each scenario shows what the live integration must parse: the success envelope (`executionId` parsing), the idempotency-conflict envelope, the not-approved envelope, and a status-lookup payload. Adapter authors can write the live parser against these shapes without ever calling KeeperHub. See `docs/keeperhub-live-spike.md` for the wire-format design notes that produced these shapes.",
+  "live_replacement": "Replace with real KeeperHub workflow webhook responses once a public submission/result schema and credentials are available. The four `sbo3l_*` envelope fields and the optional `X-SBO3L-*` response headers are feedback asks — see FEEDBACK.md §KeeperHub. Switching is a `KeeperHubMode::Live(KeeperHubLiveConfig)` constructor in `crates/sbo3l-execution/src/keeperhub.rs`; this fixture documents the response shape SBO3L would unwrap.",
   "sponsor": "keeperhub",
   "host": "sandbox.keeperhub.invalid",
   "_host_note": "`*.invalid` is RFC 6761 §6.4 — guaranteed to never resolve, never make a real network call. Used here as a sentinel host so the fixture cannot be mistaken for a live URL.",
@@ -18,18 +18,18 @@
         "body": {
           "aprp": "<canonical APRP body>",
           "policy_receipt": "<signed PolicyReceipt JSON>",
-          "mandate_request_hash":      "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
-          "mandate_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
-          "mandate_receipt_signature": "<ed25519 hex>",
-          "mandate_audit_event_id":    "evt-MOCKKHSUCCESS00000000000A"
+          "sbo3l_request_hash":      "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+          "sbo3l_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "sbo3l_receipt_signature": "<ed25519 hex>",
+          "sbo3l_audit_event_id":    "evt-MOCKKHSUCCESS00000000000A"
         }
       },
       "response": {
         "status": 200,
         "headers": {
           "Content-Type": "application/json",
-          "X-Mandate-Receipt-Signature": "<echoed; per FEEDBACK.md §KeeperHub ask>",
-          "X-Mandate-Policy-Hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf"
+          "X-SBO3L-Receipt-Signature": "<echoed; per FEEDBACK.md §KeeperHub ask>",
+          "X-SBO3L-Policy-Hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf"
         },
         "body": {
           "executionId":  "kh-MOCKKHSUCCESS00000000001B",
@@ -50,10 +50,10 @@
         "body": {
           "aprp": "<APRP body that differs from the first submission under the same key>",
           "policy_receipt": "<receipt>",
-          "mandate_request_hash":      "9e6deead0f72284ce5002decb5dd6dacfd4eba15487b9a17050ce2bbf1f6fc3a",
-          "mandate_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
-          "mandate_receipt_signature": "<ed25519 hex>",
-          "mandate_audit_event_id":    "evt-MOCKKHCONFLICT0000000000C"
+          "sbo3l_request_hash":      "9e6deead0f72284ce5002decb5dd6dacfd4eba15487b9a17050ce2bbf1f6fc3a",
+          "sbo3l_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "sbo3l_receipt_signature": "<ed25519 hex>",
+          "sbo3l_audit_event_id":    "evt-MOCKKHCONFLICT0000000000C"
         }
       },
       "response": {
@@ -66,7 +66,7 @@
       }
     },
     "submit_not_approved_local": {
-      "_note": "Mandate's KeeperHubExecutor::execute() refuses denied receipts BEFORE any network call. This scenario shows the local-side refusal envelope so live-path authors don't accidentally emit a network request for denied receipts.",
+      "_note": "SBO3L's KeeperHubExecutor::execute() refuses denied receipts BEFORE any network call. This scenario shows the local-side refusal envelope so live-path authors don't accidentally emit a network request for denied receipts.",
       "input_decision": "Deny",
       "input_deny_code": "policy.deny_unknown_provider",
       "behaviour": "ExecutionError::NotApproved is returned synchronously; no HTTP call is made; the workflow webhook URL is never contacted.",
@@ -85,10 +85,10 @@
           "status":       "completed",
           "completedAt":  "2026-04-28T00:00:05Z",
           "runLogPointer": "fixture://run-log/kh-MOCKKHSUCCESS00000000001B",
-          "mandate_request_hash":      "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
-          "mandate_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
-          "mandate_receipt_signature": "<ed25519 hex echoed back>",
-          "mandate_audit_event_id":    "evt-MOCKKHSUCCESS00000000000A"
+          "sbo3l_request_hash":      "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+          "sbo3l_policy_hash":       "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "sbo3l_receipt_signature": "<ed25519 hex echoed back>",
+          "sbo3l_audit_event_id":    "evt-MOCKKHSUCCESS00000000000A"
         }
       }
     }

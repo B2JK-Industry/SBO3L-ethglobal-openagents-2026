@@ -217,7 +217,7 @@ decision := {"action": "allow"} if {
 
 ## K.5 Policy lifecycle
 
-1. **Draft** — admin pripraví YAML, `mandate policy lint` lokálne.
+1. **Draft** — admin pripraví YAML, `sbo3l policy lint` lokálne.
 2. **Sign** — admin (alebo M-of-N) podpíše canonical hash.
 3. **Submit** — `PATCH /v1/agents/{id}/policies` so podpisami.
 4. **Validation** — vault overí podpisy + lint + (optional) dry-run nad poslednými 100 requestami.

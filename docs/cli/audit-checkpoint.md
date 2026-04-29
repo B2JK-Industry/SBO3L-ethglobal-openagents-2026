@@ -1,8 +1,8 @@
-# `mandate audit checkpoint` — mock-anchored audit checkpoints
+# `sbo3l audit checkpoint` — mock-anchored audit checkpoints
 
 > *Mock anchoring, not real onchain anchoring.*
 
-`mandate audit checkpoint {create, verify}` (PSM-A4) gives an operator a way to **snapshot the audit chain's tip** and stamp it with a deterministic local "anchor reference" that simulates the *shape* of an on-chain anchor. Every operation is local — there is no network, no chain RPC, no broadcast, no signature from any L1 / L2 contract. The CLI prefixes every output line with `mock-anchor:` for loud disclosure.
+`sbo3l audit checkpoint {create, verify}` (PSM-A4) gives an operator a way to **snapshot the audit chain's tip** and stamp it with a deterministic local "anchor reference" that simulates the *shape* of an on-chain anchor. Every operation is local — there is no network, no chain RPC, no broadcast, no signature from any L1 / L2 contract. The CLI prefixes every output line with `mock-anchor:` for loud disclosure.
 
 ## What it is, and what it is not
 
@@ -18,13 +18,13 @@ The CLI loudly refuses to verify a checkpoint with `mock_anchor: false` — ther
 
 ## Subcommands
 
-### `mandate audit checkpoint create --db <path> [--out <file>]`
+### `sbo3l audit checkpoint create --db <path> [--out <file>]`
 
 Reads the audit chain from `<path>`, computes a `chain_digest` (SHA-256 over every event_hash in the prefix), inserts a row into `audit_checkpoints`, and prints the result. With `--out`, the same JSON is also written to disk for offline distribution.
 
 ```text
-$ mandate audit checkpoint create --db /var/mandate/mandate.db --out cp.json
-mock-anchor: schema:            mandate.audit_checkpoint.v1
+$ sbo3l audit checkpoint create --db /var/sbo3l/sbo3l.db --out cp.json
+mock-anchor: schema:            sbo3l.audit_checkpoint.v1
 mock-anchor: sequence:          42
 mock-anchor: latest_event_id:   evt-01KQATRMHXFWY58QQZV378JN9P
 mock-anchor: latest_event_hash: 6cba2eed67c2dfd623521be0a692b8716f300eb27deb3a7e9ab06d5e8b3bb9e6
@@ -41,7 +41,7 @@ mock-anchor: written to cp.json
 | 1 | DB open / read / write failure |
 | 3 | Audit chain is empty — nothing to anchor (the honest "no chain to commit" path) |
 
-### `mandate audit checkpoint verify <file> [--db <path>]`
+### `sbo3l audit checkpoint verify <file> [--db <path>]`
 
 Verifies a checkpoint JSON artifact. Without `--db`, only structural checks run: schema id, `mock_anchor: true`, hash field shapes, `mock_anchor_ref` format. With `--db`, the verifier additionally:
 
@@ -51,8 +51,8 @@ Verifies a checkpoint JSON artifact. Without `--db`, only structural checks run:
 4. If the live chain has grown past the checkpoint's `sequence`, surfaces this as informational (`live chain has advanced beyond checkpoint`) — the prefix-through-doc-seq still has to match, otherwise it's a tamper signal.
 
 ```text
-$ mandate audit checkpoint verify cp.json --db /var/mandate/mandate.db
-mock-anchor: schema:            mandate.audit_checkpoint.v1
+$ sbo3l audit checkpoint verify cp.json --db /var/sbo3l/sbo3l.db
+mock-anchor: schema:            sbo3l.audit_checkpoint.v1
 mock-anchor: mock_anchor:       true
 mock-anchor: sequence:          42
 …
@@ -87,12 +87,12 @@ Indexes on `sequence` and `chain_digest` so a future verifier can locate "the la
 
 ## Doctor integration
 
-`mandate doctor` surfaces this table as the `audit_checkpoints` row:
+`sbo3l doctor` surfaces this table as the `audit_checkpoints` row:
 
 | State | Doctor row |
 | --- | --- |
 | Table present + at least one row | `ok` — `table present, rows=N, latest=seq<X>, anchor=<12-hex-prefix>… (mock — see docs/cli/audit-checkpoint.md)` |
-| Table present + no rows | `skip` — points at `mandate audit checkpoint create` and explicitly mentions "PSM-A4 — mock anchoring, not onchain" |
+| Table present + no rows | `skip` — points at `sbo3l audit checkpoint create` and explicitly mentions "PSM-A4 — mock anchoring, not onchain" |
 | Table missing entirely | `skip` — older daemon DB before V007; references PSM-A4 + V007 |
 
 ## Truthfulness rules

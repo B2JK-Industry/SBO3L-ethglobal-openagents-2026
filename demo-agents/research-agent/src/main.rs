@@ -1,19 +1,19 @@
 //! ETHGlobal Open Agents demo harness.
 //!
-//! Drives Mandate's payment-request pipeline end-to-end against the
+//! Drives SBO3L's payment-request pipeline end-to-end against the
 //! in-memory daemon. Output is deterministic — no LLM credentials, no
 //! network calls.
 //!
 //! Three demo modes:
 //!
 //! * `--scenario legit-x402 | prompt-injection` — load the named APRP
-//!   fixture from `scenarios.json`, post it to Mandate, print decision +
+//!   fixture from `scenarios.json`, post it to SBO3L, print decision +
 //!   receipt + audit event id. Optional `--ens-fixture` /
 //!   `--execute-keeperhub`.
 //! * `--uniswap-quote <quote.json> --swap-policy <swap-policy.json>` —
 //!   run the swap-policy guard, build an APRP from the quote, post it to
-//!   Mandate (using `--policy` if provided), print swap-policy outcome +
-//!   Mandate decision. Optional `--execute-uniswap`.
+//!   SBO3L (using `--policy` if provided), print swap-policy outcome +
+//!   SBO3L decision. Optional `--execute-uniswap`.
 //! * `--policy <policy.json>` — override the bundled reference policy for
 //!   any of the modes above.
 
@@ -24,18 +24,18 @@ use clap::Parser;
 use serde::Deserialize;
 use serde_json::Value;
 
-use mandate_execution::uniswap::{evaluate_swap, SwapPolicy, SwapQuote};
-use mandate_execution::{GuardedExecutor, KeeperHubExecutor, SwapPolicyOutcome, UniswapExecutor};
-use mandate_identity::{EnsResolver, OfflineEnsResolver};
-use mandate_policy::Policy;
-use mandate_server::{reference_policy, AppState, PaymentRequestResponse};
-use mandate_storage::Storage;
+use sbo3l_execution::uniswap::{evaluate_swap, SwapPolicy, SwapQuote};
+use sbo3l_execution::{GuardedExecutor, KeeperHubExecutor, SwapPolicyOutcome, UniswapExecutor};
+use sbo3l_identity::{EnsResolver, OfflineEnsResolver};
+use sbo3l_policy::Policy;
+use sbo3l_server::{reference_policy, AppState, PaymentRequestResponse};
+use sbo3l_storage::Storage;
 
 #[derive(Parser, Debug)]
 #[command(
     name = "research-agent",
     version,
-    about = "Mandate ETHGlobal Open Agents research-agent harness."
+    about = "SBO3L ETHGlobal Open Agents research-agent harness."
 )]
 struct Cli {
     /// Scenario id from scenarios.json: legit-x402 | prompt-injection. Mutually
@@ -46,14 +46,14 @@ struct Cli {
     #[arg(long, default_value = "demo-agents/research-agent/scenarios.json")]
     scenarios: std::path::PathBuf,
 
-    /// Override the bundled reference Mandate policy. Used by the Uniswap
+    /// Override the bundled reference SBO3L policy. Used by the Uniswap
     /// demo to load the swap-aware policy variant in
-    /// `demo-fixtures/uniswap/mandate-policy.json`.
+    /// `demo-fixtures/uniswap/sbo3l-policy.json`.
     #[arg(long)]
     policy: Option<std::path::PathBuf>,
 
     /// Optional ENS records fixture (`{"name.eth": {...}}`). When set, resolve
-    /// `--ens-name` and verify the `mandate:policy_hash` text record matches
+    /// `--ens-name` and verify the `sbo3l:policy_hash` text record matches
     /// the canonical hash of the active reference policy.
     #[arg(long)]
     ens_fixture: Option<std::path::PathBuf>,
@@ -73,7 +73,7 @@ struct Cli {
 
     /// Path to a Uniswap quote fixture (see demo-fixtures/uniswap/). When set,
     /// the harness runs the swap-policy guard and then submits the quote as
-    /// an APRP `smart_account_session` request to Mandate.
+    /// an APRP `smart_account_session` request to SBO3L.
     #[arg(long)]
     uniswap_quote: Option<std::path::PathBuf>,
     /// Path to the swap-policy fixture used by the swap-policy guard.
@@ -89,14 +89,14 @@ struct Cli {
     /// daemon. When unset, the harness uses `Storage::open_in_memory()` (the
     /// default for the existing 13-gate demo). When set, the same migrations
     /// run against the on-disk file, the chain persists past the harness
-    /// process, and the file is suitable for `mandate audit export --db`.
+    /// process, and the file is suitable for `sbo3l audit export --db`.
     /// Used by `demo-scripts/run-production-shaped-mock.sh`.
     #[arg(long)]
     storage_path: Option<std::path::PathBuf>,
 
     /// Optional path to write the signed `PolicyReceipt` JSON returned by
     /// the daemon. Lets downstream scripts (e.g. the production-shaped mock
-    /// runner) feed the receipt into `mandate audit export --receipt`
+    /// runner) feed the receipt into `sbo3l audit export --receipt`
     /// without parsing the harness's human-readable stdout.
     #[arg(long)]
     save_receipt: Option<std::path::PathBuf>,
@@ -256,12 +256,12 @@ fn run_uniswap(cli: &Cli, quote_path: &std::path::Path, policy: Policy) -> anyho
     }
 
     let blocked_anywhere =
-        outcome.blocked || matches!(response.decision, mandate_core::receipt::Decision::Deny);
+        outcome.blocked || matches!(response.decision, sbo3l_core::receipt::Decision::Deny);
     let label_is_allow_path =
-        matches!(response.decision, mandate_core::receipt::Decision::Allow) && !outcome.blocked;
+        matches!(response.decision, sbo3l_core::receipt::Decision::Allow) && !outcome.blocked;
     if !label_is_allow_path && !blocked_anywhere {
         anyhow::bail!(
-            "uniswap demo expectation drift: swap_policy_blocked={} mandate_decision={:?}",
+            "uniswap demo expectation drift: swap_policy_blocked={} sbo3l_decision={:?}",
             outcome.blocked,
             response.decision
         );
@@ -333,7 +333,7 @@ fn keeperhub_route(
 ) -> anyhow::Result<()> {
     let aprp_raw = std::fs::read_to_string(aprp_path)?;
     let aprp_value: Value = serde_json::from_str(&aprp_raw)?;
-    let aprp: mandate_core::aprp::PaymentRequest = serde_json::from_value(aprp_value)?;
+    let aprp: sbo3l_core::aprp::PaymentRequest = serde_json::from_value(aprp_value)?;
     let executor = KeeperHubExecutor::local_mock();
     println!();
     match executor.execute(&aprp, &response.receipt) {
@@ -354,7 +354,7 @@ fn keeperhub_route(
 
 fn uniswap_route(quote: &SwapQuote, response: &PaymentRequestResponse) -> anyhow::Result<()> {
     let aprp_value = quote_to_aprp(quote)?;
-    let aprp: mandate_core::aprp::PaymentRequest = serde_json::from_value(aprp_value)?;
+    let aprp: sbo3l_core::aprp::PaymentRequest = serde_json::from_value(aprp_value)?;
     let executor = UniswapExecutor::local_mock();
     println!();
     match executor.execute(&aprp, &response.receipt) {
@@ -395,7 +395,7 @@ async fn call_in_memory(
         None => Storage::open_in_memory()?,
     };
     let state = AppState::new(policy, storage);
-    let app = mandate_server::router(state);
+    let app = sbo3l_server::router(state);
 
     use axum::body::Body;
     use axum::http::Request;
@@ -464,24 +464,24 @@ fn print_swap_outcome(quote: &SwapQuote, outcome: &SwapPolicyOutcome) {
 fn print_uniswap_summary(quote: &SwapQuote, response: &PaymentRequestResponse) {
     println!();
     println!("uniswap.aprp.task_id:    uniswap-swap-{}", quote.quote_id);
-    println!("uniswap.mandate.status:  {:?}", response.status);
-    println!("uniswap.mandate.decision:{:?}", response.decision);
+    println!("uniswap.sbo3l.status:  {:?}", response.status);
+    println!("uniswap.sbo3l.decision:{:?}", response.decision);
     if let Some(c) = &response.deny_code {
-        println!("uniswap.mandate.deny_code:    {c}");
+        println!("uniswap.sbo3l.deny_code:    {c}");
     }
     if let Some(r) = &response.matched_rule_id {
-        println!("uniswap.mandate.matched_rule: {r}");
+        println!("uniswap.sbo3l.matched_rule: {r}");
     }
-    println!("uniswap.mandate.request_hash: {}", response.request_hash);
-    println!("uniswap.mandate.policy_hash:  {}", response.policy_hash);
-    println!("uniswap.mandate.audit_event:  {}", response.audit_event_id);
+    println!("uniswap.sbo3l.request_hash: {}", response.request_hash);
+    println!("uniswap.sbo3l.policy_hash:  {}", response.policy_hash);
+    println!("uniswap.sbo3l.audit_event:  {}", response.audit_event_id);
 }
 
 fn check_expectations(
     scenario: &Scenario,
     response: &PaymentRequestResponse,
 ) -> anyhow::Result<()> {
-    use mandate_server::PaymentStatus;
+    use sbo3l_server::PaymentStatus;
     let expected_status = match scenario.expected_status {
         ExpectedStatus::AutoApproved => PaymentStatus::AutoApproved,
         ExpectedStatus::Rejected => PaymentStatus::Rejected,

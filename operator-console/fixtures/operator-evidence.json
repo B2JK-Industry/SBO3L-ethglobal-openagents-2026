@@ -1,5 +1,5 @@
 {
-  "schema": "mandate-operator-evidence-v1",
+  "schema": "sbo3l-operator-evidence-v1",
   "tagline": "Don't give your agent a wallet. Give it a mandate.",
   "demo_commit": "fedcba9876543210fedcba9876543210fedcba98",
   "generated_at_iso": "2026-04-29T00:00:00Z",
@@ -55,7 +55,7 @@
   "psm_a4_audit_checkpoints": {
     "_mock_anchor_label": "Mock anchoring, NOT onchain.",
     "create": {
-      "schema": "mandate.audit_checkpoint.v1",
+      "schema": "sbo3l.audit_checkpoint.v1",
       "sequence": 2,
       "latest_event_id": "evt-OPERATOREVIDENCEFIXTUREB",
       "latest_event_hash": "3b14a381374c605dbab95d95dd89c5293f75bba850ecfb596d1ae7704f4dc6bb",
@@ -79,7 +79,7 @@
     "checks_summary": { "ok": 3, "skip": 1, "fail": 0 },
     "malformed": false,
     "report": {
-      "report_type": "mandate.doctor.v1",
+      "report_type": "sbo3l.doctor.v1",
       "overall": "ok",
       "db_path": ":memory:",
       "checks": [

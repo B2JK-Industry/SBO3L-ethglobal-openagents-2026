@@ -2,7 +2,7 @@
 
 > Production-shaped, persistent, deterministic. RFC 8470-spirit, not a literal RFC 8470 implementation.
 
-`POST /v1/payment-requests` accepts an `Idempotency-Key` header (16–64 ASCII chars, declared in `docs/api/openapi.json` since the project's OpenAPI was first published). Mandate's daemon turns this into:
+`POST /v1/payment-requests` accepts an `Idempotency-Key` header (16–64 ASCII chars, declared in `docs/api/openapi.json` since the project's OpenAPI was first published). SBO3L's daemon turns this into:
 
 - **Same key + same canonical request body** → return the original 200 OK response, byte-identical, **without re-running policy / budget / audit / signing**.
 - **Same key + different canonical request body** → HTTP 409 `protocol.idempotency_conflict`.
@@ -70,6 +70,6 @@ CREATE TABLE idempotency_keys (
 - **No TTL eviction.** The table grows monotonically. APRP requests have an `expires_at`; a future migration can `DELETE WHERE created_at < now() - <window>` without changing semantics.
 - **200-only caching.** 4xx responses re-run the pipeline on retry (they re-fail deterministically; the cost is minor).
 - **Defence in depth, not replacement for the nonce gate.** A successful retry under K1 returns the cached response. A different K2 with the same nonce still hits the nonce gate → 409 `protocol.nonce_replay`. The two protections are layered, not interchangeable.
-- **No support for `request_hash`-based fingerprinting under different keys.** If the client sends K1 + body B1 (success), then K2 + body B1 (different key, same body, fresh nonce), Mandate will run the pipeline and append a new audit row — that's the intended semantics; the agent has explicitly declared two distinct logical operations by giving them two distinct keys.
+- **No support for `request_hash`-based fingerprinting under different keys.** If the client sends K1 + body B1 (success), then K2 + body B1 (different key, same body, fresh nonce), SBO3L will run the pipeline and append a new audit row — that's the intended semantics; the agent has explicitly declared two distinct logical operations by giving them two distinct keys.
 - **No deduplication on a 5xx-then-retry race.** RFC 8470's full safe-retry model would lock the key during pipeline execution and serialise retries against it; we don't yet. Concurrent first-attempts under the same key produce one cache winner; subsequent retries see the cached response.
-- **The daemon (`mandate-server`) accepts the header on the demo path, but the existing 13-step `run-openagents-final.sh` does not exercise it — it remains a server feature. A B-owned demo step can promote PSM-A2 from SKIP in the production-shaped runner.
+- **The daemon (`sbo3l-server`) accepts the header on the demo path, but the existing 13-step `run-openagents-final.sh` does not exercise it — it remains a server feature. A B-owned demo step can promote PSM-A2 from SKIP in the production-shaped runner.

@@ -83,12 +83,12 @@ Označenie: **OQ-XX** + impact (M1/M2/M3) + owner (TBD).
 
 ### OQ-15 ✅ UPDATED (2026-04-27) Naming
 - **Pôvodný stav:** "Agent Vault OS" implikovalo "operating system" — prehnané. "Local Agent Trezor" — kolízia s Trezor brandom. "Agent Payment Coprocessor" — dlhé.
-- **Decision:** **Mandate** je public brand / hackathon submission name.
+- **Decision:** **SBO3L** je public brand / hackathon submission name.
 - **Tagline:** "Spending mandates for autonomous agents."
 - **Pitch veta:** "Don't give your agent a wallet. Give it a mandate."
 - **Technical namespace:** `mandate` je finálny implementation namespace pre daemon, crates, schema IDs, CLI, cesty a interné dokumenty.
-- **Reason:** `Mandate` vytvára kategóriu: agent nemá wallet, má obmedzený a auditovateľný mandát. Jeden názov v pitchi aj v kóde znižuje kognitívny šum pre porotu aj developerov.
-- **Open follow-up:** overiť trademark/domain/GitHub/ENS dostupnosť pre `Mandate`, `Mandate402`, `mandate-agent`, `mandate.dev`, `mandate.eth`. Ak je `Mandate` kolízne, fallback je **Mandate402**.
+- **Reason:** `SBO3L` vytvára kategóriu: agent nemá wallet, má obmedzený a auditovateľný mandát. Jeden názov v pitchi aj v kóde znižuje kognitívny šum pre porotu aj developerov.
+- **Open follow-up:** overiť trademark/domain/GitHub/ENS dostupnosť pre `SBO3L`, `Mandate402`, `mandate-agent`, `sbo3l.dev`, `mandate.eth`. Ak je `SBO3L` kolízne, fallback je **Mandate402**.
 
 ### OQ-16 (M2) Compliance / regulatory positioning
 - Sme money transmitter? — nie, ak iba podpisujeme používateľove transakcie zo svojho HW.
@@ -162,8 +162,8 @@ Označenie: **OQ-XX** + impact (M1/M2/M3) + owner (TBD).
 
 | D# | Date | Decision | Rationale |
 |---|---|---|---|
-| D-001 | 2026-04-27 | Product + technical namespace: `Mandate` / `mandate` | Jednotný brand aj implementation namespace |
-| D-002 | 2026-04-27 | Public brand: **Mandate** | Výraznejšie pre hackathon; agent nedostáva wallet, dostáva mandát |
+| D-001 | 2026-04-27 | Product + technical namespace: `SBO3L` / `mandate` | Jednotný brand aj implementation namespace |
+| D-002 | 2026-04-27 | Public brand: **SBO3L** | Výraznejšie pre hackathon; agent nedostáva wallet, dostáva mandát |
 | D-003 | 2026-04-25 | Primárny implementačný jazyk: Rust | Memory safety, single binary, dobre crypto |
 | D-004 | 2026-04-25 | Primárna policy DSL: Rego (cez regorus) | Mature, expressive, embedded |
 | D-005 | 2026-04-25 | Storage: SQLite (M1/M2) | Single-file, atomic, well-tested |

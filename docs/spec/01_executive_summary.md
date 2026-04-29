@@ -1,6 +1,6 @@
 # A. Executive Summary
 
-**Mandate** je lokálny bezpečnostný produkt pre vlastný Linux server, ktorý funguje ako *platobný koprocesor* a policy firewall pre AI agentov. Technický daemon/protokol v dokumentácii zatiaľ používa namespace `mandate`.
+**SBO3L** je lokálny bezpečnostný produkt pre vlastný Linux server, ktorý funguje ako *platobný koprocesor* a policy firewall pre AI agentov. Technický daemon/protokol v dokumentácii zatiaľ používa namespace `mandate`.
 
 Rieši rastúci a zatiaľ neuspokojený problém: autonómni AI agenti čoraz častejšie potrebujú vykonávať mikroplatby — za API volania (x402), za model inference, za dáta, za prácu iných agentov, za výpočet — ale nikto im nemôže zveriť private key. Agent runtime je príliš veľká útočná plocha (prompt injection, kompromitované toolingy, supply chain útoky), a klasická hardvérová peňaženka je naopak navrhnutá tak, že každú transakciu musí potvrdiť človek tlačidlom — čo robí Trezor a Ledger pre autonómne mikroplatby nepoužiteľné.
 
@@ -12,4 +12,4 @@ Unikátnosť produktu je v tom, že **rozdeľuje rozhodovanie a podpis na dve tr
 
 Hlavné komponenty: Agent Payment Request Protocol, Policy Engine (Rego/CEL), Budget Ledger, x402 Verifier, Transaction Simulator, Signing Adapter Layer (TPM/HSM/PKCS#11/MPC), Attestation Layer, Signed Audit Log, Human Approval Gateway a Emergency Controls (kill switch, freeze, rotate).
 
-**MVP** je linuxový daemon (`mandate`) s lokálnym REST/gRPC API, YAML policy, encrypted file key, x402 verifierom pre Base/USDC, budget ledgerom v SQLite a CLI/web UI pre admin. Verejný názov produktu je **Mandate**: agent nedostáva wallet, dostáva spending mandate. **Dlhodobá vízia** je open-source referenčná implementácia + appliance distribúcia (NUC/mini-PC image) s TEE-backed runtime, HSM podporou a integráciou na ERC-4337 smart accounty cez session keys, kde on-chain kontrakt verifikuje TEE attestation pri každom podpise.
+**MVP** je linuxový daemon (`mandate`) s lokálnym REST/gRPC API, YAML policy, encrypted file key, x402 verifierom pre Base/USDC, budget ledgerom v SQLite a CLI/web UI pre admin. Verejný názov produktu je **SBO3L**: agent nedostáva wallet, dostáva spending mandate. **Dlhodobá vízia** je open-source referenčná implementácia + appliance distribúcia (NUC/mini-PC image) s TEE-backed runtime, HSM podporou a integráciou na ERC-4337 smart accounty cez session keys, kde on-chain kontrakt verifikuje TEE attestation pri každom podpise.

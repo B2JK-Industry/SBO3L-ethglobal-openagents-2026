@@ -44,7 +44,7 @@ MVP môže bežať s `encrypted_file` signerom iba v development móde. Produkč
 Build:
 
 - Rust workspace root.
-- `mandate-core` with config, error catalog, APRP types, canonical hashing.
+- `sbo3l-core` with config, error catalog, APRP types, canonical hashing.
 - JSON schema validation against `/schemas`.
 - Contract tests that load `test-corpus`.
 - OpenAPI lint for `docs/api/openapi.json`.
@@ -159,10 +159,10 @@ These are the first tickets before feature work starts:
 | ID | Work | Files |
 |---|---|---|
 | S0-01 | Validate all JSON schemas and OpenAPI in CI | `/schemas`, `/docs/api/openapi.json`, `/.github/workflows/ci.yml` |
-| S0-02 | Generate Rust APRP types or write strict serde types | `/schemas/aprp_v1.json`, `/crates/mandate-core/src/protocol/` |
-| S0-03 | Add golden/adversarial corpus runner | `/test-corpus`, `/crates/mandate-core/tests/` |
+| S0-02 | Generate Rust APRP types or write strict serde types | `/schemas/aprp_v1.json`, `/crates/sbo3l-core/src/protocol/` |
+| S0-03 | Add golden/adversarial corpus runner | `/test-corpus`, `/crates/sbo3l-core/tests/` |
 | S0-04 | Lock `agent_id` regex and DB uniqueness | `/schemas/aprp_v1.json`, `/migrations/V001__init.sql` |
-| S0-05 | Implement RFC 7807 problem mapping | `/crates/mandate-core/src/error.rs`, `docs/api/openapi.json` |
+| S0-05 | Implement RFC 7807 problem mapping | `/crates/sbo3l-core/src/error.rs`, `docs/api/openapi.json` |
 | S0-06 | Implement real-agent demo harness shell | `/demo-agents/research-agent/`, `/demo-scripts/run-single.sh` |
 
 ---

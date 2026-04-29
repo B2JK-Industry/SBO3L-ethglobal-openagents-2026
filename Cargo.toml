@@ -1,15 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/mandate-core",
-    "crates/mandate-policy",
-    "crates/mandate-storage",
-    "crates/mandate-identity",
-    "crates/mandate-execution",
-    "crates/mandate-keeperhub-adapter",
-    "crates/mandate-mcp",
-    "crates/mandate-cli",
-    "crates/mandate-server",
+    "crates/sbo3l-core",
+    "crates/sbo3l-policy",
+    "crates/sbo3l-storage",
+    "crates/sbo3l-identity",
+    "crates/sbo3l-execution",
+    "crates/sbo3l-keeperhub-adapter",
+    "crates/sbo3l-mcp",
+    "crates/sbo3l-cli",
+    "crates/sbo3l-server",
     "demo-agents/research-agent",
 ]
 
@@ -71,17 +71,17 @@ url = "2"
 # build) and `version` (used by `cargo publish` — when the manifest is
 # stripped for upload, the path goes away and the version constraint
 # survives). The IP-4 standalone adapter
-# (`crates/mandate-keeperhub-adapter`) needs `mandate-core` to be
+# (`crates/sbo3l-keeperhub-adapter`) needs `sbo3l-core` to be
 # publishable, which means the version must be declared here.
-mandate-core = { path = "crates/mandate-core", version = "0.1.0" }
-mandate-policy = { path = "crates/mandate-policy", version = "0.1.0" }
-mandate-storage = { path = "crates/mandate-storage", version = "0.1.0" }
-mandate-identity = { path = "crates/mandate-identity", version = "0.1.0" }
-mandate-execution = { path = "crates/mandate-execution", version = "0.1.0" }
-mandate-keeperhub-adapter = { path = "crates/mandate-keeperhub-adapter", version = "0.1.0" }
-mandate-mcp = { path = "crates/mandate-mcp", version = "0.1.0" }
-mandate-cli = { path = "crates/mandate-cli", version = "0.1.0" }
-mandate-server = { path = "crates/mandate-server", version = "0.1.0" }
+sbo3l-core = { path = "crates/sbo3l-core", version = "0.1.0" }
+sbo3l-policy = { path = "crates/sbo3l-policy", version = "0.1.0" }
+sbo3l-storage = { path = "crates/sbo3l-storage", version = "0.1.0" }
+sbo3l-identity = { path = "crates/sbo3l-identity", version = "0.1.0" }
+sbo3l-execution = { path = "crates/sbo3l-execution", version = "0.1.0" }
+sbo3l-keeperhub-adapter = { path = "crates/sbo3l-keeperhub-adapter", version = "0.1.0" }
+sbo3l-mcp = { path = "crates/sbo3l-mcp", version = "0.1.0" }
+sbo3l-cli = { path = "crates/sbo3l-cli", version = "0.1.0" }
+sbo3l-server = { path = "crates/sbo3l-server", version = "0.1.0" }
 
 [profile.release]
 lto = "thin"

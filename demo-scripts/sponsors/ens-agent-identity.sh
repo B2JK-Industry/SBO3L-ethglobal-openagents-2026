@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Sponsor demo: ENS as agent identity for Mandate.
+# Sponsor demo: ENS as agent identity for SBO3L.
 #
 # Resolves `research-agent.team.eth` from the local ENS fixture, prints the
-# `mandate:*` text records, and verifies that the published `mandate:policy_hash`
+# `sbo3l:*` text records, and verifies that the published `sbo3l:policy_hash`
 # matches the canonical hash of the active reference policy.
 set -euo pipefail
 cd "$(dirname "$0")/../.."

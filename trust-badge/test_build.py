@@ -46,13 +46,13 @@ else:
     CAPSULE_SOURCE = "on-main golden fixture (test-corpus/passport/golden_001_*.json)"
 
 # Same safe-host allowlist as `demo-fixtures/test_fixtures.py` so the
-# "no external URLs" check rejects unsafe URLs only — `schemas.mandate.dev`
-# (the canonical $id host for Mandate's own JSON-Schema files) and the
+# "no external URLs" check rejects unsafe URLs only — `schemas.sbo3l.dev`
+# (the canonical $id host for SBO3L's own JSON-Schema files) and the
 # RFC 2606/6761 reserved suffixes remain allowed.
 SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
-    "schemas.mandate.dev",
+    "schemas.sbo3l.dev",
     "example.com",
     "example.net",
     "example.org",
@@ -193,7 +193,7 @@ def main() -> int:
 
     # 2b. Passport-capsule tile content. The capsule schema/verifier
     #     landed in PR #42 (Passport P1.1); the trust-badge renders ONE
-    #     summary tile from a `mandate.passport_capsule.v1` artifact.
+    #     summary tile from a `sbo3l.passport_capsule.v1` artifact.
     print("\n== passport capsule tile ==")
     capsule_required = [
         ("capsule tile header",              "Passport capsule"),
@@ -233,16 +233,16 @@ def main() -> int:
             _ok(label)
 
     # 3b. URL-safety check. The Passport capsule tile renders agent
-    #     records like `mandate:mcp_endpoint` whose value is a URL; we
-    #     allow URLs only when the host is in the Mandate safe-host
+    #     records like `sbo3l:mcp_endpoint` whose value is a URL; we
+    #     allow URLs only when the host is in the SBO3L safe-host
     #     allowlist (RFC 2606/6761 reserved + 127.0.0.1 +
-    #     schemas.mandate.dev). Anything else is a network-leak risk.
+    #     schemas.sbo3l.dev). Anything else is a network-leak risk.
     unsafe_urls = [u for u in URL_PATTERN.findall(html_text) if not _url_is_safe(u)]
     if unsafe_urls:
         _fail("no unsafe http(s):// URL", f"found unsafe URLs: {unsafe_urls[:3]}")
         failures += 1
     else:
-        _ok("no unsafe http(s):// URL (only RFC 2606 + schemas.mandate.dev)")
+        _ok("no unsafe http(s):// URL (only RFC 2606 + schemas.sbo3l.dev)")
 
     # 4. Well-formedness — html.parser is lenient but catches obvious damage.
     print("\n== html parse ==")
@@ -270,7 +270,7 @@ def main() -> int:
         # wrong_schema — valid JSON but schema id is not the expected one.
         wrong_path = Path(tmp) / "wrong-schema.json"
         wrong_path.write_text(
-            json.dumps({"schema": "mandate.audit_bundle.v1"}),
+            json.dumps({"schema": "sbo3l.audit_bundle.v1"}),
             encoding="utf-8",
         )
         fallback_cases.append(("wrong_schema", str(wrong_path)))

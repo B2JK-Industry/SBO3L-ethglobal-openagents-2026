@@ -1,4 +1,4 @@
-# Mandate × Uniswap — partner one-pager
+# SBO3L × Uniswap — partner one-pager
 
 > A credible safety layer for agentic swaps, not just another quote API
 > call.
@@ -9,11 +9,11 @@
 ## The pitch in one paragraph
 
 Autonomous agents should not be able to swap any token to any recipient
-at any slippage. Mandate sits in front of the agent and turns Uniswap
+at any slippage. SBO3L sits in front of the agent and turns Uniswap
 interaction into policy-controlled finance: the agent emits a swap intent
 through APRP, a swap-policy guard enforces token allowlists, max
 notional, max slippage, quote freshness, and treasury recipient, and
-Mandate's policy boundary independently denies if any of those checks
+SBO3L's policy boundary independently denies if any of those checks
 fail. Approved quotes are routed to the executor; denied quotes still
 produce signed deny receipts for auditability, but they die at the policy
 boundary and never reach the executor.
@@ -21,14 +21,14 @@ boundary and never reach the executor.
 ## What is implemented today (on `main`, this build)
 
 - Adapter trait and `UniswapExecutor`
-  (`crates/mandate-execution/src/uniswap.rs`) with two constructors:
+  (`crates/sbo3l-execution/src/uniswap.rs`) with two constructors:
   - `UniswapExecutor::local_mock()` — used in every demo path today.
     Returns a deterministic `uni-<ULID>` execution_ref against a stored
     quote fixture.
   - `UniswapExecutor::live()` — present as a constructor; intentionally
     `BackendOffline` until a stable Trading API endpoint and credentials
     are wired. **No live network call is made in this build.**
-- Swap-policy guard `evaluate_swap` (`crates/mandate-execution/src/uniswap.rs`)
+- Swap-policy guard `evaluate_swap` (`crates/sbo3l-execution/src/uniswap.rs`)
   enforces, in field order:
   1. `input_token_allowlisted`
   2. `output_token_allowlisted`
@@ -54,17 +54,17 @@ boundary and never reach the executor.
   [`demo-fixtures/uniswap/quote-USDC-RUG.json`](../../demo-fixtures/uniswap/quote-USDC-RUG.json).
 - Builder feedback (current): [`FEEDBACK.md` §Uniswap](../../FEEDBACK.md).
 
-## What is target (Mandate Passport phase, not on main yet)
+## What is target (SBO3L Passport phase, not on main yet)
 
 These are explicit *targets* documented for the team and for Uniswap
 reviewers — none of them are claimed as shipped:
 
-- **Mandate Passport capsule (Uniswap-specific evidence target)** —
-  the capsule artefact (`mandate.passport_capsule.v1`) is on `main`
-  via PR #42 (schema + verifier) and PR #44 (`mandate passport run`
+- **SBO3L Passport capsule (Uniswap-specific evidence target)** —
+  the capsule artefact (`sbo3l.passport_capsule.v1`) is on `main`
+  via PR #42 (schema + verifier) and PR #44 (`sbo3l passport run`
   emit + verify). What is still target is **Uniswap-specific quote
   evidence inside the capsule's `execution.live_evidence` slot** —
-  tracked as P6.1 in the Mandate Passport backlog. Until P6.1 lands,
+  tracked as P6.1 in the SBO3L Passport backlog. Until P6.1 lands,
   no UI claims a Uniswap-evidence capsule was produced.
 - **Capsule quote-evidence section (target)** — when P6.1 lands, the
   Uniswap path will populate `execution.live_evidence` with:
@@ -78,25 +78,25 @@ reviewers — none of them are claimed as shipped:
   - per-violation deny reasons when denied.
 - **Live Trading API call (future, gated)** — wired through
   `UniswapExecutor::live()` and exposed via an explicit
-  `MANDATE_UNISWAP_LIVE=1` env-var gate, never as a silent fallback from
+  `SBO3L_UNISWAP_LIVE=1` env-var gate, never as a silent fallback from
   mock. CI will never require it. **No live Uniswap API call is made in
   this build.**
 - **Signed-quote anchoring (target ask, not implemented)** — when the
   Trading API publishes server-issued `quote_id` + `expires_at` +
-  canonical quote hash, Mandate would anchor that hash into the decision
+  canonical quote hash, SBO3L would anchor that hash into the decision
   token so a downstream executor can require the same quote. See
   feedback below.
 
 ## Why Uniswap specifically
 
 Quote shapes (input / output amount, route, slippage) map cleanly onto
-Mandate's `smart_account_session` APRP variant. The split between
+SBO3L's `smart_account_session` APRP variant. The split between
 swap-policy guard (numeric / policy checks against the canonical quote)
-and Mandate's recipient / provider / budget boundary is natural — they
+and SBO3L's recipient / provider / budget boundary is natural — they
 catch overlapping problems at different layers. Defense in depth: the
 rug-quote fixture is denied independently by both the swap-policy guard
 (`output_token_allowlisted` first, `max_slippage_bps` and
-`treasury_recipient_allowlisted` as additional violations) and Mandate's
+`treasury_recipient_allowlisted` as additional violations) and SBO3L's
 policy boundary (`policy.deny_recipient_not_allowlisted`).
 
 ## What we are asking Uniswap for (concrete, scoped)
@@ -124,24 +124,24 @@ These are the same asks recorded in
 
 ## What this one-pager will NOT claim
 
-- Mandate **does not** call the Uniswap Trading API in this build.
+- SBO3L **does not** call the Uniswap Trading API in this build.
   `UniswapExecutor::live()` is a `BackendOffline` stub today; every demo
   path uses `UniswapExecutor::local_mock()` against the fixture catalogue.
 - The mock `uni-<ULID>` execution_ref **is not** a real Uniswap
   transaction id.
-- This is **not** a Uniswap v4 hook project. Mandate is a policy /
+- This is **not** a Uniswap v4 hook project. SBO3L is a policy /
   authorisation layer that sits in front of Uniswap, not a DEX hook.
-- Mandate Passport capsule + Uniswap quote-evidence section are **target
+- SBO3L Passport capsule + Uniswap quote-evidence section are **target
   product framing**, not shipped artefacts in this build. The capsule
   schema (A-side) lands in a later phase; this one-pager will be updated
   to reference the actual schema once that PR is on `main`.
 
 ## Pointers in this repo
 
-- Adapter + swap-policy guard source: [`crates/mandate-execution/src/uniswap.rs`](../../crates/mandate-execution/src/uniswap.rs)
+- Adapter + swap-policy guard source: [`crates/sbo3l-execution/src/uniswap.rs`](../../crates/sbo3l-execution/src/uniswap.rs)
 - Sponsor demo (mock today): [`demo-scripts/sponsors/uniswap-guarded-swap.sh`](../../demo-scripts/sponsors/uniswap-guarded-swap.sh)
 - Production-shaped catalogue + transition guide: [`demo-fixtures/mock-uniswap-quotes.json`](../../demo-fixtures/mock-uniswap-quotes.json) / [`demo-fixtures/mock-uniswap-quotes.md`](../../demo-fixtures/mock-uniswap-quotes.md)
 - Production transition checklist (env vars / endpoints / credentials): [`docs/production-transition-checklist.md` §Uniswap](../production-transition-checklist.md#uniswap-guarded-swap)
 - Builder feedback: [`FEEDBACK.md` §Uniswap](../../FEEDBACK.md)
-- Product source of truth: [`docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md`](../product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md)
+- Product source of truth: [`docs/product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md`](../product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md)
 - Reward strategy: [`docs/product/REWARD_STRATEGY.md`](../product/REWARD_STRATEGY.md)

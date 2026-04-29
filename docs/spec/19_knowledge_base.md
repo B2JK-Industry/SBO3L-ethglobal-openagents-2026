@@ -1,4 +1,4 @@
-# Knowledge Base - Mandate
+# Knowledge Base - SBO3L
 
 > **Účel:** Kompendium hard-to-find informácií, version pinov, library quirks, gas costov a gotchas. Čerpa sa z 5 paralelných deep-research stretov (Apr 2026). Implementačný agent (alebo ja v loope) si tu nájde odpoveď, kým ju musí googliť.
 >
@@ -635,7 +635,7 @@ cargo build --release --locked --frozen --offline
 
 **Recommended pattern:**
 - `Type=notify`, `NotifyAccess=main`, `WatchdogSec=30s` → `sd-notify`.
-- `ListenStream=/run/mandate/mandate.sock` + `Sockets=mandate.socket` → `libsystemd::activation::receive_descriptors(true)` → hand FDs to tonic via `UnixListener::from_std`.
+- `ListenStream=/run/sbo3l/sbo3l.sock` + `Sockets=mandate.socket` → `libsystemd::activation::receive_descriptors(true)` → hand FDs to tonic via `UnixListener::from_std`.
 - Passphrase: `LoadCredentialEncrypted=mandate-pass:/etc/credstore.encrypted/mandate-pass` → read `$CREDENTIALS_DIRECTORY/mandate-pass` (kernel TPM key unwraps; no decryption code in binary).
 
 ---
@@ -697,10 +697,10 @@ profile mandate /usr/bin/mandate {
   deny capability sys_ptrace,
 
   /usr/bin/mandate       mr,
-  /etc/mandate/**        r,
-  owner /var/lib/mandate/**  rwk,
+  /etc/sbo3l/**        r,
+  owner /var/lib/sbo3l/**  rwk,
   /var/log/mandate/**    w,
-  /run/mandate/**        rwk,
+  /run/sbo3l/**        rwk,
 
   # PKCS#11 module
   /usr/lib/pkcs11/*.so       mr,
@@ -902,7 +902,7 @@ Mount options: `/var/lib/mandate ext4 defaults,nodev,nosuid,noexec,noatime 0 2`.
 | Reproducible build verification | rebuilderd + diffoscope | 2026-04-25 | Industry standard |
 | Code signing | cosign v3 + SLSA L3 | 2026-04-25 | Sigstore + GitHub Actions |
 | Linux base | Ubuntu 24.04 LTS | 2026-04-25 | Long support, AppArmor default |
-| **Public brand** | **Mandate** | 2026-04-27 | Hackathon/submission name. Stronger category frame: agents do not get wallets; they get spending mandates. Tagline: "Spending mandates for autonomous agents." |
+| **Public brand** | **SBO3L** | 2026-04-27 | Hackathon/submission name. Stronger category frame: agents do not get wallets; they get spending mandates. Tagline: "Spending mandates for autonomous agents." |
 | **Technical namespace** | **`mandate`** | 2026-04-27 | Same as public brand for daemon/crates/schema IDs/paths/CLI. Deep naming research: pôvodný "Agent Vault OS" mal hard blockers (`cloudweaver/agentvault`, `Infisical/agent-vault`, ThoughtMachine VaultOS). |
 
 ---

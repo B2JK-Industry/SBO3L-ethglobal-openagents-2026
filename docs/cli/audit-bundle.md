@@ -1,8 +1,8 @@
-# `mandate audit export` / `verify-bundle`
+# `sbo3l audit export` / `verify-bundle`
 
-> *Mandate does not just decide. It leaves behind verifiable proof — directly from its daemon storage.*
+> *SBO3L does not just decide. It leaves behind verifiable proof — directly from its daemon storage.*
 
-A Mandate decision already produces three signed artefacts: the **policy receipt** (returned in the `POST /v1/payment-requests` response), the **audit event** (appended to the hash-chained log), and the **chain linkage** between successive events. The bundle commands package those artefacts into a single self-contained JSON file that anyone can re-verify offline.
+A SBO3L decision already produces three signed artefacts: the **policy receipt** (returned in the `POST /v1/payment-requests` response), the **audit event** (appended to the hash-chained log), and the **chain linkage** between successive events. The bundle commands package those artefacts into a single self-contained JSON file that anyone can re-verify offline.
 
 ## Export
 
@@ -11,20 +11,20 @@ The export command takes a signed receipt plus an audit chain source. **Exactly 
 ### From SQLite storage (production-style)
 
 ```bash
-mandate audit export \
+sbo3l audit export \
   --receipt   path/to/receipt.json \
-  --db        path/to/mandate.sqlite \
+  --db        path/to/sbo3l.sqlite \
   --receipt-pubkey <hex> \
   --audit-pubkey   <hex> \
   --out       path/to/bundle.json
 ```
 
-This is the realistic path: a Mandate daemon writes its audit log to SQLite (`MANDATE_DB`); the receipt comes back to the agent in the `POST /v1/payment-requests` response. The CLI opens the same SQLite file, slices the chain prefix from genesis through `receipt.audit_event_id`, **pre-flights the chain integrity** with `verify_chain` against `--audit-pubkey`, **pre-flights the receipt signature** against `--receipt-pubkey`, and only then writes the bundle. A failure on any of those checks aborts before the bundle file is created — so a downstream consumer never sees an unverifiable bundle.
+This is the realistic path: a SBO3L daemon writes its audit log to SQLite (`SBO3L_DB`); the receipt comes back to the agent in the `POST /v1/payment-requests` response. The CLI opens the same SQLite file, slices the chain prefix from genesis through `receipt.audit_event_id`, **pre-flights the chain integrity** with `verify_chain` against `--audit-pubkey`, **pre-flights the receipt signature** against `--receipt-pubkey`, and only then writes the bundle. A failure on any of those checks aborts before the bundle file is created — so a downstream consumer never sees an unverifiable bundle.
 
 ### From a JSONL chain file
 
 ```bash
-mandate audit export \
+sbo3l audit export \
   --receipt   path/to/receipt.json \
   --chain     path/to/chain.jsonl \
   --receipt-pubkey <hex> \
@@ -38,7 +38,7 @@ Use this when you already have an exported chain JSONL (for example, from a fixt
 
 - `--receipt` — the `receipt` field from a `POST /v1/payment-requests` response, saved as JSON.
 - `--chain` — the audit log as JSONL (one `SignedAuditEvent` per line). Must include the genesis event (seq=1) through the event referenced by `receipt.audit_event_id`, in seq order. **Mutually exclusive with `--db`.**
-- `--db` — path to the Mandate daemon's SQLite store. The CLI reads the chain prefix through `receipt.audit_event_id` directly. **Mutually exclusive with `--chain`.**
+- `--db` — path to the SBO3L daemon's SQLite store. The CLI reads the chain prefix through `receipt.audit_event_id` directly. **Mutually exclusive with `--chain`.**
 - `--receipt-pubkey` / `--audit-pubkey` — 32-byte Ed25519 public keys (hex). For the hackathon dev signers these are the deterministic seeds wired into `AppState::new`; production deployments substitute via `AppState::with_signers(...)`.
 - `--out` — output file. If omitted, the bundle is written to stdout (good for piping into `jq`).
 
@@ -55,7 +55,7 @@ Use this when you already have an exported chain JSONL (for example, from a fixt
 ## Verify
 
 ```bash
-mandate audit verify-bundle --path path/to/bundle.json
+sbo3l audit verify-bundle --path path/to/bundle.json
 ```
 
 Re-derives every claim in the bundle:
@@ -74,7 +74,7 @@ Exit codes:
 
 ```json
 {
-  "bundle_type": "mandate.audit_bundle.v1",
+  "bundle_type": "sbo3l.audit_bundle.v1",
   "version": 1,
   "exported_at": "2026-04-28T...Z",
   "receipt":            { /* PolicyReceipt with embedded Ed25519 signature */ },
@@ -93,9 +93,9 @@ Exit codes:
 - every event in the chain segment links cleanly to its predecessor and was signed by the same audit-signer key.
 
 **Does not prove** (out of scope for the v1 bundle):
-- *who* the recorded public keys belong to — that is an identity question handled separately by the ENS adapter (`mandate-identity`);
+- *who* the recorded public keys belong to — that is an identity question handled separately by the ENS adapter (`sbo3l-identity`);
 - the absence of audit events past `audit_chain_segment.last()` — exporting a partial chain is fine for "this decision happened", but completeness proofs need a Merkle commitment that we have not built yet;
-- agent reasoning before the request reached Mandate — APRP is a wire-level contract, not a behavioural one.
+- agent reasoning before the request reached SBO3L — APRP is a wire-level contract, not a behavioural one.
 
 ## Limitations
 

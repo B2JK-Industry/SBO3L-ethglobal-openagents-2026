@@ -5,19 +5,19 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "ETHGlobal Open Agents demo harness for Mandate. Exercises legit-x402 and prompt-injection scenarios deterministically against the in-memory daemon."
+description = "ETHGlobal Open Agents demo harness for SBO3L. Exercises legit-x402 and prompt-injection scenarios deterministically against the in-memory daemon."
 
 [[bin]]
 name = "research-agent"
 path = "src/main.rs"
 
 [dependencies]
-mandate-core = { workspace = true }
-mandate-policy = { workspace = true }
-mandate-storage = { workspace = true }
-mandate-server = { path = "../../crates/mandate-server" }
-mandate-identity = { workspace = true }
-mandate-execution = { workspace = true }
+sbo3l-core = { workspace = true }
+sbo3l-policy = { workspace = true }
+sbo3l-storage = { workspace = true }
+sbo3l-server = { path = "../../crates/sbo3l-server" }
+sbo3l-identity = { workspace = true }
+sbo3l-execution = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 clap = { workspace = true }

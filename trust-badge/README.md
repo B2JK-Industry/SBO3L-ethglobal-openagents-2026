@@ -1,6 +1,6 @@
 # Trust Badge — local proof viewer
 
-A small static, offline proof viewer for the Mandate Open Agents demo. It is
+A small static, offline proof viewer for the SBO3L Open Agents demo. It is
 not a marketing landing page. It is a one-screen operational summary of the
 proof points the demo just produced, suitable for a judge skimming on a
 laptop.
@@ -12,7 +12,7 @@ no-key proof and the audit-chain tamper detection results:
 
 - Agent identity: `agent_id`, `demo_commit` (12-char short SHA visible, full
   40-char SHA available via the `title=""` tooltip on hover and present in
-  the HTML source), `generated_at_iso`, `schema: "mandate-demo-summary-v1"`.
+  the HTML source), `generated_at_iso`, `schema: "sbo3l-demo-summary-v1"`.
 - **Allow (`legit-x402`)**: `decision`, `matched_rule`, `request_hash`,
   `policy_hash`, `audit_event`, `receipt_signature`,
   `keeperhub_execution_ref` with an explicit `mock` tag.
@@ -69,7 +69,7 @@ python3 trust-badge/build.py [--input PATH] [--output PATH]
 ```
 
 The script refuses to render if the input's `"schema"` field is anything
-other than `mandate-demo-summary-v1`. This protects against silent drift if
+other than `sbo3l-demo-summary-v1`. This protects against silent drift if
 the JSON contract changes in a future PR.
 
 ## Render regression test

@@ -1,0 +1,45 @@
+[package]
+name = "sbo3l-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SBO3L CLI: validate, decide, sign, verify-audit, demo helpers."
+
+[[bin]]
+name = "sbo3l"
+path = "src/main.rs"
+
+[dependencies]
+sbo3l-core = { workspace = true }
+sbo3l-policy = { workspace = true }
+sbo3l-storage = { workspace = true }
+# Passport P2.1: `sbo3l passport run` orchestrates the existing
+# `POST /v1/payment-requests` pipeline in-process (research-agent
+# pattern). Pulling sbo3l-server / -identity / -execution + the
+# axum/tower/http stack here matches what research-agent's Cargo.toml
+# already does — no new transitives in the workspace.
+sbo3l-server = { path = "../sbo3l-server" }
+sbo3l-identity = { workspace = true }
+sbo3l-execution = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_json_canonicalizer = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+ulid = { workspace = true }
+# Used by `sbo3l passport run` for atomic capsule writes
+# (tempfile in same dir + rename). Promoted from dev-dep to dep.
+tempfile = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+rusqlite = { workspace = true }

@@ -1,4 +1,4 @@
-# Final Review — Mandate, ETHGlobal Open Agents 2026
+# Final Review — SBO3L, ETHGlobal Open Agents 2026
 
 > **HISTORICAL DOCUMENT.** This review captured the submission-readiness audit at commit `f52596c` (post PR #5–#9, pre PR #11+). The current state of `main` is tracked in [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) — **121 / 121 tests** and **13 demo gates** (the original 11 plus the agent no-key boundary proof and the deterministic transcript artifact). Persistent SQLite-backed APRP nonce-replay protection, the verifiable audit bundle (with DB-backed export), and the static trust-badge proof viewer all landed in subsequent PRs (#11, #14, #15, #16, #17, #18, #19) and are reflected in [`SUBMISSION_FORM_DRAFT.md`](SUBMISSION_FORM_DRAFT.md). The findings table below is preserved for the audit trail.
 
@@ -16,7 +16,7 @@
 |---|---|
 | Local tree clean | ✅ `git status -sb` empty |
 | Open PRs | 0 |
-| Latest CI on `main` | ✅ success (`refactor: deduplicate same_origin into mandate-policy::util (#5)`, run 25040118315, 29s) |
+| Latest CI on `main` | ✅ success (`refactor: deduplicate same_origin into sbo3l-policy::util (#5)`, run 25040118315, 29s) |
 | All five hardening PRs merged in order | ✅ `f52596c (#5) → 30fb407 (#6) → 931fb28 (#8) → 8e24154 (#9) → 2c3eb70 (#7) → 6f137fb (#1)` |
 | Branch protection on `main` | ⚠️ classic branch-protection API returns 404. May be configured via GitHub Rulesets (newer mechanism, separate API) — repo-admin note, not a submission blocker. See finding M5. |
 
@@ -36,12 +36,12 @@ All commands run from a clean checkout against `f52596c`.
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all 11 steps green | 4.42s end-to-end. Three lines match `error|fail|warn` — all are intentional rug-token deny output (`FAIL output_token_allowlisted` etc., the expected Uniswap deny path). No flakes observed. |
 
 Test breakdown (per-crate `test result` summaries):
-- `mandate-core` — 27 (APRP, hashing, signer, receipt, decision_token, audit, schema)
-- `mandate-policy` — 21 + 13 + 5 across `model` / `engine` / `expr` / `budget` / `util`
-- `mandate-storage` — 4 (audit_append + verify, audit_last × 2, migrations idempotent)
-- `mandate-server` — 6 (legit / prompt-injection / adversarial / replay × 3)
-- `mandate-identity` — 3
-- `mandate-execution` — 3 (KeeperHub) + Uniswap suite
+- `sbo3l-core` — 27 (APRP, hashing, signer, receipt, decision_token, audit, schema)
+- `sbo3l-policy` — 21 + 13 + 5 across `model` / `engine` / `expr` / `budget` / `util`
+- `sbo3l-storage` — 4 (audit_append + verify, audit_last × 2, migrations idempotent)
+- `sbo3l-server` — 6 (legit / prompt-injection / adversarial / replay × 3)
+- `sbo3l-identity` — 3
+- `sbo3l-execution` — 3 (KeeperHub) + Uniswap suite
 
 ---
 
@@ -51,14 +51,14 @@ Methodology: an Explore subagent gathered evidence with file paths and line rang
 
 | Area | Verdict | Key evidence |
 |---|---|---|
-| 1. APRP schema strictness | **PASS** | `schemas/aprp_v1.json:6` `additionalProperties: false`; `crates/mandate-core/src/aprp.rs:7` `#[serde(deny_unknown_fields)]` (and on every nested struct + enum); test `unknown_field_is_rejected_by_serde` covers the adversarial fixture. |
-| 2. Canonical hashing | **PASS** | `crates/mandate-core/src/hashing.rs:14` JCS via `serde_json_canonicalizer`; `golden_aprp_hash_is_locked` test pins `c0bd2fab…`. |
-| 3. Nonce replay protection | **PASS** | `crates/mandate-server/src/lib.rs:181-194` gate before `request_hash`/policy/budget/audit/sign. Replay key is `aprp.nonce` only. HTTP 409 + `protocol.nonce_replay`. Three regression tests: replay-rejected, distinct-nonces-OK, mutated-body-same-nonce-still-rejected (no `receipt`/`audit_event_id` in response). |
-| 4. Policy validation | **PASS** | `crates/mandate-policy/src/model.rs:214-269` validates all five uniqueness invariants (agent_id, rule.id, provider.id, recipient `(addr.lc, chain)`, budget `(agent_id, scope, scope_key)`). Both `parse_json` and `parse_yaml` route through `validate()`. |
+| 1. APRP schema strictness | **PASS** | `schemas/aprp_v1.json:6` `additionalProperties: false`; `crates/sbo3l-core/src/aprp.rs:7` `#[serde(deny_unknown_fields)]` (and on every nested struct + enum); test `unknown_field_is_rejected_by_serde` covers the adversarial fixture. |
+| 2. Canonical hashing | **PASS** | `crates/sbo3l-core/src/hashing.rs:14` JCS via `serde_json_canonicalizer`; `golden_aprp_hash_is_locked` test pins `c0bd2fab…`. |
+| 3. Nonce replay protection | **PASS** | `crates/sbo3l-server/src/lib.rs:181-194` gate before `request_hash`/policy/budget/audit/sign. Replay key is `aprp.nonce` only. HTTP 409 + `protocol.nonce_replay`. Three regression tests: replay-rejected, distinct-nonces-OK, mutated-body-same-nonce-still-rejected (no `receipt`/`audit_event_id` in response). |
+| 4. Policy validation | **PASS** | `crates/sbo3l-policy/src/model.rs:214-269` validates all five uniqueness invariants (agent_id, rule.id, provider.id, recipient `(addr.lc, chain)`, budget `(agent_id, scope, scope_key)`). Both `parse_json` and `parse_yaml` route through `validate()`. |
 | 5. Policy decisions | **PASS** | Allow returns `matched_rule_id`; deny returns deterministic `deny_code`. `deny-emergency-freeze` rule in `test-corpus/policy/reference_low_risk.json:55-59` triggers on `input.emergency.freeze_all == true`. `null` semantics: `==` identity-true/false, `<` errors. `same_origin` rejects `example.com.attacker.com` substring trap. |
 | 6. Budget semantics | **PASS** | `per_tx` does not accumulate (`commit()` skips `BudgetScope::PerTx`); daily/monthly/per_provider do. `commit()` runs only after Allow. Replays are rejected before reaching budget check (nonce gate is upstream). |
 | 7. Audit chain | **PASS** | `audit_append` chains via `prev_event_hash` → `event_hash`. `audit_verify` walks chain + verifies signatures. Post-PR-#6: `audit_last` returns `Ok(None)` only on `QueryReturnedNoRows`; other SQLite errors propagate. |
-| 8. Receipts & signatures | **PASS** | Ed25519 over canonical JSON for receipts, decision tokens, audit events. Tampering tests assert verification failure. **No private keys committed.** Dev signing seeds are deterministic constants in `mandate-server/src/lib.rs:51-65` explicitly labelled `⚠ DEV ONLY ⚠` with a `with_signers()` injection path for production. |
+| 8. Receipts & signatures | **PASS** | Ed25519 over canonical JSON for receipts, decision tokens, audit events. Tampering tests assert verification failure. **No private keys committed.** Dev signing seeds are deterministic constants in `sbo3l-server/src/lib.rs:51-65` explicitly labelled `⚠ DEV ONLY ⚠` with a `with_signers()` injection path for production. |
 | 9. Agent boundary | **PASS** | `demo-agents/research-agent/src/main.rs` posts APRP JSON to `/v1/payment-requests`; deny comes from the policy engine response, not an internal agent check. `grep` for signing keys in `demo-agents/` returns nothing. The prompt-injection scenario sends a real APRP from `test-corpus/aprp/deny_prompt_injection_request.json`. |
 
 **Cross-cutting:**
@@ -73,7 +73,7 @@ Methodology: an Explore subagent gathered evidence with file paths and line rang
 | Question | Answer |
 |---|---|
 | What is real? | APRP wire format, JCS hashing, schema validation, policy engine, budget tracker, hash-chained audit, signed receipts/decision tokens/audit events, Ed25519 signing/verify, full HTTP pipeline, agent harness sending real cross-boundary requests. |
-| What is mocked? | (1) **ENS testnet resolver** — demo uses a local fixture; the trait abstraction is real. (2) **KeeperHub backend** — the demo always constructs `KeeperHubExecutor::local_mock()` (verified at `demo-agents/research-agent/src/main.rs:310`). A `KeeperHubExecutor::live()` constructor exists, but no env-var or runtime feature flag switches between them in this hackathon build. (3) **Uniswap backend** — the demo always constructs `UniswapExecutor::local_mock()` (`demo-agents/research-agent/src/main.rs:331`). `UniswapExecutor::live()` is intentionally stubbed and returns `ExecutionError::BackendOffline`. (4) **Signing seeds** — deterministic dev seeds in `mandate-server/src/lib.rs`, gated for production via `AppState::with_signers()`. **There is no `MANDATE_*_LIVE` env-var feature flag anywhere in the build.** |
+| What is mocked? | (1) **ENS testnet resolver** — demo uses a local fixture; the trait abstraction is real. (2) **KeeperHub backend** — the demo always constructs `KeeperHubExecutor::local_mock()` (verified at `demo-agents/research-agent/src/main.rs:310`). A `KeeperHubExecutor::live()` constructor exists, but no env-var or runtime feature flag switches between them in this hackathon build. (3) **Uniswap backend** — the demo always constructs `UniswapExecutor::local_mock()` (`demo-agents/research-agent/src/main.rs:331`). `UniswapExecutor::live()` is intentionally stubbed and returns `ExecutionError::BackendOffline`. (4) **Signing seeds** — deterministic dev seeds in `sbo3l-server/src/lib.rs`, gated for production via `AppState::with_signers()`. **There is no `MANDATE_*_LIVE` env-var feature flag anywhere in the build.** |
 | Are mocks clearly labelled? | ✅ Demo output prints `keeperhub.sponsor: keeperhub` + `keeperhub mock` mid-flow; Uniswap output uses obviously-fake `qt-01HZFAKEDEMOQ001` quote_id. `SUBMISSION_NOTES.md` has an explicit "What is live vs mocked" section. |
 | Does the demo ever pretend a mock is live? | ❌ no. (Minor: the final summary line `KeeperHub executed` is sligthly soft on the `mock` qualifier compared to the mid-flow output, but earlier lines establish the mock context — see L1.) |
 | Does the demo prove allow + deny paths? | ✅ legit-x402 → allow + signed receipt; prompt-injection + Uniswap rug-token → deny + `keeperhub.refused`. |
@@ -96,7 +96,7 @@ Methodology: an Explore subagent gathered evidence with file paths and line rang
 | Known limitations explicit | ✅ `SUBMISSION_NOTES.md` "Known limitations" section |
 | Video script ≤ 4 minutes | ✅ 3:50 hard stop, 3:30 target |
 | No language suggesting pre-hackathon build | ✅ AI_USAGE explicit + the "pre-hackathon planning artifacts" framing is consistent |
-| Project name consistently `Mandate` / `mandate` | ✅ verified across all user-facing docs |
+| Project name consistently `SBO3L` | ✅ verified across all user-facing docs |
 | Old names (`Agent Vault OS`, `Vault 402`) absent from user-facing submission text | ✅ only appear in spec docs and as the *historical* name `agent-vault-os` of the planning repo (intentional, transparent attribution) |
 
 ---
@@ -136,7 +136,7 @@ All medium and low findings from §6 are resolved in the docs-only PR #10 that c
 | M4 | `IMPLEMENTATION_STATUS.md` | Rewritten as a post-merge snapshot that stays true after PR #10 merges. |
 | L1 | `demo-scripts/run-openagents-final.sh` | Final summary lines now carry `mock executed` / `via … mock executor` qualifiers. |
 | L2 | `PR_DESCRIPTION.md` | Deleted. |
-| (also) | `FEEDBACK.md`, `demo-scripts/sponsors/uniswap-guarded-swap.sh`, `demo-agents/research-agent/README.md` | Codex-flagged stale env-var claims removed; ETHPrague→ETHGlobal Open Agents and Vault→Mandate language updated. |
+| (also) | `FEEDBACK.md`, `demo-scripts/sponsors/uniswap-guarded-swap.sh`, `demo-agents/research-agent/README.md` | Codex-flagged stale env-var claims removed; ETHPrague→ETHGlobal Open Agents and Vault→SBO3L language updated. |
 
 M5 (branch-protection / Rulesets) is unaffected by this PR and is a post-hackathon repo-admin item, not a submission blocker.
 

@@ -1,7 +1,7 @@
 # Two-Developer Execution Protocol
 
 **Purpose:** keep Developer A and Developer B moving continuously without
-breaking the already-working Mandate submission.
+breaking the already-working SBO3L submission.
 
 This protocol is intentionally operational. It tells the developers when
 to branch, what they own, what they must verify, and when they must stop.
@@ -71,7 +71,7 @@ git checkout -b <focused-branch-name>
 
 Branch naming:
 
-- A-side: `feat/passport-cli-p1`, `feat/mandate-mcp-p3`, etc.
+- A-side: `feat/passport-cli-p1`, `feat/sbo3l-mcp-p3`, etc.
 - B-side: `docs/passport-reward-strategy`, `feat/passport-proof-ui`, etc.
 - Fix-only: `fix/<surface>-<short-risk>`.
 
@@ -146,7 +146,7 @@ Use this prompt for a developer who should continue only after a blocking
 PR lands:
 
 ```text
-You are working on Mandate. Your immediate task is gated on the upstream
+You are working on SBO3L. Your immediate task is gated on the upstream
 PR named below. Do not start implementation until that PR has merged into
 main and post-merge CI has completed successfully.
 
@@ -159,7 +159,7 @@ After it merges:
 3. Confirm post-merge CI succeeded.
 4. Confirm open PRs are empty or only contain PRs assigned to you.
 5. Create a fresh branch from main.
-6. Read docs/product/MANDATE_PASSPORT_BACKLOG.md and pick the next task
+6. Read docs/product/SBO3L_PASSPORT_BACKLOG.md and pick the next task
    assigned to your role.
 7. Keep your write scope to your role.
 8. Run the task-specific verification matrix.

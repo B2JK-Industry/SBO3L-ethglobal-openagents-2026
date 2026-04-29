@@ -55,10 +55,10 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 - **parallel_with:** E1-S2, E1-S3
 - **accept:** `D-P0-01`
 - **Akceptácia:**
-  - Rust workspace **starting set:** `mandate-core`, `mandate-cli`, `mandate-server`. **Growth path** per `17_interface_contracts.md §8` adds `mandate-policy`, `mandate-storage`, `mandate-onchain`, `mandate-mcp`, `mandate-push`, `mandate-zk`, `mandate-web`, `mandate-bots` v neskorších fázach.
+  - Rust workspace **starting set:** `sbo3l-core`, `sbo3l-cli`, `sbo3l-server`. **Growth path** per `17_interface_contracts.md §8` adds `sbo3l-policy`, `sbo3l-storage`, `mandate-onchain`, `sbo3l-mcp`, `mandate-push`, `mandate-zk`, `mandate-web`, `mandate-bots` v neskorších fázach.
   - `rust-toolchain.toml` pinuje konkrétnu stable verziu (aktuálne `1.84.0`).
   - GitHub Actions workflow `ci.yml`: `cargo fmt --check`, `cargo clippy -- -D warnings -D clippy::unwrap_used`, `cargo test`, `cargo audit`.
-  - SHA256 release artifact pre `mandate-cli` na tag.
+  - SHA256 release artifact pre `sbo3l-cli` na tag.
 - **Implementačné poznámky:**
   - Použiť `cargo workspace.dependencies` pre verzie spoločných crates (no version drift).
   - Lockfile (`Cargo.lock`) commitnutý.
@@ -76,7 +76,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - CONTRIBUTING.md vyžaduje signed commits (DCO alebo GPG).
 
 ### E1-S3 (P0, M) — Telemetry/observability scaffold
-- **modules:** `/crates/mandate-core/src/telemetry/mod.rs`, `Cargo.toml` deps
+- **modules:** `/crates/sbo3l-core/src/telemetry/mod.rs`, `Cargo.toml` deps
 - **blocked_by:** E1-S1
 - **parallel_with:** žiadne (touches core crate)
 - **accept:** `D-P0-03`
@@ -87,7 +87,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - **Zákaz** logovania payment payload bytes alebo key material — assertion v testoch.
 
 ### E1-S4 (P0, S) — Error taxonomy
-- **modules:** `/crates/mandate-core/src/error.rs`
+- **modules:** `/crates/sbo3l-core/src/error.rs`
 - **blocked_by:** E1-S1
 - **parallel_with:** E1-S2, E1-S3
 - **accept:** `D-P0-04`
@@ -98,13 +98,13 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Vid `17_interface_contracts.md §3` pre kompletný catalog.
 
 ### E1-S5 (P0, S) — Configuration model
-- **modules:** `/crates/mandate-core/src/config/mod.rs`, `/examples/mandate.toml`
+- **modules:** `/crates/sbo3l-core/src/config/mod.rs`, `/examples/mandate.toml`
 - **blocked_by:** E1-S1
 - **parallel_with:** E1-S2, E1-S3, E1-S4
 - **accept:** `D-P0-05`
 - **Akceptácia:**
   - TOML config s sections: `[server]`, `[storage]`, `[signing]`, `[audit]`, `[emergency]`, `[chains]`, `[providers]`.
-  - Env var override (`MANDATE__SERVER__SOCKET_PATH`).
+  - Env var override (`SBO3L__SERVER__SOCKET_PATH`).
   - Validation pri load (fail fast s konkrétnou chybou).
   - Schema dokumentovaná v `17_interface_contracts.md §1`.
 
@@ -118,7 +118,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E2 — Agent Payment Request Protocol (APRP)
 
 ### E2-S1 (P0, M) — JSON Schema + canonical hashing
-- **modules:** `/schemas/aprp_v1.json`, `/crates/mandate-core/src/protocol/aprp.rs`
+- **modules:** `/schemas/aprp_v1.json`, `/crates/sbo3l-core/src/protocol/aprp.rs`
 - **blocked_by:** E1-S1, E1-S4
 - **parallel_with:** E2-S2, E3-S1
 - **accept:** `D-P1-01`, `D-P1-02`
@@ -135,7 +135,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - `nonce` validácia: regex `^[0-7][0-9A-HJKMNP-TV-Z]{25}$` (ULID v Crockford base32 — vid `17_interface_contracts.md §0`). **NEPOUŽÍVAJ permisívny `^[0-9A-Z]{26}$`** — ten akceptuje confusable chars (I, L, O, U).
 
 ### E2-S2 (P0, M) — Strict validator
-- **modules:** `/crates/mandate-core/src/protocol/validator.rs`
+- **modules:** `/crates/sbo3l-core/src/protocol/validator.rs`
 - **blocked_by:** E2-S1
 - **parallel_with:** E3-S1
 - **accept:** `D-P1-03`
@@ -171,12 +171,12 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E3 — Gateway & Auth (Phase 1 subset)
 
 ### E3-S1 (P0, M) — Unix socket + TCP loopback listener
-- **modules:** `/crates/mandate-core/src/server/transport.rs`
+- **modules:** `/crates/sbo3l-core/src/server/transport.rs`
 - **blocked_by:** E1-S1, E1-S5
 - **parallel_with:** E2-S1
 - **accept:** `D-P1-06`
 - **Akceptácia:**
-  - Default Unix socket `/run/mandate/mandate.sock` s perms `0600`, owner `mandate`.
+  - Default Unix socket `/run/sbo3l/sbo3l.sock` s perms `0600`, owner `mandate`.
   - TCP loopback `127.0.0.1:8730` (configurable, default disabled v production).
   - Identický REST API behind oboma transportami.
   - Graceful shutdown s SIGTERM (drain in-flight requests s 30s timeout).
@@ -185,7 +185,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Pri TCP — *nikdy* nebindovať na 0.0.0.0; explicit assertion v config validátore.
 
 ### E3-S2 (P0, M) — mTLS pre agentov
-- **modules:** `/crates/mandate-core/src/server/auth/mtls.rs`, `/crates/mandate-cli/src/admin/agent.rs`
+- **modules:** `/crates/sbo3l-core/src/server/auth/mtls.rs`, `/crates/sbo3l-cli/src/admin/agent.rs`
 - **blocked_by:** E3-S1
 - **parallel_with:** E3-S4, E3-S5
 - **accept:** `D-P1-07`
@@ -199,7 +199,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - SAN (Subject Alternative Name) musí obsahovať vault hostname + IP.
 
 ### E3-S4 (P0, S) — Rate limiting per-agent
-- **modules:** `/crates/mandate-core/src/server/rate_limit.rs`
+- **modules:** `/crates/sbo3l-core/src/server/rate_limit.rs`
 - **blocked_by:** E3-S2
 - **parallel_with:** E3-S5
 - **accept:** `D-P1-08`
@@ -211,14 +211,14 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E8 — Signing Adapter Layer (Phase 1 subset)
 
 ### E8-S1 (P0, M) — `local_dev_key` + `encrypted_file` backends
-- **modules:** `/crates/mandate-core/src/signing/backend/{local_dev,encrypted_file}.rs`, `/crates/mandate-core/src/signing/mod.rs` (trait)
+- **modules:** `/crates/sbo3l-core/src/signing/backend/{local_dev,encrypted_file}.rs`, `/crates/sbo3l-core/src/signing/mod.rs` (trait)
 - **blocked_by:** E1-S4, E1-S5
 - **parallel_with:** E2-*, E3-*
 - **accept:** `D-P1-09`, `D-P1-10`, `D-P1-11`
 - **Akceptácia:**
   - `SigningBackend` trait s metódami `key_id()`, `public_key()`, `sign(payload, attestation_token)`, `attestation()`.
   - `local_dev_key` — ephemeral secp256k1 key generovaný pri startupe; iba ak `config.signing.allow_dev_key=true`.
-  - `encrypted_file` — age-encrypted secp256k1 key; passphrase z `systemd-creds` alebo `MANDATE_PASSPHRASE` env (with warning log).
+  - `encrypted_file` — age-encrypted secp256k1 key; passphrase z `systemd-creds` alebo `SBO3L_PASSPHRASE` env (with warning log).
   - Sign produces standard Ethereum signature (65 bytes, recoverable v).
   - **Test vault key ≠ production key** — config schema vyžaduje explicit `is_test: true` pre `local_dev_key`.
 - **Gotchas:**
@@ -227,7 +227,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - `age` decryption: passphrase nesmie byť uložená v procese po use; zero-out po decrypt.
 
 ### E8-S5 (P0, M) — Internal decision-token verification v signer
-- **modules:** `/crates/mandate-core/src/signing/decision_token.rs`
+- **modules:** `/crates/sbo3l-core/src/signing/decision_token.rs`
 - **blocked_by:** E8-S1
 - **parallel_with:** E2-*, E3-*
 - **accept:** `D-P1-12`
@@ -266,7 +266,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E4 — Policy Engine
 
 ### E4-S1 (P0, L) — Rego embed + YAML→Rego compiler
-- **modules:** `/crates/mandate-policy/src/{compiler,evaluator,yaml_schema}.rs`
+- **modules:** `/crates/sbo3l-policy/src/{compiler,evaluator,yaml_schema}.rs`
 - **blocked_by:** E1-S4
 - **parallel_with:** E5-S1, E5-S2
 - **accept:** `D-P2-01`, `D-P2-02`, `D-P2-03`
@@ -282,7 +282,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Edge case: prázdny `allowed.providers` → deny all (fail-closed); explicit test.
 
 ### E4-S2 (P0, M) — Policy storage + versioning
-- **modules:** `/crates/mandate-storage/src/policy.rs`, `/migrations/V002__policy.sql`
+- **modules:** `/crates/sbo3l-storage/src/policy.rs`, `/migrations/V002__policy.sql`
 - **blocked_by:** E4-S1, E1-S5
 - **parallel_with:** E4-S3
 - **accept:** `D-P2-04`
@@ -293,7 +293,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Replay test: dotaz `evaluate(request, policy_version=N)` dáva rovnaký výsledok bez ohľadu na aktuálnu verziu.
 
 ### E4-S3 (P0, M) — Admin signature verification (single + M-of-N)
-- **modules:** `/crates/mandate-core/src/governance/admin_sig.rs`
+- **modules:** `/crates/sbo3l-core/src/governance/admin_sig.rs`
 - **blocked_by:** E4-S2
 - **parallel_with:** —
 - **accept:** `D-P2-05`, `D-P2-06`
@@ -304,12 +304,12 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Signature replay protection: `policy_hash` + `nonce` v signed payload.
 
 ### E4-S4 (P1, M) — Policy lint CLI
-- **modules:** `/crates/mandate-cli/src/lint.rs`
+- **modules:** `/crates/sbo3l-cli/src/lint.rs`
 - **blocked_by:** E4-S1
 - **parallel_with:** E4-S5
 - **accept:** `D-P2-07`
 - **Akceptácia:**
-  - `mandate policy lint policy.yaml` vracia exit code 0/1.
+  - `sbo3l policy lint policy.yaml` vracia exit code 0/1.
   - Detekuje 10+ problémov z `11_policy_model.md §K.6`:
     1. `cap_usd: 0` bez `hard_cap: true`
     2. Empty `allowed.providers` bez `extends`
@@ -323,19 +323,19 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
     10. Token v `allowed.tokens` neexistuje v `chains`/`tokens` config
 
 ### E4-S5 (P1, M) — Dry-run nad historickými requestami
-- **modules:** `/crates/mandate-cli/src/dry_run.rs`
+- **modules:** `/crates/sbo3l-cli/src/dry_run.rs`
 - **blocked_by:** E4-S1, E4-S2, E10-S1
 - **parallel_with:** E4-S4
 - **accept:** `D-P2-08`
 - **Akceptácia:**
-  - `mandate policy dry-run --policy new.yaml --since 7d` vráti diff: ktoré historické rozhodnutia by sa zmenili.
+  - `sbo3l policy dry-run --policy new.yaml --since 7d` vráti diff: ktoré historické rozhodnutia by sa zmenili.
   - Output: count z prev decision typu vs new decision typu, lists of differing request IDs.
   - Použité v `PATCH /v1/agents/{id}/policies?dry_run=true` endpointe.
 
 ## E5 — Budget Ledger
 
 ### E5-S1 (P0, M) — Schema + reserve/commit/release flow
-- **modules:** `/crates/mandate-storage/src/budget.rs`, `/migrations/V003__budget.sql`
+- **modules:** `/crates/sbo3l-storage/src/budget.rs`, `/migrations/V003__budget.sql`
 - **blocked_by:** E1-S1
 - **parallel_with:** E4-S1
 - **accept:** `D-P2-09`, `D-P2-10`
@@ -351,7 +351,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - `BEGIN IMMEDIATE` (NIE `BEGIN DEFERRED`) — prevents read-then-write race conditions.
 
 ### E5-S2 (P0, S) — Periodic reset
-- **modules:** `/crates/mandate-core/src/scheduler/budget_reset.rs`
+- **modules:** `/crates/sbo3l-core/src/scheduler/budget_reset.rs`
 - **blocked_by:** E5-S1
 - **parallel_with:** E5-S3
 - **accept:** `D-P2-11`
@@ -363,7 +363,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Audit event `budget_reset` s pre/post sumami.
 
 ### E5-S3 (P1, M) — Per-provider/per-token/per-task scopes
-- **modules:** `/crates/mandate-storage/src/budget.rs` (extends)
+- **modules:** `/crates/sbo3l-storage/src/budget.rs` (extends)
 - **blocked_by:** E5-S1
 - **parallel_with:** E5-S2
 - **accept:** `D-P2-12`, `D-P2-13`
@@ -374,7 +374,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E6 — x402 Verifier (Phase 2 subset — mock provider only)
 
 ### E6-S1 (P0, L) — x402 challenge parser
-- **modules:** `/crates/mandate-core/src/x402/parser.rs`, `/schemas/x402_v1.json`
+- **modules:** `/crates/sbo3l-core/src/x402/parser.rs`, `/schemas/x402_v1.json`
 - **blocked_by:** E2-S1
 - **parallel_with:** E6-S2, E6-S3
 - **accept:** `D-P2-14`
@@ -384,7 +384,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Reject malformed challenges s konkrétnou error reason.
 
 ### E6-S2 (P0, M) — Domain binding + cert pin
-- **modules:** `/crates/mandate-core/src/x402/domain_check.rs`
+- **modules:** `/crates/sbo3l-core/src/x402/domain_check.rs`
 - **blocked_by:** E6-S1
 - **parallel_with:** E6-S3
 - **accept:** `D-P2-15`, `D-P2-RT-01`
@@ -395,7 +395,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Cert pin na **leaf cert** vs intermediate vs root — jasne dokumentovať; default leaf SPKI hash.
 
 ### E6-S3 (P0, M) — Amount/asset/network konsistencia
-- **modules:** `/crates/mandate-core/src/x402/consistency.rs`
+- **modules:** `/crates/sbo3l-core/src/x402/consistency.rs`
 - **blocked_by:** E6-S1
 - **parallel_with:** E6-S2
 - **accept:** `D-P2-16`
@@ -406,7 +406,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - 15+ unit test scenárov.
 
 ### E6-S4 (P1, M) — Provider reputation rolling score
-- **modules:** `/crates/mandate-core/src/x402/reputation.rs`
+- **modules:** `/crates/sbo3l-core/src/x402/reputation.rs`
 - **blocked_by:** E6-S1, E10-S1
 - **parallel_with:** E7-*
 - **accept:** `D-P2-17`
@@ -416,7 +416,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Default new provider score = 50 (neutral).
 
 ### E2-S2-EXT (P0, S) — Persistent nonce store
-- **modules:** `/crates/mandate-storage/src/nonce_store.rs`
+- **modules:** `/crates/sbo3l-storage/src/nonce_store.rs`
 - **blocked_by:** E2-S2, E5-S1
 - **parallel_with:** —
 - **accept:** `D-P2-18`
@@ -435,7 +435,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E10 — Audit Log
 
 ### E10-S1 (P0, M) — Hash-chained event store
-- **modules:** `/crates/mandate-storage/src/audit.rs`, `/migrations/V004__audit.sql`
+- **modules:** `/crates/sbo3l-storage/src/audit.rs`, `/migrations/V004__audit.sql`
 - **blocked_by:** E1-S1, E1-S4
 - **parallel_with:** E10-S2, E12-*
 - **accept:** `D-P3-01`, `D-P3-02`
@@ -443,36 +443,36 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - SQLite tabuľka `audit_events` per `10_data_model.md §J.1.16`.
   - INSERT trigger overí `prev_event_hash` matches predchádzajúci `event_hash`; reject ak nie.
   - UPDATE/DELETE triggers raise error (write-only).
-  - Verifier CLI: `mandate audit verify` prejde celý log, vráti `OK` alebo `TAMPER at seq=X`.
+  - Verifier CLI: `sbo3l audit verify` prejde celý log, vráti `OK` alebo `TAMPER at seq=X`.
 - **Gotchas:**
   - Race condition pri concurrent insert — použiť `BEGIN IMMEDIATE` + lock.
   - Event hash format definovaný v `17_interface_contracts.md §5`.
   - Audit signer key musí byť initialized pri prvom audit evente — bootstrap order matters.
 
 ### E10-S2 (P0, M) — Daily Merkle root + signed manifest
-- **modules:** `/crates/mandate-core/src/audit/merkle.rs`
+- **modules:** `/crates/sbo3l-core/src/audit/merkle.rs`
 - **blocked_by:** E10-S1
 - **parallel_with:** E10-S3
 - **accept:** `D-P3-03`
 - **Akceptácia:**
   - Cron task vytvára Merkle tree zo všetkých eventov daného dňa (UTC midnight).
-  - Root podpísaný `audit-signer-key`, uložený ako `/var/lib/mandate/audit/manifests/YYYY-MM-DD.json`.
+  - Root podpísaný `audit-signer-key`, uložený ako `/var/lib/sbo3l/audit/manifests/YYYY-MM-DD.json`.
   - Verifier reproduce root z events, porovná, vráti pass/fail.
 
 ### E10-S3 (P1, M) — Export (JSONL/CSV) + sink (S3-compatible)
-- **modules:** `/crates/mandate-core/src/audit/export.rs`
+- **modules:** `/crates/sbo3l-core/src/audit/export.rs`
 - **blocked_by:** E10-S1
 - **parallel_with:** E10-S2
 - **accept:** `D-P3-04`
 - **Akceptácia:**
-  - `mandate audit export --format jsonl --since 7d --sink s3://bucket/path` upload + signed manifest.
+  - `sbo3l audit export --format jsonl --since 7d --sink s3://bucket/path` upload + signed manifest.
   - S3-compatible (works with MinIO, AWS S3, Backblaze B2).
   - Object lock if supported (compliance mode).
 
 ## E12 — Emergency Controls
 
 ### E12-S1 (P0, M) — `freeze_all` + `resume`
-- **modules:** `/crates/mandate-core/src/emergency/state.rs`, REST handlers
+- **modules:** `/crates/sbo3l-core/src/emergency/state.rs`, REST handlers
 - **blocked_by:** E10-S1
 - **parallel_with:** E12-S2, E12-S3
 - **accept:** `D-P3-05`, `D-P3-06`
@@ -484,7 +484,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Latency: freeze efekt < 100 ms (čítané v rámci request handling middleware).
 
 ### E12-S2 (P0, S) — Pause agent / revoke provider / revoke recipient
-- **modules:** `/crates/mandate-core/src/emergency/granular.rs`
+- **modules:** `/crates/sbo3l-core/src/emergency/granular.rs`
 - **blocked_by:** E12-S1
 - **parallel_with:** E12-S3
 - **accept:** `D-P3-07`, `D-P3-08`
@@ -494,7 +494,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Per-agent pause: ostatní agenti pokračujú.
 
 ### E12-S3 (P1, M) — Hardware kill-switch (USB device)
-- **modules:** `/crates/mandate-core/src/emergency/hw_switch.rs`
+- **modules:** `/crates/sbo3l-core/src/emergency/hw_switch.rs`
 - **blocked_by:** E12-S1
 - **parallel_with:** E12-S2
 - **accept:** `D-P3-09`
@@ -507,7 +507,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - False positives — vyžadovať double-press v rámci 1s (configurable).
 
 ### E12-S4 (P1, M) — Anomaly-based auto-freeze
-- **modules:** `/crates/mandate-core/src/emergency/anomaly.rs`
+- **modules:** `/crates/sbo3l-core/src/emergency/anomaly.rs`
 - **blocked_by:** E12-S1, E10-S1
 - **parallel_with:** E12-S5
 - **accept:** `D-P3-10`
@@ -517,7 +517,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - False positive rate < 5 % na test corpus.
 
 ### E12-S5 (P2, M) — Recovery procedure (multisig + delay window)
-- **modules:** `/crates/mandate-core/src/recovery/`
+- **modules:** `/crates/sbo3l-core/src/recovery/`
 - **blocked_by:** E12-S1, E13-S2
 - **parallel_with:** E12-S4
 - **accept:** `D-P3-11`
@@ -529,7 +529,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E11 — Human Approval Gateway (Phase 3 subset — CLI only)
 
 ### E11-S2 (P1, M) — CLI approvals
-- **modules:** `/crates/mandate-cli/src/approvals.rs`
+- **modules:** `/crates/sbo3l-cli/src/approvals.rs`
 - **blocked_by:** E10-S1, E13-S1
 - **parallel_with:** E12-*
 - **accept:** `D-P3-12`
@@ -542,7 +542,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E10 — extended
 
 ### E10-S5 (P0, S) — Audit event coverage assertion
-- **modules:** `/crates/mandate-core/tests/audit_coverage.rs`
+- **modules:** `/crates/sbo3l-core/tests/audit_coverage.rs`
 - **blocked_by:** E10-S1, E2-S2, E4-S1, E5-S1, E12-S1
 - **parallel_with:** —
 - **accept:** `D-P3-13`
@@ -552,7 +552,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Coverage report: každý mutating endpoint má assigned event type.
 
 ### E10-S6 (P0, S) — No-PII assertion
-- **modules:** `/crates/mandate-core/tests/pii_lint.rs`
+- **modules:** `/crates/sbo3l-core/tests/pii_lint.rs`
 - **blocked_by:** E10-S1
 - **parallel_with:** E10-S5
 - **accept:** `D-P3-14`
@@ -569,7 +569,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E7 — Transaction Simulator
 
 ### E7-S1 (P0, L) — eth_call + traceCall integrácia
-- **modules:** `/crates/mandate-core/src/simulator/`
+- **modules:** `/crates/sbo3l-core/src/simulator/`
 - **blocked_by:** E1-S5
 - **parallel_with:** E7-S2, E16-S1
 - **accept:** `D-P4-01`, `D-P4-02`
@@ -582,7 +582,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Block reorg behind simulator's pinned block — handle gracefully.
 
 ### E7-S2 (P0, M) — Method selector whitelist
-- **modules:** `/crates/mandate-core/src/simulator/whitelist.rs`
+- **modules:** `/crates/sbo3l-core/src/simulator/whitelist.rs`
 - **blocked_by:** E7-S1
 - **parallel_with:** E7-S3
 - **accept:** `D-P4-03`, `D-P4-RT-02`
@@ -591,7 +591,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Direct test: agent skúsi `approve(...)` namiesto `transfer(...)` → reject.
 
 ### E7-S3 (P1, M) — Multi-RPC quorum
-- **modules:** `/crates/mandate-core/src/simulator/quorum.rs`
+- **modules:** `/crates/sbo3l-core/src/simulator/quorum.rs`
 - **blocked_by:** E7-S1
 - **parallel_with:** E7-S2
 - **accept:** `D-P4-04`
@@ -603,7 +603,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E16 — Integrations (Phase 4 subset — Base testnet)
 
 ### E16-S1 (P0, M) — Base Sepolia + USDC end-to-end
-- **modules:** `/crates/mandate-core/src/chains/base.rs`, `/examples/base-sepolia-x402/`
+- **modules:** `/crates/sbo3l-core/src/chains/base.rs`, `/examples/base-sepolia-x402/`
 - **blocked_by:** E7-S1, E6-*, E8-S1
 - **parallel_with:** —
 - **accept:** `D-P4-05`, `D-P4-06`
@@ -616,7 +616,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E10 — extended
 
 ### E10-S7 (P1, S) — RPC health check + quarantine
-- **modules:** `/crates/mandate-core/src/chains/rpc_health.rs`
+- **modules:** `/crates/sbo3l-core/src/chains/rpc_health.rs`
 - **blocked_by:** E7-S3
 - **parallel_with:** —
 - **accept:** `D-P4-07`
@@ -628,7 +628,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E2 — extended
 
 ### E2-S5 (P0, S) — Settlement state tracking
-- **modules:** `/crates/mandate-storage/src/settlement.rs`
+- **modules:** `/crates/sbo3l-storage/src/settlement.rs`
 - **blocked_by:** E5-S1, E10-S1
 - **parallel_with:** —
 - **accept:** `D-P4-08`
@@ -639,7 +639,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Confirmation depth configurable (default 3 blocks).
 
 ### E2-S6 (P1, M) — Idempotency keys
-- **modules:** `/crates/mandate-core/src/server/idempotency.rs`
+- **modules:** `/crates/sbo3l-core/src/server/idempotency.rs`
 - **blocked_by:** E2-S2-EXT
 - **parallel_with:** E2-S5
 - **accept:** `D-P4-09`
@@ -648,7 +648,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - TTL: 24h.
 
 ### E16-S2 (P1, M) — Polygon + Arbitrum support
-- **modules:** `/crates/mandate-core/src/chains/{polygon,arbitrum}.rs`
+- **modules:** `/crates/sbo3l-core/src/chains/{polygon,arbitrum}.rs`
 - **blocked_by:** E16-S1
 - **parallel_with:** E7-*
 - **accept:** `D-P4-10`, `D-P4-11`
@@ -659,7 +659,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E10 — extended (RT)
 
 ### E10-S8 (P0, M) — Replay protection extended
-- **modules:** `/crates/mandate-core/src/protocol/replay.rs`
+- **modules:** `/crates/sbo3l-core/src/protocol/replay.rs`
 - **blocked_by:** E2-S2-EXT, E10-S1
 - **parallel_with:** —
 - **accept:** `D-P4-RT-03`
@@ -677,7 +677,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E8 — extended
 
 ### E8-S2 (P0, L) — PKCS#11 backend (YubiHSM 2 + Nitrokey HSM 2)
-- **modules:** `/crates/mandate-core/src/signing/backend/pkcs11.rs`
+- **modules:** `/crates/sbo3l-core/src/signing/backend/pkcs11.rs`
 - **blocked_by:** E8-S1, E8-S5
 - **parallel_with:** E8-S3
 - **accept:** `D-P5-01`, `D-P5-02`
@@ -689,7 +689,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Per-key constraints: sign-only, no extract.
 
 ### E8-S3 (P1, L) — TPM 2.0 backend
-- **modules:** `/crates/mandate-core/src/signing/backend/tpm.rs`
+- **modules:** `/crates/sbo3l-core/src/signing/backend/tpm.rs`
 - **blocked_by:** E8-S1, E8-S5
 - **parallel_with:** E8-S2
 - **accept:** `D-P5-03`, `D-P5-04`
@@ -702,7 +702,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Sealing under SRK without persistent handle survives reboot, ale PCR values reset.
 
 ### E8-S6 (P0, S) — Backend health monitor
-- **modules:** `/crates/mandate-core/src/signing/health.rs`
+- **modules:** `/crates/sbo3l-core/src/signing/health.rs`
 - **blocked_by:** E8-S2 || E8-S3
 - **parallel_with:** —
 - **accept:** `D-P5-05`
@@ -713,7 +713,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Metric `mandate_signer_backend_status{backend, status}`.
 
 ### E8-S7 (P0, S) — Production config validator
-- **modules:** `/crates/mandate-core/src/config/production_lint.rs`
+- **modules:** `/crates/sbo3l-core/src/config/production_lint.rs`
 - **blocked_by:** E8-S2, E8-S3
 - **parallel_with:** —
 - **accept:** `D-P5-06`
@@ -728,7 +728,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E13 — Admin & Governance (Phase 5 subset)
 
 ### E13-S1 (P0, M) — Admin enrollment flow
-- **modules:** `/crates/mandate-cli/src/admin/enroll.rs`
+- **modules:** `/crates/sbo3l-cli/src/admin/enroll.rs`
 - **blocked_by:** E4-S3
 - **parallel_with:** —
 - **accept:** `D-P5-07`
@@ -738,7 +738,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Setup wizard `mandate init --interactive`.
 
 ### E13-S2 (P1, M) — Multi-admin (M-of-N) policy mutations
-- **modules:** `/crates/mandate-core/src/governance/multisig.rs`
+- **modules:** `/crates/sbo3l-core/src/governance/multisig.rs`
 - **blocked_by:** E13-S1, E4-S3
 - **parallel_with:** —
 - **accept:** `D-P5-08`
@@ -750,7 +750,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E16 — extended (Phase 5)
 
 ### E16-S5 (P1, M) — MCP server adapter
-- **modules:** `/crates/mandate-mcp/`
+- **modules:** `/crates/sbo3l-mcp/`
 - **blocked_by:** E2-S1, E3-S1
 - **parallel_with:** E13-*, E8-*
 - **accept:** `D-P5-09`, `D-P5-10`
@@ -769,7 +769,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E11 — Human Approval Gateway (full)
 
 ### E11-S1 (P0, M) — Web UI (lokálne, loopback)
-- **modules:** `/web-ui/`, `/crates/mandate-web/`
+- **modules:** `/web-ui/`, `/crates/sbo3l-web/`
 - **blocked_by:** E11-S2
 - **parallel_with:** E11-S3
 - **accept:** `D-P6-01`, `D-P6-02`
@@ -783,7 +783,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - CSP striktné, no inline scripts.
 
 ### E11-S3 (P1, M) — Push notification (vlastný relay)
-- **modules:** `/crates/mandate-push/`, `/relay-server/` (separate deployment)
+- **modules:** `/crates/sbo3l-push/`, `/relay-server/` (separate deployment)
 - **blocked_by:** E11-S1
 - **parallel_with:** E11-S4
 - **accept:** `D-P6-03`
@@ -793,7 +793,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Subscriber URL configurable per admin.
 
 ### E11-S4 (P2, S) — Telegram/Signal bot (optional)
-- **modules:** `/crates/mandate-bots/`
+- **modules:** `/crates/sbo3l-bots/`
 - **blocked_by:** E11-S3
 - **parallel_with:** —
 - **accept:** `D-P6-04`
@@ -804,7 +804,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E13 — extended
 
 ### E13-S3 (P2, M) — RBAC (auditor read-only, ...)
-- **modules:** `/crates/mandate-core/src/governance/rbac.rs`
+- **modules:** `/crates/sbo3l-core/src/governance/rbac.rs`
 - **blocked_by:** E13-S1
 - **parallel_with:** E11-*
 - **accept:** `D-P6-05`
@@ -816,7 +816,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E10 — extended
 
 ### E10-S9 (P1, M) — Webhook subscriptions
-- **modules:** `/crates/mandate-core/src/webhooks/`
+- **modules:** `/crates/sbo3l-core/src/webhooks/`
 - **blocked_by:** E11-S3
 - **parallel_with:** —
 - **accept:** `D-P6-06`
@@ -826,7 +826,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Retry s exponential backoff; dead-letter queue.
 
 ### E10-S10 (P1, M) — Anomaly digest weekly email
-- **modules:** `/crates/mandate-core/src/audit/digest.rs`
+- **modules:** `/crates/sbo3l-core/src/audit/digest.rs`
 - **blocked_by:** E10-S1, E12-S4
 - **parallel_with:** E10-S9
 - **accept:** `D-P6-07`
@@ -879,7 +879,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E11 — extended
 
 ### E11-S5 (P0, S) — Approval TTL enforcement
-- **modules:** `/crates/mandate-core/src/approval/ttl.rs`
+- **modules:** `/crates/sbo3l-core/src/approval/ttl.rs`
 - **blocked_by:** E11-S2
 - **parallel_with:** —
 - **accept:** `D-P6-12`
@@ -889,7 +889,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Test: TTL 5s → wait 6s → check status.
 
 ### E11-S6 (P0, S) — Approval signature verification
-- **modules:** `/crates/mandate-core/src/approval/sig_verify.rs`
+- **modules:** `/crates/sbo3l-core/src/approval/sig_verify.rs`
 - **blocked_by:** E11-S2, E13-S1
 - **parallel_with:** E11-S5
 - **accept:** `D-P6-13`
@@ -899,7 +899,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Test: forged signature → reject.
 
 ### E11-S7 (P0, S) — Multi-approval aggregation (for treasury ops)
-- **modules:** `/crates/mandate-core/src/approval/aggregation.rs`
+- **modules:** `/crates/sbo3l-core/src/approval/aggregation.rs`
 - **blocked_by:** E11-S6, E13-S2
 - **parallel_with:** E11-S5
 - **accept:** `D-P6-14`
@@ -917,7 +917,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E9 — Attestation Layer
 
 ### E9-S1 (P0, M) — Self-signed attestation (non-TEE baseline)
-- **modules:** `/crates/mandate-core/src/attestation/self_signed.rs`
+- **modules:** `/crates/sbo3l-core/src/attestation/self_signed.rs`
 - **blocked_by:** E1-S5
 - **parallel_with:** E9-S2
 - **accept:** `D-P7-01`
@@ -926,7 +926,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - External verifier CLI `mandate-verify attestation --evidence file.json` overí.
 
 ### E9-S2 (P1, L) — Intel TDX attestation
-- **modules:** `/crates/mandate-core/src/attestation/tdx.rs`
+- **modules:** `/crates/sbo3l-core/src/attestation/tdx.rs`
 - **blocked_by:** E9-S1
 - **parallel_with:** E9-S3
 - **accept:** `D-P7-02`, `D-P7-03`
@@ -939,7 +939,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Quote size ~ 5 KB.
 
 ### E9-S3 (P2, L) — AMD SEV-SNP attestation
-- **modules:** `/crates/mandate-core/src/attestation/sev_snp.rs`
+- **modules:** `/crates/sbo3l-core/src/attestation/sev_snp.rs`
 - **blocked_by:** E9-S1
 - **parallel_with:** E9-S2
 - **accept:** `D-P7-04`
@@ -948,7 +948,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Demo na EPYC alebo Hetzner SEV-SNP node.
 
 ### E9-S4 (P0, S) — Attestation in audit events
-- **modules:** `/crates/mandate-core/src/audit/attestation_link.rs`
+- **modules:** `/crates/sbo3l-core/src/audit/attestation_link.rs`
 - **blocked_by:** E9-S1, E10-S1
 - **parallel_with:** —
 - **accept:** `D-P7-05`
@@ -957,7 +957,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Verifier vie z audit log získať attestation a overiť integrity-time.
 
 ### E9-S5 (P1, M) — Attestation drift detection
-- **modules:** `/crates/mandate-core/src/attestation/drift.rs`
+- **modules:** `/crates/sbo3l-core/src/attestation/drift.rs`
 - **blocked_by:** E9-S1
 - **parallel_with:** —
 - **accept:** `D-P7-06`
@@ -969,7 +969,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E8 — extended
 
 ### E8-S4 (P2, XL) — TEE-sealed signing backend
-- **modules:** `/crates/mandate-core/src/signing/backend/tee_sealed.rs`
+- **modules:** `/crates/sbo3l-core/src/signing/backend/tee_sealed.rs`
 - **blocked_by:** E9-S2, E8-S5
 - **parallel_with:** —
 - **accept:** `D-P7-07`
@@ -997,7 +997,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 - **accept:** `D-P7-09`
 - **Akceptácia:**
   - systemd unit (hardened).
-  - Default config v `/etc/mandate/`.
+  - Default config v `/etc/sbo3l/`.
   - `apt install` works on Ubuntu 24.04.
 
 ### E14-S3 (P1, M) — Docker compose example
@@ -1013,7 +1013,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E10 — extended
 
 ### E10-S11 (P1, M) — Forensic incident report bundle
-- **modules:** `/crates/mandate-core/src/incident/`
+- **modules:** `/crates/sbo3l-core/src/incident/`
 - **blocked_by:** E9-S4, E10-S1
 - **parallel_with:** —
 - **accept:** `D-P7-11`
@@ -1040,7 +1040,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 ## E16 — extended
 
 ### E16-S3 (P0, L) — ERC-4337 smart account session keys (Safe)
-- **modules:** `/contracts/SafeAttestedModule.sol`, `/crates/mandate-onchain/src/safe.rs`
+- **modules:** `/contracts/SafeAttestedModule.sol`, `/crates/sbo3l-onchain/src/safe.rs`
 - **blocked_by:** E9-S1, E8-S2
 - **parallel_with:** E16-S6
 - **accept:** `D-P8-01`, `D-P8-02`
@@ -1067,7 +1067,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Use Automata DCAP v1.1 (audited Trail of Bits Mar 2025).
 
 ### E16-S7 (P1, M) — On-chain audit log anchor
-- **modules:** `/contracts/AuditAnchor.sol`, `/crates/mandate-onchain/src/anchor.rs`
+- **modules:** `/contracts/AuditAnchor.sol`, `/crates/sbo3l-onchain/src/anchor.rs`
 - **blocked_by:** E10-S2
 - **parallel_with:** E16-S3, E16-S6
 - **accept:** `D-P8-06`
@@ -1148,7 +1148,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - End-to-end demo s real settlement.
 
 ### E16-S10 (P2, XL) — ZK proof of correct policy evaluation (stretch)
-- **modules:** `/zk-circuits/`, `/crates/mandate-zk/`
+- **modules:** `/zk-circuits/`, `/crates/sbo3l-zk/`
 - **blocked_by:** E4-S1
 - **parallel_with:** —
 - **accept:** `D-P9-03`
@@ -1184,7 +1184,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 - **parallel_with:** E17-S2
 - **accept:** `D-P9-06`
 - **Akceptácia:**
-  - `cargo tarpaulin` reports >80 % line coverage on critical crates (`mandate-core`, `mandate-policy`, `mandate-storage`).
+  - `cargo tarpaulin` reports >80 % line coverage on critical crates (`sbo3l-core`, `sbo3l-policy`, `sbo3l-storage`).
   - CI gate: PR fails ak coverage < 80 %.
 
 ### E17-S2 (P0, M) — Integration tests
@@ -1210,7 +1210,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Sign approval cez WebAuthn (mobile biometrics).
 
 ### E16-S11 (P2, M) — ENS-based agent identity
-- **modules:** `/crates/mandate-core/src/identity/ens.rs`
+- **modules:** `/crates/sbo3l-core/src/identity/ens.rs`
 - **blocked_by:** E2-S1
 - **parallel_with:** —
 - **accept:** `D-P9-09`
@@ -1220,7 +1220,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Sponsor track fit: ENS.
 
 ### E16-S12 (P2, S) — Verax / EAS attestation publishing
-- **modules:** `/crates/mandate-onchain/src/eas.rs`
+- **modules:** `/crates/sbo3l-onchain/src/eas.rs`
 - **blocked_by:** E16-S8
 - **parallel_with:** E16-S11
 - **accept:** `D-P9-10`
@@ -1324,13 +1324,13 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
 
 # Phase OA — Open Agents Sponsor Overlay
 
-**Cieľ:** Pre ETHGlobal Open Agents ukazat **Mandate** ako Open Agent Payment Firewall: policy/receipt/audit layer pred sponsor-native execution. `mandate` je jednotný technický namespace v kóde.
+**Cieľ:** Pre ETHGlobal Open Agents ukazat **SBO3L** ako Open Agent Payment Firewall: policy/receipt/audit layer pred sponsor-native execution. `mandate` je jednotný technický namespace v kóde.
 **Exit criteria:** `bash demo-scripts/run-openagents-final.sh` ukaze real agent, ENS identity, KeeperHub guarded execution, prompt-injection deny, policy receipt a audit proof.
 
 ## EOA — Open Agents adapters
 
 ### EOA-S1 (P0, M) — Policy receipt service
-- **modules:** `/crates/mandate-core/src/receipts/`, `/schemas/policy_receipt_v1.json`, `/docs/api/openapi.json`
+- **modules:** `/crates/sbo3l-core/src/receipts/`, `/schemas/policy_receipt_v1.json`, `/docs/api/openapi.json`
 - **blocked_by:** E2-S1, E4-S1, E10-S1
 - **parallel_with:** EOA-S2, EOA-S3
 - **accept:** `D-OA-01`
@@ -1340,27 +1340,27 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Receipt validátor odmietne zmenený `decision` alebo `policy_hash`.
 
 ### EOA-S2 (P0, S) — ENS agent identity proof
-- **modules:** `/crates/mandate-identity/src/ens.rs`, `/demo-scripts/sponsors/ens-agent-identity.sh`
+- **modules:** `/crates/sbo3l-identity/src/ens.rs`, `/demo-scripts/sponsors/ens-agent-identity.sh`
 - **blocked_by:** E2-S1
 - **parallel_with:** EOA-S1, EOA-S3
 - **accept:** `D-OA-02`
 - **Akceptácia:**
   - Demo resolver ziska alebo namockuje `research-agent.team.eth`.
-  - Records: `mandate:agent_id`, `mandate:endpoint`, `mandate:policy_hash`, `mandate:audit_root`, `mandate:receipt_schema`.
-  - Script overi, ze active mandate policy hash sa rovna ENS policy hash.
+  - Records: `sbo3l:agent_id`, `sbo3l:endpoint`, `sbo3l:policy_hash`, `sbo3l:audit_root`, `sbo3l:receipt_schema`.
+  - Script overi, ze active sbo3l policy hash sa rovna ENS policy hash.
 
 ### EOA-S3 (P0, M) — KeeperHub guarded execution
-- **modules:** `/crates/mandate-execution/src/keeperhub.rs`, `/demo-scripts/sponsors/keeperhub-guarded-execution.sh`
+- **modules:** `/crates/sbo3l-execution/src/keeperhub.rs`, `/demo-scripts/sponsors/keeperhub-guarded-execution.sh`
 - **blocked_by:** EOA-S1
 - **parallel_with:** EOA-S2, EOA-S4
 - **accept:** `D-OA-03`
 - **Akceptácia:**
   - Approved action is routed to KeeperHub CLI/API/MCP or faithful local mock if live API is unavailable.
   - Denied action never reaches execution layer.
-  - Output shows `mandate_decision=allow|deny`, receipt id and execution id for allowed case.
+  - Output shows `sbo3l_decision=allow|deny`, receipt id and execution id for allowed case.
 
 ### EOA-S4 (P1, M) — Uniswap guarded swap
-- **modules:** `/crates/mandate-execution/src/uniswap.rs`, `/demo-scripts/sponsors/uniswap-guarded-swap.sh`, `/FEEDBACK.md`
+- **modules:** `/crates/sbo3l-execution/src/uniswap.rs`, `/demo-scripts/sponsors/uniswap-guarded-swap.sh`, `/FEEDBACK.md`
 - **blocked_by:** EOA-S1
 - **parallel_with:** EOA-S3
 - **accept:** `D-OA-04`
@@ -1371,7 +1371,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - `FEEDBACK.md` exists if submitting to Uniswap bounty.
 
 ### EOA-S5 (P2, L) — Gensyn AXL buyer/seller payment
-- **modules:** `/crates/mandate-execution/src/axl.rs`, `/demo-scripts/sponsors/gensyn-axl-buyer-seller.sh`
+- **modules:** `/crates/sbo3l-execution/src/axl.rs`, `/demo-scripts/sponsors/gensyn-axl-buyer-seller.sh`
 - **blocked_by:** EOA-S1, EOA-S3
 - **parallel_with:** EOA-S6
 - **accept:** `D-OA-05`
@@ -1381,7 +1381,7 @@ Phases sú **value-based** — každá fáza dodáva *fungujúcu vertikálu*, kt
   - Receipt returns to buyer/seller path.
 
 ### EOA-S6 (P2, M) — 0G storage/plugin proof
-- **modules:** `/crates/mandate-execution/src/zerog.rs`, `/demo-scripts/sponsors/0g-storage-proof.sh`
+- **modules:** `/crates/sbo3l-execution/src/zerog.rs`, `/demo-scripts/sponsors/0g-storage-proof.sh`
 - **blocked_by:** EOA-S1
 - **parallel_with:** EOA-S5
 - **accept:** `D-OA-06`

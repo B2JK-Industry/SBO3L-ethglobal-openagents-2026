@@ -4,7 +4,7 @@
 **Owner:** Developer B (this PR), pending API spec + credentials from KeeperHub.
 **Sister doc:** [`FEEDBACK.md`](../FEEDBACK.md) §KeeperHub.
 
-This document is the read-only design for moving Mandate's KeeperHub
+This document is the read-only design for moving SBO3L's KeeperHub
 adapter from `KeeperHubExecutor::local_mock()` to a real
 `KeeperHubExecutor::live()` once a stable workflow webhook schema and
 test credentials are available. It exists so that a future "wire it up"
@@ -27,7 +27,7 @@ Three blockers prevent the live wiring landing today:
 3. **No live network in CI.** Tests must stay deterministic and offline. The live path is implementable, but its CI coverage is a mock HTTP server inside the test, not a real KeeperHub call.
 
 When all three clear, the live path is a single Rust constructor body
-change in `crates/mandate-keeperhub-adapter/src/lib.rs` plus a thin
+change in `crates/sbo3l-keeperhub-adapter/src/lib.rs` plus a thin
 configuration shim. The bulk of the work is in this doc, not the code.
 
 ## Truthfulness invariants (must hold during and after the spike)
@@ -40,12 +40,12 @@ The live integration **must not** weaken any of these:
   live path emits `mock: false` and a real `executionId`, never both.
 - No KeeperHub credentials, tokens, secrets, or webhook URLs land in the
   repo. They are environment-only.
-- The Mandate audit chain remains canonical. KeeperHub's `executionId`
-  is recorded as the Mandate `ExecutionReceipt.execution_ref` after the
-  audit event is appended; if KeeperHub fails, Mandate's audit log
+- The SBO3L audit chain remains canonical. KeeperHub's `executionId`
+  is recorded as the SBO3L `ExecutionReceipt.execution_ref` after the
+  audit event is appended; if KeeperHub fails, SBO3L's audit log
   already contains the Allow decision and the failure is reported as an
   `ExecutionError`, not a silent retry.
-- The audit bundle (`mandate audit export`) carries `execution_ref` as
+- The audit bundle (`sbo3l audit export`) carries `execution_ref` as
   an opaque field today; the live `executionId` flows through unchanged.
 
 If any of these invariants is at risk, the live PR is blocked, not patched.
@@ -56,7 +56,7 @@ This is a sketch of the live constructor — **not** committed code. It
 exists here so a future PR can be reviewed against a known target.
 
 ```rust
-// crates/mandate-keeperhub-adapter/src/lib.rs (target shape — not landed)
+// crates/sbo3l-keeperhub-adapter/src/lib.rs (target shape — not landed)
 
 pub struct KeeperHubLiveConfig {
     pub webhook_url: String,
@@ -69,12 +69,12 @@ impl KeeperHubLiveConfig {
     /// required env vars are absent — the caller decides whether to
     /// fall back to `local_mock()` or fail closed.
     pub fn from_env() -> Result<Self, ExecutionError> {
-        let webhook_url = std::env::var("MANDATE_KEEPERHUB_WEBHOOK_URL")
+        let webhook_url = std::env::var("SBO3L_KEEPERHUB_WEBHOOK_URL")
             .map_err(|_| ExecutionError::Configuration(
-                "MANDATE_KEEPERHUB_WEBHOOK_URL not set".into()))?;
-        let bearer_token = std::env::var("MANDATE_KEEPERHUB_TOKEN")
+                "SBO3L_KEEPERHUB_WEBHOOK_URL not set".into()))?;
+        let bearer_token = std::env::var("SBO3L_KEEPERHUB_TOKEN")
             .map_err(|_| ExecutionError::Configuration(
-                "MANDATE_KEEPERHUB_TOKEN not set".into()))?;
+                "SBO3L_KEEPERHUB_TOKEN not set".into()))?;
         Ok(Self {
             webhook_url,
             bearer_token,
@@ -109,20 +109,20 @@ and is the only place a hypothetical cassette-based test would intercept.
 
 ## Wire format the adapter intends to send
 
-Until KeeperHub publishes a schema, this is what Mandate would send.
-KeeperHub's actual schema will override; the four `mandate_*` fields are
+Until KeeperHub publishes a schema, this is what SBO3L would send.
+KeeperHub's actual schema will override; the four `sbo3l_*` fields are
 the only ones we need first-class on KeeperHub's side (per `FEEDBACK.md`
 §KeeperHub → "Suggested improvements").
 
-The `mandate_*` block is built and serialised by
-[`MandateEnvelope::to_json_payload()`](../crates/mandate-core/src/execution.rs)
-(landed in P5.1 / PR #51). `mandate_request_hash`,
-`mandate_policy_hash`, and `mandate_receipt_signature` come straight off
-the signed `PolicyReceipt`; `mandate_audit_event_id` is the receipt's
+The `sbo3l_*` block is built and serialised by
+[`Sbo3lEnvelope::to_json_payload()`](../crates/sbo3l-core/src/execution.rs)
+(landed in P5.1 / PR #51). `sbo3l_request_hash`,
+`sbo3l_policy_hash`, and `sbo3l_receipt_signature` come straight off
+the signed `PolicyReceipt`; `sbo3l_audit_event_id` is the receipt's
 own `audit_event_id` (already pinned to the just-appended audit chain
 event when the executor receives the receipt). The optional fifth field
-`mandate_passport_capsule_hash` is set via
-[`MandateEnvelope::with_passport_capsule()`](../crates/mandate-core/src/execution.rs)
+`sbo3l_passport_capsule_hash` is set via
+[`Sbo3lEnvelope::with_passport_capsule()`](../crates/sbo3l-core/src/execution.rs)
 once a Passport capsule URI is published (P7.1); it is `serde(skip_serializing_if = "Option::is_none")`,
 so pre-Passport KeeperHub deployments don't see the field at all.
 
@@ -134,11 +134,11 @@ Authorization: Bearer {token}
 {
   "aprp": { … the canonical APRP body, JCS-canonical bytes … },
   "policy_receipt": { … the signed PolicyReceipt JSON … },
-  "mandate_request_hash":           "<jcs-sha256-hex of aprp>",
-  "mandate_policy_hash":            "<canonical hash of the active policy>",
-  "mandate_receipt_signature":      "<ed25519 hex>",
-  "mandate_audit_event_id":         "evt-<ULID>",
-  "mandate_passport_capsule_hash":  "<jcs-sha256-hex of capsule, omitted pre-Passport>"
+  "sbo3l_request_hash":           "<jcs-sha256-hex of aprp>",
+  "sbo3l_policy_hash":            "<canonical hash of the active policy>",
+  "sbo3l_receipt_signature":      "<ed25519 hex>",
+  "sbo3l_audit_event_id":         "evt-<ULID>",
+  "sbo3l_passport_capsule_hash":  "<jcs-sha256-hex of capsule, omitted pre-Passport>"
 }
 ```
 
@@ -146,7 +146,7 @@ The envelope IS constructed inside `KeeperHubExecutor::execute()`'s
 `Live` arm today, even though the live network call still returns
 `BackendOffline` (see PR #51's `keeperhub_live_constructs_envelope_via_from_receipt`
 test). That ordering — build the wire-format envelope *before* live
-submission turns on — is deliberate: it pins the `mandate_*` fields
+submission turns on — is deliberate: it pins the `sbo3l_*` fields
 under regression tests in CI, so a future receipt-shape change can't
 silently desync the envelope from the receipt that triggered the call.
 
@@ -160,7 +160,7 @@ Expected response (target shape — see [`FEEDBACK.md`](../FEEDBACK.md) §Keeper
 }
 ```
 
-Mandate's adapter behaviour:
+SBO3L's adapter behaviour:
 
 - 2xx with parseable `executionId` → `ExecutionReceipt {
   sponsor: "keeperhub",
@@ -182,15 +182,15 @@ The CI gate must stay deterministic and offline. Three layers:
    No real network.
 2. **Integration test** — a tiny in-process HTTP server (e.g. `wiremock`
    or hand-rolled `tokio::net::TcpListener`) that asserts:
-   - the four `mandate_*` envelope fields are present and match the
+   - the four `sbo3l_*` envelope fields are present and match the
      receipt/audit values;
    - the `Authorization: Bearer …` header is set from the env var;
    - the body is JCS-canonical bytes, not pretty-printed.
 3. **End-to-end smoke** — left to operators with real credentials,
-   gated behind `MANDATE_KEEPERHUB_LIVE=1` env var so that absence of
+   gated behind `SBO3L_KEEPERHUB_LIVE=1` env var so that absence of
    the flag preserves today's offline guarantees. CI never sets this.
 
-The mock HTTP server fixture lives under `crates/mandate-execution/`'s
+The mock HTTP server fixture lives under `crates/sbo3l-execution/`'s
 test directory, not under `demo-fixtures/`. Demo fixtures are inputs to
 the demo runner; this is testing infrastructure.
 
@@ -201,12 +201,12 @@ makes a sandbox available), the live PR is approximately:
 
 | File | Change |
 |---|---|
-| `crates/mandate-keeperhub-adapter/Cargo.toml` | Add `reqwest` (or equivalent — minimal-feature, blocking-disabled, rustls-tls). |
-| `crates/mandate-keeperhub-adapter/src/lib.rs` | Add `KeeperHubLiveConfig`, `KeeperHubMode::Live(cfg)`, `execute_live`. |
-| `crates/mandate-core/src/execution.rs` (or equivalent) | Add `ExecutionError::Configuration`, `ExecutionError::Network`, `ExecutionError::HttpStatus(u16)`, `ExecutionError::Parse`. |
-| `crates/mandate-keeperhub-adapter/tests/live_mock_server.rs` | New integration test driving an in-process HTTP server. |
-| `crates/mandate-keeperhub-adapter/src/lib.rs` | Or extend existing tests — unit cover for `execute_live` with a fake `HttpClient`. |
-| `demo-scripts/sponsors/keeperhub-guarded-execution.sh` | Add a one-line `if [ "$MANDATE_KEEPERHUB_LIVE" = "1" ]; then …` branch that calls a new `--execute-keeperhub-live` flag on the research-agent harness; the default still runs `local_mock`. |
+| `crates/sbo3l-keeperhub-adapter/Cargo.toml` | Add `reqwest` (or equivalent — minimal-feature, blocking-disabled, rustls-tls). |
+| `crates/sbo3l-keeperhub-adapter/src/lib.rs` | Add `KeeperHubLiveConfig`, `KeeperHubMode::Live(cfg)`, `execute_live`. |
+| `crates/sbo3l-core/src/execution.rs` (or equivalent) | Add `ExecutionError::Configuration`, `ExecutionError::Network`, `ExecutionError::HttpStatus(u16)`, `ExecutionError::Parse`. |
+| `crates/sbo3l-keeperhub-adapter/tests/live_mock_server.rs` | New integration test driving an in-process HTTP server. |
+| `crates/sbo3l-keeperhub-adapter/src/lib.rs` | Or extend existing tests — unit cover for `execute_live` with a fake `HttpClient`. |
+| `demo-scripts/sponsors/keeperhub-guarded-execution.sh` | Add a one-line `if [ "$SBO3L_KEEPERHUB_LIVE" = "1" ]; then …` branch that calls a new `--execute-keeperhub-live` flag on the research-agent harness; the default still runs `local_mock`. |
 | `demo-agents/research-agent/src/main.rs` | New `--execute-keeperhub-live` flag (parallel to the existing `--execute-keeperhub`). Constructs `KeeperHubExecutor::live(KeeperHubLiveConfig::from_env()?)`. |
 | `docs/cli/keeperhub-live.md` | Operator-facing how-to: which env vars, expected output, failure modes. |
 | `FEEDBACK.md` §KeeperHub | Replace the "What was unclear" bullet about missing schema with "Resolved by …; here is the schema we now consume" once schema is published. |
@@ -228,20 +228,20 @@ future implementer needs to look up:
    belong in? A worked example in the docs would resolve this in
    minutes.
 3. **`executionId` lookup.** Is there a documented GET path or MCP tool
-   to query post-submit status / run logs? Mandate would call this from
+   to query post-submit status / run logs? SBO3L would call this from
    the operator console.
 4. **Rate limiting.** What are the per-token submission limits and the
    recommended backoff?
 5. **Idempotency.** Does KeeperHub honour an `Idempotency-Key` request
-   header on the workflow webhook? Mandate's PSM-A2 idempotency layer
+   header on the workflow webhook? SBO3L's PSM-A2 idempotency layer
    sits one level upstream; understanding the intersection avoids
    double-execution on retry.
 6. **Async vs sync.** Does the workflow webhook return synchronously
    with a final `executionId`, or is `executionId` returned immediately
-   with status delivered via callback? Mandate can support both, but
+   with status delivered via callback? SBO3L can support both, but
    the adapter shape differs.
 7. **Optional response headers.** Would KeeperHub be willing to attach
-   `X-Mandate-Receipt-Signature` and `X-Mandate-Policy-Hash` on signed
+   `X-SBO3L-Receipt-Signature` and `X-SBO3L-Policy-Hash` on signed
    callbacks? (Captured as a feedback ask; here for completeness.)
 8. **Webhook signing.** Does KeeperHub sign callback bodies? If yes,
    which scheme (HMAC-SHA256? Ed25519? rolling secret?). If no, the
@@ -251,8 +251,8 @@ future implementer needs to look up:
 ## Risks
 
 - **Schema drift.** KeeperHub's eventual schema will likely differ from
-  the sketch above. The four `mandate_*` envelope fields are the only
-  things Mandate strictly needs first-class; everything else is
+  the sketch above. The four `sbo3l_*` envelope fields are the only
+  things SBO3L strictly needs first-class; everything else is
   flexible.
 - **Timeout policy.** A KeeperHub workflow may legitimately take
   minutes. The adapter's 15-second default is wrong for long-running
@@ -260,7 +260,7 @@ future implementer needs to look up:
   per-action timeout and an async-callback model. Open question 6
   decides this.
 - **Idempotency overlap with PSM-A2.** If KeeperHub also implements
-  idempotency keys, Mandate may end up with two layers. Open question 5
+  idempotency keys, SBO3L may end up with two layers. Open question 5
   decides this.
 - **Audit-bundle bloat.** Today the bundle carries `execution_ref` only.
   If we want to embed the full KeeperHub callback into the bundle, that
@@ -284,9 +284,9 @@ implementation of this doc — when:
 - KeeperHub publishes (or shares with us) a stable submission/result
   envelope schema (open question 1).
 - We have a sandbox / test webhook URL + token we can use under
-  `MANDATE_KEEPERHUB_LIVE=1` for the operator-side smoke test (no CI).
+  `SBO3L_KEEPERHUB_LIVE=1` for the operator-side smoke test (no CI).
 - The eight open questions above have answers — even short ones — that
   a Rust adapter author can compile against.
 
-Until then, this doc stays read-only and Mandate continues to ship
+Until then, this doc stays read-only and SBO3L continues to ship
 `local_mock()` with `mock: true` honestly disclosed.

@@ -1,4 +1,4 @@
-# ETHGlobal Open Agents 2026 — Submission Form Draft (Mandate)
+# ETHGlobal Open Agents 2026 — Submission Form Draft (SBO3L)
 
 Copy-paste-ready text for the ETHGlobal Open Agents 2026 project submission form. Every field below maps to an ETHGlobal form field (or to a video / repo link). Fields with a `<TODO: …>` placeholder are the only ones that need to be filled in on submission day.
 
@@ -11,7 +11,7 @@ Copy-paste-ready text for the ETHGlobal Open Agents 2026 project submission form
 ## Project name
 
 ```
-Mandate
+SBO3L
 ```
 
 ## Category
@@ -26,12 +26,12 @@ Infrastructure
 🛂
 ```
 
-(Passport-control emoji — visualises Mandate as the customs gate every agent payment has to clear before it ever reaches a wallet or sponsor.)
+(Passport-control emoji — visualises SBO3L as the customs gate every agent payment has to clear before it ever reaches a wallet or sponsor.)
 
 ## Short description (under 100 characters)
 
 ```
-Spending mandates for AI agents. The agent never holds the key; Mandate decides, signs and audits.
+Spending mandates for AI agents. The agent never holds the key; SBO3L decides, signs and audits.
 ```
 
 (98 characters including spaces — ETHGlobal's short-description field caps at 100.)
@@ -39,25 +39,25 @@ Spending mandates for AI agents. The agent never holds the key; Mandate decides,
 ## Long description (judge-facing)
 
 ```
-Mandate is a local policy, budget, receipt and audit firewall that decides whether an autonomous AI agent may execute an onchain or payment action — so the agent never has to hold a private key.
+SBO3L is a local policy, budget, receipt and audit firewall that decides whether an autonomous AI agent may execute an onchain or payment action — so the agent never has to hold a private key.
 
-A research-agent in our demo emits a payment request (an APRP — "Agent Payment Request Protocol") across the Mandate boundary. Mandate validates the request, evaluates a deterministic policy, enforces multi-scope budgets, rejects replayed nonces with HTTP 409 (backed by a persistent SQLite table so dedup survives restart), signs an Ed25519 policy receipt, appends a hash-chained audit event, and only then routes the action to a sponsor executor (KeeperHub or Uniswap in this demo). When the same agent is prompt-injected and forwards a hostile request, Mandate denies before any signer or executor runs and the audit log captures the rejection. Tampering with one byte of an audit event is rejected by the strict-hash verifier.
+A research-agent in our demo emits a payment request (an APRP — "Agent Payment Request Protocol") across the SBO3L boundary. SBO3L validates the request, evaluates a deterministic policy, enforces multi-scope budgets, rejects replayed nonces with HTTP 409 (backed by a persistent SQLite table so dedup survives restart), signs an Ed25519 policy receipt, appends a hash-chained audit event, and only then routes the action to a sponsor executor (KeeperHub or Uniswap in this demo). When the same agent is prompt-injected and forwards a hostile request, SBO3L denies before any signer or executor runs and the audit log captures the rejection. Tampering with one byte of an audit event is rejected by the strict-hash verifier.
 
-Every decision can be packaged as a verifiable audit bundle: `mandate audit export` produces a single JSON file containing the signed receipt, the audit-chain prefix, and the signer keys; `mandate audit verify-bundle` re-derives every claim from that file alone. A static, offline proof viewer (`python3 trust-badge/build.py`) renders the most recent demo run into a single self-contained HTML page — no JS, no fetch, works directly from `file://`.
+Every decision can be packaged as a verifiable audit bundle: `sbo3l audit export` produces a single JSON file containing the signed receipt, the audit-chain prefix, and the signer keys; `sbo3l audit verify-bundle` re-derives every claim from that file alone. A static, offline proof viewer (`python3 trust-badge/build.py`) renders the most recent demo run into a single self-contained HTML page — no JS, no fetch, works directly from `file://`.
 
-The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 310/310 tests pass, schemas validate, the demo's 13 gates are green end-to-end including audit-chain tamper-detection and the agent no-key boundary proof. A second runner — `bash demo-scripts/run-production-shaped-mock.sh` — exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with `Tally: 26 real, 0 mock, 1 skipped` — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list. An MCP-callable Mandate gateway (`crates/mandate-mcp`, Passport P3.1) and a static GitHub Pages public proof URL (Passport P7.1) are both on `main`.
+The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 310/310 tests pass, schemas validate, the demo's 13 gates are green end-to-end including audit-chain tamper-detection and the agent no-key boundary proof. A second runner — `bash demo-scripts/run-production-shaped-mock.sh` — exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `sbo3l doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with `Tally: 26 real, 0 mock, 1 skipped` — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list. An MCP-callable SBO3L gateway (`crates/sbo3l-mcp`, Passport P3.1) and a static GitHub Pages public proof URL (Passport P7.1) are both on `main`.
 
-Mandate is not a wallet, not a relayer, and not a trading bot. It is the pre-execution policy and signing boundary that lets autonomous agents transact without ever being trusted with a key.
+SBO3L is not a wallet, not a relayer, and not a trading bot. It is the pre-execution policy and signing boundary that lets autonomous agents transact without ever being trusted with a key.
 ```
 
 ## How it is made
 
 ```
-Mandate is a Rust workspace built during ETHGlobal Open Agents 2026 around four hard contracts: a strict APRP wire format with `serde(deny_unknown_fields)` end-to-end and a JCS-canonical request hash locked at `c0bd2fab…`; a deterministic policy engine evaluating a small Rego-compatible expression grammar over a hash-locked policy file; a multi-scope budget tracker (`per_tx`, `daily`, `monthly`, `per_provider`); and an Ed25519-signed, hash-chained audit log persisted in SQLite with a separate JSONL verifier offering both structural and strict-hash modes.
+SBO3L is a Rust workspace built during ETHGlobal Open Agents 2026 around four hard contracts: a strict APRP wire format with `serde(deny_unknown_fields)` end-to-end and a JCS-canonical request hash locked at `c0bd2fab…`; a deterministic policy engine evaluating a small Rego-compatible expression grammar over a hash-locked policy file; a multi-scope budget tracker (`per_tx`, `daily`, `monthly`, `per_provider`); and an Ed25519-signed, hash-chained audit log persisted in SQLite with a separate JSONL verifier offering both structural and strict-hash modes.
 
-The HTTP boundary is `POST /v1/payment-requests`, served by axum. Each request runs through the same fail-closed pipeline: schema validation → canonical request hash → APRP nonce-replay gate (HTTP 409 + `protocol.nonce_replay`, before any state mutation, backed by an atomic INSERT into the persistent `nonce_replay` SQLite table from migration V002) → policy decision → budget commit (only on Allow) → audit append → signed policy receipt. Receipts and decision tokens are JCS-canonical JSON signed with Ed25519; audit events are linked by `prev_event_hash` and verifiable end-to-end with the `mandate verify-audit` CLI.
+The HTTP boundary is `POST /v1/payment-requests`, served by axum. Each request runs through the same fail-closed pipeline: schema validation → canonical request hash → APRP nonce-replay gate (HTTP 409 + `protocol.nonce_replay`, before any state mutation, backed by an atomic INSERT into the persistent `nonce_replay` SQLite table from migration V002) → policy decision → budget commit (only on Allow) → audit append → signed policy receipt. Receipts and decision tokens are JCS-canonical JSON signed with Ed25519; audit events are linked by `prev_event_hash` and verifiable end-to-end with the `sbo3l verify-audit` CLI.
 
-Beyond the per-request flow, the CLI exposes an audit-bundle path: `mandate audit export --db <sqlite> --receipt <json> --receipt-pubkey <hex> --audit-pubkey <hex> --out <bundle>` reads the chain prefix straight out of SQLite, pre-flights signature + chain integrity, and writes a self-contained `mandate.audit_bundle.v1` JSON file. `mandate audit verify-bundle --path <bundle>` re-derives every claim — receipt signature, audit-event signature, full-chain hash linkage, and a re-derived summary block — from the bundle alone.
+Beyond the per-request flow, the CLI exposes an audit-bundle path: `sbo3l audit export --db <sqlite> --receipt <json> --receipt-pubkey <hex> --audit-pubkey <hex> --out <bundle>` reads the chain prefix straight out of SQLite, pre-flights signature + chain integrity, and writes a self-contained `sbo3l.audit_bundle.v1` JSON file. `sbo3l audit verify-bundle --path <bundle>` re-derives every claim — receipt signature, audit-event signature, full-chain hash linkage, and a re-derived summary block — from the bundle alone.
 
 A research-agent harness drives the boundary across two scenarios — a legitimate x402 purchase and a prompt-injection attack — by posting real APRP fixtures across the API and printing the daemon's signed response. The agent crate intentionally has zero signing dependencies; demo gate 12 verifies this by grepping for `SigningKey` / `signing_key` in `demo-agents/research-agent/` and asserting the count is zero. ENS, KeeperHub and Uniswap each show up as guarded executors behind a thin adapter trait so they can be swapped for live backends without touching the policy/signing core.
 
@@ -68,14 +68,14 @@ A small static proof viewer (`trust-badge/build.py`, stdlib-only Python) reads t
 
 ```
 Rust workspace (8 crates + research-agent demo binary):
-  - mandate-core        APRP types, JCS canonical hashing, Ed25519 signer, receipts, decision tokens, audit events, audit-bundle codec.
-  - mandate-policy      Policy model + Rego-compatible expression evaluator, decide(), multi-scope budget tracker.
-  - mandate-storage     SQLite-backed audit log with hash-chain verifier (rusqlite + migrations); persistent nonce-replay table (V002); chain prefix slicing for audit-bundle export.
-  - mandate-server      axum HTTP server, POST /v1/payment-requests pipeline, persistent SQLite-backed APRP nonce-replay gate.
-  - mandate-execution   Guarded-executor adapters (KeeperHub, Uniswap) with explicit local_mock / live constructors.
-  - mandate-identity    ENS resolver trait + offline fixture resolver + policy_hash drift check.
-  - mandate-mcp         Functional MCP stdio JSON-RPC server (PR #46): mandate.validate_aprp / mandate.decide / mandate.run_guarded_execution / mandate.verify_capsule / mandate.audit_lookup.
-  - mandate-cli         `mandate` CLI: aprp validate|hash|run-corpus, schema, verify-audit, audit export, audit verify-bundle.
+  - sbo3l-core        APRP types, JCS canonical hashing, Ed25519 signer, receipts, decision tokens, audit events, audit-bundle codec.
+  - sbo3l-policy      Policy model + Rego-compatible expression evaluator, decide(), multi-scope budget tracker.
+  - sbo3l-storage     SQLite-backed audit log with hash-chain verifier (rusqlite + migrations); persistent nonce-replay table (V002); chain prefix slicing for audit-bundle export.
+  - sbo3l-server      axum HTTP server, POST /v1/payment-requests pipeline, persistent SQLite-backed APRP nonce-replay gate.
+  - sbo3l-execution   Guarded-executor adapters (KeeperHub, Uniswap) with explicit local_mock / live constructors.
+  - sbo3l-identity    ENS resolver trait + offline fixture resolver + policy_hash drift check.
+  - sbo3l-mcp         Functional MCP stdio JSON-RPC server (PR #46): sbo3l.validate_aprp / sbo3l.decide / sbo3l.run_guarded_execution / sbo3l.verify_capsule / sbo3l.audit_lookup.
+  - sbo3l-cli         `sbo3l` CLI: aprp validate|hash|run-corpus, schema, verify-audit, audit export, audit verify-bundle.
 
 Cryptography & wire format:
   - ed25519-dalek                 Ed25519 signatures over canonical JSON (receipts, decision tokens, audit events).
@@ -107,7 +107,7 @@ REAL (end-to-end, exercised by the test suite + the final demo):
   - Ed25519-signed policy receipts, decision tokens and audit events.
   - Hash-chained audit log (SQLite + JSONL verifier with structural and strict-hash modes).
   - Audit-chain tamper detection — flip one byte and strict-hash verify rejects.
-  - Verifiable audit bundle (`mandate audit export` + `mandate audit verify-bundle`), including a DB-backed export path that pre-flights chain integrity and signature checks before writing the bundle.
+  - Verifiable audit bundle (`sbo3l audit export` + `sbo3l audit verify-bundle`), including a DB-backed export path that pre-flights chain integrity and signature checks before writing the bundle.
   - Real research-agent harness posting real APRP fixtures (legit + prompt-injection) across the boundary.
   - Agent no-key boundary proof — demo gate asserts zero `SigningKey` / `signing_key` references in the agent crate, zero key-material fixtures, no signing-related cargo deps.
   - Static, offline trust-badge proof viewer with stdlib-only regression test.
@@ -116,7 +116,7 @@ MOCKED / OFFLINE in this hackathon build (clearly labelled in demo output):
   - ENS resolution — the demo uses an offline `OfflineEnsResolver` fixture loaded from `demo-fixtures/ens-records.json`; the `EnsResolver` trait abstracts a future live testnet resolver but no live resolver is shipped in this build.
   - KeeperHub backend — the demo always constructs `KeeperHubExecutor::local_mock()`. A `KeeperHubExecutor::live()` constructor exists for the production path but is not exercised; the demo's KeeperHub mock receipt prints `mock: true` and a sponsor note.
   - Uniswap backend — the demo always constructs `UniswapExecutor::local_mock()`. `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`; the swap-policy guard (token allowlist, max notional, max slippage, treasury recipient, quote freshness) is real and runs before any executor call.
-  - Signing seeds — `AppState::new` uses deterministic dev seeds in `mandate-server::lib.rs` (clearly labelled `⚠ DEV ONLY ⚠`); these seeds are public and demo-only. Production deployments inject real signers via `AppState::with_signers` (TEE/HSM-backed). We do not claim production readiness for TEE/HSM in this build.
+  - Signing seeds — `AppState::new` uses deterministic dev seeds in `sbo3l-server::lib.rs` (clearly labelled `⚠ DEV ONLY ⚠`); these seeds are public and demo-only. Production deployments inject real signers via `AppState::with_signers` (TEE/HSM-backed). We do not claim production readiness for TEE/HSM in this build.
 
 Not present in this build (intentional):
   - No `MANDATE_*_LIVE` environment variable feature flag — switching any sponsor adapter from mock to live is a single-constructor-call change, not a runtime toggle.
@@ -131,15 +131,15 @@ Self-audit artefact: SECURITY_NOTES.md at the repo root documents the known scop
 ### ENS — Best Integration for AI Agents
 
 ```
-Mandate uses ENS as the public identity layer for autonomous agents. The demo agent `research-agent.team.eth` resolves text records:
+SBO3L uses ENS as the public identity layer for autonomous agents. The demo agent `research-agent.team.eth` resolves text records:
 
-  mandate:agent_id        research-agent-01
-  mandate:endpoint        https://example.com/agents/research-agent-01
-  mandate:policy_hash     <canonical SHA-256 of the active Mandate policy>
-  mandate:audit_root      <root of the agent's hash-chained audit log>
-  mandate:receipt_schema  <link to the policy_receipt_v1 schema>
+  sbo3l:agent_id        research-agent-01
+  sbo3l:endpoint        https://example.com/agents/research-agent-01
+  sbo3l:policy_hash     <canonical SHA-256 of the active SBO3L policy>
+  sbo3l:audit_root      <root of the agent's hash-chained audit log>
+  sbo3l:receipt_schema  <link to the policy_receipt_v1 schema>
 
-The demo verifies that the published `mandate:policy_hash` matches the canonical hash of the daemon's currently-loaded policy. If they ever drift, the agent is treated as un-trustable. This is a one-line check that gives sponsor reviewers immediate, cryptographic confidence that the on-chain identity and the off-chain enforcement are bound together.
+The demo verifies that the published `sbo3l:policy_hash` matches the canonical hash of the daemon's currently-loaded policy. If they ever drift, the agent is treated as un-trustable. This is a one-line check that gives sponsor reviewers immediate, cryptographic confidence that the on-chain identity and the off-chain enforcement are bound together.
 
 In this hackathon build the resolver is offline (`OfflineEnsResolver` reads `demo-fixtures/ens-records.json`). The `EnsResolver` trait abstraction is real; live testnet resolution is a single adapter swap.
 ```
@@ -147,22 +147,22 @@ In this hackathon build the resolver is offline (`OfflineEnsResolver` reads `dem
 ### KeeperHub — Best Use of KeeperHub
 
 ```
-KeeperHub executes. Mandate proves the execution was authorised. The two layers are designed from the start to compose without rewriting either side: Mandate sits in front of KeeperHub as the policy / budget / signing / audit boundary; KeeperHub stays the execution substrate Mandate routes Allow receipts into. Only Allow receipts ever reach the sponsor — Deny receipts are refused before any sponsor call (`policy receipt rejected: decision=Deny`).
+KeeperHub executes. SBO3L proves the execution was authorised. The two layers are designed from the start to compose without rewriting either side: SBO3L sits in front of KeeperHub as the policy / budget / signing / audit boundary; KeeperHub stays the execution substrate SBO3L routes Allow receipts into. Only Allow receipts ever reach the sponsor — Deny receipts are refused before any sponsor call (`policy receipt rejected: decision=Deny`).
 
 What is intentionally adoption-ready on the KeeperHub side: five concrete integration paths (IP-1 … IP-5) catalogued in `docs/keeperhub-integration-paths.md`, each independently small and independently reviewable. Status on `main` at submission time:
 
-  IP-1  mandate_* upstream-proof envelope fields on the workflow webhook (4-5 optional string fields)
-        → Mandate-side helper SHIPPED (`mandate_keeperhub_adapter::build_envelope`, P5.1); KH side adopts when ready.
+  IP-1  sbo3l_* upstream-proof envelope fields on the workflow webhook (4-5 optional string fields)
+        → SBO3L-side helper SHIPPED (`sbo3l_keeperhub_adapter::build_envelope`, P5.1); KH side adopts when ready.
   IP-2  Public submission/result envelope JSON Schema (one schema file under your docs)
-        → target on KH side (Mandate validates against KH's published schema once available).
+        → target on KH side (SBO3L validates against KH's published schema once available).
   IP-3  keeperhub.lookup_execution(execution_id) MCP tool (one tool definition + thin handler)
-        → Mandate-side symmetric tool SHIPPED (`mandate.audit_lookup` in `mandate-mcp`, P3.1, PR #46); judge-facing walk-through `docs/mcp-integration-guide.md`. KH side adopts when ready.
-  IP-4  Standalone mandate-keeperhub-adapter Rust crate (integrations-page listing / crates.io target)
-        → Publishable workspace crate SHIPPED under `crates/mandate-keeperhub-adapter/`, re-exported by `mandate-execution` for back-compat; crates.io publication itself remains target.
-  IP-5  Mandate Passport capsule URI on the execution row (one optional string column)
-        → Capsule schema + verifier SHIPPED (PR #42); `mandate passport run` CLI MVP SHIPPED (PR #44). KH side adopts the URI column when ready.
+        → SBO3L-side symmetric tool SHIPPED (`sbo3l.audit_lookup` in `sbo3l-mcp`, P3.1, PR #46); judge-facing walk-through `docs/mcp-integration-guide.md`. KH side adopts when ready.
+  IP-4  Standalone sbo3l-keeperhub-adapter Rust crate (integrations-page listing / crates.io target)
+        → Publishable workspace crate SHIPPED under `crates/sbo3l-keeperhub-adapter/`, re-exported by `sbo3l-execution` for back-compat; crates.io publication itself remains target.
+  IP-5  SBO3L Passport capsule URI on the execution row (one optional string column)
+        → Capsule schema + verifier SHIPPED (PR #42); `sbo3l passport run` CLI MVP SHIPPED (PR #44). KH side adopts the URI column when ready.
 
-Stacking them gives end-to-end offline auditability of every KeeperHub execution that flowed through Mandate: an auditor with the right keys can reconstruct what was authorised, who authorised it, which policy applied, and where the audit chain says it sits — without trusting any single party.
+Stacking them gives end-to-end offline auditability of every KeeperHub execution that flowed through SBO3L: an auditor with the right keys can reconstruct what was authorised, who authorised it, which policy applied, and where the audit chain says it sits — without trusting any single party.
 
 In this hackathon build, the demo constructs `KeeperHubExecutor::local_mock()` (clearly disclosed as `mock: true` in every demo output line, with a deterministic `kh-<ULID>` execution_ref). A `KeeperHubExecutor::live()` constructor exists; the live wiring is documented end-to-end in `docs/keeperhub-live-spike.md` (target shape, eight open questions for the KeeperHub team, the test strategy that keeps CI offline, and the file-by-file shopping list — about 250 lines of Rust). Switching to live is a single-constructor-body change once a stable submission schema and credentials are available; there is no env-var feature flag in this build, no silent fallback from mock to live, and no KeeperHub credentials anywhere in the repo (verifiable by `git grep`).
 ```
@@ -170,14 +170,14 @@ In this hackathon build, the demo constructs `KeeperHubExecutor::local_mock()` (
 ### Uniswap — Best Uniswap API Integration (stretch)
 
 ```
-Mandate is not a trading bot. The Uniswap adapter exists to prove that an agent which wants to trade through Uniswap can still be bounded by Mandate's policy and the swap-policy guard. The flow is:
+SBO3L is not a trading bot. The Uniswap adapter exists to prove that an agent which wants to trade through Uniswap can still be bounded by SBO3L's policy and the swap-policy guard. The flow is:
 
   1. The agent emits an APRP `smart_account_session` swap intent (input/output token, max slippage bps, max notional USD, recipient).
-  2. The swap-policy guard (`mandate_execution::uniswap::evaluate_swap`) enforces input/output token allowlists, max notional, max slippage, quote freshness window and treasury-recipient guard.
-  3. The APRP is posted to Mandate's policy engine under a swap-aware variant of the reference policy.
+  2. The swap-policy guard (`sbo3l_execution::uniswap::evaluate_swap`) enforces input/output token allowlists, max notional, max slippage, quote freshness window and treasury-recipient guard.
+  3. The APRP is posted to SBO3L's policy engine under a swap-aware variant of the reference policy.
   4. Approved receipts go to `UniswapExecutor::local_mock()` which returns a deterministic `uni-<ULID>` execution_ref. Denied receipts never reach the executor.
 
-Demo allow path: USDC → ETH within all caps. Demo deny path: USDC → rug-token at 1500 bps slippage to a non-allowlisted recipient — both the swap-policy guard and Mandate deny independently. The static fixture's quote uses a `(relaxed)` freshness flag that is explicitly visible in demo output; live mode would use the strict freshness check.
+Demo allow path: USDC → ETH within all caps. Demo deny path: USDC → rug-token at 1500 bps slippage to a non-allowlisted recipient — both the swap-policy guard and SBO3L deny independently. The static fixture's quote uses a `(relaxed)` freshness flag that is explicitly visible in demo output; live mode would use the strict freshness check.
 
 In this hackathon build the demo always constructs `UniswapExecutor::local_mock()`; `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`. The guard and the deny path are real; the executor is mock. Wiring the Uniswap Trading API is a single-function-body change.
 ```
@@ -201,7 +201,7 @@ Backup live-demo command for any judge who can build from source:
     # then open trust-badge/index.html
 ```
 
-The public proof URL is deployed from `main` by `.github/workflows/pages.yml` (Passport P7.1) and links to: the trust-badge proof viewer, the operator-console evidence panels, and a downloadable `mandate.passport_capsule.v1` Passport capsule a judge can verify offline with `mandate passport verify --path capsule.json`. The deployed surface is plain static HTML — no JavaScript, no client-side network calls, no external CDN/font/script — and is rendered from the same deterministic regression fixtures the trust-badge / operator-console test suites validate on every CI run, so the URL shows the same shape on every visit.
+The public proof URL is deployed from `main` by `.github/workflows/pages.yml` (Passport P7.1) and links to: the trust-badge proof viewer, the operator-console evidence panels, and a downloadable `sbo3l.passport_capsule.v1` Passport capsule a judge can verify offline with `sbo3l passport verify --path capsule.json`. The deployed surface is plain static HTML — no JavaScript, no client-side network calls, no external CDN/font/script — and is rendered from the same deterministic regression fixtures the trust-badge / operator-console test suites validate on every CI run, so the URL shows the same shape on every visit.
 
 ## GitHub repo link
 
@@ -215,9 +215,9 @@ Mirrors `demo-scripts/demo-video-script.md` (target 3:30, hard stop 3:50). Real 
 
 | t | Beat | Visual | Notes |
 |---|---|---|---|
-| 0:00–0:15 | Hook + tagline. | Title card. | "Autonomous agents can be wrong. Mandate keeps the money safe anyway." Land tagline in the first 10 seconds. |
+| 0:00–0:15 | Hook + tagline. | Title card. | "Autonomous agents can be wrong. SBO3L keeps the money safe anyway." Land tagline in the first 10 seconds. |
 | 0:15–0:45 | Legit x402 request. Allow → signed receipt → audit event. | `bash demo-scripts/run-openagents-final.sh` (gates 6 + 8) | Pause on `decision: Allow`, `request_hash`, `policy_hash`, `audit_event`, `receipt_sig`. |
-| 0:45–1:25 | Prompt-injection attack. Mandate denies before any signer or executor runs. | Same demo run, gates 6 (prompt-injection scenario) + 10 | Make the malicious string visible. Linger on `decision: Deny`. |
+| 0:45–1:25 | Prompt-injection attack. SBO3L denies before any signer or executor runs. | Same demo run, gates 6 (prompt-injection scenario) + 10 | Make the malicious string visible. Linger on `decision: Deny`. |
 | 1:25–2:00 | Sponsor adapters: KeeperHub and Uniswap. Approved → sponsor mock executes. Denied → sponsor refuses. | Gates 8 + 9 | Disclose `mock: true` and `via … mock executor` qualifiers in passing. |
 | 2:00–2:35 | Proof: request hash, policy hash, audit event, signed receipt, tamper detection. | Gate 11 | Close on `strict-hash verify rejected the tampered audit event`. |
 | 2:35–3:10 | Agent no-key proof + trust badge one-screen summary. | Gate 12 + `python3 trust-badge/build.py` and open `trust-badge/index.html` | Show the trust-badge after the CLI demo. Static HTML, no network. |

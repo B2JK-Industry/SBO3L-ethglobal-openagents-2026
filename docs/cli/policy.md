@@ -1,8 +1,8 @@
-# `mandate policy` — local active-policy lifecycle
+# `sbo3l policy` — local active-policy lifecycle
 
 > *Local production-shaped lifecycle, not remote governance.*
 
-`mandate policy {validate, current, activate, diff}` (PSM-A3) gives an operator a simple SQLite-backed lifecycle for the policy that the daemon evaluates. Every operation reads or writes the `active_policy` table (V006) on a Mandate SQLite database. There is no network, no on-chain anchor, no consensus: whoever opens the database can activate a policy.
+`sbo3l policy {validate, current, activate, diff}` (PSM-A3) gives an operator a simple SQLite-backed lifecycle for the policy that the daemon evaluates. Every operation reads or writes the `active_policy` table (V006) on a SBO3L SQLite database. There is no network, no on-chain anchor, no consensus: whoever opens the database can activate a policy.
 
 ## What it is, and what it is not
 
@@ -14,16 +14,16 @@
 | Audit of activation | The `activated_at`/`deactivated_at` timestamps + `source` label in this table | Cryptographically signed activation events, often broadcast |
 | Network | None — fully offline | Yes (registry, governance, anchor) |
 
-Concretely: this CLI is what a single operator uses to roll a policy forward on a single Mandate daemon's storage. It is the production-shape of "the daemon now uses policy X version Y" — not the production-shape of "a multi-party governance flow agreed to activate policy X". Those are separate problems.
+Concretely: this CLI is what a single operator uses to roll a policy forward on a single SBO3L daemon's storage. It is the production-shape of "the daemon now uses policy X version Y" — not the production-shape of "a multi-party governance flow agreed to activate policy X". Those are separate problems.
 
 ## Subcommands
 
-### `mandate policy validate <file>`
+### `sbo3l policy validate <file>`
 
 Parse a candidate policy JSON file, run semantic validation (no duplicate agent IDs, no duplicate budget tuples, etc.), and print the canonical SHA-256 hash plus a small summary.
 
 ```text
-$ mandate policy validate test-corpus/policy/reference_low_risk.json
+$ sbo3l policy validate test-corpus/policy/reference_low_risk.json
 ok: policy parses + validates
   policy_hash:   e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf
   agents:        1
@@ -39,12 +39,12 @@ ok: policy parses + validates
 | 1 | File read failure (e.g. typo'd path) |
 | 2 | Policy is invalid (parse error or semantic check failed) |
 
-### `mandate policy current --db <path>`
+### `sbo3l policy current --db <path>`
 
 Print the row of the currently-active policy.
 
 ```text
-$ mandate policy current --db /var/mandate/mandate.db
+$ sbo3l policy current --db /var/sbo3l/sbo3l.db
 active policy:
   version:       v3
   policy_hash:   3f4e…
@@ -55,8 +55,8 @@ active policy:
 If no policy has been activated yet, the command prints an honest note and exits with code **3** (not 1) so scripts can branch on "DB exists but empty" without confusing it with a real error:
 
 ```text
-$ mandate policy current --db /tmp/empty.db
-no active policy in this db. Run `mandate policy activate <file> --db /tmp/empty.db` to seed one.
+$ sbo3l policy current --db /tmp/empty.db
+no active policy in this db. Run `sbo3l policy activate <file> --db /tmp/empty.db` to seed one.
 $ echo $?
 3
 ```
@@ -67,15 +67,15 @@ $ echo $?
 | 1 | DB open / read failure |
 | 3 | DB is fine, no policy active yet (the honest no-active path) |
 
-### `mandate policy activate <file> --db <path> [--source <label>]`
+### `sbo3l policy activate <file> --db <path> [--source <label>]`
 
 Validate, hash, and activate a policy file. Idempotent: re-activating the already-active policy is a no-op (no new row is inserted, exit 0). Activating a *different* policy atomically marks the previous active row's `deactivated_at = now()` and inserts the new row at `version+1`.
 
 ```text
-$ mandate policy activate test-corpus/policy/reference_low_risk.json --db /var/mandate/mandate.db
+$ sbo3l policy activate test-corpus/policy/reference_low_risk.json --db /var/sbo3l/sbo3l.db
 activated: policy_hash=e044…f event=v1 source=operator-cli
 
-$ mandate policy activate test-corpus/policy/reference_low_risk.json --db /var/mandate/mandate.db
+$ sbo3l policy activate test-corpus/policy/reference_low_risk.json --db /var/sbo3l/sbo3l.db
 already active: policy_hash=e044…f version=v1 (no-op …)
 ```
 
@@ -88,12 +88,12 @@ already active: policy_hash=e044…f version=v1 (no-op …)
 | 2 | Policy is invalid |
 | 4 | Refused: this hash was activated before, deactivated, and you're trying to re-activate the same bytes. The lifecycle is monotonic — produce a fresh policy (even cosmetically different) instead. |
 
-### `mandate policy diff <file-a> <file-b>`
+### `sbo3l policy diff <file-a> <file-b>`
 
 Diff two candidate policy files at the canonical-JSON level. Both files must parse and validate; the output is a small added/removed line list.
 
 ```text
-$ mandate policy diff a.json b.json
+$ sbo3l policy diff a.json b.json
 policies differ:
   - a.json (policy_hash = e044…)
   + b.json (policy_hash = 7c12…)
@@ -125,12 +125,12 @@ A partial UNIQUE index `idx_active_policy_singleton` on `deactivated_at WHERE de
 
 ## Doctor integration
 
-`mandate doctor` surfaces this table as the `active_policy` row:
+`sbo3l doctor` surfaces this table as the `active_policy` row:
 
 | State | Doctor row | Reason |
 | --- | --- | --- |
 | Table present + active row | `ok` | Includes `active=v<N>` and the first 12 hex chars of the hash so an operator can confirm which policy is live. |
-| Table present + no active row | `skip` | Truthful: the table is here but nothing has been activated yet. The reason points at `mandate policy activate`. |
+| Table present + no active row | `skip` | Truthful: the table is here but nothing has been activated yet. The reason points at `sbo3l policy activate`. |
 | Table missing entirely | `skip` | Older daemon DB before V006. The reason points at PSM-A3 + V006. |
 
 ## Out of scope on this PR
