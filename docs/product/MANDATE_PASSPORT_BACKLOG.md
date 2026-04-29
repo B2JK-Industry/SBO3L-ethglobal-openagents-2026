@@ -469,8 +469,8 @@ Mandate should prove exactly what a live KeeperHub integration needs.
 
 **Primary files:**
 
-- `crates/mandate-execution/src/keeperhub.rs`
-- `crates/mandate-execution/tests/*`
+- `crates/mandate-keeperhub-adapter/src/lib.rs`
+- `crates/mandate-keeperhub-adapter/tests/*`
 - `docs/keeperhub-live-spike.md`
 - `FEEDBACK.md`
 - `docs/cli/passport.md`

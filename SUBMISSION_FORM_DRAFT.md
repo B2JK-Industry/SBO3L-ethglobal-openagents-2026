@@ -45,7 +45,7 @@ A research-agent in our demo emits a payment request (an APRP — "Agent Payment
 
 Every decision can be packaged as a verifiable audit bundle: `mandate audit export` produces a single JSON file containing the signed receipt, the audit-chain prefix, and the signer keys; `mandate audit verify-bundle` re-derives every claim from that file alone. A static, offline proof viewer (`python3 trust-badge/build.py`) renders the most recent demo run into a single self-contained HTML page — no JS, no fetch, works directly from `file://`.
 
-The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 300/300 tests pass, schemas validate, the demo's 13 gates are green end-to-end including audit-chain tamper-detection and the agent no-key boundary proof. A second runner — `bash demo-scripts/run-production-shaped-mock.sh` — exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with `Tally: 26 real, 0 mock, 1 skipped` — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list. An MCP-callable Mandate gateway (`crates/mandate-mcp`, Passport P3.1) and a static GitHub Pages public proof URL (Passport P7.1) are both on `main`.
+The whole flow is deterministic, runs offline, and reproduces from a fresh clone in ~5 seconds with `bash demo-scripts/run-openagents-final.sh`. 310/310 tests pass, schemas validate, the demo's 13 gates are green end-to-end including audit-chain tamper-detection and the agent no-key boundary proof. A second runner — `bash demo-scripts/run-production-shaped-mock.sh` — exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with `Tally: 26 real, 0 mock, 1 skipped` — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list. An MCP-callable Mandate gateway (`crates/mandate-mcp`, Passport P3.1) and a static GitHub Pages public proof URL (Passport P7.1) are both on `main`.
 
 Mandate is not a wallet, not a relayer, and not a trading bot. It is the pre-execution policy and signing boundary that lets autonomous agents transact without ever being trusted with a key.
 ```
@@ -152,13 +152,13 @@ KeeperHub executes. Mandate proves the execution was authorised. The two layers 
 What is intentionally adoption-ready on the KeeperHub side: five concrete integration paths (IP-1 … IP-5) catalogued in `docs/keeperhub-integration-paths.md`, each independently small and independently reviewable. Status on `main` at submission time:
 
   IP-1  mandate_* upstream-proof envelope fields on the workflow webhook (4-5 optional string fields)
-        → Mandate-side helper SHIPPED (`mandate_execution::keeperhub::KeeperHubEnvelope`, P5.1, PR #51); KH side adopts when ready.
+        → Mandate-side helper SHIPPED (`mandate_keeperhub_adapter::build_envelope`, P5.1); KH side adopts when ready.
   IP-2  Public submission/result envelope JSON Schema (one schema file under your docs)
         → target on KH side (Mandate validates against KH's published schema once available).
   IP-3  keeperhub.lookup_execution(execution_id) MCP tool (one tool definition + thin handler)
         → Mandate-side symmetric tool SHIPPED (`mandate.audit_lookup` in `mandate-mcp`, P3.1, PR #46); judge-facing walk-through `docs/mcp-integration-guide.md`. KH side adopts when ready.
-  IP-4  Standalone mandate-keeperhub-adapter Rust crate on crates.io (integrations-page listing)
-        → Type-move prerequisite SHIPPED (#49: GuardedExecutor + ExecutionReceipt + ExecutionError moved to mandate-core, re-exported for back-compat); the publishable `cargo add` crate itself is still target.
+  IP-4  Standalone mandate-keeperhub-adapter Rust crate (integrations-page listing / crates.io target)
+        → Publishable workspace crate SHIPPED under `crates/mandate-keeperhub-adapter/`, re-exported by `mandate-execution` for back-compat; crates.io publication itself remains target.
   IP-5  Mandate Passport capsule URI on the execution row (one optional string column)
         → Capsule schema + verifier SHIPPED (PR #42); `mandate passport run` CLI MVP SHIPPED (PR #44). KH side adopts the URI column when ready.
 
