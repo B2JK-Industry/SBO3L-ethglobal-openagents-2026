@@ -52,6 +52,13 @@ cargo build --quiet --bin mandate --bin mandate-mcp
 # Fresh DB per run so the nonce store is empty.
 WORK=$(mktemp -d -t mcp-passport-demo.XXXXXX)
 DB="$WORK/mandate.sqlite"
+# Round 0 path-sandbox fix: tell the MCP server to treat $WORK as its
+# allowed root. Without this, the spawned mandate-mcp would default to
+# the current working directory (the repo root) and reject the
+# /var/folders tempdir DB path with capsule.path_escape. Exporting here
+# means every subsequent `./target/debug/mandate-mcp` invocation in the
+# pipeline (phase 1 batch + verify + audit_lookup) inherits the env.
+export MANDATE_MCP_ROOT="$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
 ./target/debug/mandate policy activate \

@@ -575,6 +575,60 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
         }
     };
 
+    // 5b. Preflight policy decision (Round 0 audit fix — Issue 2).
+    //
+    // `mandate_policy::engine::decide` is a pure function: it takes the
+    // already-loaded `Policy` plus the typed `PaymentRequest` and
+    // returns the decision *without* consuming a nonce, appending an
+    // audit event, or signing a receipt. Running it here — before the
+    // AppState pipeline in step 6 — means we can reject
+    // `requires_human` outcomes (which mandate.passport_capsule.v1
+    // cannot encode) without producing any of those side effects.
+    //
+    // Previously this check lived at step 6b, AFTER the pipeline. The
+    // doc-comment there claimed "no partial work persisted", but in
+    // fact a `requires_human` decision reaching cmd_run would consume
+    // a nonce, append an audit event, and emit a signed receipt before
+    // the rejection fired. The audit caught this; the post-pipeline
+    // check below is now defence-in-depth (it should be unreachable
+    // since the preflight catches it first).
+    let payment_request: mandate_core::aprp::PaymentRequest =
+        match serde_json::from_value(aprp_value.clone()) {
+            Ok(req) => req,
+            Err(e) => {
+                eprintln!(
+                    "passport run: APRP body did not parse as PaymentRequest \
+                     (preflight typed parse): {e}"
+                );
+                return ExitCode::from(2);
+            }
+        };
+    match mandate_policy::engine::decide(&policy, &payment_request) {
+        Ok(outcome)
+            if matches!(
+                outcome.decision,
+                mandate_policy::engine::Decision::RequiresHuman
+            ) =>
+        {
+            let matched = outcome
+                .matched_rule_id
+                .as_deref()
+                .unwrap_or("(no matched rule)");
+            eprintln!(
+                "passport run does not support requires_human policy outcomes \
+                 in this build; mandate.passport_capsule.v1 only encodes \
+                 allow/deny. The decision was requires_human (matched_rule={matched}); \
+                 use the regular API surface for human-review workflows."
+            );
+            return ExitCode::from(2);
+        }
+        Ok(_) => { /* allow / deny — fall through to pipeline */ }
+        Err(e) => {
+            eprintln!("passport run: policy preflight error: {e}");
+            return ExitCode::from(2);
+        }
+    }
+
     // 6. Drive the existing `POST /v1/payment-requests` pipeline
     // in-process via the same oneshot pattern research-agent uses.
     // A fresh on-disk Storage handle is given to AppState so the
@@ -601,23 +655,18 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
         }
     };
 
-    // 6b. Reject `requires_human` BEFORE any capsule assembly.
+    // 6b. Defence-in-depth `requires_human` reject.
     //
-    // Codex P1 on PR #44: the original code mapped
-    // `Decision::RequiresHuman → "deny"` inside `build_capsule`, which
-    // produced an internally-inconsistent capsule (receipt says
-    // `requires_human`, capsule's `decision.result` says `deny`). The
-    // self-verify step at the end then caught the
-    // `DecisionResultMismatch` invariant and returned exit 2 — but
-    // only AFTER running the entire pipeline + executor branch.
-    //
-    // The honest scope for P2.1 is rejection at the boundary, not a
-    // mis-encoded capsule discovered late. Schema's
-    // `decision.result` enum is `{allow, deny}`; a `requires_human`
-    // outcome simply has no representation in
-    // `mandate.passport_capsule.v1`. Pattern parallels the
-    // `--mode live` rejection up top (exit 2, clear stderr, no
-    // partial work persisted).
+    // The step 5b preflight (Round 0 / Issue 2) already filters
+    // `requires_human` out before the pipeline runs, so this branch
+    // SHOULD be unreachable today — the pipeline cannot promote an
+    // allow/deny back into requires_human. Kept as a safety net in
+    // case a future refactor makes the pipeline outcome diverge from
+    // `policy::decide`. If we ever reach this branch, that's a bug;
+    // the rejection here means we still don't write a malformed
+    // capsule, but the "no partial work persisted" guarantee no
+    // longer holds at this point (nonce + audit have already been
+    // committed) — surface that loudly.
     if matches!(
         response.receipt.decision,
         mandate_core::receipt::Decision::RequiresHuman

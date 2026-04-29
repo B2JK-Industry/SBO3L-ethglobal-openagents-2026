@@ -91,10 +91,35 @@ Tests pin these exact strings — they are part of the wire contract.
 | `audit_event_id_mismatch`     | `audit_lookup`: receipt's `audit_event_id` ≠ requested `audit_event_id`. |
 | `bundle_build_failed`         | `audit_bundle::build` returned an error (e.g. chain segment doesn't include the receipt's event). |
 | `storage_failed`              | SQLite open / read failure. |
+| `capsule.path_escape`         | Round 0 path sandbox: a `db` or `path` argument resolves outside `MANDATE_MCP_ROOT` (or its symlink-resolved canonical form does). |
 
 Pipeline failures additionally surface the HTTP-level Problem code
 verbatim under `data.code` (e.g. `schema.value_out_of_range`,
 `policy.nonce_replay`) — same string an HTTP API caller branches on.
+
+## Path sandbox (`MANDATE_MCP_ROOT`)
+
+Every filesystem path argument the dispatcher accepts (`db` on
+`mandate.decide` / `mandate.run_guarded_execution` / `mandate.audit_lookup`,
+`path` on `mandate.verify_capsule` / `mandate.explain_denial`) is
+resolved against the `MANDATE_MCP_ROOT` env var and rejected if it
+escapes that root.
+
+| Behaviour | Detail |
+| --- | --- |
+| Default | If `MANDATE_MCP_ROOT` is unset (or empty), the server uses its working directory at startup. |
+| Resolution | Relative paths resolve against the process working directory (standard filesystem semantics), absolute paths are used as-is. |
+| Canonicalization | The result is canonicalized via `Path::canonicalize`, which collapses `..` segments **and follows symlinks**. A symlink whose target lives outside the root is treated as escape, not as an in-root path. |
+| Non-existent files | If the target path doesn't yet exist (e.g. a fresh SQLite DB filename), the server canonicalizes the *parent directory* and reattaches the filename. The parent must still resolve inside the root. |
+| Failure mode | Rejected paths surface as `data.code = "capsule.path_escape"` with a stderr-quality diagnostic (`path X escapes MANDATE_MCP_ROOT Y`). |
+
+Operators running the server under `MANDATE_MCP_ROOT=/var/mandate-mcp`
+get a hard guarantee: a prompt-injected MCP client cannot read or write
+files outside that subtree, no matter how it crafts the path argument.
+
+The sponsor demo (`demo-scripts/sponsors/mcp-passport.sh`) demonstrates
+the operator pattern: it `export`s `MANDATE_MCP_ROOT` to its tempdir
+before spawning the server, so every `db` argument resolves cleanly.
 
 ## Tool catalogue
 
