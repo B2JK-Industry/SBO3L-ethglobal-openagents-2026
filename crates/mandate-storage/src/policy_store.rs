@@ -74,14 +74,26 @@ impl Storage {
         let tx = self.conn.transaction()?;
 
         // Is something currently active?
-        let current: Option<(u32, String)> = tx
-            .query_row(
-                "SELECT version, policy_hash FROM active_policy
-                 WHERE deactivated_at IS NULL",
-                [],
-                |r| Ok((r.get::<_, i64>(0)? as u32, r.get::<_, String>(1)?)),
-            )
-            .ok();
+        //
+        // Self-review (mirroring the Codex P2 finding on PR #28's
+        // `mock_kms_current_version`): the previous shape used `.ok()`
+        // to coerce every error into `None`, which made schema /
+        // IO failures indistinguishable from "no active row" and
+        // caused `policy_activate` to silently behave as if the
+        // table were empty (and proceed to INSERT, bypassing the
+        // "is something already active" check). Explicit match here
+        // propagates real errors; only `QueryReturnedNoRows` maps to
+        // `None`.
+        let current: Option<(u32, String)> = match tx.query_row(
+            "SELECT version, policy_hash FROM active_policy
+             WHERE deactivated_at IS NULL",
+            [],
+            |r| Ok((r.get::<_, i64>(0)? as u32, r.get::<_, String>(1)?)),
+        ) {
+            Ok(row) => Some(row),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => return Err(StorageError::Sqlite(e)),
+        };
 
         if let Some((v, h)) = &current {
             if h == policy_hash {
@@ -433,5 +445,45 @@ mod tests {
         let cur = s.policy_current().unwrap().unwrap();
         assert_eq!(cur.policy_hash, h);
         assert_eq!(cur.version, 1);
+    }
+
+    /// Self-review parallel to the Codex P2 finding on PR #28's
+    /// `mock_kms_current_version`: `policy_activate`'s "is something
+    /// currently active" lookup previously used `.ok()` to coerce
+    /// every error into `None`, which made schema/IO failures
+    /// indistinguishable from "no active row" and caused
+    /// `policy_activate` to silently behave as if the table were
+    /// empty (and proceed to INSERT, bypassing the duplicate-active
+    /// check). After the fix, dropping the table out from under the
+    /// storage layer surfaces as a proper `Err`, not a silent
+    /// success.
+    #[test]
+    fn policy_activate_propagates_query_errors_when_table_dropped() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let path = tmp.path().to_path_buf();
+        // Apply all current migrations.
+        {
+            let _ = Storage::open(&path).unwrap();
+        }
+        // Drop the active_policy table out from under the storage,
+        // simulating either schema corruption or an older daemon DB
+        // that somehow lost V006. The next Storage::open will skip
+        // re-running V006 because schema_migrations records it as
+        // already applied — exactly the operational shape that the
+        // .ok()-swallowed path used to hide.
+        {
+            let conn = rusqlite::Connection::open(&path).unwrap();
+            conn.execute("DROP TABLE active_policy", []).unwrap();
+        }
+        let mut s = Storage::open(&path).unwrap();
+        let (j, h) = pol("rule-a");
+        let err = s
+            .policy_activate(&j, &h, "operator-cli", now_at("2026-04-28T10:00:00Z"))
+            .expect_err("missing table must propagate as Err, not silently insert");
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("active_policy") || msg.contains("no such"),
+            "expected the error to mention the missing table; got: {msg}"
+        );
     }
 }

@@ -11,9 +11,19 @@
 //!
 //! - This is **mock** anchoring, NOT real on-chain anchoring. The
 //!   `mock_anchor_ref` is a 64-bit content-derived id rendered as
-//!   `local-mock-anchor-<8 hex>`. A real anchor would be e.g. a
-//!   Merkle root committed to an L2 contract or an Ethereum tx hash
-//!   broadcast to a public chain.
+//!   `local-mock-anchor-<16 hex>` (8 bytes hex-encoded). A real anchor
+//!   would be e.g. a Merkle root committed to an L2 contract or an
+//!   Ethereum tx hash broadcast to a public chain.
+//!   `migrations/V007__audit_checkpoints.sql` carries a comment that
+//!   says `<8 hex>` — that string is misleading (the actual ref is
+//!   16 hex chars), but the comment is part of the SQL bytes hashed
+//!   into `schema_migrations.sha256`. Editing it post-merge would
+//!   trip the migration-drift detector against any DB that has
+//!   already applied V007, so we keep the SQL comment as-is and
+//!   rely on this module +
+//!   `crates/mandate-cli/src/audit_checkpoint.rs` +
+//!   `docs/cli/audit-checkpoint.md` as the source of truth on the
+//!   ref's actual length.
 //! - `chain_digest` is `SHA-256(event_hash[0] || event_hash[1] ||
 //!   … || event_hash[N-1])` over the chain prefix through `sequence`.
 //!   That makes the whole prefix verifiable from a single 32-byte

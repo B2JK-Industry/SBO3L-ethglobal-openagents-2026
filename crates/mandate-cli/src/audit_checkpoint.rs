@@ -11,8 +11,9 @@
 //! Truthfulness rules:
 //! - `mock_anchor: true` is set on every JSON artifact and the
 //!   string `mock-anchor:` is the prefix on every CLI output line.
-//! - The mock anchor reference (`local-mock-anchor-<8 hex>`) is
-//!   derived from the checkpoint content; it is **not** broadcast,
+//! - The mock anchor reference (`local-mock-anchor-<16 hex>`, the
+//!   16-hex-char tail being the first 8 bytes of a SHA-256 digest)
+//!   is derived from the checkpoint content; it is **not** broadcast,
 //!   not signed by any chain, not attested by any oracle.
 //! - `mandate audit checkpoint verify <file>` accepts a checkpoint
 //!   JSON and runs structural checks. With `--db <path>` it
