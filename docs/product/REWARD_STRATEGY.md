@@ -66,9 +66,9 @@ Key line:
 
 ### Features That Matter
 
-1. **MCP-callable Mandate gateway.**
-   - Agents can call `mandate.run_guarded_execution` from an MCP client.
-   - This maps directly to KeeperHub's MCP/agent tooling narrative.
+1. **MCP-callable Mandate gateway** *(target → shipped on `main` from PR #46)*.
+   - Agents call `mandate.run_guarded_execution`, `mandate.audit_lookup`, `mandate.verify_capsule`, etc. directly over MCP stdio JSON-RPC.
+   - Symmetric with the proposed `keeperhub.lookup_execution` MCP tool (IP-3): two calls cross-verify a KeeperHub `executionId` against a Mandate audit bundle in one auditor query. **Mandate side is implemented; KeeperHub side is target.** Judge-facing walk-through in [`docs/mcp-integration-guide.md`](../mcp-integration-guide.md).
 
 2. **Proof handoff envelope.**
    - Every KeeperHub call can carry:
