@@ -1,120 +1,75 @@
 # Mandate × KeeperHub — partner one-pager
 
-> KeeperHub executes. Mandate proves the execution was authorized.
+> **KeeperHub executes. Mandate proves the execution was authorised.** Two complementary layers in the same agent stack — the policy boundary and the execution substrate — designed from the start to compose without rewriting either side.
 
-**Status: target product framing, with the parts that already exist on
-`main` clearly separated from the parts that depend on later phases.**
+## How Mandate plugs into KeeperHub
 
-## The pitch in one paragraph
+```
+agent  ──APRP──▶  [Mandate boundary]  ──signed PolicyReceipt + mandate_* envelope──▶  [KeeperHub workflow webhook]  ──executionId──▶  [KeeperHub execution row]
+                       │                                                                                                                       │
+                       └─ hash-chained audit ─ mandate.audit_bundle.v1 ─ mandate.passport_capsule.v1 (target) ─ optional mandate_passport_uri ──┘
+```
 
-Autonomous agents can be wrong. KeeperHub gives them a reliable execution
-substrate; Mandate is the upstream policy boundary that decides whether the
-execution should happen and signs a receipt that ties the KeeperHub run
-back to a specific request, policy, budget, and audit-chain position.
-Together they make agent execution accountable: every KeeperHub
-`executionId` can carry a cryptographic explanation of *why* it was
-allowed.
+Five **specific shapes** the KeeperHub team could merge or build on are catalogued in [`docs/keeperhub-integration-paths.md`](../keeperhub-integration-paths.md), each independently small and independently reviewable:
+
+| # | Shape | Adoption cost on KeeperHub side |
+|---|---|---|
+| **IP-1** | `mandate_*` upstream-proof envelope fields on the workflow webhook | 4–5 optional string fields, echo on lookup |
+| **IP-2** | Public submission/result envelope JSON Schema | One JSON Schema file under your docs |
+| **IP-3** | `keeperhub.lookup_execution(execution_id)` MCP tool | One MCP tool definition + thin handler |
+| **IP-4** | Standalone `mandate-keeperhub-adapter` crate on crates.io | Listing on your "integrations" page |
+| **IP-5** | Mandate Passport capsule URI on the execution row | One optional string column |
+
+Stacking the shapes gives **end-to-end offline auditability** of every KeeperHub execution that flowed through Mandate — anywhere in the chain, an auditor with the right keys can reconstruct what was authorised, who authorised it, which policy applied, and where the audit chain says it sits, without trusting any single party.
+
+## Why this pairing specifically
+
+KeeperHub's framing — *the execution layer for AI agents operating onchain* — maps cleanly onto Mandate's `GuardedExecutor` trait. The integration is a thin adapter, not a rewrite. KeeperHub records *what was executed*; Mandate records *why it was authorised*. The IP-1 envelope is the bridge between those two records, and Mandate produces every byte of it for free as part of its existing pipeline (canonical request hash, policy hash, Ed25519 receipt signature, ULID audit event id).
+
+A KeeperHub auditor today reading an execution row has no cryptographic link back to whoever authorised the action. With IP-1 alone, that link becomes one offline verification. With IP-1 + IP-5, that link becomes one HTTP fetch.
 
 ## What is implemented today (on `main`, this build)
 
-- Adapter trait `GuardedExecutor` and concrete `KeeperHubExecutor`
-  (`crates/mandate-execution/src/keeperhub.rs`) with two constructors:
-  - `KeeperHubExecutor::local_mock()` — used in every demo path today.
-    Returns a deterministic `kh-<ULID>` execution_ref and prints
-    `mock: true` in demo output.
-  - `KeeperHubExecutor::live()` — present as a constructor; intentionally
-    `BackendOffline` until a stable submission/result schema and
-    credentials are available. **No live network call is made in this
-    build.**
-- Production-shaped runner step 6 walks the allow → KeeperHub mock path
-  end-to-end. Step 6 also walks the prompt-injection deny path and proves
-  the denied receipt never reaches the sponsor (`keeperhub_refused: true`,
-  visible in transcript and operator console).
-- KeeperHub live-integration design notes: [`docs/keeperhub-live-spike.md`](../keeperhub-live-spike.md).
-- Builder feedback (current): [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md).
+- **Adapter trait `GuardedExecutor` and concrete `KeeperHubExecutor`** ([`crates/mandate-execution/src/keeperhub.rs`](../../crates/mandate-execution/src/keeperhub.rs)) with two constructors:
+  - `KeeperHubExecutor::local_mock()` — used in every demo path today. Returns a deterministic `kh-<ULID>` execution_ref and prints `mock: true` in demo output.
+  - `KeeperHubExecutor::live()` — present as a constructor; intentionally `BackendOffline` until a stable submission/result schema and credentials are available. **No live network call is made in this build.**
+- **Production-shaped runner step 6** walks the allow → KeeperHub mock path end-to-end. Step 6 also walks the prompt-injection deny path and proves the denied receipt never reaches the sponsor (`keeperhub_refused: true`, visible in transcript and operator console).
+- **Hash-chained audit log + offline-verifiable bundle** — every Allow decision produces a signed `PolicyReceipt` linked by ULID audit-event-id into a hash-chained audit log. `mandate audit export` packages the receipt + audit-chain prefix into a single `mandate.audit_bundle.v1` JSON file; `mandate audit verify-bundle` re-derives every claim from that file alone, no daemon required.
+- **Mandate Passport capsule schema + verifier** (PR [#42](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/42)) — `mandate.passport_capsule.v1` is the IP-5 artefact; the schema and verifier are on `main`, productisation tracked in [`docs/product/MANDATE_PASSPORT_BACKLOG.md`](../product/MANDATE_PASSPORT_BACKLOG.md).
+- **Live-integration spike** ([`docs/keeperhub-live-spike.md`](../keeperhub-live-spike.md)) — read-only design for the live PR, including the wire format Mandate would post, the eight open questions for the KeeperHub team, the test strategy that keeps CI offline, and the file-by-file shopping list (~250 lines of Rust).
+- **Builder feedback (concrete asks, not abstract complaints)** — [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md) lists the JSON Schema, the four `mandate_*` fields, the lookup endpoint / MCP tool, the optional response headers, and the token-prefix / webhook-signing clarifications, each with rationale and impact.
 
-## What is target (Mandate Passport phase, not on main yet)
+## What is target (Mandate Passport phase + live KeeperHub)
 
-These are explicit *targets* documented for the team and for KeeperHub's
-review — none of them are claimed as shipped:
+These are explicit *targets* — none claimed as shipped:
 
-- **Mandate Passport capsule (target)** — a single JSON artefact
-  (`mandate.passport_capsule.v1`, schema/verifier owned by the A-side
-  Passport CLI work) that records, in one file, the request, decision,
-  KeeperHub `execution_ref`, audit event, and checkpoint. Until the
-  capsule schema lands on `main`, no UI or doc claims a capsule was
-  produced.
-- **Proof handoff envelope (target)** — a documented set of fields
-  Mandate would attach when calling a real KeeperHub workflow webhook:
-  - `mandate_request_hash` — JCS-canonical SHA-256 of the APRP.
-  - `mandate_policy_hash` — canonical hash of the active policy.
-  - `mandate_receipt_signature` — Ed25519 signature of the policy receipt.
-  - `mandate_audit_event_id` — ULID of the audit-chain event.
-  - `mandate_passport_capsule_hash` — content hash of the capsule, once
-    capsule schema lands.
+- **Mandate Passport capsule end-to-end** — schema + verifier exist; producing the capsule from a real KeeperHub execution depends on the live wiring below.
+- **`KeeperHubExecutor::live()` actually calling KeeperHub** — wired through [`docs/keeperhub-live-spike.md` §Target shape](../keeperhub-live-spike.md). Gated behind `MANDATE_KEEPERHUB_LIVE=1`, never a silent fallback from mock. CI never sets the flag.
+- **`mandate-keeperhub-adapter` extracted as standalone crate** — IP-4 above; the adapter is structurally independent of the rest of the workspace today, the extraction is repo-mechanics not redesign.
 
-  This is the smallest set we believe lets a KeeperHub auditor reading an
-  execution row reconnect to the upstream Mandate decision without
-  out-of-band correlation. It is not implemented in this build because
-  the live KeeperHub path is intentionally stubbed.
-- **Live KeeperHub call (future, gated)** — would be wired through
-  `KeeperHubExecutor::live()` and exposed via an explicit
-  `MANDATE_KEEPERHUB_LIVE=1` env-var gate, never as a silent fallback
-  from mock. CI will never require it. **No live KeeperHub call is made
-  in this build.**
+## What we are asking for (concrete, scoped)
 
-## Why KeeperHub specifically
+1. **Public submission/result envelope schema** — one JSON Schema 2020-12 file under your docs.
+2. **First-class upstream proof fields on submission** — the four (target: five) `mandate_*` envelope fields detailed in IP-1.
+3. **Documented `executionId → status / run-log lookup`** — GET path or MCP tool.
+4. **Optional webhook headers from KeeperHub → caller** — `X-Mandate-Receipt-Signature` / `X-Mandate-Policy-Hash` for signed callbacks.
+5. **Token-prefix naming clarity** — short "which token does which thing" page covering `kh_*` vs `wfb_*`.
+6. **Webhook signing / callback authenticity** semantics so an inbound execution result can be trusted without a side-channel.
 
-KeeperHub's framing — execution layer for AI agents — maps cleanly onto
-Mandate's `GuardedExecutor` trait. The integration is a thin adapter, not
-a rewrite. KeeperHub's audit trail and Mandate's hash-chained audit log
-are complementary: KeeperHub records *what was executed*, Mandate records
-*why it was authorised*. The proof handoff envelope above is the bridge.
-
-## What we are asking KeeperHub for (concrete, scoped)
-
-These are the same asks recorded in
-[`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md), summarised here for review
-context:
-
-1. **Public submission/result envelope schema.** Third-party policy
-   engines could validate locally before submission; mismatches surface
-   at the policy boundary, not over the wire.
-2. **Documented `executionId` → status / run-log lookup.** Either a GET
-   path or an MCP tool. Mandate would call this from the operator console
-   to render execution status next to the audit-bundle verification panel.
-3. **First-class upstream proof fields on submission.** Native,
-   schema-blessed slots for the five `mandate_*` fields above so
-   KeeperHub's audit trail can re-emit them on the result side and in
-   workflow logs.
-4. **Optional webhook headers from KeeperHub → caller.** When a workflow
-   webhook fires back to a Mandate-style consumer:
-   - `X-Mandate-Receipt-Signature: <hex>`
-   - `X-Mandate-Policy-Hash: <hex>`
-
-   so the consumer can verify the upstream proof in one network round trip.
-5. **Token-prefix naming clarity.** The `kh_*` vs `wfb_*` prefix split
-   (KeeperHub-native API tokens vs workflow-webhook tokens) is not obvious
-   from outside the docs. A short "which token does which thing" page
-   with worked examples would shave significant integration time.
-6. **Webhook signing / callback authenticity** semantics so a Mandate
-   operator can trust an inbound execution result without a side-channel.
+The same six asks live in [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md) with rationale and worked examples. The eight open implementation questions (schema, token model, lookup, rate limit, idempotency, sync vs async, response headers, callback signing) live in [`docs/keeperhub-live-spike.md` §Open questions](../keeperhub-live-spike.md).
 
 ## What this one-pager will NOT claim
 
 - Mandate **does not** call a real KeeperHub endpoint in this build.
-- The mock `kh-<ULID>` execution_ref **is not** a real KeeperHub
-  `executionId`.
-- KeeperHub **does not** verify Mandate receipts today; the proof
-  envelope above is a target for live integration, not a current
-  KeeperHub-side feature.
-- Mandate Passport capsule is **target product framing**, not a shipped
-  artefact in this build. The Passport CLI + verifier (A-side) lands in a
-  later phase; this one-pager will be updated to reference the actual
-  schema/verifier once that PR is on `main`.
+- The mock `kh-<ULID>` execution_ref **is not** a real KeeperHub `executionId`.
+- KeeperHub **does not** verify Mandate receipts today; the IP-1 envelope is a target for live integration, not a current KeeperHub-side feature.
+- Mandate Passport capsule production **is** schema-defined and verifier-tested on `main`; producing capsules from live KeeperHub executions is gated on the live wiring landing.
+
+Honest disclosure stays in every demo output (`mock: true` lines, `keeperhub_refused: true` on deny path) and in every doc that references the integration.
 
 ## Pointers in this repo
 
+- **Concrete integration paths (IP-1 … IP-5):** [`docs/keeperhub-integration-paths.md`](../keeperhub-integration-paths.md) ← **start here for the "merge or build on" answer**
 - Adapter source: [`crates/mandate-execution/src/keeperhub.rs`](../../crates/mandate-execution/src/keeperhub.rs)
 - Sponsor demo (mock today): [`demo-scripts/sponsors/keeperhub-guarded-execution.sh`](../../demo-scripts/sponsors/keeperhub-guarded-execution.sh)
 - Production-shaped runner step 6 walks both allow and deny paths: [`demo-scripts/run-production-shaped-mock.sh`](../../demo-scripts/run-production-shaped-mock.sh)

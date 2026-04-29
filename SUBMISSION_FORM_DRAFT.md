@@ -145,9 +145,19 @@ In this hackathon build the resolver is offline (`OfflineEnsResolver` reads `dem
 ### KeeperHub — Best Use of KeeperHub
 
 ```
-Mandate decides, KeeperHub executes. After the policy engine returns Allow, the signed `PolicyReceipt` and the underlying APRP are handed to `KeeperHubExecutor::execute()`. Only Allow receipts ever reach the sponsor; Deny receipts are refused before any sponsor call (`policy receipt rejected: decision=Deny`). This separation maps directly onto KeeperHub's "execution layer for AI agents onchain" framing: Mandate is the pre-execution policy and risk layer, KeeperHub is the execution layer.
+KeeperHub executes. Mandate proves the execution was authorised. The two layers are designed from the start to compose without rewriting either side: Mandate sits in front of KeeperHub as the policy / budget / signing / audit boundary; KeeperHub stays the execution substrate Mandate routes Allow receipts into. Only Allow receipts ever reach the sponsor — Deny receipts are refused before any sponsor call (`policy receipt rejected: decision=Deny`).
 
-In this hackathon build the demo constructs `KeeperHubExecutor::local_mock()` and prints `mock: true` plus a deterministic `kh-<ULID>` execution_ref. A `KeeperHubExecutor::live()` constructor exists; switching to a live KeeperHub MCP/API call is a single-function-body change once a stable action-submission schema is published.
+What is intentionally adoption-ready on the KeeperHub side: five concrete integration paths (IP-1 … IP-5) catalogued in `docs/keeperhub-integration-paths.md`, each independently small and independently reviewable —
+
+  IP-1  mandate_* upstream-proof envelope fields on the workflow webhook (4-5 optional string fields).
+  IP-2  Public submission/result envelope JSON Schema (one schema file under your docs).
+  IP-3  keeperhub.lookup_execution(execution_id) MCP tool (one tool definition + thin handler).
+  IP-4  Standalone mandate-keeperhub-adapter Rust crate on crates.io (integrations-page listing).
+  IP-5  Mandate Passport capsule URI on the execution row (one optional string column).
+
+Stacking them gives end-to-end offline auditability of every KeeperHub execution that flowed through Mandate: an auditor with the right keys can reconstruct what was authorised, who authorised it, which policy applied, and where the audit chain says it sits — without trusting any single party.
+
+In this hackathon build, the demo constructs `KeeperHubExecutor::local_mock()` (clearly disclosed as `mock: true` in every demo output line, with a deterministic `kh-<ULID>` execution_ref). A `KeeperHubExecutor::live()` constructor exists; the live wiring is documented end-to-end in `docs/keeperhub-live-spike.md` (target shape, eight open questions for the KeeperHub team, the test strategy that keeps CI offline, and the file-by-file shopping list — about 250 lines of Rust). Switching to live is a single-constructor-body change once a stable submission schema and credentials are available; there is no env-var feature flag in this build, no silent fallback from mock to live, and no KeeperHub credentials anywhere in the repo (verifiable by `git grep`).
 ```
 
 ### Uniswap — Best Uniswap API Integration (stretch)
