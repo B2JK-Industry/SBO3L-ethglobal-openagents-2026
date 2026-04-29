@@ -731,3 +731,120 @@ fn run_rejects_requires_human_decision_with_clear_error() {
         "requires_human rejection must NOT have written a capsule"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Round 0 — Issue 2: requires_human is rejected as a PREFLIGHT, before any
+// side-effect-producing pipeline work. The 3 tests below pin the new
+// behaviour: nonce is NOT consumed, audit chain is NOT extended, no
+// capsule is written. Previously the rejection happened post-pipeline,
+// which violated the "no partial work persisted" comment in passport.rs.
+// ---------------------------------------------------------------------------
+
+/// Helper: activate the requires_human-default policy in `db_path`. Used
+/// by the Issue 2 tests; mirrors the inline setup in
+/// `run_rejects_requires_human_decision_with_clear_error` so each test
+/// gets a clean, hermetic policy state.
+fn activate_requires_human_policy(tmp: &std::path::Path, db: &std::path::Path) {
+    let policy_path = tmp.join("requires-human-policy.json");
+    let mut policy: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(REF_POLICY).unwrap()).unwrap();
+    policy["policy_id"] = serde_json::Value::String("requires-human-test".into());
+    policy["description"] = serde_json::Value::String(
+        "Issue 2 preflight test: default_decision=requires_human, allow-rule removed.".into(),
+    );
+    policy["default_decision"] = serde_json::Value::String("requires_human".into());
+    let rules = policy["rules"].as_array_mut().unwrap();
+    rules.retain(|r| {
+        r["id"]
+            .as_str()
+            .map(|s| s != "allow-small-x402-api-call")
+            .unwrap_or(true)
+    });
+    std::fs::write(&policy_path, serde_json::to_vec_pretty(&policy).unwrap()).unwrap();
+    let pol = Command::new(cli_bin())
+        .args(["policy", "activate"])
+        .arg(&policy_path)
+        .args(["--db"])
+        .arg(db)
+        .output()
+        .expect("policy activate");
+    assert!(
+        pol.status.success(),
+        "policy activate must succeed: stderr={}",
+        String::from_utf8_lossy(&pol.stderr)
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn run_rejects_requires_human_BEFORE_appending_audit_event() {
+    // The audit chain must be unchanged after a requires_human rejection.
+    // Pre-Round-0, the pipeline ran end-to-end before the rejection
+    // fired — leaving an audit event behind despite the doc-comment
+    // claiming "no partial work persisted."
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_requires_human_policy(tmp.path(), &db);
+
+    let chain_before = mandate_storage::Storage::open(&db)
+        .expect("open db")
+        .audit_count()
+        .expect("audit_count before");
+
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert_eq!(r.status.code(), Some(2));
+
+    let chain_after = mandate_storage::Storage::open(&db)
+        .expect("open db")
+        .audit_count()
+        .expect("audit_count after");
+    assert_eq!(
+        chain_before, chain_after,
+        "audit chain length must NOT change after a requires_human preflight reject; \
+         got {chain_before} → {chain_after}"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn run_rejects_requires_human_BEFORE_consuming_nonce() {
+    // The nonce must remain replay-able after a requires_human rejection.
+    // Pre-Round-0 the full pipeline consumed the nonce before rejection
+    // → a follow-up request reusing that nonce would have hit
+    // policy.nonce_replay (HTTP 409). With the preflight in place the
+    // nonce is untouched, so swapping the policy and re-running the
+    // SAME APRP (same nonce) must succeed.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out_rh = tmp.path().join("rh-capsule.json");
+    let out_allow = tmp.path().join("allow-capsule.json");
+    activate_requires_human_policy(tmp.path(), &db);
+
+    // First run: requires_human policy → reject (preflight).
+    let r1 = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out_rh, &[]);
+    assert_eq!(r1.status.code(), Some(2));
+    assert!(!out_rh.exists(), "no capsule on rh path");
+
+    // Swap to the reference policy (which would allow the legit
+    // fixture). If the nonce had been consumed by the rejected run,
+    // this second run would 409 on policy.nonce_replay.
+    let pol = Command::new(cli_bin())
+        .args(["policy", "activate", REF_POLICY, "--db"])
+        .arg(&db)
+        .output()
+        .expect("policy activate ref");
+    assert!(
+        pol.status.success(),
+        "swap to reference policy: stderr={}",
+        String::from_utf8_lossy(&pol.stderr)
+    );
+
+    let r2 = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out_allow, &[]);
+    assert!(
+        r2.status.success(),
+        "second run with same APRP must succeed (nonce was NOT consumed); stderr={}",
+        String::from_utf8_lossy(&r2.stderr)
+    );
+    assert!(out_allow.exists(), "allow path must write capsule");
+}

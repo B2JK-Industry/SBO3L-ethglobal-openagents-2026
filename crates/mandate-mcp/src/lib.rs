@@ -34,7 +34,7 @@
 //! lives in P5.1 / P6.1 with concrete credentials + `live_evidence`.
 //! `mandate.run_guarded_execution` accepts only `mode: "mock"`.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use mandate_core::audit_bundle::{self, BundleError};
@@ -82,20 +82,140 @@ pub mod error_codes {
     pub const AUDIT_EVENT_ID_MISMATCH: &str = "audit_event_id_mismatch";
     pub const BUNDLE_BUILD_FAILED: &str = "bundle_build_failed";
     pub const STORAGE_FAILED: &str = "storage_failed";
+    /// Round 0 audit fix: the supplied path resolves outside the
+    /// `MANDATE_MCP_ROOT` sandbox (or its symlink-resolved canonical
+    /// form does). Stable wire string is the dotted form to match the
+    /// capsule-verifier `(capsule.<code>)` discriminator family — MCP
+    /// clients can branch on it the same way they already branch on
+    /// verifier codes.
+    pub const PATH_ESCAPE: &str = "capsule.path_escape";
 }
 
 /// Tool dispatch context. Held by the binary and passed into each
-/// `dispatch` call. Today this is essentially an empty handle; future
-/// phases may add a shared metrics surface or capability-token gate.
+/// `dispatch` call.
+///
+/// `root` constrains every filesystem path argument the dispatcher
+/// accepts (db paths, capsule paths). When `None`, the dispatcher
+/// reads `MANDATE_MCP_ROOT` from the environment, falling back to the
+/// process working directory. Setting this field programmatically is
+/// the test-friendly path: tests construct
+/// `ServerContext::with_root(tempdir)` so they don't race on the
+/// process-global env var.
 #[derive(Default, Clone)]
 pub struct ServerContext {
-    pub _marker: (),
+    pub root: Option<PathBuf>,
 }
 
 impl ServerContext {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Construct a context with an explicit sandbox root. Used by tests
+    /// to supply a tempdir without writing to the process-global
+    /// `MANDATE_MCP_ROOT` env var.
+    pub fn with_root(root: PathBuf) -> Self {
+        Self { root: Some(root) }
+    }
+
+    /// Resolve the effective sandbox root. Precedence:
+    ///   1. `self.root` if set (test-time programmatic override).
+    ///   2. `MANDATE_MCP_ROOT` env var (operator-time configuration).
+    ///   3. process working directory.
+    pub fn effective_root(&self) -> Result<PathBuf, ToolError> {
+        if let Some(p) = &self.root {
+            return Ok(p.clone());
+        }
+        if let Ok(s) = std::env::var("MANDATE_MCP_ROOT") {
+            if !s.is_empty() {
+                return Ok(PathBuf::from(s));
+            }
+        }
+        std::env::current_dir().map_err(|e| {
+            ToolError::new(
+                error_codes::PATH_ESCAPE,
+                format!("MANDATE_MCP_ROOT unset and current_dir() failed: {e}"),
+            )
+        })
+    }
+}
+
+/// Canonicalize `path` and assert it lives under `root`. Returns the
+/// canonical path on success; `path_escape` error on any escape.
+///
+/// The check follows symlinks (via `Path::canonicalize`) so a symlink
+/// pointing outside the root is treated as escape, not as an in-root
+/// path. For paths that don't yet exist on disk (e.g. a fresh SQLite
+/// DB filename that `Storage::open` will create on first use), the
+/// parent directory is canonicalized instead and the filename is
+/// reattached — this still resolves any symlink in the parent chain,
+/// which is where escape attacks would land.
+///
+/// Relative paths resolve against the **process working directory**
+/// (matching standard filesystem semantics), then the canonicalised
+/// result is checked for containment in `root`. This means a relative
+/// path like `..` is resolved against cwd, may end up outside `root`,
+/// and is rejected.
+pub fn canonicalize_within_root(path: &Path, root: &Path) -> Result<PathBuf, ToolError> {
+    let canonical_root = root.canonicalize().map_err(|e| {
+        ToolError::new(
+            error_codes::PATH_ESCAPE,
+            format!(
+                "MANDATE_MCP_ROOT {} could not be canonicalized: {e}",
+                root.display()
+            ),
+        )
+    })?;
+    let target = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| {
+                ToolError::new(
+                    error_codes::PATH_ESCAPE,
+                    format!("could not read process current_dir: {e}"),
+                )
+            })?
+            .join(path)
+    };
+    let canonical_path = match target.canonicalize() {
+        Ok(p) => p,
+        Err(_) => {
+            let parent = target.parent().ok_or_else(|| {
+                ToolError::new(
+                    error_codes::PATH_ESCAPE,
+                    format!("path {} has no parent component", target.display()),
+                )
+            })?;
+            let file_name = target.file_name().ok_or_else(|| {
+                ToolError::new(
+                    error_codes::PATH_ESCAPE,
+                    format!("path {} has no file component", target.display()),
+                )
+            })?;
+            let canonical_parent = parent.canonicalize().map_err(|e| {
+                ToolError::new(
+                    error_codes::PATH_ESCAPE,
+                    format!(
+                        "path parent {} could not be canonicalized: {e}",
+                        parent.display()
+                    ),
+                )
+            })?;
+            canonical_parent.join(file_name)
+        }
+    };
+    if !canonical_path.starts_with(&canonical_root) {
+        return Err(ToolError::new(
+            error_codes::PATH_ESCAPE,
+            format!(
+                "path {} escapes MANDATE_MCP_ROOT {}",
+                canonical_path.display(),
+                canonical_root.display()
+            ),
+        ));
+    }
+    Ok(canonical_path)
 }
 
 /// One tool call's structured failure.
@@ -308,7 +428,7 @@ pub fn tools_catalogue() -> Vec<ToolDescriptor> {
 /// async) build a single-thread tokio runtime and `block_on` it. This
 /// matches the in-process pattern `mandate passport run` already uses
 /// (`crates/mandate-cli/src/passport.rs::cmd_run` step 6).
-pub fn dispatch(method: &str, params: &Value, _ctx: &ServerContext) -> Result<Value, ToolError> {
+pub fn dispatch(method: &str, params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
     match method {
         "tools/list" => Ok(serde_json::to_value(tools_catalogue()).map_err(|e| {
             ToolError::new(
@@ -317,11 +437,11 @@ pub fn dispatch(method: &str, params: &Value, _ctx: &ServerContext) -> Result<Va
             )
         })?),
         "mandate.validate_aprp" => tool_validate_aprp(params),
-        "mandate.decide" => tool_decide(params),
-        "mandate.run_guarded_execution" => tool_run_guarded(params),
-        "mandate.verify_capsule" => tool_verify_capsule(params),
-        "mandate.explain_denial" => tool_explain_denial(params),
-        "mandate.audit_lookup" => tool_audit_lookup(params),
+        "mandate.decide" => tool_decide(params, ctx),
+        "mandate.run_guarded_execution" => tool_run_guarded(params, ctx),
+        "mandate.verify_capsule" => tool_verify_capsule(params, ctx),
+        "mandate.explain_denial" => tool_explain_denial(params, ctx),
+        "mandate.audit_lookup" => tool_audit_lookup(params, ctx),
         _ => Err(ToolError::new(
             error_codes::PARAMS_INVALID,
             format!("unknown method: {method}"),
@@ -353,7 +473,7 @@ fn tool_validate_aprp(params: &Value) -> Result<Value, ToolError> {
     Ok(json!({ "ok": true, "request_hash": request_hash }))
 }
 
-fn tool_decide(params: &Value) -> Result<Value, ToolError> {
+fn tool_decide(params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
     let aprp = params
         .get("aprp")
         .ok_or_else(|| ToolError::new(error_codes::PARAMS_INVALID, "missing field `aprp`"))?
@@ -362,9 +482,10 @@ fn tool_decide(params: &Value) -> Result<Value, ToolError> {
         .get("db")
         .and_then(|v| v.as_str())
         .ok_or_else(|| ToolError::new(error_codes::PARAMS_INVALID, "missing field `db`"))?;
+    let safe_db = canonicalize_within_root(Path::new(db_path), &ctx.effective_root()?)?;
 
-    let policy = load_active_policy(Path::new(db_path))?;
-    let response = run_pipeline(Path::new(db_path), policy, &aprp)?;
+    let policy = load_active_policy(&safe_db)?;
+    let response = run_pipeline(&safe_db, policy, &aprp)?;
     serde_json::to_value(&response).map_err(|e| {
         ToolError::new(
             error_codes::PIPELINE_FAILED,
@@ -373,7 +494,7 @@ fn tool_decide(params: &Value) -> Result<Value, ToolError> {
     })
 }
 
-fn tool_run_guarded(params: &Value) -> Result<Value, ToolError> {
+fn tool_run_guarded(params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
     let aprp = params
         .get("aprp")
         .ok_or_else(|| ToolError::new(error_codes::PARAMS_INVALID, "missing field `aprp`"))?
@@ -409,8 +530,9 @@ fn tool_run_guarded(params: &Value) -> Result<Value, ToolError> {
         }
     };
 
-    let policy = load_active_policy(Path::new(db_path))?;
-    let response = run_pipeline(Path::new(db_path), policy, &aprp)?;
+    let safe_db = canonicalize_within_root(Path::new(db_path), &ctx.effective_root()?)?;
+    let policy = load_active_policy(&safe_db)?;
+    let response = run_pipeline(&safe_db, policy, &aprp)?;
 
     // Truthfulness rule from passport run: deny path never calls executor.
     if matches!(
@@ -461,8 +583,8 @@ fn tool_run_guarded(params: &Value) -> Result<Value, ToolError> {
     }))
 }
 
-fn tool_verify_capsule(params: &Value) -> Result<Value, ToolError> {
-    let capsule = load_capsule_param(params)?;
+fn tool_verify_capsule(params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
+    let capsule = load_capsule_param(params, ctx)?;
     if let Err(e) = validate_passport_capsule(&capsule) {
         return Err(ToolError::new(
             error_codes::SCHEMA_VIOLATION,
@@ -478,8 +600,8 @@ fn tool_verify_capsule(params: &Value) -> Result<Value, ToolError> {
     Ok(json!({ "ok": true, "schema": "mandate.passport_capsule.v1" }))
 }
 
-fn tool_explain_denial(params: &Value) -> Result<Value, ToolError> {
-    let capsule = load_capsule_param(params)?;
+fn tool_explain_denial(params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
+    let capsule = load_capsule_param(params, ctx)?;
     if let Err(e) = verify_capsule(&capsule) {
         return Err(ToolError::new(
             capsule_error_code(&e),
@@ -516,7 +638,7 @@ fn tool_explain_denial(params: &Value) -> Result<Value, ToolError> {
     Ok(projection)
 }
 
-fn tool_audit_lookup(params: &Value) -> Result<Value, ToolError> {
+fn tool_audit_lookup(params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
     let event_id = params
         .get("audit_event_id")
         .and_then(|v| v.as_str())
@@ -530,6 +652,7 @@ fn tool_audit_lookup(params: &Value) -> Result<Value, ToolError> {
         .get("db")
         .and_then(|v| v.as_str())
         .ok_or_else(|| ToolError::new(error_codes::PARAMS_INVALID, "missing field `db`"))?;
+    let safe_db = canonicalize_within_root(Path::new(db_path), &ctx.effective_root()?)?;
     let receipt_value = params
         .get("receipt")
         .ok_or_else(|| ToolError::new(error_codes::PARAMS_INVALID, "missing field `receipt`"))?;
@@ -564,10 +687,10 @@ fn tool_audit_lookup(params: &Value) -> Result<Value, ToolError> {
             ),
         ));
     }
-    let storage = Storage::open(Path::new(db_path)).map_err(|e| {
+    let storage = Storage::open(&safe_db).map_err(|e| {
         ToolError::new(
             error_codes::STORAGE_FAILED,
-            format!("open db {db_path}: {e}"),
+            format!("open db {}: {e}", safe_db.display()),
         )
     })?;
     let chain = match storage.audit_chain_prefix_through(event_id) {
@@ -575,7 +698,7 @@ fn tool_audit_lookup(params: &Value) -> Result<Value, ToolError> {
         Err(mandate_storage::error::StorageError::AuditEventNotFound { id }) => {
             return Err(ToolError::new(
                 error_codes::AUDIT_EVENT_NOT_FOUND,
-                format!("audit_event_id {id} not present in {db_path}"),
+                format!("audit_event_id {id} not present in {}", safe_db.display()),
             ));
         }
         Err(e) => {
@@ -767,16 +890,24 @@ fn deny_execution_block(choice: ExecutorChoice) -> Map<String, Value> {
     block
 }
 
-fn load_capsule_param(params: &Value) -> Result<Value, ToolError> {
+fn load_capsule_param(params: &Value, ctx: &ServerContext) -> Result<Value, ToolError> {
     if let Some(v) = params.get("capsule") {
         return Ok(v.clone());
     }
     if let Some(p) = params.get("path").and_then(|v| v.as_str()) {
-        let raw = std::fs::read_to_string(p).map_err(|e| {
-            ToolError::new(error_codes::CAPSULE_IO_FAILED, format!("read {p}: {e}"))
+        let safe = canonicalize_within_root(Path::new(p), &ctx.effective_root()?)?;
+        let raw = std::fs::read_to_string(&safe).map_err(|e| {
+            ToolError::new(
+                error_codes::CAPSULE_IO_FAILED,
+                format!("read {}: {e}", safe.display()),
+            )
         })?;
-        return serde_json::from_str::<Value>(&raw)
-            .map_err(|e| ToolError::new(error_codes::CAPSULE_INVALID, format!("parse {p}: {e}")));
+        return serde_json::from_str::<Value>(&raw).map_err(|e| {
+            ToolError::new(
+                error_codes::CAPSULE_INVALID,
+                format!("parse {}: {e}", safe.display()),
+            )
+        });
     }
     Err(ToolError::new(
         error_codes::PARAMS_INVALID,

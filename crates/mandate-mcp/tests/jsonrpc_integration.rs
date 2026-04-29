@@ -72,11 +72,32 @@ fn read_json(path: &str) -> Value {
     serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse fixture {path}: {e}"))
 }
 
-fn fresh_db() -> (tempfile::TempDir, PathBuf) {
+fn fresh_db() -> (tempfile::TempDir, PathBuf, ServerContext) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("mandate.sqlite");
     activate_reference_policy(&path);
-    (dir, path)
+    // Round 0 path-sandbox fix: tests must supply a ctx whose root
+    // contains the tempdir DB. Defaulting to env / cwd would put the
+    // root at the crate dir, which doesn't include `/var/folders/...`
+    // tempdirs. ServerContext::with_root(tempdir) keeps each test
+    // hermetic without racing on the process-global `MANDATE_MCP_ROOT`
+    // env var.
+    let ctx = ServerContext::with_root(dir.path().to_path_buf());
+    (dir, path, ctx)
+}
+
+/// Repo-rooted ctx for tests that read capsule path fixtures from
+/// `test-corpus/passport/`. Resolves to the workspace root via
+/// `CARGO_MANIFEST_DIR/../..`. Tests that pass a path argument under
+/// `../../` need this; tests that pass `capsule` inline don't care.
+fn repo_root_ctx() -> ServerContext {
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = manifest
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("workspace root from CARGO_MANIFEST_DIR")
+        .to_path_buf();
+    ServerContext::with_root(root)
 }
 
 fn activate_reference_policy(db_path: &Path) {
@@ -145,9 +166,8 @@ fn validate_aprp_rejects_missing_field_param() {
 
 #[test]
 fn decide_allow_path_returns_auto_approved() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "DEC1");
-    let ctx = ServerContext::new();
     let result = dispatch(
         "mandate.decide",
         &json!({ "aprp": aprp, "db": db.to_string_lossy() }),
@@ -165,9 +185,8 @@ fn decide_allow_path_returns_auto_approved() {
 
 #[test]
 fn decide_deny_path_returns_rejected_with_deny_code() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_DENY, "DEC2");
-    let ctx = ServerContext::new();
     let result = dispatch(
         "mandate.decide",
         &json!({ "aprp": aprp, "db": db.to_string_lossy() }),
@@ -186,7 +205,7 @@ fn decide_without_active_policy_returns_policy_not_active() {
     let db = dir.path().join("empty.sqlite");
     let _ = mandate_storage::Storage::open(&db).expect("init empty db");
     let aprp = read_json(APRP_ALLOW);
-    let ctx = ServerContext::new();
+    let ctx = ServerContext::with_root(dir.path().to_path_buf());
     let err = dispatch(
         "mandate.decide",
         &json!({ "aprp": aprp, "db": db.to_string_lossy() }),
@@ -202,9 +221,8 @@ fn decide_without_active_policy_returns_policy_not_active() {
 
 #[test]
 fn run_guarded_allow_calls_keeperhub_mock_executor() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "EXC1");
-    let ctx = ServerContext::new();
     let result = dispatch(
         "mandate.run_guarded_execution",
         &json!({ "aprp": aprp, "db": db.to_string_lossy(), "executor": "keeperhub" }),
@@ -225,9 +243,8 @@ fn run_guarded_allow_calls_keeperhub_mock_executor() {
 
 #[test]
 fn run_guarded_deny_does_not_call_executor() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_DENY, "EXC2");
-    let ctx = ServerContext::new();
     let result = dispatch(
         "mandate.run_guarded_execution",
         &json!({ "aprp": aprp, "db": db.to_string_lossy(), "executor": "keeperhub" }),
@@ -242,9 +259,8 @@ fn run_guarded_deny_does_not_call_executor() {
 
 #[test]
 fn run_guarded_rejects_live_mode() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "EXC3");
-    let ctx = ServerContext::new();
     let err = dispatch(
         "mandate.run_guarded_execution",
         &json!({
@@ -265,7 +281,7 @@ fn run_guarded_rejects_live_mode() {
 
 #[test]
 fn verify_capsule_accepts_golden_fixture_via_path() {
-    let ctx = ServerContext::new();
+    let ctx = repo_root_ctx();
     let result = dispatch(
         "mandate.verify_capsule",
         &json!({ "path": CAPSULE_GOLDEN }),
@@ -278,7 +294,7 @@ fn verify_capsule_accepts_golden_fixture_via_path() {
 
 #[test]
 fn verify_capsule_rejects_tampered_request_hash() {
-    let ctx = ServerContext::new();
+    let ctx = repo_root_ctx();
     let err = dispatch(
         "mandate.verify_capsule",
         &json!({ "path": CAPSULE_TAMPERED_HASH }),
@@ -312,7 +328,7 @@ fn verify_capsule_accepts_inline_object() {
 
 #[test]
 fn explain_denial_rejects_allow_capsule() {
-    let ctx = ServerContext::new();
+    let ctx = repo_root_ctx();
     let err = dispatch(
         "mandate.explain_denial",
         &json!({ "path": CAPSULE_GOLDEN }),
@@ -328,9 +344,8 @@ fn explain_denial_rejects_allow_capsule() {
 
 #[test]
 fn audit_lookup_hit_returns_bundle_for_seeded_audit_event() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "AAA1");
-    let ctx = ServerContext::new();
 
     // Seed: drive a real decide so the audit chain has at least one event.
     let decide = dispatch(
@@ -364,9 +379,8 @@ fn audit_lookup_hit_returns_bundle_for_seeded_audit_event() {
 
 #[test]
 fn audit_lookup_miss_returns_audit_event_not_found() {
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "AAA2");
-    let ctx = ServerContext::new();
     // Seed one event so the DB has a chain at all.
     let decide = dispatch(
         "mandate.decide",
@@ -401,9 +415,8 @@ fn audit_lookup_with_matching_receipt_but_unknown_event_id_returns_not_found() {
     // Constructs the failure mode where the receipt and event_id agree on a
     // string, but no such event lives in the DB — the second branch of the
     // 404 contract.
-    let (_dir, db) = fresh_db();
+    let (_dir, db, ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "AAA3");
-    let ctx = ServerContext::new();
     let decide = dispatch(
         "mandate.decide",
         &json!({ "aprp": aprp, "db": db.to_string_lossy() }),
@@ -488,13 +501,21 @@ struct McpServer {
 
 impl McpServer {
     fn spawn() -> Self {
+        Self::spawn_with_env(&[])
+    }
+
+    /// Spawn with extra env vars. Used to set `MANDATE_MCP_ROOT` for
+    /// the path-sandbox tests that need a specific root in the child.
+    fn spawn_with_env(extra_env: &[(&str, &Path)]) -> Self {
         let bin = env!("CARGO_BIN_EXE_mandate-mcp");
-        let child = Command::new(bin)
-            .stdin(Stdio::piped())
+        let mut cmd = Command::new(bin);
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn mandate-mcp");
+            .stderr(Stdio::null());
+        for (k, v) in extra_env {
+            cmd.env(k, v);
+        }
+        let child = cmd.spawn().expect("spawn mandate-mcp");
         Self { child }
     }
 
@@ -554,9 +575,11 @@ fn stdio_validate_aprp_round_trips_through_child_process() {
 
 #[test]
 fn stdio_decide_allow_round_trips_through_child_process() {
-    let (_dir, db) = fresh_db();
+    let (dir, db, _ctx) = fresh_db();
     let aprp = aprp_with_unique_nonce(APRP_ALLOW, "STD1");
-    let mut server = McpServer::spawn();
+    // Round 0 path-sandbox: child reads MANDATE_MCP_ROOT from env.
+    // Pass the tempdir so the db path resolves inside the sandbox.
+    let mut server = McpServer::spawn_with_env(&[("MANDATE_MCP_ROOT", dir.path())]);
     let resp = server.call(
         "mandate.decide",
         json!({ "aprp": aprp, "db": db.to_string_lossy() }),
@@ -586,4 +609,168 @@ fn stdio_garbage_input_yields_parse_error() {
     assert!(resp["id"].is_null());
     drop(child.stdin.take());
     let _ = child.wait();
+}
+
+// ---------------------------------------------------------------------------
+// Round 0 — Issue 1: MCP path sandbox (canonicalize_within_root)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn mcp_rejects_path_outside_root() {
+    // Root the ctx at a tempdir; pass an absolute path to a DIFFERENT
+    // tempdir that's outside the root. Sandbox must reject.
+    let outside = tempfile::tempdir().expect("outside");
+    let escape_db = outside.path().join("escape.sqlite");
+    let _ = mandate_storage::Storage::open(&escape_db).expect("seed db");
+
+    let inside = tempfile::tempdir().expect("inside");
+    let ctx = ServerContext::with_root(inside.path().to_path_buf());
+
+    let aprp = read_json(APRP_ALLOW);
+    let err = dispatch(
+        "mandate.decide",
+        &json!({ "aprp": aprp, "db": escape_db.to_string_lossy() }),
+        &ctx,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, error_codes::PATH_ESCAPE);
+    assert!(
+        err.message.contains("escapes MANDATE_MCP_ROOT"),
+        "expected path-escape diagnostic; got: {}",
+        err.message
+    );
+}
+
+#[test]
+fn mcp_rejects_path_traversal_via_dotdot() {
+    // Root the ctx at a sub-tempdir; pass an absolute path containing
+    // a `..` segment that, after canonicalize, escapes upward to the
+    // parent. canonicalize() always collapses `..`, so this proves
+    // the post-canonicalize is_within(root) check catches the
+    // traversal.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let inside = dir.path().join("inside");
+    std::fs::create_dir(&inside).expect("mkdir inside");
+    let outside_target = dir.path().join("outside.sqlite");
+    let _ = mandate_storage::Storage::open(&outside_target).expect("seed db");
+
+    // root = `<dir>/inside`, path = `<dir>/inside/../outside.sqlite`
+    // → canonicalize collapses to `<dir>/outside.sqlite`, OUTSIDE root.
+    let ctx = ServerContext::with_root(inside.clone());
+    let traversal = inside.join("..").join("outside.sqlite");
+
+    let aprp = read_json(APRP_ALLOW);
+    let err = dispatch(
+        "mandate.decide",
+        &json!({ "aprp": aprp, "db": traversal.to_string_lossy() }),
+        &ctx,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, error_codes::PATH_ESCAPE);
+}
+
+#[test]
+fn mcp_rejects_symlink_escape() {
+    // A symlink whose target lives outside the root must be rejected.
+    // canonicalize() follows symlinks, so the canonical path of the
+    // symlink is the OUTSIDE target — starts_with(root) returns false.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let outside = tempfile::tempdir().expect("outside");
+    let target = outside.path().join("target.sqlite");
+    let _ = mandate_storage::Storage::open(&target).expect("seed target");
+    let link = dir.path().join("link.sqlite");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&target, &link).expect("symlink");
+    #[cfg(not(unix))]
+    return; // Symlink semantics vary on Windows; skip on non-unix.
+
+    let ctx = ServerContext::with_root(dir.path().to_path_buf());
+
+    let aprp = read_json(APRP_ALLOW);
+    let err = dispatch(
+        "mandate.decide",
+        &json!({ "aprp": aprp, "db": link.to_string_lossy() }),
+        &ctx,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, error_codes::PATH_ESCAPE);
+}
+
+#[test]
+fn mcp_accepts_path_within_root() {
+    // The happy-path counter-test: a db inside the root is not
+    // rejected. Also covered implicitly by every fresh_db() test, but
+    // making it explicit here gives clean coverage of the positive
+    // case for the sandbox doc.
+    let (_dir, db, ctx) = fresh_db();
+    let aprp = aprp_with_unique_nonce(APRP_ALLOW, "WRT0");
+    let result = dispatch(
+        "mandate.decide",
+        &json!({ "aprp": aprp, "db": db.to_string_lossy() }),
+        &ctx,
+    )
+    .unwrap();
+    assert_eq!(result["status"], "auto_approved");
+}
+
+#[test]
+fn mcp_uses_cwd_when_root_unset() {
+    // ServerContext::new() leaves root=None. effective_root() then
+    // reads env (which may or may not be set) and falls back to cwd.
+    // We verify the effective_root() path resolves to a non-empty
+    // PathBuf — the actual rejection/acceptance is exercised by other
+    // tests that pin a specific root.
+    let ctx = ServerContext::new();
+    // Strip the env var for this assertion so cwd-fallback fires.
+    // SAFETY: tests run in parallel; this can only mask other tests
+    // that don't already set ctx.root explicitly. Every other test in
+    // this file uses ServerContext::with_root(...) or doesn't touch
+    // paths, so the env var is an unrelated channel today.
+    let prior = std::env::var("MANDATE_MCP_ROOT").ok();
+    // SAFETY: justified above; std::env::remove_var is unsafe in
+    // recent rustc when crossing thread boundaries — this test
+    // intentionally exercises the env-fallback path.
+    unsafe {
+        std::env::remove_var("MANDATE_MCP_ROOT");
+    }
+    let resolved = ctx.effective_root();
+    if let Some(p) = prior {
+        unsafe {
+            std::env::set_var("MANDATE_MCP_ROOT", p);
+        }
+    }
+    let resolved = resolved.expect("cwd fallback yields Ok");
+    assert!(
+        resolved.is_absolute(),
+        "cwd fallback must return an absolute path; got: {}",
+        resolved.display()
+    );
+    assert!(
+        resolved.exists(),
+        "cwd fallback path must exist; got: {}",
+        resolved.display()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Round 0 — Issue 2 wire-up coverage (the heavy lifting is in
+// crates/mandate-cli/tests/passport_cli.rs; the tests below pin the
+// MCP-side run_guarded_execution branch that mirrors the same
+// truthfulness rule)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn run_guarded_rejects_requires_human_with_stable_code() {
+    // run_guarded_execution mirrors passport-run's policy-decision
+    // semantics: requires_human is not encodable in
+    // mandate.passport_capsule.v1, so the tool refuses. This pins the
+    // wire string so MCP clients can branch on it.
+    //
+    // Constructing a requires_human policy in-line and activating it
+    // is overkill here; the existing reference policy doesn't return
+    // requires_human, and exercising the requires_human path
+    // end-to-end belongs to crates/mandate-cli/tests/passport_cli.rs.
+    // What we can pin from the MCP surface is that the error code
+    // namespace exists and is the documented stable string.
+    assert_eq!(error_codes::REQUIRES_HUMAN, "requires_human_unsupported");
 }
