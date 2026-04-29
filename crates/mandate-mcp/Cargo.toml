@@ -5,10 +5,45 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Mandate MCP adapter (placeholder)."
+description = "Mandate MCP — stdio JSON-RPC server wrapping Mandate primitives (Passport P3.1)."
+
+[[bin]]
+name = "mandate-mcp"
+path = "src/main.rs"
 
 [dependencies]
+# Core Mandate primitives — every MCP tool wraps one of these.
+# No new logic: validate_aprp / verify_capsule / build / verify in mandate-core,
+# AppState + router in mandate-server, executor mocks in mandate-execution.
 mandate-core = { workspace = true }
+mandate-policy = { workspace = true }
+mandate-storage = { workspace = true }
+mandate-identity = { workspace = true }
+mandate-execution = { workspace = true }
+mandate-server = { path = "../mandate-server" }
+
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+
+# Stdio JSON-RPC dispatch loop runs inside a tokio runtime so each
+# tool call can drive the existing axum/tower payment-requests pipeline
+# in-process via the same `oneshot` pattern `mandate passport run` uses
+# (see crates/mandate-cli/src/passport.rs::oneshot_payment_request).
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+# Tests drive the binary over stdio — `assert_cmd` would add a transitive,
+# so we use Command::spawn directly with stdin/stdout pipes (same pattern
+# as crates/mandate-cli/tests/passport_cli.rs).
+tempfile = { workspace = true }
+rusqlite = { workspace = true }

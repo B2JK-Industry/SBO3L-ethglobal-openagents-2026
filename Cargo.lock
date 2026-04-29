@@ -1105,10 +1105,26 @@ dependencies = [
 name = "mandate-mcp"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "hex",
+ "http-body-util",
  "mandate-core",
+ "mandate-execution",
+ "mandate-identity",
+ "mandate-policy",
+ "mandate-server",
+ "mandate-storage",
+ "rusqlite",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
