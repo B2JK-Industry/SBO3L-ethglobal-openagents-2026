@@ -130,8 +130,8 @@ upstream:
   `executor_evidence` is byte-stable for the demo, but a third-party
   re-verifier today has to canonicalise the quote on their side
   (JCS-shape) to compare. A documented server-side canonical quote
-  hash (matching the JCS shape Mandate already uses for `request_hash`)
-  would let us anchor the hash directly into the Mandate decision
+  hash (matching the JCS shape SBO3L already uses for `request_hash`)
+  would let us anchor the hash directly into the SBO3L decision
   token without inventing a canonicalisation.
 
 ### Known limitations of the hackathon implementation

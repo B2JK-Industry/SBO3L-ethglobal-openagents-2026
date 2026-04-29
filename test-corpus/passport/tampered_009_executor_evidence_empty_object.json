@@ -52,7 +52,7 @@
     "matched_rule": "allow-low-risk-x402",
     "deny_code": null,
     "receipt": {
-      "receipt_type": "mandate.policy_receipt.v1",
+      "receipt_type": "sbo3l.policy_receipt.v1",
       "version": 1,
       "agent_id": "research-agent-01",
       "decision": "allow",
@@ -85,9 +85,9 @@
     "audit_event_id": "evt-01HTAWX5K3R8YV9NQB7C6P2DGR",
     "prev_event_hash": "0000000000000000000000000000000000000000000000000000000000000000",
     "event_hash": "6cba2eed67c2dfd623521be0a692b8716f300eb27deb3a7e9ab06d5e8b3bb9e6",
-    "bundle_ref": "mandate.audit_bundle.v1",
+    "bundle_ref": "sbo3l.audit_bundle.v1",
     "checkpoint": {
-      "schema": "mandate.audit_checkpoint.v1",
+      "schema": "sbo3l.audit_checkpoint.v1",
       "sequence": 1,
       "latest_event_id": "evt-01HTAWX5K3R8YV9NQB7C6P2DGR",
       "latest_event_hash": "6cba2eed67c2dfd623521be0a692b8716f300eb27deb3a7e9ab06d5e8b3bb9e6",
