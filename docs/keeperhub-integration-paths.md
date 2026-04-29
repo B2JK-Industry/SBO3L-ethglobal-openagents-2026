@@ -99,7 +99,7 @@ The rest of this document expands each path with concrete pointers, schemas, and
       "mandate_request_hash":      { "type": "string", "pattern": "^[0-9a-f]{64}$" },
       "mandate_policy_hash":       { "type": "string", "pattern": "^[0-9a-f]{64}$" },
       "mandate_receipt_signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
-      "mandate_audit_event_id":    { "type": "string", "pattern": "^evt-[0-9A-Z]{26}$" }
+      "mandate_audit_event_id":    { "type": "string", "pattern": "^evt-[0-7][0-9A-HJKMNP-TV-Z]{25}$" }
     }
   }
 }
@@ -185,7 +185,7 @@ Anywhere in this chain, an auditor with the right keys can reconstruct *what was
 ## What this document is NOT
 
 - **Not a claim that any of IP-1 through IP-5 is implemented end-to-end with a live KeeperHub backend in this build.** The Mandate side has the schemas, the adapter, the audit-bundle codec, the Passport capsule schema and verifier; the live network call to KeeperHub is gated behind unblocking the open questions in [`docs/keeperhub-live-spike.md` §Open questions for the KeeperHub team](keeperhub-live-spike.md). Today the demo always constructs `KeeperHubExecutor::local_mock()`.
-- **Not a request for special treatment.** Every claim above is reproducible from a fresh clone in ~5 seconds: `bash demo-scripts/run-openagents-final.sh` (vertical demo, 13 gates) and `bash demo-scripts/run-production-shaped-mock.sh` (operator surface, 24 real / 0 mock / 1 skipped tally). The mock is honestly disclosed in every output.
+- **Not a request for special treatment.** Every claim above is reproducible from a fresh clone in ~5 seconds: `bash demo-scripts/run-openagents-final.sh` (vertical demo, 13 gates) and `bash demo-scripts/run-production-shaped-mock.sh` (operator surface, 26 real / 0 mock / 1 skipped tally). The mock is honestly disclosed in every output.
 - **Not a marketing landing page.** This doc lives in `docs/` next to the existing CLI and partner one-pager docs, owns its own filename, and links into the actual Rust source where each shape lives.
 
 ---
