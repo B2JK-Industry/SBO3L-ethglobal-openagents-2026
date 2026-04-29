@@ -139,30 +139,27 @@ mandate-keeperhub-adapter/
 
 **The problem you would solve.** Auditors who are not running a Mandate daemon want a single self-contained file they can verify offline. The Passport capsule packages everything an offline auditor needs — APRP body, signed receipt, audit-chain prefix, KeeperHub `executionId`, optional checkpoint — into one JSON file with a published JSON Schema and a verifier CLI (`mandate passport verify`).
 
-**Capsule shape (v1).**
+**Capsule shape (v1).** The canonical schema lives at [`schemas/mandate.passport_capsule.v1.json`](../schemas/mandate.passport_capsule.v1.json). Top-level fields:
 
 ```jsonc
 {
-  "capsule_type": "mandate.passport_capsule.v1",
-  "version": 1,
-  "issued_at": "2026-…Z",
-  "request":      { /* canonical APRP */ },
-  "receipt":      { /* signed PolicyReceipt */ },
-  "audit_event":  { /* signed audit event */ },
-  "audit_chain_segment": [ /* SignedAuditEvent[] from genesis */ ],
-  "execution":    { /* { sponsor: "keeperhub", execution_ref, mock: false } */ },
-  "checkpoint":   { /* optional, mock anchor today, real anchor target */ },
-  "verification_keys": {
-    "receipt_signer_pubkey_hex": "…",
-    "audit_signer_pubkey_hex": "…"
-  },
-  "summary": { /* re-derived for tamper detection */ }
+  "schema":        "mandate.passport_capsule.v1",
+  "generated_at":  "2026-…Z",
+  "agent":         { /* ENS-style identity: agent_id, ens_name, resolver, records map */ },
+  "request":       { /* APRP body + canonical request_hash + idempotency/nonce */ },
+  "policy":        { /* policy_hash + version + activated_at + source */ },
+  "decision":      { /* result + matched_rule + deny_code + embedded signed receipt + 128-hex signature */ },
+  "execution":     { /* executor + mode + execution_ref + status + sponsor_payload_hash + live_evidence */ },
+  "audit":         { /* audit_event_id + prev_event_hash + event_hash + bundle_ref + optional embedded checkpoint */ },
+  "verification":  { /* doctor_status + offline_verifiable + live_claims */ }
 }
 ```
 
+Every hash field is constrained to `^[0-9a-f]{64}$`; signatures to `^[0-9a-f]{128}$`; `additionalProperties: false` at every object level. The `audit.bundle_ref` field points back at the `mandate.audit_bundle.v1` artefact for callers who want the full hash-chain prefix; the audit chain itself is not duplicated inside the capsule.
+
 **Where it lives in our repo.** Schema + verifier CLI ship in PR [#42 (`feat: add Passport capsule schema and verifier`)](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/42). Productisation is tracked in [`docs/product/MANDATE_PASSPORT_BACKLOG.md`](product/MANDATE_PASSPORT_BACKLOG.md). The Passport one-pagers in [`docs/partner-onepagers/`](partner-onepagers/) describe what each sponsor needs to do for capsule integration.
 
-**Smallest adoption shape on KeeperHub side.** One optional column on the execution row: `mandate_passport_uri` (string, default null). When set, it points at a Passport capsule (HTTP(S) or `s3://` or `0g://`). Anyone who wants to audit the execution can `curl` the URI and run `mandate passport verify --path -` with no Mandate daemon needed.
+**Smallest adoption shape on KeeperHub side.** One optional column on the execution row: `mandate_passport_uri` (string, default null). When set, it points at a Passport capsule (HTTP(S) or `s3://` or `0g://`). Anyone who wants to audit the execution can fetch the URI to a local file and run `mandate passport verify --path <file>` — no Mandate daemon needed.
 
 ---
 
