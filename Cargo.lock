@@ -1033,19 +1033,27 @@ name = "mandate-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "chrono",
  "clap",
  "hex",
+ "http-body-util",
  "mandate-core",
+ "mandate-execution",
+ "mandate-identity",
  "mandate-policy",
+ "mandate-server",
  "mandate-storage",
  "rusqlite",
  "serde",
  "serde_json",
  "serde_json_canonicalizer",
  "tempfile",
+ "tokio",
+ "tower",
  "tracing",
  "tracing-subscriber",
+ "ulid",
 ]
 
 [[package]]

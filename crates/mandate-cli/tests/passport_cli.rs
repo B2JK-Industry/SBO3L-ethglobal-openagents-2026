@@ -178,3 +178,556 @@ fn unknown_field_rejects_with_exit_two() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("capsule.schema_invalid"), "got: {stderr}");
 }
+
+// ===========================================================================
+// `mandate passport run` — P2.1 integration tests
+// ===========================================================================
+
+const ENS_FIXTURE: &str = "../../demo-fixtures/ens-records.json";
+const REF_POLICY: &str = "../../test-corpus/policy/reference_low_risk.json";
+const APRP_ALLOW: &str = "../../test-corpus/aprp/golden_001_minimal.json";
+const APRP_DENY: &str = "../../test-corpus/aprp/deny_prompt_injection_request.json";
+
+fn activate_policy(db: &std::path::Path) {
+    let out = Command::new(cli_bin())
+        .args(["policy", "activate", REF_POLICY, "--db"])
+        .arg(db)
+        .output()
+        .expect("policy activate");
+    assert!(
+        out.status.success(),
+        "policy activate must succeed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+fn run_passport_run(
+    aprp: &str,
+    db: &std::path::Path,
+    executor: &str,
+    out: &std::path::Path,
+    extra: &[&str],
+) -> std::process::Output {
+    let mut cmd = Command::new(cli_bin());
+    cmd.args(["passport", "run", aprp, "--db"])
+        .arg(db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--ens-fixture",
+            ENS_FIXTURE,
+            "--executor",
+            executor,
+            "--mode",
+            "mock",
+            "--out",
+        ])
+        .arg(out);
+    for arg in extra {
+        cmd.arg(arg);
+    }
+    cmd.output().expect("spawn passport run")
+}
+
+fn verify_round_trip(out: &std::path::Path) {
+    let v = Command::new(cli_bin())
+        .args(["passport", "verify", "--path"])
+        .arg(out)
+        .output()
+        .expect("spawn passport verify");
+    assert!(
+        v.status.success(),
+        "verify must succeed on emitted capsule; stderr={} stdout={}",
+        String::from_utf8_lossy(&v.stderr),
+        String::from_utf8_lossy(&v.stdout),
+    );
+}
+
+fn read_capsule(path: &std::path::Path) -> serde_json::Value {
+    let raw = std::fs::read_to_string(path).expect("read capsule");
+    serde_json::from_str(&raw).expect("parse capsule")
+}
+
+#[test]
+fn run_allow_path_keeperhub_mock_emits_valid_capsule() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(
+        r.status.success(),
+        "passport run must succeed; stderr={}",
+        String::from_utf8_lossy(&r.stderr)
+    );
+    assert!(out.exists());
+    verify_round_trip(&out);
+    let cap = read_capsule(&out);
+    assert_eq!(cap["decision"]["result"], "allow");
+    assert_eq!(cap["execution"]["executor"], "keeperhub");
+    assert_eq!(cap["execution"]["mode"], "mock");
+    assert_eq!(cap["execution"]["status"], "submitted");
+    let exec_ref = cap["execution"]["execution_ref"].as_str().unwrap();
+    assert!(exec_ref.starts_with("kh-"), "got {exec_ref}");
+}
+
+#[test]
+fn run_allow_path_uniswap_mock_emits_valid_capsule() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "uniswap", &out, &[]);
+    assert!(r.status.success());
+    verify_round_trip(&out);
+    let cap = read_capsule(&out);
+    let exec_ref = cap["execution"]["execution_ref"].as_str().unwrap();
+    assert_eq!(cap["execution"]["executor"], "uniswap");
+    assert!(exec_ref.starts_with("uni-"), "got {exec_ref}");
+}
+
+#[test]
+fn run_deny_path_emits_capsule_with_status_not_called_and_no_execution_ref() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_DENY, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    verify_round_trip(&out);
+    let cap = read_capsule(&out);
+    assert_eq!(cap["decision"]["result"], "deny");
+    assert_eq!(cap["execution"]["status"], "not_called");
+    assert!(cap["execution"]["execution_ref"].is_null());
+    assert!(cap["decision"]["deny_code"].is_string());
+}
+
+#[test]
+fn run_refuses_mode_live_with_clear_error() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    // Build the command manually so we don't collide with the helper's
+    // default --mode mock (clap forbids `--mode` twice).
+    let r = Command::new(cli_bin())
+        .args(["passport", "run", APRP_ALLOW, "--db"])
+        .arg(&db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--ens-fixture",
+            ENS_FIXTURE,
+            "--executor",
+            "keeperhub",
+            "--mode",
+            "live",
+            "--out",
+        ])
+        .arg(&out)
+        .output()
+        .expect("spawn passport run");
+    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(stderr.contains("--mode live"), "got: {stderr}");
+    assert!(!out.exists());
+}
+
+#[test]
+fn run_refuses_missing_ens_fixture_when_resolver_offline_fixture() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = Command::new(cli_bin())
+        .args(["passport", "run", APRP_ALLOW, "--db"])
+        .arg(&db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--executor",
+            "keeperhub",
+            "--mode",
+            "mock",
+            "--out",
+        ])
+        .arg(&out)
+        .output()
+        .expect("spawn passport run");
+    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(stderr.contains("--ens-fixture"), "got: {stderr}");
+}
+
+#[test]
+fn run_refuses_unknown_executor() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "twitter-bot", &out, &[]);
+    assert!(!r.status.success());
+    assert!(!out.exists());
+}
+
+#[test]
+fn run_refuses_when_no_active_policy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    let probe = Command::new(cli_bin())
+        .args(["key", "list", "--mock", "--db"])
+        .arg(&db)
+        .output()
+        .unwrap();
+    assert!(probe.status.success());
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(stderr.contains("no active policy"), "got: {stderr}");
+    assert!(!out.exists());
+}
+
+#[test]
+fn run_atomic_write_no_partial_capsule_on_validation_failure() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let raw = std::fs::read_to_string(&out).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("complete JSON");
+    assert_eq!(parsed["schema"], "mandate.passport_capsule.v1");
+    let leftovers: Vec<_> = std::fs::read_dir(tmp.path())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with(".passport-capsule.")
+        })
+        .collect();
+    assert!(leftovers.is_empty(), "no tempfile leftovers: {leftovers:?}");
+}
+
+#[test]
+fn run_capsule_passes_existing_verify_round_trip() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    verify_round_trip(&out);
+}
+
+#[test]
+fn run_emitted_capsule_request_hash_matches_aprp_request_hash() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let cap = read_capsule(&out);
+    let outer = cap["request"]["request_hash"].as_str().unwrap();
+    let receipt = cap["decision"]["receipt"]["request_hash"].as_str().unwrap();
+    assert_eq!(outer, receipt);
+    assert_eq!(outer.len(), 64);
+    assert!(outer
+        .chars()
+        .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+}
+
+#[test]
+fn run_emitted_capsule_policy_hash_matches_active_policy_row() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let cap = read_capsule(&out);
+    let outer = cap["policy"]["policy_hash"].as_str().unwrap();
+    let receipt = cap["decision"]["receipt"]["policy_hash"].as_str().unwrap();
+    assert_eq!(outer, receipt);
+    assert_eq!(cap["policy"]["source"], "operator-cli");
+}
+
+// ===========================================================================
+// `mandate passport explain` — P2.1 integration tests
+// ===========================================================================
+
+fn explain(path: &std::path::Path, json: bool) -> std::process::Output {
+    let mut cmd = Command::new(cli_bin());
+    cmd.args(["passport", "explain", "--path"]).arg(path);
+    if json {
+        cmd.arg("--json");
+    }
+    cmd.output().expect("spawn passport explain")
+}
+
+#[test]
+fn explain_passes_on_allow_capsule() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let e = explain(&out, false);
+    assert!(
+        e.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&e.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&e.stdout);
+    assert!(stdout.contains("ALLOW"), "stdout: {stdout}");
+    assert!(stdout.contains("keeperhub"), "stdout: {stdout}");
+}
+
+#[test]
+fn explain_passes_on_deny_capsule() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_DENY, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let e = explain(&out, false);
+    assert!(e.status.success());
+    let stdout = String::from_utf8_lossy(&e.stdout);
+    assert!(stdout.contains("DENY"), "stdout: {stdout}");
+    assert!(stdout.contains("not called"), "stdout: {stdout}");
+}
+
+#[test]
+fn explain_text_mode_includes_required_lines() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let e = explain(&out, false);
+    assert!(e.status.success());
+    let stdout = String::from_utf8_lossy(&e.stdout);
+    for needle in &[
+        "Mandate Passport — capsule explanation",
+        "agent:",
+        "policy:",
+        "decision:",
+        "execution:",
+        "audit:",
+        "doctor:",
+    ] {
+        assert!(stdout.contains(needle), "missing {needle:?}; got: {stdout}");
+    }
+}
+
+#[test]
+fn explain_json_mode_includes_required_keys() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(r.status.success());
+    let e = explain(&out, true);
+    assert!(
+        e.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&e.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&e.stdout).expect("valid JSON");
+    assert_eq!(v["schema"], "mandate.passport_capsule.v1");
+    for key in &[
+        "agent",
+        "policy",
+        "decision",
+        "execution",
+        "audit",
+        "verification",
+    ] {
+        assert!(v.get(*key).is_some(), "explain JSON missing {key}");
+    }
+}
+
+#[test]
+fn explain_fails_on_tampered_capsule_with_capsule_code_in_stderr() {
+    let path = corpus("tampered_004_request_hash_mismatch.json");
+    let e = explain(&path, false);
+    assert!(!e.status.success());
+    assert_eq!(e.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&e.stderr);
+    assert!(
+        stderr.contains("capsule.request_hash_mismatch"),
+        "got: {stderr}"
+    );
+}
+
+#[test]
+fn explain_fails_on_missing_file() {
+    let e = Command::new(cli_bin())
+        .args(["passport", "explain", "--path", "/nonexistent.json"])
+        .output()
+        .unwrap();
+    assert!(!e.status.success());
+    assert_eq!(e.status.code(), Some(1));
+}
+
+// ===========================================================================
+// Codex P1/P2 fixes on PR #44 — coverage tests
+// ===========================================================================
+
+#[test]
+fn run_returns_exit_1_on_missing_aprp_file() {
+    // Codex P2: APRP IO failure must exit 1 (infrastructure error),
+    // not exit 2 (semantic invalid input). The brief locks the exact
+    // stderr format we surface here.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    activate_policy(&db);
+    let r = Command::new(cli_bin())
+        .args(["passport", "run", "/no/such/aprp/file.json", "--db"])
+        .arg(&db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--ens-fixture",
+            ENS_FIXTURE,
+            "--executor",
+            "keeperhub",
+            "--mode",
+            "mock",
+            "--out",
+        ])
+        .arg(&out)
+        .output()
+        .expect("spawn passport run");
+    assert_eq!(r.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        stderr.contains("failed to read APRP file"),
+        "stderr must lock the documented format; got: {stderr}"
+    );
+    assert!(!out.exists(), "no capsule should be written on IO error");
+}
+
+#[test]
+fn run_returns_exit_1_on_malformed_aprp_json() {
+    // Codex P2: APRP parse failure also exits 1, with a distinct
+    // stderr shape so consumers can branch on read-vs-parse.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    let aprp = tmp.path().join("bad.json");
+    std::fs::write(&aprp, b"{not json").unwrap();
+    activate_policy(&db);
+    let r = Command::new(cli_bin())
+        .args(["passport", "run"])
+        .arg(&aprp)
+        .args(["--db"])
+        .arg(&db)
+        .args([
+            "--agent",
+            "research-agent.team.eth",
+            "--resolver",
+            "offline-fixture",
+            "--ens-fixture",
+            ENS_FIXTURE,
+            "--executor",
+            "keeperhub",
+            "--mode",
+            "mock",
+            "--out",
+        ])
+        .arg(&out)
+        .output()
+        .expect("spawn passport run");
+    assert_eq!(r.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        stderr.contains("failed to parse APRP JSON"),
+        "stderr must lock the documented format; got: {stderr}"
+    );
+    assert!(!out.exists());
+}
+
+#[test]
+fn run_rejects_requires_human_decision_with_clear_error() {
+    // Codex P1: when the policy returns a `requires_human` outcome,
+    // the capsule schema's `decision.result` enum has no value for it
+    // (only allow|deny). The CLI must reject **before** building the
+    // capsule — otherwise the self-verify step catches the
+    // contradiction late, after running the entire pipeline. We
+    // construct the requires_human shape by activating a custom
+    // policy whose `default_decision` is `requires_human` and whose
+    // rules don't match the legit-x402 APRP, so the engine falls
+    // through to the default.
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("m.db");
+    let out = tmp.path().join("capsule.json");
+    let policy_path = tmp.path().join("requires-human-policy.json");
+
+    // Read the reference policy and mutate it minimally:
+    //   * default_decision = requires_human
+    //   * remove the matching `allow-small-x402-api-call` rule so
+    //     no rule fires for the legit fixture
+    let mut policy: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(REF_POLICY).unwrap()).unwrap();
+    policy["policy_id"] = serde_json::Value::String("requires-human-test".into());
+    policy["description"] = serde_json::Value::String(
+        "Test policy for requires_human path; default is requires_human \
+         and no rule matches the legit-x402 fixture."
+            .into(),
+    );
+    policy["default_decision"] = serde_json::Value::String("requires_human".into());
+    let rules = policy["rules"].as_array_mut().unwrap();
+    rules.retain(|r| {
+        r["id"]
+            .as_str()
+            .map(|s| s != "allow-small-x402-api-call")
+            .unwrap_or(true)
+    });
+    std::fs::write(&policy_path, serde_json::to_vec_pretty(&policy).unwrap()).unwrap();
+
+    let pol = Command::new(cli_bin())
+        .args(["policy", "activate"])
+        .arg(&policy_path)
+        .args(["--db"])
+        .arg(&db)
+        .output()
+        .expect("policy activate");
+    assert!(
+        pol.status.success(),
+        "policy activate must succeed: stderr={}",
+        String::from_utf8_lossy(&pol.stderr)
+    );
+
+    let r = run_passport_run(APRP_ALLOW, &db, "keeperhub", &out, &[]);
+    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&r.stderr);
+    assert!(
+        stderr.contains("requires_human policy outcomes"),
+        "stderr must explain why we reject: {stderr}"
+    );
+    assert!(
+        !out.exists(),
+        "requires_human rejection must NOT have written a capsule"
+    );
+}

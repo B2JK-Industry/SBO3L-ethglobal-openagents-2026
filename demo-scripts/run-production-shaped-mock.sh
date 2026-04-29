@@ -473,6 +473,68 @@ else
 fi
 echo
 
+# ─── 10b. Passport capsule emit + verify (Passport P2.1 — REAL today) ───
+# `mandate passport run` orchestrates the existing offline pipeline
+# (APRP → request_hash → policy → budget → audit → signed receipt) +
+# mock executor handoff and emits one `mandate.passport_capsule.v1`
+# JSON per request. Wraps existing primitives — no rewrite of crypto,
+# audit semantics, or policy logic.
+#
+# We run two scenarios against POLICY_DB (already carries the
+# reference policy from §4):
+#
+#   * legit-x402  → ALLOW capsule, executor=keeperhub mock,
+#                   execution.status="submitted", execution_ref=kh-<ULID>
+#   * prompt-injection → DENY capsule, execution.status="not_called",
+#                        execution_ref=null (HARD invariant from P1.1)
+#
+# Outputs go into demo-scripts/artifacts/ so static proof surfaces
+# (P2.2: trust-badge / operator-console capsule panels) and the
+# schema validator can pick them up. Each capsule round-trips
+# through `mandate passport verify` before the runner moves on.
+bold "10b. Passport capsule emit + verify (Passport P2.1 — mock executor)"
+if have_subcmd passport run; then
+  PASSPORT_ARTIFACTS="demo-scripts/artifacts"
+  mkdir -p "$PASSPORT_ARTIFACTS"
+  PASSPORT_ALLOW="$PASSPORT_ARTIFACTS/passport-allow.json"
+  PASSPORT_DENY="$PASSPORT_ARTIFACTS/passport-deny.json"
+
+  if ./target/debug/mandate passport run \
+       test-corpus/aprp/golden_001_minimal.json \
+       --db "$POLICY_DB" \
+       --agent research-agent.team.eth \
+       --resolver offline-fixture \
+       --ens-fixture demo-fixtures/ens-records.json \
+       --executor keeperhub \
+       --mode mock \
+       --out "$PASSPORT_ALLOW" 2>&1 | sed 's/^/    /' \
+     && ./target/debug/mandate passport verify --path "$PASSPORT_ALLOW" 2>&1 | sed 's/^/    /'; then
+    ok "passport ALLOW capsule → $PASSPORT_ALLOW (run + verify)"
+  else
+    fail "passport allow path failed (run or verify)"
+    exit 1
+  fi
+  if ./target/debug/mandate passport run \
+       test-corpus/aprp/deny_prompt_injection_request.json \
+       --db "$POLICY_DB" \
+       --agent research-agent.team.eth \
+       --resolver offline-fixture \
+       --ens-fixture demo-fixtures/ens-records.json \
+       --executor keeperhub \
+       --mode mock \
+       --out "$PASSPORT_DENY" 2>&1 | sed 's/^/    /' \
+     && ./target/debug/mandate passport verify --path "$PASSPORT_DENY" 2>&1 | sed 's/^/    /'; then
+    ok "passport DENY  capsule → $PASSPORT_DENY (run + verify; status=not_called, no execution_ref)"
+  else
+    fail "passport deny path failed (run or verify)"
+    exit 1
+  fi
+else
+  skip "blocked: waiting for \`mandate passport run\` (backlog Passport P2.1)"
+  note_skip "Passport capsule emission (mandate passport run/verify) — Passport P2.1"
+fi
+echo
+
 # ─── 11. Trust-badge / operator console build ────────────────────────────
 bold "11. Trust-badge build (judge-readable proof viewer)"
 # P1 review on PR #21: the default invocation (no --include-final-demo)

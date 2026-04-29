@@ -162,6 +162,42 @@ def main() -> int:
         if actual != case.expect_valid:
             ok = False
 
+    # Runtime artifacts emitted by `bash demo-scripts/run-production-shaped-mock.sh`
+    # step 10b (Passport P2.1). These files are NOT in test-corpus
+    # (test-corpus is for static fixtures); they are produced by the
+    # actual `mandate passport run` CLI on every full runner invocation.
+    # Validating them here closes the loop: every capsule the runner
+    # writes must pass schema validation before any downstream surface
+    # (P2.2 trust-badge / operator-console capsule panels) tries to
+    # render it.
+    print("\n== runtime artifacts (passport capsules) ==")
+    runtime_artifacts = [
+        ("passport-capsule", REPO_ROOT / "demo-scripts/artifacts/passport-allow.json"),
+        ("passport-capsule", REPO_ROOT / "demo-scripts/artifacts/passport-deny.json"),
+    ]
+    for schema_key, fixture in runtime_artifacts:
+        if not fixture.is_file():
+            print(
+                f"  skip {fixture.relative_to(REPO_ROOT)} "
+                f"(not yet emitted; run `bash demo-scripts/run-production-shaped-mock.sh` "
+                f"to produce it)"
+            )
+            continue
+        schema = _load(SCHEMAS[schema_key])
+        validator = jsonschema.Draft202012Validator(schema, registry=registry)
+        try:
+            validator.validate(_load(fixture))
+            print(
+                f"  ok   {fixture.relative_to(REPO_ROOT)} "
+                f"(schema={schema_key}, runtime artifact)"
+            )
+        except jsonschema.ValidationError as exc:
+            ok = False
+            print(
+                f"  FAIL {fixture.relative_to(REPO_ROOT)} "
+                f"(schema={schema_key}) -> {exc.message}"
+            )
+
     return 0 if ok else 1
 
 
