@@ -18,7 +18,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Daniel Babjak <babjak_daniel@hotmail.com>"]
-repository = "https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026"
+repository = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
 rust-version = "1.80"
 
 [workspace.dependencies]

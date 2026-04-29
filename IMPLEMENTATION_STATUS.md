@@ -5,11 +5,11 @@ Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 **Last updated:** 2026-04-29 (post Passport P5.1 + P7.1)
 **Branch:** `main` (HEAD `8a198c5` — post `feat: KeeperHub sbo3l_* envelope helper (Passport P5.1, IP-1) (#51)`)
 **Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired (Passport P7.2 in flight).
-**Open implementation PRs:** **1** open at audit time — [#48](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/48) `docs(audit): KeeperHub IP-1..IP-5 implementation-audit findings` (DRAFT, doc-only, B-side, awaiting Daniel review). This Passport P7.2 PR is open separately and does not block submission.
+**Open implementation PRs:** **1** open at audit time — [#48](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/48) `docs(audit): KeeperHub IP-1..IP-5 implementation-audit findings` (DRAFT, doc-only, B-side, awaiting Daniel review). This Passport P7.2 PR is open separately and does not block submission.
 **CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI` + trust-badge regression test).
 **Blockers:** none.
 
-For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md). For the **KeeperHub IP-1..IP-5 implementation audit** see [PR #48](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/48) (DRAFT, doc-only, not yet on `main`; awaiting Daniel review). For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
+For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md). For the **KeeperHub IP-1..IP-5 implementation audit** see [PR #48](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/48) (DRAFT, doc-only, not yet on `main`; awaiting Daniel review). For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
 
 ## Verification summary
 
