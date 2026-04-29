@@ -186,7 +186,7 @@ In this hackathon build the demo always constructs `UniswapExecutor::local_mock(
 
 ```
 Public proof URL (static, no JS, offline-verifiable):
-    https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/
+    https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/
 
 Recorded video:
     [VIDEO_URL_PENDING_RECORDING]
@@ -194,8 +194,8 @@ Recorded video:
         perl -pi -e 's|\[VIDEO_URL_PENDING_RECORDING\]|<actual URL>|' SUBMISSION_FORM_DRAFT.md)
 
 Backup live-demo command for any judge who can build from source:
-    git clone https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026.git
-    cd mandate-ethglobal-openagents-2026
+    git clone https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git
+    cd SBO3L-ethglobal-openagents-2026
     bash demo-scripts/run-openagents-final.sh
     python3 trust-badge/build.py
     # then open trust-badge/index.html
@@ -206,7 +206,7 @@ The public proof URL is deployed from `main` by `.github/workflows/pages.yml` (P
 ## GitHub repo link
 
 ```
-https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026
+https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
 ```
 
 ## Suggested 4-minute video structure

@@ -32,7 +32,7 @@
 //! ## What this crate is *not*
 //!
 //! - **Not a live KeeperHub client.** Live submission is gated; see
-//!   [`docs/keeperhub-live-spike.md`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-live-spike.md).
+//!   [`docs/keeperhub-live-spike.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-live-spike.md).
 //! - **Not a policy engine.** Policy decisions happen upstream
 //!   (`sbo3l-policy`); this crate consumes the signed `PolicyReceipt`
 //!   and refuses to execute anything that isn't `Decision::Allow`.
@@ -40,7 +40,7 @@
 //!   For those, take the corresponding workspace crate
 //!   (`sbo3l-server`, `sbo3l-mcp`).
 //!
-//! See [`docs/keeperhub-integration-paths.md`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md)
+//! See [`docs/keeperhub-integration-paths.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md)
 //! for the full IP-1..IP-5 catalogue this crate is the IP-4 realisation
 //! of.
 

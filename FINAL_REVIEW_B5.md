@@ -15,7 +15,7 @@ backlog item has merged, plus a small correctness fix folded into B5.
 | Check | Result |
 |---|---|
 | Local tree clean except for B5 changes | ✅ |
-| Open PRs (excl. this one) | **1** — [#38](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/38) `fix: self-review truthfulness pass — three findings across A3 + A4`, A-side, currently `DIRTY` (merge conflict against current `main`); not merged because the B-side autopilot is not authorised to touch A-side branches and the rebase belongs to the A-side author |
+| Open PRs (excl. this one) | **1** — [#38](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/38) `fix: self-review truthfulness pass — three findings across A3 + A4`, A-side, currently `DIRTY` (merge conflict against current `main`); not merged because the B-side autopilot is not authorised to touch A-side branches and the rebase belongs to the A-side author |
 | Open issues | **0** |
 | Latest CI on `main` (`f789db8`) | ✅ success |
 | All A-side backlog rows | ✅ merged (`PSM-A1.9` / `PSM-A2` / `PSM-A3` / `PSM-A4` / `PSM-A5`) |
@@ -41,19 +41,19 @@ All commands run on this B5 branch on top of `main = f789db8`.
 
 | ID | Title | Merged in PR | Status |
 |---|---|---|---|
-| PSM-A1.9 | Mock KMS CLI surface + persistence (`sbo3l key {init,list,rotate} --mock`) | [#28](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/28) | merged |
-| PSM-A2 | HTTP `Idempotency-Key` safe-retry (4-case behaviour matrix) | [#23](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/23) + [#29](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/29) | merged |
-| PSM-A3 | Active-policy lifecycle (`sbo3l policy {validate,current,activate,diff}`) | [#35](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/35) | merged |
-| PSM-A4 | Audit checkpoints with mock anchoring (`sbo3l audit checkpoint {create,verify}`) | [#36](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/36) | merged |
-| PSM-A5 | `sbo3l doctor` — operator readiness summary (stable `sbo3l.doctor.v1` JSON) | [#25](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/25) | merged |
-| B1 | Production-shaped mock runner | [#21](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/21) | merged |
-| B2 / B2.v2 | Operator-console panels (initial + real-evidence rewrite) | [#24](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/24) + [#37](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/37) | merged |
-| B3 | Production-shaped mock fixtures (ENS, KeeperHub, Uniswap, KMS) | [#30](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/30) | merged |
-| B4 | Production-shaped docs — per-fixture guides + transition checklist | [#31](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/31) | merged |
-| KH-B1 | KeeperHub builder feedback strengthened | [#26](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/26) | merged |
-| KH-B2 | KeeperHub live-integration spike doc | [#27](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/27) | merged |
-| Hotfix | Uniswap rug-fixture truthfulness | [#33](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/33) | merged |
-| Codex P1 fixes | Anchored host regex + read-only doctor DB precheck | [#32](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/pull/32) | merged |
+| PSM-A1.9 | Mock KMS CLI surface + persistence (`sbo3l key {init,list,rotate} --mock`) | [#28](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/28) | merged |
+| PSM-A2 | HTTP `Idempotency-Key` safe-retry (4-case behaviour matrix) | [#23](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/23) + [#29](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/29) | merged |
+| PSM-A3 | Active-policy lifecycle (`sbo3l policy {validate,current,activate,diff}`) | [#35](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/35) | merged |
+| PSM-A4 | Audit checkpoints with mock anchoring (`sbo3l audit checkpoint {create,verify}`) | [#36](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/36) | merged |
+| PSM-A5 | `sbo3l doctor` — operator readiness summary (stable `sbo3l.doctor.v1` JSON) | [#25](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/25) | merged |
+| B1 | Production-shaped mock runner | [#21](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/21) | merged |
+| B2 / B2.v2 | Operator-console panels (initial + real-evidence rewrite) | [#24](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/24) + [#37](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/37) | merged |
+| B3 | Production-shaped mock fixtures (ENS, KeeperHub, Uniswap, KMS) | [#30](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/30) | merged |
+| B4 | Production-shaped docs — per-fixture guides + transition checklist | [#31](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/31) | merged |
+| KH-B1 | KeeperHub builder feedback strengthened | [#26](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/26) | merged |
+| KH-B2 | KeeperHub live-integration spike doc | [#27](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/27) | merged |
+| Hotfix | Uniswap rug-fixture truthfulness | [#33](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/33) | merged |
+| Codex P1 fixes | Anchored host regex + read-only doctor DB precheck | [#32](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/32) | merged |
 | B5 | Final submission package (this PR) | _open against `main = f789db8`_ | _pending_ |
 
 ## 4. Future work — explicitly out of scope today

@@ -3,7 +3,7 @@
 > *SBO3L decides, KeeperHub executes — third-party adapter that takes
 > a SBO3L-signed `PolicyReceipt` and gates execution on it. The IP-4
 > realisation from
-> [docs/keeperhub-integration-paths.md](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md).*
+> [docs/keeperhub-integration-paths.md](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md).*
 
 ## Install
 
@@ -89,18 +89,18 @@ use sbo3l_core::execution::Sbo3lEnvelope;
 - **Not a live KeeperHub client today.** `KeeperHubExecutor::live()`
   currently returns `ExecutionError::BackendOffline`. Live submission
   lands in `0.2.0` with concrete credentials and `live_evidence` — see
-  [`docs/keeperhub-live-spike.md`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-live-spike.md)
+  [`docs/keeperhub-live-spike.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-live-spike.md)
   for the design.
 - **Not a policy engine.** Policy decisions happen upstream in
-  [`sbo3l-policy`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/tree/main/crates/sbo3l-policy);
+  [`sbo3l-policy`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/crates/sbo3l-policy);
   this crate consumes the *signed* `PolicyReceipt` and refuses to
   execute anything that isn't `Decision::Allow`. If you want the
   policy engine + budget + nonce + audit pipeline, use
-  [`sbo3l-server`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/tree/main/crates/sbo3l-server)
+  [`sbo3l-server`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/crates/sbo3l-server)
   to drive the full flow and pass the result here.
 - **Not a daemon, server, or HTTP transport.** No HTTP server, no
   SQLite, no MCP. For those, take the corresponding workspace crate.
-- **Not the only adapter.** [`sbo3l-execution`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/tree/main/crates/sbo3l-execution)
+- **Not the only adapter.** [`sbo3l-execution`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/crates/sbo3l-execution)
   ships the Uniswap mock alongside this one; it re-exports
   `KeeperHubExecutor` from here so the existing workspace consumers
   keep building unchanged.
@@ -109,14 +109,14 @@ use sbo3l_core::execution::Sbo3lEnvelope;
 
 This crate is the IP-4 deliverable from the KeeperHub Integration
 Paths catalogue at
-[`docs/keeperhub-integration-paths.md`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md).
+[`docs/keeperhub-integration-paths.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md).
 The catalogue is `IP-1..IP-5`, ranked by adoption cost; this crate
 realises IP-4 ("standalone SBO3L adapter crate") so KeeperHub or any
 agent framework can reference a single `crates.io` line rather than
 pulling the whole SBO3L workspace.
 
 The companion design doc for live integration is
-[`docs/keeperhub-live-spike.md`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-live-spike.md)
+[`docs/keeperhub-live-spike.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-live-spike.md)
 — it covers the wire format the IP-1 envelope encodes, the
 configuration surface (`SBO3L_KEEPERHUB_WEBHOOK_URL`,
 `SBO3L_KEEPERHUB_TOKEN`), and the test strategy for keeping CI
@@ -134,5 +134,5 @@ submission are all in scope for `0.2.0`.
 ## License
 
 Licensed under MIT — see the workspace
-[`LICENSE`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/LICENSE)
+[`LICENSE`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/LICENSE)
 file. (Same terms as the `sbo3l-core` dependency.)

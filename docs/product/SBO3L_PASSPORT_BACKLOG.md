@@ -614,7 +614,7 @@ that an agent can request a swap but cannot exceed policy.
 ### P7.1 - GitHub Pages Public Proof Site
 
 **Owner:** Developer B.
-**Status:** PR open off `main = 92e94e0`; deploy job runs on merge (or via `workflow_dispatch`) at `https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/`.
+**Status:** PR open off `main = 92e94e0`; deploy job runs on merge (or via `workflow_dispatch`) at `https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/`.
 
 **Why:** judges need a click target.
 

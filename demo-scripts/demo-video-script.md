@@ -42,7 +42,7 @@ KeeperHub-specific framing is explicit in narration twice (beat 1 and beat 4) an
 - [ ] Show the trust-badge (`trust-badge/index.html`) after the CLI demo, not before — it summarises proof points the demo just produced.
 - [ ] End the video on a title card carrying:
   - Tagline: **Don't give your agent a wallet. Give it a mandate.**
-  - Repo: `https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026`
+  - Repo: `https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026`
   - Commit hash: short SHA of the recorded commit.
 
 ## Fallback if terminal output is too fast

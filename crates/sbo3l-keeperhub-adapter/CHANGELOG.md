@@ -9,7 +9,7 @@ this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - Initial workspace release. The IP-4 realisation from
-  [`docs/keeperhub-integration-paths.md`](https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md):
+  [`docs/keeperhub-integration-paths.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/keeperhub-integration-paths.md):
   a third-party agent framework can depend on `sbo3l-keeperhub-adapter`
   and get a `GuardedExecutor` plus the IP-1 `sbo3l_*` envelope without
   pulling the rest of the SBO3L workspace.

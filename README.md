@@ -14,7 +14,7 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Verify the demo
 
-Public proof URL (deployed from `main` by [`.github/workflows/pages.yml`](.github/workflows/pages.yml)): **<https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/>** — landing page links to the trust-badge proof viewer, the operator-console evidence panels, and a downloadable Passport capsule (`sbo3l.passport_capsule.v1`) you can verify offline with `sbo3l passport verify --path capsule.json`. The site is plain static HTML, no JavaScript, no client-side network calls; the `_site/` build is rendered from the same deterministic regression fixtures `python3 trust-badge/test_build.py` + `python3 operator-console/test_build.py` validate on every CI run, so the URL shows the same shape on every visit.
+Public proof URL (deployed from `main` by [`.github/workflows/pages.yml`](.github/workflows/pages.yml)): **<https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/>** — landing page links to the trust-badge proof viewer, the operator-console evidence panels, and a downloadable Passport capsule (`sbo3l.passport_capsule.v1`) you can verify offline with `sbo3l passport verify --path capsule.json`. The site is plain static HTML, no JavaScript, no client-side network calls; the `_site/` build is rendered from the same deterministic regression fixtures `python3 trust-badge/test_build.py` + `python3 operator-console/test_build.py` validate on every CI run, so the URL shows the same shape on every visit.
 
 ## Three commands a judge needs
 
@@ -61,8 +61,8 @@ For the **negative-side complement** — known scope limitations a production de
 You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators and the trust-badge build.
 
 ```bash
-git clone https://github.com/B2JK-Industry/mandate-ethglobal-openagents-2026.git
-cd mandate-ethglobal-openagents-2026
+git clone https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git
+cd SBO3L-ethglobal-openagents-2026
 bash demo-scripts/run-openagents-final.sh
 python3 trust-badge/build.py
 ```
