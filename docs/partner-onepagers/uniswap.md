@@ -59,14 +59,15 @@ boundary and never reach the executor.
 These are explicit *targets* documented for the team and for Uniswap
 reviewers — none of them are claimed as shipped:
 
-- **Mandate Passport capsule (target)** — a single JSON artefact
-  (`mandate.passport_capsule.v1`, schema/verifier owned by the A-side
-  Passport CLI work) that records, in one file, the request, the
-  decision, the swap-policy result vector, and the executor's
-  `execution_ref`. Until the capsule schema lands on `main`, no UI
-  claims a Uniswap-evidence capsule was produced.
-- **Capsule quote-evidence section (target)** — when capsule schema
-  lands, the Uniswap path will populate:
+- **Mandate Passport capsule (Uniswap-specific evidence target)** —
+  the capsule artefact (`mandate.passport_capsule.v1`) is on `main`
+  via PR #42 (schema + verifier) and PR #44 (`mandate passport run`
+  emit + verify). What is still target is **Uniswap-specific quote
+  evidence inside the capsule's `execution.live_evidence` slot** —
+  tracked as P6.1 in the Mandate Passport backlog. Until P6.1 lands,
+  no UI claims a Uniswap-evidence capsule was produced.
+- **Capsule quote-evidence section (target)** — when P6.1 lands, the
+  Uniswap path will populate `execution.live_evidence` with:
   - quote id / source;
   - input / output token symbols;
   - route token list (when surfaced by the API);
