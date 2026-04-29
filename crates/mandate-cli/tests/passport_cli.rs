@@ -17,9 +17,13 @@ fn corpus(name: &str) -> PathBuf {
 }
 
 fn run(fixture: &str) -> std::process::Output {
+    run_path(corpus(fixture))
+}
+
+fn run_path(path: PathBuf) -> std::process::Output {
     Command::new(cli_bin())
         .args(["passport", "verify", "--path"])
-        .arg(corpus(fixture))
+        .arg(path)
         .output()
         .expect("spawn mandate")
 }
@@ -97,6 +101,43 @@ fn live_mode_without_evidence_rejects_with_exit_two() {
     assert!(
         stderr.contains("capsule.live_without_evidence"),
         "got: {stderr}"
+    );
+}
+
+#[test]
+fn live_mode_empty_evidence_rejects_with_exit_two() {
+    let out = run("tampered_008_live_mode_empty_evidence.json");
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("capsule.schema_invalid"), "got: {stderr}");
+}
+
+#[test]
+fn live_mode_with_concrete_evidence_verifies_exit_zero() {
+    let mut v: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(corpus("golden_001_allow_keeperhub_mock.json")).unwrap(),
+    )
+    .unwrap();
+    let execution = v["execution"].as_object_mut().unwrap();
+    execution.insert("mode".into(), serde_json::Value::String("live".into()));
+    execution.insert(
+        "live_evidence".into(),
+        serde_json::json!({
+            "transport": "https",
+            "response_ref": "keeperhub-execution-01HTAWX5K3R8YV9NQB7C6P2DGS"
+        }),
+    );
+
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("live.json");
+    std::fs::write(&path, serde_json::to_vec_pretty(&v).unwrap()).unwrap();
+
+    let out = run_path(path);
+    assert!(
+        out.status.success(),
+        "live capsule with evidence must verify; stderr={} stdout={}",
+        String::from_utf8_lossy(&out.stderr),
+        String::from_utf8_lossy(&out.stdout)
     );
 }
 

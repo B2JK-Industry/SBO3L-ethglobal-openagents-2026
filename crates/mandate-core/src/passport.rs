@@ -15,7 +15,9 @@
 //!    `docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md`:
 //!    - `decision.result == "deny"` ⇒ `execution.status == "not_called"`
 //!      and `execution.execution_ref` is null.
-//!    - `execution.mode == "live"` ⇒ `execution.live_evidence` is non-null.
+//!    - `execution.mode == "live"` ⇒ `execution.live_evidence` contains
+//!      at least one concrete reference (`transport`, `response_ref`, or
+//!      `block_ref`).
 //!    - `request.request_hash == decision.receipt.request_hash`.
 //!    - `policy.policy_hash == decision.receipt.policy_hash`.
 //!    - `decision.result == decision.receipt.decision`.
@@ -204,13 +206,14 @@ pub fn verify_capsule(value: &Value) -> std::result::Result<(), CapsuleVerifyErr
         }
     }
 
-    // Invariant 2: live mode ⇒ live evidence; mock mode ⇒ no live evidence.
+    // Invariant 2: live mode ⇒ concrete live evidence; mock mode ⇒ no live evidence.
     let mode = string_field(execution, "mode")?;
     let live_evidence = execution.get("live_evidence");
     let evidence_present = live_evidence.map(|v| !v.is_null()).unwrap_or(false);
-    match (mode.as_str(), evidence_present) {
-        ("live", false) => return Err(CapsuleVerifyError::LiveWithoutEvidence),
-        ("mock", true) => return Err(CapsuleVerifyError::MockWithLiveEvidence),
+    let concrete_evidence_present = live_evidence_has_concrete_ref(live_evidence);
+    match (mode.as_str(), evidence_present, concrete_evidence_present) {
+        ("live", _, false) => return Err(CapsuleVerifyError::LiveWithoutEvidence),
+        ("mock", true, _) => return Err(CapsuleVerifyError::MockWithLiveEvidence),
         _ => {}
     }
 
@@ -291,6 +294,20 @@ fn string_field(parent: &Value, key: &str) -> std::result::Result<String, Capsul
         })
 }
 
+fn live_evidence_has_concrete_ref(value: Option<&Value>) -> bool {
+    let Some(object) = value.and_then(|v| v.as_object()) else {
+        return false;
+    };
+    ["transport", "response_ref", "block_ref"]
+        .iter()
+        .any(|key| {
+            object
+                .get(*key)
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| !s.is_empty())
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,6 +350,42 @@ mod tests {
         let v = corpus("tampered_003_live_mode_without_evidence.json");
         let err = verify_capsule(&v).expect_err("must fail");
         assert_eq!(err.code(), "capsule.live_without_evidence", "{err}");
+    }
+
+    #[test]
+    fn tampered_live_mode_empty_evidence_is_rejected() {
+        let v = corpus("tampered_008_live_mode_empty_evidence.json");
+        let err = verify_capsule(&v).expect_err("must fail");
+        assert_eq!(err.code(), "capsule.schema_invalid", "{err}");
+    }
+
+    #[test]
+    fn live_mode_with_concrete_evidence_verifies() {
+        let mut v = corpus("golden_001_allow_keeperhub_mock.json");
+        let execution = v["execution"].as_object_mut().unwrap();
+        execution.insert("mode".into(), Value::String("live".into()));
+        execution.insert(
+            "live_evidence".into(),
+            serde_json::json!({
+                "transport": "https",
+                "response_ref": "keeperhub-execution-01HTAWX5K3R8YV9NQB7C6P2DGS"
+            }),
+        );
+        verify_capsule(&v).expect("live capsule with concrete evidence must verify");
+    }
+
+    #[test]
+    fn mock_mode_with_concrete_live_evidence_is_rejected() {
+        let mut v = corpus("golden_001_allow_keeperhub_mock.json");
+        let execution = v["execution"].as_object_mut().unwrap();
+        execution.insert(
+            "live_evidence".into(),
+            serde_json::json!({
+                "response_ref": "keeperhub-execution-01HTAWX5K3R8YV9NQB7C6P2DGS"
+            }),
+        );
+        let err = verify_capsule(&v).expect_err("must fail");
+        assert_eq!(err.code(), "capsule.mock_with_live_evidence", "{err}");
     }
 
     #[test]

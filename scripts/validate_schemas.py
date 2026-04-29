@@ -51,6 +51,8 @@ CORPUS: list[CorpusCase] = [
     #   - tampered_006 (bad mock_anchor_ref): schema-INVALID via pattern.
     #   - tampered_007 (unknown root field): schema-INVALID via
     #     additionalProperties=false.
+    #   - tampered_008 (live+empty evidence): schema-INVALID via
+    #     live_evidence.minProperties=1.
     CorpusCase(
         "passport-capsule",
         REPO_ROOT / "test-corpus/passport/golden_001_allow_keeperhub_mock.json",
@@ -89,6 +91,11 @@ CORPUS: list[CorpusCase] = [
     CorpusCase(
         "passport-capsule",
         REPO_ROOT / "test-corpus/passport/tampered_007_unknown_field.json",
+        False,
+    ),
+    CorpusCase(
+        "passport-capsule",
+        REPO_ROOT / "test-corpus/passport/tampered_008_live_mode_empty_evidence.json",
         False,
     ),
 ]

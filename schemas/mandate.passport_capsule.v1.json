@@ -216,6 +216,7 @@
             {
               "type": "object",
               "additionalProperties": false,
+              "minProperties": 1,
               "properties": {
                 "transport": {
                   "type": "string",
