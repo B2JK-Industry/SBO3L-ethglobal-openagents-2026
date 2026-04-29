@@ -41,6 +41,7 @@ All implementation code in this repository:
 - **GitHub Pages public proof site** (`.github/workflows/pages.yml` + `site/index.html`, Passport P7.1) — deploys from `main` to `https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/`. Plain HTML, no JS, no client-side network calls; same offline-only ground rules as trust-badge / operator-console.
 - CI: fmt, clippy, tests (300 passing), schema validation, OpenAPI validation, trust-badge regression test, operator-console regression test, demo-fixtures validator.
 - Production-shaped mock runner: `bash demo-scripts/run-production-shaped-mock.sh` walks the operator surface end-to-end (doctor, mock KMS CLI, full PSM-A3 policy lifecycle, **PSM-A4 audit checkpoint create/verify with mock anchoring**, persistent SQLite allow + deny, audit-bundle export, Passport P2.1 capsule emit/verify, plus the `mandate-operator-evidence-v1` transcript consumed by the operator console). Tally: **26 real / 0 mock / 1 skipped** — every A-side backlog row has merged; only the optional `--include-final-demo` flag remains on the SKIPPED list.
+- Self-audit artefact: [`SECURITY_NOTES.md`](SECURITY_NOTES.md) documents the known scope limitations a production deployment would need to address (daemon authentication, production signer wiring, budget tracker persistence, idempotency in-flight semantics, Passport verifier scope). Honest disclosure, not a roadmap promise.
 
 ## What was reused as planning material
 

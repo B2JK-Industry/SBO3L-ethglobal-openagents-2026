@@ -54,6 +54,8 @@ End-to-end real: APRP wire format, JCS canonical request hashing, JSON Schema va
 
 Mocked / offline (clearly labelled in demo output and in [`SUBMISSION_FORM_DRAFT.md`](SUBMISSION_FORM_DRAFT.md)): ENS resolution uses `OfflineEnsResolver` with a fixture file; `KeeperHubExecutor::local_mock()` and `UniswapExecutor::local_mock()` are constructed by the demo. There is no `MANDATE_*_LIVE` env-var feature flag in this build — switching to a live sponsor backend is a single constructor-call change. The dev signing seeds in `AppState::new` are deterministic public constants (clearly marked `⚠ DEV ONLY ⚠`); production deployments inject real signers via `AppState::with_signers`.
 
+For the **negative-side complement** — known scope limitations a production deployment would need to address (daemon authentication, production signer wiring, budget tracker persistence, idempotency in-flight semantics, Passport verifier scope) — see [`SECURITY_NOTES.md`](SECURITY_NOTES.md). It is honest disclosure from an internal audit, not a roadmap promise.
+
 ## How to run from a fresh clone
 
 You need a Rust toolchain (workspace MSRV `1.80`) and Python 3 for the schema validators and the trust-badge build.
