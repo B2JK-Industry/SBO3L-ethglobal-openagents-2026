@@ -1,5 +1,5 @@
 {
-  "_note": "Static Uniswap quote fixture for the Mandate guarded-swap demo. Live mode (MANDATE_UNISWAP_LIVE=1) is gated behind the official Uniswap Trading API and is intentionally not wired into this hackathon build — see FEEDBACK.md.",
+  "_note": "Static Uniswap quote fixture for the SBO3L guarded-swap demo. Live mode (SBO3L_UNISWAP_LIVE=1) is gated behind the official Uniswap Trading API and is intentionally not wired into this hackathon build — see FEEDBACK.md.",
   "quote_id": "qt-01HZFAKEDEMOQ001",
   "input": {
     "token_symbol": "USDC",

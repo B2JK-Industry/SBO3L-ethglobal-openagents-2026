@@ -57,8 +57,8 @@ Tým sú čiastočne alebo úplne adresované ADV-06, ADV-07, ADV-09, SAFE-01, S
 - **Fix applied:** E16-S6 gotcha updated with correct ranges + ZK path.
 
 ### CONF-07 ✅ FIXED — Workspace crate list incomplete
-- **Where:** E1-S1 acceptance "Rust workspace s `mandate-core`, `mandate-cli`, `mandate-sdk-rs`".
-- **Conflict:** `17_interface_contracts.md §8` defines 11+ crates: `mandate-core`, `mandate-policy`, `mandate-storage`, `mandate-onchain`, `mandate-mcp`, `mandate-push`, `mandate-zk`, `mandate-cli`, `mandate-server`, `mandate-web`, `mandate-bots`. Plus SDKs in `/sdks/`.
+- **Where:** E1-S1 acceptance "Rust workspace s `sbo3l-core`, `sbo3l-cli`, `mandate-sdk-rs`".
+- **Conflict:** `17_interface_contracts.md §8` defines 11+ crates: `sbo3l-core`, `sbo3l-policy`, `sbo3l-storage`, `mandate-onchain`, `sbo3l-mcp`, `mandate-push`, `mandate-zk`, `sbo3l-cli`, `sbo3l-server`, `mandate-web`, `mandate-bots`. Plus SDKs in `/sdks/`.
 - **Risk:** Foundation phase creates wrong workspace skeleton; later phases need to restructure.
 - **Fix applied:** E1-S1 acceptance updated to "starting workspace per §8 with growth path documented."
 
@@ -75,13 +75,13 @@ These are real bugs but less load-bearing. Implementer should address but won't 
   - Or split E11-S2 into core API (P3) + CLI wrapper (P3).
 - **Recommendation:** Add note in E11-S1 acceptance: *"E11-S2 must have completed in P3 to provide the approval API surface that this Web UI consumes."*
 
-### ADV-02 — `mandate-core/src/chains/base.rs` belongs in separate crate
+### ADV-02 — `sbo3l-core/src/chains/base.rs` belongs in separate crate
 - **Where:** E16-S1, E16-S2 modules.
 - **Issue:** Chain-specific code in core makes core depend on `alloy` heavyweight stack. Better: separate `mandate-onchain` crate (already in §8). Core trait → onchain implementation.
-- **Recommendation:** Move chain modules to `/crates/mandate-onchain/src/chains/`.
+- **Recommendation:** Move chain modules to `/crates/sbo3l-onchain/src/chains/`.
 
 ### ADV-03 — Audit coverage tests cross-crate
-- **Where:** E10-S5, E10-S6 in `/crates/mandate-core/tests/`.
+- **Where:** E10-S5, E10-S6 in `/crates/sbo3l-core/tests/`.
 - **Issue:** Coverage tests need to instantiate storage, policy, and emergency state — cross-crate. Better placed in workspace-level `/tests/integration/`.
 - **Recommendation:** Move to `/tests/integration/audit_coverage.rs` with `#[test]` from E17-S2 suite.
 

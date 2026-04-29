@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Validate Mandate JSON Schemas and the test-corpus against them.
+"""Validate SBO3L JSON Schemas and the test-corpus against them.
 
 The APRP schema has an external ``$ref`` to the x402 schema by URL, so we wire
-a :class:`referencing.Registry` that resolves every Mandate schema id against
+a :class:`referencing.Registry` that resolves every SBO3L schema id against
 the local file in ``schemas/``. This avoids any network call.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ SCHEMAS = {
     "policy-receipt": REPO_ROOT / "schemas" / "policy_receipt_v1.json",
     "decision-token": REPO_ROOT / "schemas" / "decision_token_v1.json",
     "audit-event": REPO_ROOT / "schemas" / "audit_event_v1.json",
-    "passport-capsule": REPO_ROOT / "schemas" / "mandate.passport_capsule.v1.json",
+    "passport-capsule": REPO_ROOT / "schemas" / "sbo3l.passport_capsule.v1.json",
 }
 
 
@@ -39,8 +39,8 @@ CORPUS: list[CorpusCase] = [
     CorpusCase("policy", REPO_ROOT / "test-corpus/policy/reference_low_risk.json", True),
     # Passport capsule (P1.1). Schema-only validation here; the cross-field
     # truthfulness invariants (deny→no execution, live→evidence, hash internal-
-    # consistency) are tested by `cargo test -p mandate-core passport` and
-    # `cargo test -p mandate-cli --test passport_cli`. The fixtures below are
+    # consistency) are tested by `cargo test -p sbo3l-core passport` and
+    # `cargo test -p sbo3l-cli --test passport_cli`. The fixtures below are
     # *only* labelled `expect_valid` by their schema-shape outcome:
     #   - golden_001: schema-valid.
     #   - tampered_001 (deny+execution_ref): schema-valid; rejected at the
@@ -165,7 +165,7 @@ def main() -> int:
     # Runtime artifacts emitted by `bash demo-scripts/run-production-shaped-mock.sh`
     # step 10b (Passport P2.1). These files are NOT in test-corpus
     # (test-corpus is for static fixtures); they are produced by the
-    # actual `mandate passport run` CLI on every full runner invocation.
+    # actual `sbo3l passport run` CLI on every full runner invocation.
     # Validating them here closes the loop: every capsule the runner
     # writes must pass schema validation before any downstream surface
     # (P2.2 trust-badge / operator-console capsule panels) tries to

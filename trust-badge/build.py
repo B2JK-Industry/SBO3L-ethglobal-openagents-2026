@@ -22,14 +22,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT = REPO_ROOT / "demo-scripts" / "artifacts" / "latest-demo-summary.json"
 DEFAULT_OUTPUT = REPO_ROOT / "trust-badge" / "index.html"
-EXPECTED_SCHEMA = "mandate-demo-summary-v1"
+EXPECTED_SCHEMA = "sbo3l-demo-summary-v1"
 # Passport capsule (P2.2). Default points at the post-P2.1 runtime artifact;
 # during the P2.2 DRAFT phase (P2.1 not yet merged) the runner does not emit
 # this file, so the trust-badge falls through to the honest "capsule evidence
 # not gathered" placeholder. Tests pin the render path against the on-main
 # golden fixture in `test-corpus/passport/`.
 DEFAULT_CAPSULE = REPO_ROOT / "demo-scripts" / "artifacts" / "passport-allow.json"
-EXPECTED_CAPSULE_SCHEMA = "mandate.passport_capsule.v1"
+EXPECTED_CAPSULE_SCHEMA = "sbo3l.passport_capsule.v1"
 
 
 def esc(value) -> str:
@@ -75,7 +75,7 @@ def mock_pill(value) -> str:
 
 def load_capsule(path: Path) -> tuple[dict | None, str]:
     """
-    Load a `mandate.passport_capsule.v1` capsule emitted by Passport P2.1.
+    Load a `sbo3l.passport_capsule.v1` capsule emitted by Passport P2.1.
 
     Returns `(capsule_dict, "ok")` on success, or `(None, reason)` for every
     failure mode the trust-badge surfaces explicitly to the operator:
@@ -89,8 +89,8 @@ def load_capsule(path: Path) -> tuple[dict | None, str]:
                         mock_anchor must be true with local- prefix, live
                         mode requires concrete evidence, request/policy
                         hash internal-consistency). Mirrors the simple
-                        invariants enforced by `mandate passport verify`
-                        in `crates/mandate-core/src/passport.rs` so that
+                        invariants enforced by `sbo3l passport verify`
+                        in `crates/sbo3l-core/src/passport.rs` so that
                         a tampered capsule renders the honest placeholder
                         instead of a fake-OK summary tile.
     """
@@ -119,7 +119,7 @@ def _capsule_structural_violation(doc: dict) -> str | None:
     This is intentionally a SUBSET of `verify_capsule` — Python does not
     verify cryptographic hashes, only the structural invariants that
     a tampered fixture can be expected to break. The Rust binary remains
-    the source of truth for full verification (`mandate passport verify`).
+    the source of truth for full verification (`sbo3l passport verify`).
     """
     decision = doc.get("decision") or {}
     execution = doc.get("execution") or {}
@@ -177,7 +177,7 @@ _CAPSULE_REASON_TEXT = {
     "tampered":
         "capsule loaded and schema id matches, but a structural invariant "
         "failed (deny/execution / mock_anchor / live evidence / hash "
-        "consistency). Run `mandate passport verify` for full detail.",
+        "consistency). Run `sbo3l passport verify` for full detail.",
 }
 
 
@@ -266,7 +266,7 @@ def render(summary: dict, capsule_state: tuple[dict | None, str],
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mandate · Trust Badge</title>
+<title>SBO3L · Trust Badge</title>
 <style>
 *{{box-sizing:border-box}}
 html,body{{margin:0;padding:0;background:#0e1116;color:#e6edf3;
@@ -302,7 +302,7 @@ footer code{{background:#21262d;padding:1px 4px;border-radius:2px}}
 <body>
 <div class="wrap">
 <header>
-<h1>Mandate · Trust Badge</h1>
+<h1>SBO3L · Trust Badge</h1>
 <div class="tag">"Don't give your agent a wallet. Give it a mandate."</div>
 <div class="meta">
 <span><b>agent</b> {esc(summary.get("agent_id"))}</span>
@@ -390,7 +390,7 @@ def main() -> int:
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT),
                         help="Path to write the static HTML viewer (default: %(default)s)")
     parser.add_argument("--capsule", default=str(DEFAULT_CAPSULE),
-                        help="Path to a `mandate.passport_capsule.v1` JSON "
+                        help="Path to a `sbo3l.passport_capsule.v1` JSON "
                              "(default: %(default)s). When missing/malformed/"
                              "wrong-schema the capsule tile renders an "
                              "explicit 'capsule evidence not gathered' "

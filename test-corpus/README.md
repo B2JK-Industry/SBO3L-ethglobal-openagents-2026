@@ -1,4 +1,4 @@
-# mandate Test Corpus
+# SBO3L Test Corpus
 
 This directory is normative input for implementation and CI.
 

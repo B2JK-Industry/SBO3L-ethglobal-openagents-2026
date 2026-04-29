@@ -1,8 +1,8 @@
 name: Pages
 
-# Deploys the Mandate public proof surface to GitHub Pages.
+# Deploys the SBO3L public proof surface to GitHub Pages.
 #
-# What gets deployed (per docs/product/MANDATE_PASSPORT_BACKLOG.md §P7.1):
+# What gets deployed (per docs/product/SBO3L_PASSPORT_BACKLOG.md §P7.1):
 #   - site/index.html              — committed landing page.
 #   - site/README.md               — committed deploy-source README.
 #   - site/trust-badge/index.html  — built by trust-badge/build.py from
@@ -80,10 +80,10 @@ jobs:
           python3 - <<'PY'
           import re, sys, pathlib
           # Same allowlist as demo-fixtures/test_fixtures.py:
-          # RFC 2606 / 6761 reserved + 127.0.0.1 + schemas.mandate.dev.
+          # RFC 2606 / 6761 reserved + 127.0.0.1 + schemas.sbo3l.dev.
           pat = re.compile(
               r'<script|fetch\(|https?://(?!localhost|127\.0\.0\.1'
-              r'|.*\.invalid|.*\.example|.*\.test|schemas\.mandate\.dev)',
+              r'|.*\.invalid|.*\.example|.*\.test|schemas\.sbo3l\.dev)',
               re.IGNORECASE,
           )
           fail = 0

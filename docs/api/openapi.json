@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Mandate API",
+    "title": "SBO3L API",
     "version": "1.0.0-draft",
-    "description": "Normative REST surface for the mandate daemon. This file is generated/maintained from 09_api_design.md and 17_interface_contracts.md until implementation can generate it from code."
+    "description": "Normative REST surface for the sbo3l daemon. This file is generated/maintained from 09_api_design.md and 17_interface_contracts.md until implementation can generate it from code."
   },
   "servers": [
     {
@@ -12,7 +12,7 @@
     },
     {
       "url": "http://unix/v1",
-      "description": "Unix domain socket listener; client libraries map this pseudo URL to /run/mandate/mandate.sock"
+      "description": "Unix domain socket listener; client libraries map this pseudo URL to /run/sbo3l/sbo3l.sock"
     }
   ],
   "paths": {
@@ -550,7 +550,7 @@
     "securitySchemes": {
       "agentMtls": {
         "type": "mutualTLS",
-        "description": "Agent certificate issued by the Mandate CA; certificate CN/SAN carries agent_id."
+        "description": "Agent certificate issued by the SBO3L CA; certificate CN/SAN carries agent_id."
       },
       "adminMtls": {
         "type": "mutualTLS",

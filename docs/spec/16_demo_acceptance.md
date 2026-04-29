@@ -72,7 +72,7 @@ Každý script musí:
 assert_eq() { [ "$1" = "$2" ] || { echo "FAIL: $1 != $2"; exit 1; }; }
 assert_contains() { echo "$1" | grep -q "$2" || { echo "FAIL: '$1' does not contain '$2'"; exit 1; }; }
 assert_http_status() { [ "$1" = "$2" ] || { echo "FAIL: HTTP $1, expected $2"; exit 1; }; }
-assert_audit_event() { sqlite3 "$MANDATE_DB" "select count(*) from audit_events where type='$1' and seq > $2" | grep -q "^[1-9]" || { echo "FAIL: no $1 event after seq $2"; exit 1; }; }
+assert_audit_event() { sqlite3 "$SBO3L_DB" "select count(*) from audit_events where type='$1' and seq > $2" | grep -q "^[1-9]" || { echo "FAIL: no $1 event after seq $2"; exit 1; }; }
 wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.5; done; return 1; }
 ```
 
@@ -104,14 +104,14 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P0-03 — Telemetry no-PII assertion
 **Story:** E1-S3
 **Steps:**
-1. Run `cargo test --package mandate-core telemetry::tests`
+1. Run `cargo test --package sbo3l-core telemetry::tests`
 2. Specifically `test_logs_never_contain_payment_payload`, `test_logs_never_contain_key_material`
 **Pass:** tests exit 0
 
 ## D-P0-04 — Error catalog completeness
 **Story:** E1-S4
 **Steps:**
-1. `cargo test --package mandate-core error::tests::test_all_codes_documented`
+1. `cargo test --package sbo3l-core error::tests::test_all_codes_documented`
 2. Test enumeruje všetky `Error` varianty a kontroluje, že každý je v `17_interface_contracts.md §3.1` table
 **Pass:** test exit 0
 
@@ -135,14 +135,14 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Story:** E2-S1
 **Setup:** `test-corpus/aprp/golden_*.json` (valid samples; rozširovať postupne na 50)
 **Steps:**
-1. `for f in test-corpus/aprp/golden_*.json; do mandate aprp validate "$f" || exit 1; done`
+1. `for f in test-corpus/aprp/golden_*.json; do sbo3l aprp validate "$f" || exit 1; done`
 **Pass:** all seeded samples pass; story final requires 50 golden samples
 
 ## D-P1-02 — APRP schema rejection adversarial
 **Story:** E2-S1
 **Setup:** `test-corpus/aprp/adversarial_*.json` (invalid samples; rozširovať postupne na 30)
 **Steps:**
-1. For each: `mandate aprp validate "$f" → exit 1, stderr contains specific error code`
+1. For each: `sbo3l aprp validate "$f" → exit 1, stderr contains specific error code`
 **Pass:** all seeded samples fail with expected error codes; story final requires 30 adversarial samples
 **Adversarial cases:**
 - extra unknown field → `schema.unknown_field`
@@ -165,7 +165,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P1-04 — Python SDK example agent
 **Story:** E2-S3
 **Steps:**
-1. `python sdks/python/examples/simple_agent.py --vault-socket /run/mandate/mandate.sock`
+1. `python sdks/python/examples/simple_agent.py --vault-socket /run/sbo3l/sbo3l.sock`
 2. Script makes 3 payment requests
 3. All return successfully
 **Pass:** exit 0, all 3 successful
@@ -216,7 +216,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Story:** E8-S1
 **Setup:** age-encrypted key file, passphrase via env
 **Steps:**
-1. Set `MANDATE_PASSPHRASE=...`
+1. Set `SBO3L_PASSPHRASE=...`
 2. Start vault
 3. Sign request → success
 4. Stop vault
@@ -254,7 +254,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P2-01 — Policy YAML compile to Rego
 **Story:** E4-S1
 **Steps:**
-1. `mandate policy compile fixtures/policies/default-low-risk.yaml --output /tmp/compiled.rego`
+1. `sbo3l policy compile fixtures/policies/default-low-risk.yaml --output /tmp/compiled.rego`
 2. Verify file is valid Rego (`opa parse /tmp/compiled.rego`)
 **Pass:** both succeed
 
@@ -271,7 +271,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P2-03 — Policy 30+ test scenarios
 **Story:** E4-S1
 **Steps:**
-1. `cargo test --package mandate-policy -- scenarios::`
+1. `cargo test --package sbo3l-policy -- scenarios::`
 **Pass:** all pass; coverage report shows 30+ named scenarios
 
 ## D-P2-04 — Policy versioning + replay equivalence
@@ -279,7 +279,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Steps:**
 1. Create policy v1, send 10 requests, capture decisions
 2. Activate policy v2 (different rules)
-3. `mandate policy replay --version 1 --request-ids req-1..10`
+3. `sbo3l policy replay --version 1 --request-ids req-1..10`
 4. Decisions must match original
 **Pass:** all 10 match
 
@@ -303,14 +303,14 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Story:** E4-S4
 **Setup:** `fixtures/policies/lint_problems_*.yaml` (10 files, each with one specific problem from §K.6)
 **Steps:**
-1. For each: `mandate policy lint $f → exit 1, stderr matches expected problem`
+1. For each: `sbo3l policy lint $f → exit 1, stderr matches expected problem`
 **Pass:** all 10 detected
 
 ## D-P2-08 — Dry-run shows decision diff
 **Story:** E4-S5
 **Steps:**
 1. Insert 100 historical requests
-2. `mandate policy dry-run --policy fixtures/policies/stricter.yaml --since 7d`
+2. `sbo3l policy dry-run --policy fixtures/policies/stricter.yaml --since 7d`
 3. Output JSON shows: `{ "would_change": [{request_id, prev_decision, new_decision}] }`
 4. Manually verify count of changes is plausible (e.g., stricter policy → more denies)
 **Pass:** non-empty diff with structured output
@@ -415,16 +415,16 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Story:** E10-S1
 **Steps:**
 1. Send 100 payment requests (all events recorded)
-2. `mandate audit verify` → exits 0 ("OK")
+2. `sbo3l audit verify` → exits 0 ("OK")
 **Pass:** chain valid
 
 ## D-P3-02 — Tampering detected
 **Story:** E10-S1
 **Steps:**
 1. Send 50 requests
-2. Manually `sqlite3 mandate.db "UPDATE audit_events SET metadata = '{\"hacked\":true}' WHERE seq = 25;"` (will fail due to trigger; bypass via direct file write or alternate path)
+2. Manually `sqlite3 sbo3l.db "UPDATE audit_events SET metadata = '{\"hacked\":true}' WHERE seq = 25;"` (will fail due to trigger; bypass via direct file write or alternate path)
 3. Actually corrupt: open SQLite file in hex editor, modify one byte in event
-4. `mandate audit verify` → exit 1, output identifies tamper at correct seq
+4. `sbo3l audit verify` → exit 1, output identifies tamper at correct seq
 **Pass:** detection works
 **Note:** the tampering bypass uses direct DB file modification because triggers prevent UPDATE
 
@@ -432,17 +432,17 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Story:** E10-S2
 **Steps:**
 1. Insert 1000 events for date 2026-04-25
-2. `mandate audit merkle-root --date 2026-04-25` → root R1
+2. `sbo3l audit merkle-root --date 2026-04-25` → root R1
 3. Repeat → root R2
 4. R1 == R2
-5. Verify signed manifest exists in `/var/lib/mandate/audit/manifests/2026-04-25.json`
+5. Verify signed manifest exists in `/var/lib/sbo3l/audit/manifests/2026-04-25.json`
 **Pass:** deterministic + signed
 
 ## D-P3-04 — S3 export with object lock
 **Story:** E10-S3
 **Setup:** local MinIO with object-lock enabled bucket
 **Steps:**
-1. `mandate audit export --format jsonl --since 1d --sink s3://localhost:9000/audit-test`
+1. `sbo3l audit export --format jsonl --since 1d --sink s3://localhost:9000/audit-test`
 2. Verify object exists in bucket with retention policy
 3. Try to delete → MinIO refuses
 **Pass:** export + immutability
@@ -718,7 +718,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P5-09 — MCP server exposes payment tools
 **Story:** E16-S5
 **Steps:**
-1. Start `mandate-mcp` server
+1. Start `sbo3l-mcp` server
 2. Connect MCP client
 3. List tools → contains `payment.request`, `payment.simulate`, `attestation.get`
 **Pass:** MCP discovery works
@@ -809,7 +809,7 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P6-09 — Reference policies pass linter
 **Story:** E15-S2
 **Steps:**
-1. `for p in policies/reference/*.yaml; do mandate policy lint $p || exit 1; done`
+1. `for p in policies/reference/*.yaml; do sbo3l policy lint $p || exit 1; done`
 **Pass:** all 5 lint clean
 
 ## D-P6-10 — LangChain cookbook works
@@ -927,9 +927,9 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 ## D-P7-09 — `.deb` install on Ubuntu 24.04
 **Story:** E14-S2
 **Steps:**
-1. `dpkg -i mandate_*.deb`
+1. `dpkg -i sbo3l_*.deb`
 2. Service enabled, ready to start
-3. Default config in `/etc/mandate/`
+3. Default config in `/etc/sbo3l/`
 4. systemd unit hardened (verify directives present)
 **Pass:** install + hardening
 
@@ -1010,17 +1010,17 @@ wait_for_port() { for i in $(seq 1 30); do nc -z "$1" "$2" && return 0; sleep 0.
 **Story:** E16-S7
 **Steps:**
 1. Generate daily Merkle root R
-2. `mandate audit anchor --chain base-sepolia` publishes R via `AuditAnchor.sol`
+2. `sbo3l audit anchor --chain base-sepolia` publishes R via `AuditAnchor.sol`
 3. Tx visible on Basescan
 4. Cost (gas) < $0.01 equivalent
-5. `mandate audit verify --chain-anchor` cross-checks local root vs on-chain
+5. `sbo3l audit verify --chain-anchor` cross-checks local root vs on-chain
 **Pass:** publish + verify
 
 ## D-P8-07 — Policy registry on-chain
 **Story:** E16-S8
 **Steps:**
 1. Sign policy → `policy_hash`
-2. `mandate policy publish-hash --chain base-sepolia` → tx
+2. `sbo3l policy publish-hash --chain base-sepolia` → tx
 3. External script reads registry, finds hash, knows vault is running this policy version
 **Pass:** publishing + lookup
 
@@ -1246,7 +1246,7 @@ These run on top of any completed phase to verify security invariants hold.
 
 ## D-RT-01 — Compromised agent cannot read key file
 - Setup: agent process running as user `mandate-agent`
-- Try: `cat /var/lib/mandate/keys/agent-research-01.age` → permission denied
+- Try: `cat /var/lib/sbo3l/keys/agent-research-01.age` → permission denied
 - Pass: file system perms enforced
 
 ## D-RT-02 — Memory dump of vault doesn't reveal key
@@ -1306,15 +1306,15 @@ These run on top of any completed phase to verify security invariants hold.
 **Steps:**
 1. Run `bash demo-scripts/sponsors/ens-agent-identity.sh`
 2. Resolve or mock `research-agent.team.eth`
-3. Fetch `mandate:agent_id`, `mandate:endpoint`, `mandate:policy_hash`, `mandate:audit_root`, `mandate:receipt_schema`
-4. Compare ENS policy hash to active mandate policy hash
+3. Fetch `sbo3l:agent_id`, `sbo3l:endpoint`, `sbo3l:policy_hash`, `sbo3l:audit_root`, `sbo3l:receipt_schema`
+4. Compare ENS policy hash to active sbo3l policy hash
 **Pass:** records resolve and policy hash matches active vault
 
 ## D-OA-03 — KeeperHub guarded execution
 **Story:** EOA-S3
 **Steps:**
 1. Run `bash demo-scripts/sponsors/keeperhub-guarded-execution.sh`
-2. Approved action passes mandate policy
+2. Approved action passes sbo3l policy
 3. Execution is routed to KeeperHub CLI/API/MCP or faithful local mock
 4. Denied action is attempted
 5. Verify denied action never reaches execution layer

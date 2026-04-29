@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.mandate.dev/aprp/v1.json",
-  "title": "Mandate Agent Payment Request Protocol v1",
+  "$id": "https://schemas.sbo3l.dev/aprp/v1.json",
+  "title": "SBO3L Agent Payment Request Protocol v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -86,7 +86,7 @@
     "x402_payload": {
       "anyOf": [
         {
-          "$ref": "https://schemas.mandate.dev/x402/v1.json"
+          "$ref": "https://schemas.sbo3l.dev/x402/v1.json"
         },
         {
           "type": "null"

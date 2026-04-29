@@ -1,5 +1,5 @@
 {
-  "schema": "mandate-demo-summary-v1",
+  "schema": "sbo3l-demo-summary-v1",
   "tagline": "Don't give your agent a wallet. Give it a mandate.",
   "agent_id": "fixture-agent-01",
   "demo_commit": "abcdef0123456789abcdef0123456789abcdef01",

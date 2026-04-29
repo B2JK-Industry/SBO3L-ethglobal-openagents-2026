@@ -1,4 +1,4 @@
-# `mandate doctor`
+# `sbo3l doctor`
 
 > Operator readiness summary. Honest about scope: every check is `ok`, `skip`, `warn`, or `fail` — never silently `ok` on a missing feature.
 
@@ -6,13 +6,13 @@
 
 ```bash
 # Run against an in-memory fresh DB (verifies the binary itself works):
-mandate doctor
+sbo3l doctor
 
 # Run against a daemon's SQLite store:
-mandate doctor --db /var/lib/mandate/mandate.sqlite
+sbo3l doctor --db /var/lib/sbo3l/sbo3l.sqlite
 
 # Machine-readable, stable schema (production-shaped runner consumes this):
-mandate doctor --db /var/lib/mandate/mandate.sqlite --json
+sbo3l doctor --db /var/lib/sbo3l/sbo3l.sqlite --json
 ```
 
 ## What it checks
@@ -46,11 +46,11 @@ Code `2` is reserved for "DB itself could not be opened" (different error class 
 
 ## JSON envelope
 
-The JSON shape is **stable** under `report_type: "mandate.doctor.v1"`. Consumers (especially the production-shaped runner) can rely on:
+The JSON shape is **stable** under `report_type: "sbo3l.doctor.v1"`. Consumers (especially the production-shaped runner) can rely on:
 
 ```json
 {
-  "report_type": "mandate.doctor.v1",
+  "report_type": "sbo3l.doctor.v1",
   "overall":     "ok|warn|fail",
   "db_path":     "...",
   "checks": [
@@ -72,7 +72,7 @@ The JSON shape is **stable** under `report_type: "mandate.doctor.v1"`. Consumers
 - **Sponsor credentials.** ENS / KeeperHub / Uniswap connectivity is not part of the doctor's scope.
 - **Signer keypair correctness.** Audit chain verification skips signatures (it doesn't have the pubkey to verify against). Wire that up if you persist the daemon's signing pubkey somewhere the doctor can read.
 
-These omissions are deliberate — the doctor is for "is the local Mandate state internally consistent and migrations-current?", not "is every external dependency live?"
+These omissions are deliberate — the doctor is for "is the local SBO3L state internally consistent and migrations-current?", not "is every external dependency live?"
 
 ## Truthfulness rules (for the people who read every doctor report)
 

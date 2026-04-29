@@ -68,7 +68,7 @@ Drop nemôže byť async; networking v drop = blok / panic. Resource cleanup rob
 
 ### P0-05 — Config
 - **Bug:** TOML deserialization pri missing required field bez clear error → user sees "invalid config" without saying which key. Use `serde::Deserialize` with `#[serde(default)]` + explicit validation step.
-- **Bug:** Env override `MANDATE__SECTION__KEY` collides with vendor envs. Use longer prefix `MANDATE__` with double underscores (well-known by `config` crate).
+- **Bug:** Env override `SBO3L__SECTION__KEY` collides with vendor envs. Use longer prefix `SBO3L__` with double underscores (well-known by `config` crate).
 - **Bug:** Validate config at load AND on reload (SIGHUP) — production-lint must run both times.
 
 ---
@@ -425,7 +425,7 @@ Before any agent's slot is "done":
 - [ ] If new schema field: `17_interface_contracts.md` updated FIRST (PR depends on contracts PR)
 - [ ] If new error code: `17_interface_contracts.md §3.1` updated
 - [ ] If new audit event type: `17_interface_contracts.md §5.4` updated
-- [ ] If new metric: matches `mandate_*` naming pattern
+- [ ] If new metric: matches `sbo3l_*` naming pattern
 - [ ] No third-party CDN, no Telemetry to external service unless OTLP (configurable)
 - [ ] Cross-restart test for any persistent state
 - [ ] Hand-back report to orchestrator: "implemented X, demos Y passed, deviations Z"

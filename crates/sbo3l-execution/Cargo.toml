@@ -1,0 +1,23 @@
+[package]
+name = "sbo3l-execution"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SBO3L execution: sponsor execution adapters (KeeperHub, Uniswap)."
+
+[dependencies]
+sbo3l-core = { workspace = true }
+# IP-4: the KeeperHub adapter lives in its own publishable crate. We
+# pull it in here so existing call sites that import via
+# `sbo3l_execution::KeeperHubExecutor` keep resolving unchanged.
+sbo3l-keeperhub-adapter = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+ulid = { workspace = true }
+chrono = { workspace = true }
+rust_decimal = { workspace = true }

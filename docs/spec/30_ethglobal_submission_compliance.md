@@ -1,7 +1,7 @@
 # ETHGlobal Open Agents Submission Compliance
 
 **Datum:** 2026-04-27  
-**Ucel:** Pravidla a checklist pre Mandate submission do ETHGlobal Open Agents. Tento dokument je povinny precitat pred zacatim kodovania, aby projekt splnal pravidla pre finalistov aj partner prizes.
+**Ucel:** Pravidla a checklist pre SBO3L submission do ETHGlobal Open Agents. Tento dokument je povinny precitat pred zacatim kodovania, aby projekt splnal pravidla pre finalistov aj partner prizes.
 
 ---
 
@@ -32,7 +32,7 @@ Not allowed for partner prizes/finalist eligibility:
 - Pre-existing private designs/assets.
 - Copying this repo as if it were built during the event without attribution.
 
-Mandate approach:
+SBO3L approach:
 
 - Create a new public GitHub repository at hackathon start.
 - Recommended repo name: `mandate-ethglobal-openagents-2026`.
@@ -58,7 +58,7 @@ Required:
 Suggested commit sequence:
 
 ```text
-init Mandate hackathon repo
+init SBO3L hackathon repo
 add schema contracts and corpus seed
 add Rust workspace and CLI skeleton
 add APRP validation
@@ -135,7 +135,7 @@ Important:
 
 You can select up to 3 partner prizes.
 
-For Mandate, priority order:
+For SBO3L, priority order:
 
 1. **KeeperHub** - guarded execution.
 2. **ENS** - agent identity + policy/audit discovery.
@@ -149,7 +149,7 @@ Do not select a partner prize unless the integration actually runs or is a faith
 
 For each selected partner, submission must explain:
 
-- how Mandate uses their tool,
+- how SBO3L uses their tool,
 - what works in the demo,
 - what is mocked, if anything,
 - feedback for the partner.
@@ -190,12 +190,12 @@ Target video: 3:30-3:50.
 
 | Time | Segment |
 |---:|---|
-| 0:00-0:15 | One-liner: "Mandate gives agents spending mandates instead of wallets." |
+| 0:00-0:15 | One-liner: "SBO3L gives agents spending mandates instead of wallets." |
 | 0:15-0:35 | Show agent identity / ENS trust badge. |
 | 0:35-1:10 | Legit agent action/payment request. |
 | 1:10-1:45 | KeeperHub guarded execution or Uniswap guarded swap. |
 | 1:45-2:20 | Prompt-injection malicious spend attempt. |
-| 2:20-2:55 | Mandate denies before execution; show deny code and receipt. |
+| 2:20-2:55 | SBO3L denies before execution; show deny code and receipt. |
 | 2:55-3:20 | Audit chain / policy receipt verification. |
 | 3:20-3:40 | Sponsor fit: KeeperHub + ENS + Uniswap. |
 | 3:40-3:50 | Closing: "Don't give your agent a wallet. Give it a mandate." |
@@ -204,13 +204,13 @@ Target video: 3:30-3:50.
 
 ## 8. Judging criteria mapping
 
-| Criterion | How Mandate should score |
+| Criterion | How SBO3L should score |
 |---|---|
 | Technicality | Policy engine, receipts, audit chain, sponsor adapter, agent harness. |
 | Originality | Spending mandates instead of agent wallets. |
 | Practicality | Local daemon + CLI/API + runnable demo; useful for agent builders today. |
 | Usability | One command final demo, clear trust badge, readable receipts. |
-| WOW Factor | Prompt-injection tries to spend, Mandate blocks before execution and proves why. |
+| WOW Factor | Prompt-injection tries to spend, SBO3L blocks before execution and proves why. |
 
 ---
 
@@ -254,4 +254,4 @@ README must clearly say:
 - [ ] Demo video is 2-4 minutes, 720p+, not sped up.
 - [ ] Spoken narration is human voice.
 - [ ] README explains setup and sponsor integrations.
-- [ ] Judges can understand Mandate in under 20 seconds.
+- [ ] Judges can understand SBO3L in under 20 seconds.

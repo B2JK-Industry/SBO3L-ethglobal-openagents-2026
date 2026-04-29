@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mandate ETHGlobal Open Agents — production-shaped mock runner (PSM-B1).
+# SBO3L ETHGlobal Open Agents — production-shaped mock runner (PSM-B1).
 #
 # This is NOT a replacement for `demo-scripts/run-openagents-final.sh`. The
 # 13-gate hackathon demo stays the canonical pass/fail. This runner instead
@@ -16,7 +16,7 @@
 #     item. Never fake output from an unavailable command.
 #   - Existing final demo runs unchanged when --include-final-demo is set.
 #
-# Tagline: "Don't give your agent a wallet. Give it a mandate."
+# Tagline: "Don't give your agent a wallet. give it a mandate."
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,9 +33,9 @@ MOCK_COUNT=0
 SKIP_COUNT=0
 SKIPPED_NOTES=()
 
-# Run ./target/debug/mandate <subcmd…> --help; success ⇒ command exists.
+# Run ./target/debug/sbo3l <subcmd…> --help; success ⇒ command exists.
 have_subcmd() {
-  ./target/debug/mandate "$@" --help >/dev/null 2>&1
+  ./target/debug/sbo3l "$@" --help >/dev/null 2>&1
 }
 
 note_skip() { SKIPPED_NOTES+=("  - $1"); }
@@ -59,7 +59,7 @@ USAGE
 done
 
 # ─── 0. Preflight ────────────────────────────────────────────────────────
-bold "Mandate production-shaped mock runner (PSM-B1)"
+bold "SBO3L production-shaped mock runner (PSM-B1)"
 echo
 
 bold "0. Preflight"
@@ -75,9 +75,9 @@ for cmd in cargo python3 grep find mktemp; do
   fi
 done
 ok "required commands present (cargo, python3, grep, find, mktemp)"
-cargo build --quiet --bin mandate
+cargo build --quiet --bin sbo3l
 cargo build --quiet --bin research-agent
-ok "cargo build --bin mandate, --bin research-agent"
+ok "cargo build --bin sbo3l, --bin research-agent"
 echo
 
 # ─── 1. Existing final demo (optional) ───────────────────────────────────
@@ -96,21 +96,21 @@ fi
 echo
 
 # ─── 2. Operator/health checks (Developer A backlog) ─────────────────────
-bold "2. Operator / health (mandate doctor — PSM-A5)"
+bold "2. Operator / health (sbo3l doctor — PSM-A5)"
 if have_subcmd doctor; then
-  if ./target/debug/mandate doctor 2>&1 | sed 's/^/    /'; then
-    ok "mandate doctor — passed"
+  if ./target/debug/sbo3l doctor 2>&1 | sed 's/^/    /'; then
+    ok "sbo3l doctor — passed"
   else
-    fail "mandate doctor reported a problem"
+    fail "sbo3l doctor reported a problem"
     exit 1
   fi
   # Evidence capture for operator-console B2.v2 panel: also gather the
-  # JSON envelope (mandate.doctor.v1) so the panel renders structured
+  # JSON envelope (sbo3l.doctor.v1) so the panel renders structured
   # check rows. Idempotent — runs against in-memory DB by default.
-  DOCTOR_JSON="$(./target/debug/mandate doctor --json 2>&1 || true)"
+  DOCTOR_JSON="$(./target/debug/sbo3l doctor --json 2>&1 || true)"
 else
-  skip "blocked: waiting for \`mandate doctor\` (backlog PSM-A5)"
-  note_skip "mandate doctor (operator readiness summary) — PSM-A5"
+  skip "blocked: waiting for \`sbo3l doctor\` (backlog PSM-A5)"
+  note_skip "sbo3l doctor (operator readiness summary) — PSM-A5"
   DOCTOR_JSON=""
 fi
 echo
@@ -118,7 +118,7 @@ echo
 # ─── 3. Mock KMS CLI surface (PSM-A1.9 — REAL today) ─────────────────────
 bold "3. Mock KMS CLI surface (PSM-A1.9)"
 # PSM-A1.9 shipped in PR #28: persistent mock_kms_keys SQLite table
-# (migration V005) + `mandate key {init,list,rotate} --mock` CLI surface.
+# (migration V005) + `sbo3l key {init,list,rotate} --mock` CLI surface.
 # Every operation requires `--mock` and prefixes every output line with
 # `mock-kms:` for explicit disclosure. We exercise init → list → rotate →
 # list end-to-end against a fresh tempfile-backed SQLite, then drop it.
@@ -128,11 +128,11 @@ if have_subcmd key list; then
   # later than this section, so we use a self-contained temp space and
   # tear it down on success. The trap is appended (not replaced) so we
   # don't disturb any later trap installs.
-  KMS_TMP="$(mktemp -d -t mandate-mock-kms.XXXXXX)"
+  KMS_TMP="$(mktemp -d -t sbo3l-mock-kms.XXXXXX)"
   KMS_DB="$KMS_TMP/mock-kms.db"
-  # Deterministic 64-hex-char dev seed. NOT a secret — `mandate-server`'s
+  # Deterministic 64-hex-char dev seed. NOT a secret — `sbo3l-server`'s
   # production-shaped DevSigner uses literally this byte pattern (all 0x11),
-  # see `crates/mandate-server/src/lib.rs:54`. The corresponding public
+  # see `crates/sbo3l-server/src/lib.rs:54`. The corresponding public
   # verifying key is the audit-signer pubkey shipped in
   # `demo-fixtures/mock-kms-keys.json`.
   KMS_ROOT_SEED="$(python3 -c 'print("11"*32)')"
@@ -140,21 +140,21 @@ if have_subcmd key list; then
   # evidence transcript (B2.v2), then mirror to the operator's terminal.
   # `set -e` propagates command-substitution failures, so a non-zero
   # exit aborts the runner exactly as the previous `&&` chain did.
-  KMS_INIT_OUT="$(./target/debug/mandate key init --mock --role audit-mock \
+  KMS_INIT_OUT="$(./target/debug/sbo3l key init --mock --role audit-mock \
        --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1)"
   printf '%s\n' "$KMS_INIT_OUT" | sed 's/^/    /'
-  KMS_LIST1_OUT="$(./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1)"
+  KMS_LIST1_OUT="$(./target/debug/sbo3l key list --mock --db "$KMS_DB" 2>&1)"
   printf '%s\n' "$KMS_LIST1_OUT" | sed 's/^/    /'
-  KMS_ROTATE_OUT="$(./target/debug/mandate key rotate --mock --role audit-mock \
+  KMS_ROTATE_OUT="$(./target/debug/sbo3l key rotate --mock --role audit-mock \
        --root-seed "$KMS_ROOT_SEED" --db "$KMS_DB" 2>&1)"
   printf '%s\n' "$KMS_ROTATE_OUT" | sed 's/^/    /'
-  KMS_LIST2_OUT="$(./target/debug/mandate key list --mock --db "$KMS_DB" 2>&1)"
+  KMS_LIST2_OUT="$(./target/debug/sbo3l key list --mock --db "$KMS_DB" 2>&1)"
   printf '%s\n' "$KMS_LIST2_OUT" | sed 's/^/    /'
-  ok "mandate key init/list/rotate --mock — full lifecycle exercised against fresh SQLite"
+  ok "sbo3l key init/list/rotate --mock — full lifecycle exercised against fresh SQLite"
   rm -rf "$KMS_TMP"
 else
-  skip "signer + trait + rotation are merged in PR #22; waiting for \`mandate key list --mock\` / \`mandate key rotate --mock\` CLI + persistent mock-KMS storage table (backlog PSM-A1.9)"
-  note_skip "Mock KMS CLI surface (\`mandate key list --mock\` / \`mandate key rotate --mock\`) + persistent mock-KMS storage table — PSM-A1.9"
+  skip "signer + trait + rotation are merged in PR #22; waiting for \`sbo3l key list --mock\` / \`sbo3l key rotate --mock\` CLI + persistent mock-KMS storage table (backlog PSM-A1.9)"
+  note_skip "Mock KMS CLI surface (\`sbo3l key list --mock\` / \`sbo3l key rotate --mock\`) + persistent mock-KMS storage table — PSM-A1.9"
   KMS_INIT_OUT=""; KMS_ROTATE_OUT=""; KMS_LIST2_OUT=""
 fi
 echo
@@ -163,7 +163,7 @@ echo
 # own self-contained KMS_TMP so its lifecycle stays atomic; section 4
 # (active-policy lifecycle) and section 5 (persistent-SQLite allow +
 # deny) share one tempfile DB rooted here.
-TMPDIR_PSM="$(mktemp -d -t mandate-prod-shaped.XXXXXX)"
+TMPDIR_PSM="$(mktemp -d -t sbo3l-prod-shaped.XXXXXX)"
 trap 'rm -rf "$TMPDIR_PSM"' EXIT
 POLICY_DB="$TMPDIR_PSM/policy.db"
 REF_POLICY="test-corpus/policy/reference_low_risk.json"
@@ -177,43 +177,43 @@ REF_POLICY="test-corpus/policy/reference_low_risk.json"
 bold "4. Active policy lifecycle (PSM-A3)"
 if have_subcmd policy current; then
   # 4a. validate (no DB)
-  if ./target/debug/mandate policy validate "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
-    ok "mandate policy validate $REF_POLICY"
+  if ./target/debug/sbo3l policy validate "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
+    ok "sbo3l policy validate $REF_POLICY"
   else
-    fail "mandate policy validate failed against the reference policy"
+    fail "sbo3l policy validate failed against the reference policy"
     exit 1
   fi
   # 4b. honest no-active (exit 3 on a fresh DB). `policy current` opens
   # the DB (running V001..V006 on first touch) and surfaces the empty
   # active_policy table as exit 3 + an honest "no active policy" line —
   # NOT a fake `ok`.
-  if ./target/debug/mandate policy current --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
+  if ./target/debug/sbo3l policy current --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
     fail "policy current must exit non-zero on a fresh DB (honest no-active)"
     exit 1
   else
-    ok "mandate policy current honestly reports no active policy on a fresh DB (exit 3)"
+    ok "sbo3l policy current honestly reports no active policy on a fresh DB (exit 3)"
   fi
   # 4c. activate the reference policy
-  if ./target/debug/mandate policy activate "$REF_POLICY" --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
-    ok "mandate policy activate $REF_POLICY -> v1"
+  if ./target/debug/sbo3l policy activate "$REF_POLICY" --db "$POLICY_DB" 2>&1 | sed 's/^/    /'; then
+    ok "sbo3l policy activate $REF_POLICY -> v1"
   else
-    fail "mandate policy activate failed"
+    fail "sbo3l policy activate failed"
     exit 1
   fi
   # 4d. current after activate -> ok with version + hash prefix.
   # Capture into a variable for the operator-console evidence transcript.
-  POLICY_CURRENT_OUT="$(./target/debug/mandate policy current --db "$POLICY_DB" 2>&1)"
+  POLICY_CURRENT_OUT="$(./target/debug/sbo3l policy current --db "$POLICY_DB" 2>&1)"
   printf '%s\n' "$POLICY_CURRENT_OUT" | sed 's/^/    /'
-  ok "mandate policy current after activate (active row visible)"
+  ok "sbo3l policy current after activate (active row visible)"
   # 4e. diff identical files -> exit 0
-  if ./target/debug/mandate policy diff "$REF_POLICY" "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
-    ok "mandate policy diff (identical files -> no differences)"
+  if ./target/debug/sbo3l policy diff "$REF_POLICY" "$REF_POLICY" 2>&1 | sed 's/^/    /'; then
+    ok "sbo3l policy diff (identical files -> no differences)"
   else
-    fail "mandate policy diff against itself must report no differences"
+    fail "sbo3l policy diff against itself must report no differences"
     exit 1
   fi
 else
-  skip "blocked: waiting for \`mandate policy current\` (backlog PSM-A3)"
+  skip "blocked: waiting for \`sbo3l policy current\` (backlog PSM-A3)"
   note_skip "Policy activation lifecycle (validate/current/activate/diff) — PSM-A3"
   POLICY_CURRENT_OUT=""
 fi
@@ -221,7 +221,7 @@ echo
 
 # ─── 5. Allow path on persistent SQLite ──────────────────────────────────
 bold "5. Allow path — legit-x402 against persistent SQLite"
-DB_PATH="$TMPDIR_PSM/mandate.db"
+DB_PATH="$TMPDIR_PSM/sbo3l.db"
 RECEIPT_PATH="$TMPDIR_PSM/receipt.json"
 LEGIT_OUT="$(./demo-agents/research-agent/run \
   --scenario legit-x402 \
@@ -263,16 +263,16 @@ bold "7. Idempotency-Key safe retry (PSM-A2)"
 #   3. K=K1, body=B2 (mutated)  → 409 protocol.idempotency_conflict.
 #   4. K=K2 (new), body=B1      → 409 protocol.nonce_replay (defense in
 #                                  depth: nonce was consumed in case 1).
-cargo build --quiet --bin mandate-server
+cargo build --quiet --bin sbo3l-server
 IDEM_DB="$TMPDIR_PSM/idempotency.db"
-IDEM_PORT="${MANDATE_PSM_IDEM_PORT:-18730}"
+IDEM_PORT="${SBO3L_PSM_IDEM_PORT:-18730}"
 IDEM_BASE="http://127.0.0.1:${IDEM_PORT}"
 SERVER_LOG="$TMPDIR_PSM/idempotency-server.log"
 
-# Spawn a fresh mandate-server. EXIT trap was set in step 5 to clean
+# Spawn a fresh sbo3l-server. EXIT trap was set in step 5 to clean
 # $TMPDIR_PSM; we extend it to also kill the server PID.
-MANDATE_DB="$IDEM_DB" MANDATE_LISTEN="127.0.0.1:${IDEM_PORT}" \
-  ./target/debug/mandate-server >"$SERVER_LOG" 2>&1 &
+SBO3L_DB="$IDEM_DB" SBO3L_LISTEN="127.0.0.1:${IDEM_PORT}" \
+  ./target/debug/sbo3l-server >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 trap 'kill "${SERVER_PID:-0}" 2>/dev/null || true; rm -rf "$TMPDIR_PSM"' EXIT
 
@@ -282,7 +282,7 @@ for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
   sleep 0.2
 done
 if ! curl -sf "$IDEM_BASE/v1/health" >/dev/null 2>&1; then
-  fail "mandate-server did not come up on $IDEM_BASE — log:"
+  fail "sbo3l-server did not come up on $IDEM_BASE — log:"
   sed 's/^/    /' <"$SERVER_LOG" >&2
   exit 1
 fi
@@ -381,14 +381,14 @@ echo
 
 # ─── 8. Verifiable audit bundle from JSONL chain (REAL today) ────────────
 bold "8. Verifiable audit bundle — receipt + JSONL chain (real today)"
-# `mandate audit export` exists on main today (Developer A's PR #15). The
+# `sbo3l audit export` exists on main today (Developer A's PR #15). The
 # `--chain` form is exercised here against the bundled DB-backed export of
 # step 9 below; the full coverage of `--chain` is in
-# `crates/mandate-cli/tests/audit_bundle.rs`.
+# `crates/sbo3l-cli/tests/audit_bundle.rs`.
 if have_subcmd audit export; then
-  ok "mandate audit export available (chain or DB)"
+  ok "sbo3l audit export available (chain or DB)"
 else
-  fail "mandate audit export missing — main is in an unexpected state"
+  fail "sbo3l audit export missing — main is in an unexpected state"
   exit 1
 fi
 echo
@@ -396,30 +396,30 @@ echo
 # ─── 9. DB-backed audit-bundle export + verify (REAL today) ──────────────
 bold "9. DB-backed audit bundle — export from SQLite + verify"
 # Public verification keys for the deterministic dev signers in
-# `crates/mandate-server/src/lib.rs:54-55`. These are NOT secrets — they are
+# `crates/sbo3l-server/src/lib.rs:54-55`. These are NOT secrets — they are
 # derived from public seed bytes. Production deployments inject real
 # signers via `AppState::with_signers` (TEE/HSM-backed); when PSM-A1.9 lands a
-# `mandate key list --mock` command this script can switch to reading the
+# `sbo3l key list --mock` command this script can switch to reading the
 # pubkeys from there instead of hardcoding.
 AUDIT_PUBKEY="66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a"
 RECEIPT_PUBKEY="ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
 BUNDLE_PATH="$TMPDIR_PSM/bundle.json"
 
-./target/debug/mandate audit export \
+./target/debug/sbo3l audit export \
   --receipt "$RECEIPT_PATH" \
   --db "$DB_PATH" \
   --receipt-pubkey "$RECEIPT_PUBKEY" \
   --audit-pubkey "$AUDIT_PUBKEY" \
   --out "$BUNDLE_PATH" 2>&1 | sed 's/^/    /'
-ok "mandate audit export --db ... --out $BUNDLE_PATH"
+ok "sbo3l audit export --db ... --out $BUNDLE_PATH"
 
-VERIFY_OUT="$(./target/debug/mandate audit verify-bundle --path "$BUNDLE_PATH" 2>&1)"
+VERIFY_OUT="$(./target/debug/sbo3l audit verify-bundle --path "$BUNDLE_PATH" 2>&1)"
 echo "$VERIFY_OUT" | sed 's/^/    /'
 if ! grep -q '^ok: bundle verified' <<<"$VERIFY_OUT"; then
   fail "verify-bundle did not report success"
   exit 1
 fi
-ok "mandate audit verify-bundle — receipt + chain + signatures + linkage all valid"
+ok "sbo3l audit verify-bundle — receipt + chain + signatures + linkage all valid"
 
 # ─── 9b. Tamper detection on the bundle ──────────────────────────────────
 TAMPERED_BUNDLE="$TMPDIR_PSM/bundle-tampered.json"
@@ -434,7 +434,7 @@ b = json.load(open(src))
 b["receipt"]["decision"] = "deny"
 json.dump(b, open(dst, "w"), separators=(",", ":"), sort_keys=True)
 PY
-if ./target/debug/mandate audit verify-bundle --path "$TAMPERED_BUNDLE" >/dev/null 2>&1; then
+if ./target/debug/sbo3l audit verify-bundle --path "$TAMPERED_BUNDLE" >/dev/null 2>&1; then
   fail "tampered bundle was accepted by verify-bundle (this is critical)"
   exit 1
 fi
@@ -443,7 +443,7 @@ echo
 
 # ─── 10. Audit checkpoint create/verify (PSM-A4 — REAL today) ───────────
 # PSM-A4 shipped here: persistent `audit_checkpoints` table (V007) +
-# `mandate audit checkpoint {create,verify}` CLI surface. This is
+# `sbo3l audit checkpoint {create,verify}` CLI surface. This is
 # **mock anchoring**, NOT real onchain anchoring — the
 # `mock_anchor_ref` is a deterministic local id, never broadcast and
 # never attested by any chain. The `mock-anchor:` prefix is on every
@@ -453,20 +453,20 @@ echo
 bold "10. Audit checkpoint create/verify (PSM-A4 — mock anchoring)"
 if have_subcmd audit checkpoint; then
   CHECKPOINT_OUT="$TMPDIR_PSM/checkpoint.json"
-  if ./target/debug/mandate audit checkpoint create \
+  if ./target/debug/sbo3l audit checkpoint create \
        --db "$DB_PATH" --out "$CHECKPOINT_OUT" 2>&1 | sed 's/^/    /'; then
-    ok "mandate audit checkpoint create --db $DB_PATH --out $CHECKPOINT_OUT"
+    ok "sbo3l audit checkpoint create --db $DB_PATH --out $CHECKPOINT_OUT"
   else
-    fail "mandate audit checkpoint create returned non-zero"
+    fail "sbo3l audit checkpoint create returned non-zero"
     exit 1
   fi
   # Capture verify output for the operator-console evidence transcript.
-  CHECKPOINT_VERIFY_OUT="$(./target/debug/mandate audit checkpoint verify "$CHECKPOINT_OUT" \
+  CHECKPOINT_VERIFY_OUT="$(./target/debug/sbo3l audit checkpoint verify "$CHECKPOINT_OUT" \
        --db "$DB_PATH" 2>&1)"
   printf '%s\n' "$CHECKPOINT_VERIFY_OUT" | sed 's/^/    /'
-  ok "mandate audit checkpoint verify $(basename "$CHECKPOINT_OUT") --db $DB_PATH (chain_digest + anchor row + latest_event_hash all match)"
+  ok "sbo3l audit checkpoint verify $(basename "$CHECKPOINT_OUT") --db $DB_PATH (chain_digest + anchor row + latest_event_hash all match)"
 else
-  skip "blocked: waiting for \`mandate audit checkpoint\` (backlog PSM-A4)"
+  skip "blocked: waiting for \`sbo3l audit checkpoint\` (backlog PSM-A4)"
   note_skip "Audit checkpoints + mock anchoring — PSM-A4"
   CHECKPOINT_OUT=""
   CHECKPOINT_VERIFY_OUT=""
@@ -474,9 +474,9 @@ fi
 echo
 
 # ─── 10b. Passport capsule emit + verify (Passport P2.1 — REAL today) ───
-# `mandate passport run` orchestrates the existing offline pipeline
+# `sbo3l passport run` orchestrates the existing offline pipeline
 # (APRP → request_hash → policy → budget → audit → signed receipt) +
-# mock executor handoff and emits one `mandate.passport_capsule.v1`
+# mock executor handoff and emits one `sbo3l.passport_capsule.v1`
 # JSON per request. Wraps existing primitives — no rewrite of crypto,
 # audit semantics, or policy logic.
 #
@@ -491,7 +491,7 @@ echo
 # Outputs go into demo-scripts/artifacts/ so static proof surfaces
 # (P2.2: trust-badge / operator-console capsule panels) and the
 # schema validator can pick them up. Each capsule round-trips
-# through `mandate passport verify` before the runner moves on.
+# through `sbo3l passport verify` before the runner moves on.
 bold "10b. Passport capsule emit + verify (Passport P2.1 — mock executor)"
 if have_subcmd passport run; then
   PASSPORT_ARTIFACTS="demo-scripts/artifacts"
@@ -499,7 +499,7 @@ if have_subcmd passport run; then
   PASSPORT_ALLOW="$PASSPORT_ARTIFACTS/passport-allow.json"
   PASSPORT_DENY="$PASSPORT_ARTIFACTS/passport-deny.json"
 
-  if ./target/debug/mandate passport run \
+  if ./target/debug/sbo3l passport run \
        test-corpus/aprp/golden_001_minimal.json \
        --db "$POLICY_DB" \
        --agent research-agent.team.eth \
@@ -508,13 +508,13 @@ if have_subcmd passport run; then
        --executor keeperhub \
        --mode mock \
        --out "$PASSPORT_ALLOW" 2>&1 | sed 's/^/    /' \
-     && ./target/debug/mandate passport verify --path "$PASSPORT_ALLOW" 2>&1 | sed 's/^/    /'; then
+     && ./target/debug/sbo3l passport verify --path "$PASSPORT_ALLOW" 2>&1 | sed 's/^/    /'; then
     ok "passport ALLOW capsule → $PASSPORT_ALLOW (run + verify)"
   else
     fail "passport allow path failed (run or verify)"
     exit 1
   fi
-  if ./target/debug/mandate passport run \
+  if ./target/debug/sbo3l passport run \
        test-corpus/aprp/deny_prompt_injection_request.json \
        --db "$POLICY_DB" \
        --agent research-agent.team.eth \
@@ -523,15 +523,15 @@ if have_subcmd passport run; then
        --executor keeperhub \
        --mode mock \
        --out "$PASSPORT_DENY" 2>&1 | sed 's/^/    /' \
-     && ./target/debug/mandate passport verify --path "$PASSPORT_DENY" 2>&1 | sed 's/^/    /'; then
+     && ./target/debug/sbo3l passport verify --path "$PASSPORT_DENY" 2>&1 | sed 's/^/    /'; then
     ok "passport DENY  capsule → $PASSPORT_DENY (run + verify; status=not_called, no execution_ref)"
   else
     fail "passport deny path failed (run or verify)"
     exit 1
   fi
 else
-  skip "blocked: waiting for \`mandate passport run\` (backlog Passport P2.1)"
-  note_skip "Passport capsule emission (mandate passport run/verify) — Passport P2.1"
+  skip "blocked: waiting for \`sbo3l passport run\` (backlog Passport P2.1)"
+  note_skip "Passport capsule emission (sbo3l passport run/verify) — Passport P2.1"
 fi
 echo
 
@@ -567,19 +567,19 @@ fi
 echo
 
 # ─── 12. Operator-console evidence transcript (B2.v2) ────────────────────
-# Synthesise a `mandate-operator-evidence-v1` JSON capturing every
+# Synthesise a `sbo3l-operator-evidence-v1` JSON capturing every
 # real-evidence panel the operator-console will render: PSM-A2
 # idempotency 4-case, PSM-A5 doctor JSON, PSM-A1.9 mock KMS keyring,
 # PSM-A3 active policy lifecycle, PSM-A4 audit checkpoints. Trust-badge
 # is intentionally untouched — it continues to consume only
-# `mandate-demo-summary-v1`. The new evidence file lives next to the
+# `sbo3l-demo-summary-v1`. The new evidence file lives next to the
 # existing demo-summary transcript and is gitignored.
 bold "12. Operator-console evidence transcript (B2.v2)"
 mkdir -p demo-scripts/artifacts
 EVIDENCE_PATH="demo-scripts/artifacts/latest-operator-evidence.json"
 DEMO_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 GENERATED_AT_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-EVIDENCE_SCHEMA="mandate-operator-evidence-v1"
+EVIDENCE_SCHEMA="sbo3l-operator-evidence-v1"
 
 # Bridge captured shell vars + temp file paths into python via env.
 # `${VAR:-}` makes the assignment safe if a step skipped (vars unset).
@@ -625,7 +625,7 @@ def _read_bytes_file(env_key):
             pass
     return None
 
-# 1. PSM-A5 — mandate doctor --json envelope.
+# 1. PSM-A5 — sbo3l doctor --json envelope.
 doctor_raw = _read_text("DOCTOR_JSON").strip()
 doctor_report = None
 checks_summary = {"ok": 0, "skip": 0, "fail": 0}
@@ -771,19 +771,19 @@ cat <<EOF
   REAL today (executed by this run, no network):
     - persistent SQLite-backed APRP + nonce-replay (legit + prompt-injection)
     - signed Ed25519 policy receipts, hash-chained audit log
-    - mock KMS CLI surface (PSM-A1.9): \`mandate key {init,list,rotate} --mock\`
+    - mock KMS CLI surface (PSM-A1.9): \`sbo3l key {init,list,rotate} --mock\`
       lifecycle exercised against a fresh SQLite (V005 \`mock_kms_keys\`)
-    - active-policy lifecycle (PSM-A3): \`mandate policy {validate,current,activate,diff}\`
+    - active-policy lifecycle (PSM-A3): \`sbo3l policy {validate,current,activate,diff}\`
       against V006 \`active_policy\` with DB-enforced singleton invariant
     - audit checkpoints (PSM-A4 — **MOCK ANCHORING**, not onchain):
-      \`mandate audit checkpoint {create,verify}\` against V007 \`audit_checkpoints\`;
+      \`sbo3l audit checkpoint {create,verify}\` against V007 \`audit_checkpoints\`;
       every output line carries the \`mock-anchor:\` prefix
-    - \`mandate doctor\` (PSM-A5): operator readiness summary
+    - \`sbo3l doctor\` (PSM-A5): operator readiness summary
     - HTTP \`Idempotency-Key\` safe-retry (PSM-A2): four-case behaviour
-      matrix exercised against a real mandate-server on 127.0.0.1:${IDEM_PORT}
+      matrix exercised against a real sbo3l-server on 127.0.0.1:${IDEM_PORT}
       with persistent SQLite at \`$(basename "$IDEM_DB")\`
-    - \`mandate audit export --db\` over the live SQLite file
-    - \`mandate audit verify-bundle\` round-trip
+    - \`sbo3l audit export --db\` over the live SQLite file
+    - \`sbo3l audit verify-bundle\` round-trip
     - tamper detection on the exported bundle
     - agent no-key proof (covered in the 13-gate final demo)
     - trust-badge static proof viewer + render regression test
@@ -792,7 +792,7 @@ cat <<EOF
     - KeeperHub guarded execution: \`KeeperHubExecutor::local_mock()\`
     - Uniswap guarded swap:        \`UniswapExecutor::local_mock()\`
     - ENS resolver:                offline fixture (\`OfflineEnsResolver\`)
-    - signing seeds:               deterministic dev seeds in mandate-server (⚠ DEV ONLY ⚠)
+    - signing seeds:               deterministic dev seeds in sbo3l-server (⚠ DEV ONLY ⚠)
 
   SKIPPED (backlog items, real production-shaped commands not merged yet):
 ${SKIPPED_NOTES[@]+$(printf '%s\n' "${SKIPPED_NOTES[@]}")}

@@ -1,24 +1,24 @@
-# `mandate passport` — proof-carrying execution capsules
+# `sbo3l passport` — proof-carrying execution capsules
 
 > *Local production-shaped lifecycle, not remote governance.*
 
-`mandate passport {run, verify, explain}` (Passport P1.1 + P2.1) is the operator-facing surface for the Mandate Passport capsule — the portable, offline-verifiable proof artifact that wraps one Mandate decision plus its surrounding identity, request, policy, execution, audit, and verification context. Schema and source-of-truth doc:
+`sbo3l passport {run, verify, explain}` (Passport P1.1 + P2.1) is the operator-facing surface for the SBO3L Passport capsule — the portable, offline-verifiable proof artifact that wraps one SBO3L decision plus its surrounding identity, request, policy, execution, audit, and verification context. Schema and source-of-truth doc:
 
-- `schemas/mandate.passport_capsule.v1.json` — the wire-format contract.
-- `docs/product/MANDATE_PASSPORT_SOURCE_OF_TRUTH.md` — the product-level definition.
+- `schemas/sbo3l.passport_capsule.v1.json` — the wire-format contract.
+- `docs/product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md` — the product-level definition.
 
-The CLI **wraps** existing Mandate primitives — APRP, PolicyReceipt, SignedAuditEvent, AuditCheckpoint, ENS records, mock executors. It does NOT redefine them and it does NOT reimplement cryptography, audit-chain semantics, or the policy engine. Live integration is intentionally out of scope for P2.1; `--mode live` is rejected with exit 2.
+The CLI **wraps** existing SBO3L primitives — APRP, PolicyReceipt, SignedAuditEvent, AuditCheckpoint, ENS records, mock executors. It does NOT redefine them and it does NOT reimplement cryptography, audit-chain semantics, or the policy engine. Live integration is intentionally out of scope for P2.1; `--mode live` is rejected with exit 2.
 
 ## Subcommands
 
-### `mandate passport run <APRP> --db <PATH> --agent <ENS> --resolver offline-fixture --ens-fixture <PATH> --executor {keeperhub,uniswap} --mode mock --out <PATH>`
+### `sbo3l passport run <APRP> --db <PATH> --agent <ENS> --resolver offline-fixture --ens-fixture <PATH> --executor {keeperhub,uniswap} --mode mock --out <PATH>`
 
-Drives the existing offline pipeline end-to-end and emits a `mandate.passport_capsule.v1` JSON to `--out`:
+Drives the existing offline pipeline end-to-end and emits a `sbo3l.passport_capsule.v1` JSON to `--out`:
 
 1. Load APRP from `<APRP>`.
 2. Look up the active policy from `<DB>` via PSM-A3's `Storage::policy_current`.
 3. Resolve the agent's ENS records via `OfflineEnsResolver::from_file(<ens_fixture>)`.
-4. Build an in-process `mandate-server` `AppState`, drive the request through `POST /v1/payment-requests` via the same `tower::oneshot` pattern the research-agent harness uses (no daemon).
+4. Build an in-process `sbo3l-server` `AppState`, drive the request through `POST /v1/payment-requests` via the same `tower::oneshot` pattern the research-agent harness uses (no daemon).
 5. Allow path → call the mock executor (`KeeperHubExecutor::local_mock` or `UniswapExecutor::local_mock`) and record `execution_ref` (`kh-<ULID>` / `uni-<ULID>`).
 6. Deny path → executor is **never** called; `execution.status = "not_called"`, `execution.execution_ref = null`. This is the hard truthfulness rule from P1.1 (tampered_001 fixture).
 7. Reopen storage, look up the just-appended audit event, create + persist a checkpoint via PSM-A4's `Storage::audit_checkpoint_create`.
@@ -39,9 +39,9 @@ Drives the existing offline pipeline end-to-end and emits a `mandate.passport_ca
 - The capsule's `audit.checkpoint.mock_anchor` is `true` (schema-locked `const true`). PSM-A4's `mock_anchor_ref` (`local-mock-anchor-<16 hex>`) flows through verbatim — no onchain claim.
 - The CLI re-derives the capsule and **self-verifies** before writing. If the assembled capsule fails either schema validation or any of P1.1's cross-field invariants (request_hash agreement, policy_hash agreement, decision-result agreement, agent_id agreement, audit_event_id agreement, checkpoint↔outer event_hash agreement), it refuses to write the file and exits 2.
 
-### `mandate passport verify --path <PATH>` (P1.1)
+### `sbo3l passport verify --path <PATH>` (P1.1)
 
-Structural verification of a capsule JSON. Runs `mandate-core::passport::verify_capsule` — the embedded schema followed by 8 cross-field truthfulness invariants. Documented in detail at the source-of-truth doc; unchanged from PR #42 / P1.1.
+Structural verification of a capsule JSON. Runs `sbo3l-core::passport::verify_capsule` — the embedded schema followed by 8 cross-field truthfulness invariants. Documented in detail at the source-of-truth doc; unchanged from PR #42 / P1.1.
 
 | Exit | Meaning |
 | --- | --- |
@@ -49,13 +49,13 @@ Structural verification of a capsule JSON. Runs `mandate-core::passport::verify_
 | 1 | IO / parse failure. |
 | 2 | Malformed / tampered / internally inconsistent (with `(capsule.<code>)` in stderr). |
 
-### `mandate passport explain --path <PATH> [--json]`
+### `sbo3l passport explain --path <PATH> [--json]`
 
 Reads + verifies a capsule, then prints a 6–10 line human summary (or `--json` structured object). On verifier failure exits 2 with the same `(capsule.<code>)` shape as `verify`, so any tooling that branches on verify codes also works for explain.
 
 ```text
-$ mandate passport explain --path artifacts/passport-allow.json
-Mandate Passport — capsule explanation
+$ sbo3l passport explain --path artifacts/passport-allow.json
+SBO3L Passport — capsule explanation
   agent:        research-agent-01 (research-agent.team.eth), resolver=offline-fixture
   policy:       v1, hash=e044f13c5acb…
   decision:     ALLOW (matched_rule=allow-small-x402-api-call)
@@ -88,8 +88,8 @@ The 13-gate hackathon demo (`demo-scripts/run-openagents-final.sh`) is **untouch
 
 These belong to later Passport phases:
 
-- **`mandate passport resolve`** (P2.1+ stretch) — pure ENS-records-only lookup.
-- **`mandate-mcp` server tools** (P3.1) — `mandate.run_guarded_execution`, `mandate.verify_capsule`, etc., wrapping the same logic.
+- **`sbo3l passport resolve`** (P2.1+ stretch) — pure ENS-records-only lookup.
+- **`sbo3l-mcp` server tools** (P3.1) — `sbo3l.run_guarded_execution`, `sbo3l.verify_capsule`, etc., wrapping the same logic.
 - **Live ENS resolver** (P4.1) — the `live-ens` resolver enum value is reserved but rejected by P2.1.
 - **Live KeeperHub envelope** (P5.1) — `--mode live` lands here with concrete credentials + `live_evidence`.
 - **Uniswap quote evidence in capsule** (P6.1) — quote id / route / freshness / slippage cap captured into the capsule's execution block.

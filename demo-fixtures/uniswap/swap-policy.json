@@ -1,5 +1,5 @@
 {
-  "_note": "Per-agent swap-policy fixture used by demo-scripts/sponsors/uniswap-guarded-swap.sh. Production deployments source these limits from the active Mandate policy; the demo keeps a separate file so the swap-policy guard can be exercised in isolation.",
+  "_note": "Per-agent swap-policy fixture used by demo-scripts/sponsors/uniswap-guarded-swap.sh. Production deployments source these limits from the active SBO3L policy; the demo keeps a separate file so the swap-policy guard can be exercised in isolation.",
   "agent_id": "research-agent-01",
   "chain": "base",
   "input_token_allowlist": ["USDC"],

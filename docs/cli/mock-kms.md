@@ -2,7 +2,7 @@
 
 > *Production-shaped, not production-ready.*
 
-`MockKmsSigner` (in `crates/mandate-core/src/mock_kms.rs`) is a local Ed25519 signer that **mimics the lifecycle shape of a managed KMS** — versioned keys, stable role names, rotation, historical-key verification — without ever leaving the process or talking to a real KMS.
+`MockKmsSigner` (in `crates/sbo3l-core/src/mock_kms.rs`) is a local Ed25519 signer that **mimics the lifecycle shape of a managed KMS** — versioned keys, stable role names, rotation, historical-key verification — without ever leaving the process or talking to a real KMS.
 
 ## What it is, and what it is not
 
@@ -24,7 +24,7 @@ The deterministic mock IS useful for:
 
 ## API surface
 
-`mandate_core::signer::SignerBackend` — the trait every signing surface uses:
+`sbo3l_core::signer::SignerBackend` — the trait every signing surface uses:
 
 ```rust
 pub trait SignerBackend {
@@ -36,7 +36,7 @@ pub trait SignerBackend {
 
 Both `DevSigner` and `MockKmsSigner` implement it. `UnsignedReceipt::sign`, `SignedAuditEvent::sign`, and `DecisionPayload::sign` all accept `&impl SignerBackend`, so swapping backends is a one-line change at the construction site.
 
-`mandate_core::mock_kms::MockKmsSigner`:
+`sbo3l_core::mock_kms::MockKmsSigner`:
 
 ```rust
 let mut s = MockKmsSigner::new(
@@ -56,7 +56,7 @@ assert_eq!(v2.key_id, "audit-mock-v2");
 
 // Old signatures stay verifiable via key_id resolution.
 let v1 = s.key_by_id("audit-mock-v1").unwrap();
-mandate_core::signer::verify_hex(&v1.public_hex, b"some canonical bytes", &sig).unwrap();
+sbo3l_core::signer::verify_hex(&v1.public_hex, b"some canonical bytes", &sig).unwrap();
 ```
 
 `MockKmsKeyMeta` exposes:
@@ -66,36 +66,36 @@ mandate_core::signer::verify_hex(&v1.public_hex, b"some canonical bytes", &sig).
 
 ## CLI (PSM-A1.9)
 
-`mandate key {init,list,rotate}` operate on the persistent `mock_kms_keys` SQLite table (migration **V005**). Every operation requires `--mock` for explicit disclosure — these commands are NOT plug-compatible with a production KMS.
+`sbo3l key {init,list,rotate}` operate on the persistent `mock_kms_keys` SQLite table (migration **V005**). Every operation requires `--mock` for explicit disclosure — these commands are NOT plug-compatible with a production KMS.
 
 ```bash
 # Initialise role=audit-mock at v1, deterministic seed, in-process db.
-mandate key init --mock \
+sbo3l key init --mock \
   --role      audit-mock \
   --root-seed 2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a \
-  --db        /var/lib/mandate/mandate.sqlite
+  --db        /var/lib/sbo3l/sbo3l.sqlite
 
 # List the keyring (filter by --role optional).
-mandate key list --mock --db /var/lib/mandate/mandate.sqlite
+sbo3l key list --mock --db /var/lib/sbo3l/sbo3l.sqlite
 
 # Rotate to next version. Reads max(version) for the role, derives v(n+1)
 # from (role, n+1, root_seed), inserts the row. Old version stays listed
 # so a verifier can resolve historical key_ids back to public keys.
-mandate key rotate --mock \
+sbo3l key rotate --mock \
   --role      audit-mock \
   --root-seed 2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a \
-  --db        /var/lib/mandate/mandate.sqlite
+  --db        /var/lib/sbo3l/sbo3l.sqlite
 ```
 
 The `--root-seed` is **never** stored in the SQLite database — only the resulting public-key metadata is persisted. The seed is supplied on every operation; rotation requires the same seed used at init (otherwise the derived public key wouldn't match what `MockKmsSigner` would produce).
 
 `init` is idempotent: re-running with the same args reports the existing v1 row and exits 0.
 
-`mandate doctor` automatically promotes the `mock_kms_keys` row from `skip` to `ok` once V005 has run and at least one keyring exists.
+`sbo3l doctor` automatically promotes the `mock_kms_keys` row from `skip` to `ok` once V005 has run and at least one keyring exists.
 
 ## Tests
 
-`crates/mandate-core/src/mock_kms.rs::tests` covers:
+`crates/sbo3l-core/src/mock_kms.rs::tests` covers:
 
 - v1 keyring metadata is deterministic;
 - different root seeds yield different keys;
@@ -114,12 +114,12 @@ The `--root-seed` is **never** stored in the SQLite database — only the result
 
 - In-process `MockKmsSigner` (PSM-A1) — programmatic API for signing receipts / audit events / decision tokens through the `SignerBackend` trait.
 - Persistent mock keyring storage in SQLite (PSM-A1.9, migration V005 `mock_kms_keys`) — public-key metadata only; root seeds are never persisted.
-- `mandate key {init,list,rotate} --mock --db <path>` CLI — every operation requires `--mock`; every output line is `mock-kms:`-prefixed; rotate refuses on mismatched root-seed; current-version lookup propagates real DB errors (no silent "no keyring" mask).
-- `mandate doctor` reports `mock_kms_keys` as `ok` once V005 is applied.
+- `sbo3l key {init,list,rotate} --mock --db <path>` CLI — every operation requires `--mock`; every output line is `mock-kms:`-prefixed; rotate refuses on mismatched root-seed; current-version lookup propagates real DB errors (no silent "no keyring" mask).
+- `sbo3l doctor` reports `mock_kms_keys` as `ok` once V005 is applied.
 
 ## Limitations carried forward (truthful disclosure)
 
 - **`derive_signing_key` is a deterministic seed-stretch, not a production KDF.** Do not adopt it for any non-mock context.
-- **No live KMS / HSM backend.** Production deployments inject signers via `AppState::with_signers` (TEE/HSM-backed). The `MANDATE_SIGNER_BACKEND` selector and per-role `MANDATE_*_SIGNER_KEY_ID` env vars are documented in [`docs/production-transition-checklist.md`](../production-transition-checklist.md#signer--mock-kms--hsm); none of those wirings exist in this build.
-- **Daemon still constructs `DevSigner`.** `mandate-server` does not yet load the persistent mock keyring at startup. Wiring the daemon to read v(n) public keys from the mock-KMS table for receipt/audit signing is follow-up work, not part of PSM-A1.9.
+- **No live KMS / HSM backend.** Production deployments inject signers via `AppState::with_signers` (TEE/HSM-backed). The `SBO3L_SIGNER_BACKEND` selector and per-role `MANDATE_*_SIGNER_KEY_ID` env vars are documented in [`docs/production-transition-checklist.md`](../production-transition-checklist.md#signer--mock-kms--hsm); none of those wirings exist in this build.
+- **Daemon still constructs `DevSigner`.** `sbo3l-server` does not yet load the persistent mock keyring at startup. Wiring the daemon to read v(n) public keys from the mock-KMS table for receipt/audit signing is follow-up work, not part of PSM-A1.9.
 - **`--root-seed` is a CLI input, not a secret.** It is *never* persisted to the SQLite DB (only the per-version public material is). Operators must keep the seed out of shell history / process listings the same way they would treat any other key bootstrap input.

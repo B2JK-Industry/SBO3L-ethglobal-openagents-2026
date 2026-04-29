@@ -1,5 +1,5 @@
 {
-  "_note": "Attacker-induced Uniswap quote: swap into a rug-token output (not on the policy allowlist) routed to a denied treasury recipient with extreme slippage. The Mandate demo uses this fixture to prove deny-before-execution.",
+  "_note": "Attacker-induced Uniswap quote: swap into a rug-token output (not on the policy allowlist) routed to a denied treasury recipient with extreme slippage. The SBO3L demo uses this fixture to prove deny-before-execution.",
   "quote_id": "qt-01HZFAKEDEMOQ002",
   "input": {
     "token_symbol": "USDC",

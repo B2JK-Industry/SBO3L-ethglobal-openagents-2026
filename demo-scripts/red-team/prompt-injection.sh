@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Red-team standalone gate: a prompt-injected agent must NEVER successfully
-# spend. Mandate denies before any signer or sponsor executor runs, the deny
+# spend. SBO3L denies before any signer or sponsor executor runs, the deny
 # is captured in the signed audit chain, and the policy receipt that comes
 # back carries `decision: Deny` with a stable deny_code.
 #
@@ -22,8 +22,8 @@ echo
 
 # All three assertions must hold or the gate fails loud.
 echo "$OUT" | grep -q '^decision: *Deny$' \
-  || { echo "FAIL D-RT-PI-01: Mandate did not deny the malicious request"; exit 1; }
-ok "D-RT-PI-01: Mandate denied prompt-injected request"
+  || { echo "FAIL D-RT-PI-01: SBO3L did not deny the malicious request"; exit 1; }
+ok "D-RT-PI-01: SBO3L denied prompt-injected request"
 
 echo "$OUT" | grep -Eq '^deny_code: *(policy\.deny_recipient_not_allowlisted|policy\.deny_unknown_provider)$' \
   || { echo "FAIL D-RT-PI-02: deny_code is not in the accepted set"; exit 1; }

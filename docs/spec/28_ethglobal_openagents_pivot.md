@@ -1,14 +1,14 @@
-# Mandate ETHGlobal Open Agents Pivot Analysis
+# SBO3L ETHGlobal Open Agents Pivot Analysis
 
 **Datum:** 2026-04-26  
-**Ucel:** Vyhodnotit, ci **Mandate** (technical namespace `mandate`) dava vacsi zmysel submitnut do ETHGlobal Open Agents namiesto alebo popri ETHPrague.  
+**Ucel:** Vyhodnotit, ci **SBO3L** (technical namespace `mandate`) dava vacsi zmysel submitnut do ETHGlobal Open Agents namiesto alebo popri ETHPrague.  
 **Important:** Verejna stranka eventu a prizes page su aktualny ciel strategickeho rozhodovania. Pred finalnym build planom treba este raz overit presny rok/datum v ETHGlobal dashboarde alebo Discorde, lebo verejny scrape moze ukazovat cache/nekonzistentny datum.
 
 ---
 
 ## 1. Short verdict
 
-Ak je Open Agents aktualny/upcoming event, **Mandate** ma velmi dobry fit a moze byt dokonca prirodzenejsi target nez ETHPrague pre agent-infra bounty.
+Ak je Open Agents aktualny/upcoming event, **SBO3L** ma velmi dobry fit a moze byt dokonca prirodzenejsi target nez ETHPrague pre agent-infra bounty.
 
 ETHPrague je lepsi pre:
 
@@ -28,7 +28,7 @@ Open Agents je lepsi pre:
 
 Najlepsi tah nie je projekt zahodit ani prepisat. Najlepsi tah je mat **Open Agents mode**:
 
-> Mandate as the policy, identity and execution firewall for open AI agents.
+> SBO3L as the policy, identity and execution firewall for open AI agents.
 
 ---
 
@@ -40,13 +40,13 @@ KeeperHub sa popisuje ako execution and reliability layer for AI agents operatin
 
 **Winning frame:**
 
-> Mandate decides, KeeperHub executes.
+> SBO3L decides, KeeperHub executes.
 
 Agent neposiela transakcie priamo. Agent posle payment/action intent do mandate. Vault overi policy, budget, identity a audit, potom povoli KeeperHub execution.
 
 **Scope add:**
 
-- `/crates/mandate-execution/src/keeperhub.rs`
+- `/crates/sbo3l-execution/src/keeperhub.rs`
 - `/demo-scripts/sponsors/keeperhub-guarded-execution.sh`
 - MCP/CLI adapter: approved requests can be routed into KeeperHub.
 
@@ -64,10 +64,10 @@ Open Agents ENS bounty chce, aby ENS robilo realnu pracu pre agent identity/disc
 
 - functional resolver check, nie hard-coded output,
 - text records:
-  - `mandate:agent_id`
-  - `mandate:policy_hash`
-  - `mandate:audit_root`
-  - `mandate:endpoint`
+  - `sbo3l:agent_id`
+  - `sbo3l:policy_hash`
+  - `sbo3l:audit_root`
+  - `sbo3l:endpoint`
 
 **Chance if working:** high.
 
@@ -202,7 +202,7 @@ Open Agents mode adds adapter and execution layers:
 Agent framework / MCP / A2A / AXL
           |
           v
-Mandate Agent Gateway (`mandate` technical service)
+SBO3L Agent Gateway (`mandate` technical service)
           |
           v
 Policy + Budget + Risk Engine
@@ -221,10 +221,10 @@ Policy + Budget + Risk Engine
 
 New modules:
 
-- `/crates/mandate-mcp/`
-- `/crates/mandate-execution/`
-- `/crates/mandate-identity/ens.rs`
-- `/crates/mandate-receipts/`
+- `/crates/sbo3l-mcp/`
+- `/crates/sbo3l-execution/`
+- `/crates/sbo3l-identity/ens.rs`
+- `/crates/sbo3l-receipts/`
 - `/demo-scripts/sponsors/{keeperhub,uniswap,gensyn-axl,ens,0g}-*.sh`
 
 ---
@@ -273,7 +273,7 @@ If a new Open Agents event is open, submit there too or prioritize it if timelin
 
 Build one core:
 
-> Mandate: policy-bound payment and execution firewall for AI agents.
+> SBO3L: policy-bound payment and execution firewall for AI agents.
 
 Then package it two ways:
 
@@ -301,7 +301,7 @@ This is the same architecture with different demo cuts.
 
 Pre Open Agents nestavat "universal agent security platform" v pitchi. Postavit jeden core a pre kazdeho sponzora ukazat uzky, realny adapter:
 
-> one Mandate core (`mandate` technical namespace), five sponsor-native entrypoints.
+> one SBO3L core (`mandate` technical namespace), five sponsor-native entrypoints.
 
 Core:
 
@@ -327,7 +327,7 @@ Sponsor adapters:
 
 **Narrow product frame:**
 
-> Mandate is the pre-execution risk and policy layer for KeeperHub-powered agents.
+> SBO3L is the pre-execution risk and policy layer for KeeperHub-powered agents.
 
 **Build only this:**
 
@@ -338,13 +338,13 @@ Sponsor adapters:
    - recipient,
    - chain/action allowlist,
    - policy hash.
-3. Mandate emits signed policy receipt.
+3. SBO3L emits signed policy receipt.
 4. Approved action is routed to KeeperHub CLI/API/MCP.
 5. Denied action never reaches KeeperHub.
 
 **Demo line:**
 
-> KeeperHub guarantees execution. Mandate guarantees the agent was allowed to ask for it.
+> KeeperHub guarantees execution. SBO3L guarantees the agent was allowed to ask for it.
 
 **Do not build:** our own retry/gas/private-routing layer. That competes with KeeperHub instead of complementing it.
 
@@ -354,19 +354,19 @@ Sponsor adapters:
 
 **Narrow product frame:**
 
-> ENS is the agent's public identity; Mandate is the enforcement behind that identity.
+> ENS is the agent's public identity; SBO3L is the enforcement behind that identity.
 
 **Build only this:**
 
 1. Agent has ENS name: `research-agent.team.eth`.
 2. ENS records resolve:
-   - `mandate:agent_id`,
-   - `mandate:endpoint`,
-   - `mandate:policy_hash`,
-   - `mandate:audit_root`,
-   - `mandate:receipt_schema`.
+   - `sbo3l:agent_id`,
+   - `sbo3l:endpoint`,
+   - `sbo3l:policy_hash`,
+   - `sbo3l:audit_root`,
+   - `sbo3l:receipt_schema`.
 3. Demo fetches records live or through a local resolver pointed at testnet records.
-4. The trust badge proves the policy hash on ENS matches the active mandate policy.
+4. The trust badge proves the policy hash on ENS matches the active sbo3l policy.
 
 **Demo line:**
 
@@ -380,13 +380,13 @@ Sponsor adapters:
 
 **Narrow product frame:**
 
-> Mandate is a guarded swap firewall for trading agents.
+> SBO3L is a guarded swap firewall for trading agents.
 
 **Build only this:**
 
 1. Agent asks: "Swap 5 USDC to ETH."
-2. Mandate calls/uses Uniswap API quote.
-3. Mandate enforces:
+2. SBO3L calls/uses Uniswap API quote.
+3. SBO3L enforces:
    - max trade size,
    - token allowlist,
    - max slippage,
@@ -409,7 +409,7 @@ Sponsor adapters:
 
 **Narrow product frame:**
 
-> AXL lets agents talk peer-to-peer; Mandate lets them pay peer-to-peer safely.
+> AXL lets agents talk peer-to-peer; SBO3L lets them pay peer-to-peer safely.
 
 **Build only this:**
 
@@ -417,7 +417,7 @@ Sponsor adapters:
 2. Seller/data agent runs on AXL node B.
 3. Buyer requests a paid report/API result.
 4. Payment intent moves through AXL.
-5. Mandate checks and signs/denies.
+5. SBO3L checks and signs/denies.
 6. Policy receipt returns over AXL.
 
 **Demo line:**
@@ -432,7 +432,7 @@ Sponsor adapters:
 
 **Narrow product frame:**
 
-> Mandate is a payment/policy module that open agent frameworks can plug into.
+> SBO3L is a payment/policy module that open agent frameworks can plug into.
 
 **Build only this:**
 
@@ -449,7 +449,7 @@ Option B - Autonomous agents track:
 
 **Demo line:**
 
-> 0G hosts the agent's memory/compute layer; Mandate controls its economic actions.
+> 0G hosts the agent's memory/compute layer; SBO3L controls its economic actions.
 
 **Do not build:** a new agent framework from scratch. A plugin/core extension has better scope discipline.
 

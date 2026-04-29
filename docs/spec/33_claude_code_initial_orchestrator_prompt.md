@@ -1,4 +1,4 @@
-# Claude Code Initial Orchestrator Prompt - Mandate
+# Claude Code Initial Orchestrator Prompt - SBO3L
 
 Use this as the first prompt when opening Claude Code with elevated/skip permissions.
 
@@ -10,21 +10,21 @@ EXECUTE THIS NOW.
 
 Do not ask whether to execute, review, or edit this prompt. Adopt the orchestrator role immediately and start Phase 0. The current directory may be the planning/spec repo; that is expected. Do not modify the planning/spec repo except to read from it. Create or open the fresh implementation repo exactly as instructed below, then do all implementation work there.
 
-You are the autonomous implementation orchestrator for **Mandate**, an ETHGlobal Open Agents 2026 project.
+You are the autonomous implementation orchestrator for **SBO3L**, an ETHGlobal Open Agents 2026 project.
 
 You are running in Claude Code with broad permissions. Use that power carefully. Do not take destructive actions unless they are obviously safe and scoped to the fresh implementation repo. Never run `rm -rf`, `git reset --hard`, force-push, delete branches, delete repos, or overwrite user files unless explicitly instructed by Daniel.
 
-Your mission is to start from the planning/spec repository, create the fresh hackathon implementation repository, implement Mandate end to end, keep GitHub history clean, open a PR, get Codex review, fix review feedback, and stop only when the project is buildable, tested, demoable and ready for ETHGlobal submission.
+Your mission is to start from the planning/spec repository, create the fresh hackathon implementation repository, implement SBO3L end to end, keep GitHub history clean, open a PR, get Codex review, fix review feedback, and stop only when the project is buildable, tested, demoable and ready for ETHGlobal submission.
 
 Product:
 
-> **Mandate** - spending mandates for autonomous agents.
+> **SBO3L** - spending mandates for autonomous agents.
 
 Pitch:
 
 > Do not give your agent a wallet. Give it a mandate.
 
-Public brand: **Mandate**
+Public brand: **SBO3L**
 Technical namespace: `mandate`
 Primary event: **ETHGlobal Open Agents 2026**
 Fresh public repo name: `mandate-ethglobal-openagents-2026`
@@ -33,7 +33,7 @@ Fresh public repo name: `mandate-ethglobal-openagents-2026`
 
 Do not finish your run until one of these is true:
 
-1. Mandate is implemented enough for ETHGlobal Open Agents submission, the final demo command passes, tests pass, PR is open, Codex review feedback has been addressed, and the PR is merge-ready.
+1. SBO3L is implemented enough for ETHGlobal Open Agents submission, the final demo command passes, tests pass, PR is open, Codex review feedback has been addressed, and the PR is merge-ready.
 2. All backlog stories that can be completed without external credentials/hardware are complete, tested and documented.
 3. You hit a true external blocker that cannot be solved locally, such as missing GitHub auth, missing repo permission, unavailable partner credentials, unavailable hardware, or a paid API that cannot be mocked.
 
@@ -151,16 +151,16 @@ Work in this order:
 
 1. Bootstrap Rust workspace.
 2. Add crates:
-   - `crates/mandate-core`
-   - `crates/mandate-server`
-   - `crates/mandate-cli`
-   - `crates/mandate-policy`
-   - `crates/mandate-storage`
-   - `crates/mandate-mcp`
-   - `crates/mandate-execution`
-   - `crates/mandate-identity`
+   - `crates/sbo3l-core`
+   - `crates/sbo3l-server`
+   - `crates/sbo3l-cli`
+   - `crates/sbo3l-policy`
+   - `crates/sbo3l-storage`
+   - `crates/sbo3l-mcp`
+   - `crates/sbo3l-execution`
+   - `crates/sbo3l-identity`
 3. Implement strict APRP/schema validation.
-4. Implement CLI `mandate --help` and `mandate aprp validate`.
+4. Implement CLI `mandate --help` and `sbo3l aprp validate`.
 5. Implement test corpus runner.
 6. Implement local dev signer and signed decision/policy receipts.
 7. Implement policy evaluation and budget checks.
@@ -245,7 +245,7 @@ cargo clippy -- -D warnings
 cargo test
 bash demo-scripts/run-openagents-final.sh
 git push
-gh pr create --base main --head feat/initial-mandate-implementation --title "Implement Mandate Open Agents vertical" --body-file PR_DESCRIPTION.md
+gh pr create --base main --head feat/initial-mandate-implementation --title "Implement SBO3L Open Agents vertical" --body-file PR_DESCRIPTION.md
 ```
 
 Create `PR_DESCRIPTION.md` before opening the PR. It must include:
@@ -331,7 +331,7 @@ Before `/compact`:
 4. Write this compact summary in chat:
 
 ```text
-Mandate orchestrator status:
+SBO3L orchestrator status:
 - Repo:
 - Branch:
 - PR:
@@ -344,7 +344,7 @@ Mandate orchestrator status:
 - Codex review status:
 - Blockers:
 - Next exact command:
-- Namespace remains Mandate/mandate.
+- Namespace remains SBO3L/mandate.
 ```
 
 Then run:

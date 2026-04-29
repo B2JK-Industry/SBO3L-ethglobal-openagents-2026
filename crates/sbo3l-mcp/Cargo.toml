@@ -1,0 +1,49 @@
+[package]
+name = "sbo3l-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SBO3L MCP — stdio JSON-RPC server wrapping SBO3L primitives (Passport P3.1)."
+
+[[bin]]
+name = "sbo3l-mcp"
+path = "src/main.rs"
+
+[dependencies]
+# Core SBO3L primitives — every MCP tool wraps one of these.
+# No new logic: validate_aprp / verify_capsule / build / verify in sbo3l-core,
+# AppState + router in sbo3l-server, executor mocks in sbo3l-execution.
+sbo3l-core = { workspace = true }
+sbo3l-policy = { workspace = true }
+sbo3l-storage = { workspace = true }
+sbo3l-identity = { workspace = true }
+sbo3l-execution = { workspace = true }
+sbo3l-server = { path = "../sbo3l-server" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+
+# Stdio JSON-RPC dispatch loop runs inside a tokio runtime so each
+# tool call can drive the existing axum/tower payment-requests pipeline
+# in-process via the same `oneshot` pattern `sbo3l passport run` uses
+# (see crates/sbo3l-cli/src/passport.rs::oneshot_payment_request).
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+# Tests drive the binary over stdio — `assert_cmd` would add a transitive,
+# so we use Command::spawn directly with stdin/stdout pipes (same pattern
+# as crates/sbo3l-cli/tests/passport_cli.rs).
+tempfile = { workspace = true }
+rusqlite = { workspace = true }

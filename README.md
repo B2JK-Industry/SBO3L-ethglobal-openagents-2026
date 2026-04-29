@@ -1,8 +1,8 @@
-# Mandate
+# SBO3L
 
 > Don't give your agent a wallet. Give it a mandate.
 
-**Mandate** is a local policy, budget, receipt and audit firewall that decides whether an autonomous AI agent may execute an onchain or payment action. The agent never holds a private key. Mandate decides, signs and audits.
+**SBO3L** is a local policy, budget, receipt and audit firewall that decides whether an autonomous AI agent may execute an onchain or payment action. The agent never holds a private key. SBO3L decides, signs and audits.
 
 This repository was implemented during **ETHGlobal Open Agents 2026**. Planning and specification artifacts under [`docs/spec/`](docs/spec/) were copied from a pre-hackathon planning repository (`agent-vault-os`) and are clearly labelled — they are not prior product code.
 
@@ -10,11 +10,11 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Status
 
-**Implemented and reproducible from a fresh clone.** `cargo test --workspace --all-targets` runs **310/310 green**. `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~5 seconds. `bash demo-scripts/run-production-shaped-mock.sh` exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `mandate doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with **Tally: 26 real, 0 mock, 1 skipped** (only the optional `--include-final-demo` flag remains on the SKIPPED list — every A-side backlog item has merged). The MCP-callable Mandate gateway (`crates/mandate-mcp/`, P3.1), the IP-1 KeeperHub envelope helper (`mandate_keeperhub_adapter::build_envelope`, P5.1), and the publishable workspace crate `crates/mandate-keeperhub-adapter` (IP-4) are present; judge-facing integration walk-through in [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md). See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
+**Implemented and reproducible from a fresh clone.** `cargo test --workspace --all-targets` runs **310/310 green**. `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~5 seconds. `bash demo-scripts/run-production-shaped-mock.sh` exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `sbo3l doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with **Tally: 26 real, 0 mock, 1 skipped** (only the optional `--include-final-demo` flag remains on the SKIPPED list — every A-side backlog item has merged). The MCP-callable SBO3L gateway (`crates/sbo3l-mcp/`, P3.1), the IP-1 KeeperHub envelope helper (`sbo3l_keeperhub_adapter::build_envelope`, P5.1), and the publishable workspace crate `crates/sbo3l-keeperhub-adapter` (IP-4) are present; judge-facing integration walk-through in [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md). See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
 
 ## Verify the demo
 
-Public proof URL (deployed from `main` by [`.github/workflows/pages.yml`](.github/workflows/pages.yml)): **<https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/>** — landing page links to the trust-badge proof viewer, the operator-console evidence panels, and a downloadable Passport capsule (`mandate.passport_capsule.v1`) you can verify offline with `mandate passport verify --path capsule.json`. The site is plain static HTML, no JavaScript, no client-side network calls; the `_site/` build is rendered from the same deterministic regression fixtures `python3 trust-badge/test_build.py` + `python3 operator-console/test_build.py` validate on every CI run, so the URL shows the same shape on every visit.
+Public proof URL (deployed from `main` by [`.github/workflows/pages.yml`](.github/workflows/pages.yml)): **<https://b2jk-industry.github.io/mandate-ethglobal-openagents-2026/>** — landing page links to the trust-badge proof viewer, the operator-console evidence panels, and a downloadable Passport capsule (`sbo3l.passport_capsule.v1`) you can verify offline with `sbo3l passport verify --path capsule.json`. The site is plain static HTML, no JavaScript, no client-side network calls; the `_site/` build is rendered from the same deterministic regression fixtures `python3 trust-badge/test_build.py` + `python3 operator-console/test_build.py` validate on every CI run, so the URL shows the same shape on every visit.
 
 ## Three commands a judge needs
 
@@ -30,23 +30,23 @@ python3 trust-badge/build.py
 python3 trust-badge/test_build.py
 ```
 
-For a verifiable, offline-portable proof of a single decision, see [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md): `mandate audit export` packages a signed receipt + audit chain prefix + signer keys into one JSON file; `mandate audit verify-bundle` re-derives every claim from that file alone.
+For a verifiable, offline-portable proof of a single decision, see [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md): `sbo3l audit export` packages a signed receipt + audit chain prefix + signer keys into one JSON file; `sbo3l audit verify-bundle` re-derives every claim from that file alone.
 
 ## What this is
 
-- A Rust workspace implementing the **Mandate** spending-mandate firewall for AI agents.
+- A Rust workspace implementing the **SBO3L** spending-mandate firewall for AI agents.
 - A real research-agent demo harness that proves legitimate vs prompt-injection scenarios across the same boundary.
 - Sponsor-facing adapters for **KeeperHub**, **ENS** and **Uniswap** with explicit `local_mock()` / `live()` constructors.
 - Signed Ed25519 policy receipts and a hash-chained, tamper-evident audit log persisted in SQLite.
 - A verifiable audit-bundle export and a static, offline trust-badge proof viewer.
 
-## How Mandate plugs into KeeperHub
+## How SBO3L plugs into KeeperHub
 
-> *KeeperHub executes. Mandate proves the execution was authorised.*
+> *KeeperHub executes. SBO3L proves the execution was authorised.*
 
-Mandate sits **in front of** KeeperHub as the policy / budget / signing / audit boundary. Allow receipts flow into `KeeperHubExecutor::execute()`; Deny receipts are refused before any sponsor call. Five concrete integration paths the KeeperHub team could merge or build on — `mandate_*` upstream-proof envelope fields (IP-1), submission JSON Schema (IP-2), `keeperhub.lookup_execution` MCP tool (IP-3), standalone `mandate-keeperhub-adapter` crate (IP-4), Passport capsule URI on the execution row (IP-5) — are catalogued in [`docs/keeperhub-integration-paths.md`](docs/keeperhub-integration-paths.md). Each is independently small, independently reviewable, and pointed at the place in this repo where the corresponding work lives.
+SBO3L sits **in front of** KeeperHub as the policy / budget / signing / audit boundary. Allow receipts flow into `KeeperHubExecutor::execute()`; Deny receipts are refused before any sponsor call. Five concrete integration paths the KeeperHub team could merge or build on — `sbo3l_*` upstream-proof envelope fields (IP-1), submission JSON Schema (IP-2), `keeperhub.lookup_execution` MCP tool (IP-3), standalone `sbo3l-keeperhub-adapter` crate (IP-4), Passport capsule URI on the execution row (IP-5) — are catalogued in [`docs/keeperhub-integration-paths.md`](docs/keeperhub-integration-paths.md). Each is independently small, independently reviewable, and pointed at the place in this repo where the corresponding work lives.
 
-The demo today always constructs `KeeperHubExecutor::local_mock()` (clearly disclosed); the live shape is documented end-to-end in [`docs/keeperhub-live-spike.md`](docs/keeperhub-live-spike.md) including the eight open questions for the KeeperHub team, the offline-CI test strategy, and the file-by-file shopping list for the live PR (~250 lines of Rust). On the MCP front the IP-3 **Mandate side is implemented on `main`** — `mandate-mcp` (PR #46) exposes a stdio JSON-RPC `mandate.audit_lookup` tool symmetric to KeeperHub's proposed `keeperhub.lookup_execution`, so an MCP-aware auditor can cross-verify a KeeperHub `executionId` against a Mandate audit bundle in two tool calls; judge-facing walk-through in [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md). The KeeperHub side of the IP-3 pair remains target.
+The demo today always constructs `KeeperHubExecutor::local_mock()` (clearly disclosed); the live shape is documented end-to-end in [`docs/keeperhub-live-spike.md`](docs/keeperhub-live-spike.md) including the eight open questions for the KeeperHub team, the offline-CI test strategy, and the file-by-file shopping list for the live PR (~250 lines of Rust). On the MCP front the IP-3 **SBO3L side is implemented on `main`** — `sbo3l-mcp` (PR #46) exposes a stdio JSON-RPC `sbo3l.audit_lookup` tool symmetric to KeeperHub's proposed `keeperhub.lookup_execution`, so an MCP-aware auditor can cross-verify a KeeperHub `executionId` against a SBO3L audit bundle in two tool calls; judge-facing walk-through in [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md). The KeeperHub side of the IP-3 pair remains target.
 
 ## What is real vs mocked in this build
 

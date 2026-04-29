@@ -115,10 +115,10 @@ Predikcia: na ETHPrague 2026 bude **8–15 tímov** v priestore "AI agent paymen
 
 ## 6. Naming a brand
 
-**Vybratý názov: `Mandate` / `mandate`** (2026-04-27). Rationale podložená research-om (viď `19_knowledge_base.md §11 decisions log`):
+**Vybratý názov: `SBO3L` / `mandate`** (2026-04-27). Rationale podložená research-om (viď `19_knowledge_base.md §11 decisions log`):
 
 - Pôvodný "Agent Vault OS" mal *dva blockery*: (a) `Agent Vault` koliduje s `cloudweaver/agentvault` + `Infisical/agent-vault` (oba aktívni v presne našom space, sudcovia by si zameníme); (b) `Vault OS` koliduje s ThoughtMachine VaultOS (heavy enterprise trademark).
-- `Mandate` rieši oba problémy + pridáva pozitívne: kategoricky pozícionuje produkt, krátky/pamätateľný, pitchovateľný v 1 vete (*"Don't give your agent a wallet. Give it a mandate."*).
+- `SBO3L` rieši oba problémy + pridáva pozitívne: kategoricky pozícionuje produkt, krátky/pamätateľný, pitchovateľný v 1 vete (*"Don't give your agent a wallet. Give it a mandate."*).
 - Žiadny ETHGlobal víťaz 2024-25 nepoužíva `-OS` suffix — empiric confirm, že sme spravili dobré rozhodnutie.
 
 Pre ETHGlobal použijeme repo pattern `mandate-ethglobal-openagents-2026`. Domain/GitHub org/ENS dostupnosť pre dlhodobý brand treba overiť pri release.

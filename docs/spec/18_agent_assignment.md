@@ -71,7 +71,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P0-03: Telemetry scaffold
 - **Stories:** E1-S3
-- **Modules:** `/crates/mandate-core/src/telemetry/mod.rs`, `/crates/mandate-core/src/telemetry/metrics.rs`, `Cargo.toml` deps
+- **Modules:** `/crates/sbo3l-core/src/telemetry/mod.rs`, `/crates/sbo3l-core/src/telemetry/metrics.rs`, `Cargo.toml` deps
 - **blocked_by:** SLOT-P0-01 (workspace)
 - **parallel_with:** P0-04, P0-05 (only after P0-01)
 - **size:** M
@@ -81,7 +81,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P0-04: Error catalog
 - **Stories:** E1-S4
-- **Modules:** `/crates/mandate-core/src/error.rs`
+- **Modules:** `/crates/sbo3l-core/src/error.rs`
 - **blocked_by:** SLOT-P0-01
 - **parallel_with:** P0-03, P0-05
 - **size:** S
@@ -91,11 +91,11 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P0-05: Configuration model
 - **Stories:** E1-S5
-- **Modules:** `/crates/mandate-core/src/config/mod.rs`, `/examples/mandate.toml`
+- **Modules:** `/crates/sbo3l-core/src/config/mod.rs`, `/examples/mandate.toml`
 - **blocked_by:** SLOT-P0-01
 - **parallel_with:** P0-03, P0-04
 - **size:** S
-- **brief:** "Implement TOML config per `17_interface_contracts.md §1`. Env override `MANDATE__SECTION__KEY`. Production lint asserts (no dev_key, no 0.0.0.0 listen, attestation_required on operational)."
+- **brief:** "Implement TOML config per `17_interface_contracts.md §1`. Env override `SBO3L__SECTION__KEY`. Production lint asserts (no dev_key, no 0.0.0.0 listen, attestation_required on operational)."
 - **pre_read:** `17_interface_contracts.md §1, §10`
 - **post_demo:** `D-P0-05`
 
@@ -105,7 +105,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P1-A: APRP + SDK
 - **Stories:** E2-S1, E2-S2, E2-S3, E2-S4
-- **Modules:** `/schemas/aprp_v1.json`, `/test-corpus/aprp/`, `/crates/mandate-core/src/protocol/{aprp,validator}.rs`, `/sdks/python/`, `/sdks/typescript/`
+- **Modules:** `/schemas/aprp_v1.json`, `/test-corpus/aprp/`, `/crates/sbo3l-core/src/protocol/{aprp,validator}.rs`, `/sdks/python/`, `/sdks/typescript/`
 - **blocked_by:** SLOT-P0-01, P0-04, P0-05
 - **parallel_with:** SLOT-P1-B, P1-C, P1-D
 - **size:** L
@@ -115,7 +115,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P1-B: Gateway + Auth
 - **Stories:** E3-S1, E3-S2, E3-S4
-- **Modules:** `/crates/mandate-core/src/server/{transport,auth,rate_limit}.rs`, `/crates/mandate-cli/src/admin/agent.rs`
+- **Modules:** `/crates/sbo3l-core/src/server/{transport,auth,rate_limit}.rs`, `/crates/sbo3l-cli/src/admin/agent.rs`
 - **blocked_by:** SLOT-P0-01, P0-04, P0-05
 - **parallel_with:** SLOT-P1-A, P1-C, P1-D
 - **size:** L
@@ -125,7 +125,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P1-C: Signing
 - **Stories:** E8-S1, E8-S5
-- **Modules:** `/crates/mandate-core/src/signing/{mod,backend/local_dev,backend/encrypted_file,decision_token}.rs`
+- **Modules:** `/crates/sbo3l-core/src/signing/{mod,backend/local_dev,backend/encrypted_file,decision_token}.rs`
 - **blocked_by:** SLOT-P0-01, P0-04
 - **parallel_with:** SLOT-P1-A, P1-B, P1-D
 - **size:** L
@@ -149,7 +149,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P2-A: Policy engine
 - **Stories:** E4-S1, E4-S2, E4-S3, E4-S4, E4-S5
-- **Modules:** `/crates/mandate-policy/`, `/migrations/V002__policy.sql`, `/schemas/policy_v1.json`, `/crates/mandate-cli/src/{lint,dry_run}.rs`
+- **Modules:** `/crates/sbo3l-policy/`, `/migrations/V002__policy.sql`, `/schemas/policy_v1.json`, `/crates/sbo3l-cli/src/{lint,dry_run}.rs`
 - **blocked_by:** SLOT-P1-A (APRP types needed)
 - **parallel_with:** SLOT-P2-B, P2-C
 - **size:** XL
@@ -159,7 +159,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P2-B: Budget ledger
 - **Stories:** E5-S1, E5-S2, E5-S3
-- **Modules:** `/crates/mandate-storage/src/budget.rs`, `/migrations/V003__budget.sql`, `/crates/mandate-core/src/scheduler/budget_reset.rs`
+- **Modules:** `/crates/sbo3l-storage/src/budget.rs`, `/migrations/V003__budget.sql`, `/crates/sbo3l-core/src/scheduler/budget_reset.rs`
 - **blocked_by:** SLOT-P0-01, P0-04
 - **parallel_with:** SLOT-P2-A, P2-C
 - **size:** L
@@ -169,7 +169,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P2-C: x402 verifier (mock-only at P2)
 - **Stories:** E6-S1, E6-S2, E6-S3, E6-S4, E2-S2-EXT
-- **Modules:** `/crates/mandate-core/src/x402/`, `/test-corpus/x402/`, `/crates/mandate-storage/src/nonce_store.rs`
+- **Modules:** `/crates/sbo3l-core/src/x402/`, `/test-corpus/x402/`, `/crates/sbo3l-storage/src/nonce_store.rs`
 - **blocked_by:** SLOT-P0-01
 - **parallel_with:** SLOT-P2-A, P2-B
 - **size:** L
@@ -183,7 +183,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P3-A: Audit log
 - **Stories:** E10-S1, E10-S2, E10-S3, E10-S5, E10-S6
-- **Modules:** `/crates/mandate-storage/src/audit.rs`, `/crates/mandate-core/src/audit/`, `/migrations/V004__audit.sql`, `/crates/mandate-cli/src/audit.rs`
+- **Modules:** `/crates/sbo3l-storage/src/audit.rs`, `/crates/sbo3l-core/src/audit/`, `/migrations/V004__audit.sql`, `/crates/sbo3l-cli/src/audit.rs`
 - **blocked_by:** SLOT-P0-04
 - **parallel_with:** SLOT-P3-B, P3-C
 - **size:** L
@@ -193,7 +193,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P3-B: Emergency controls
 - **Stories:** E12-S1, E12-S2, E12-S3, E12-S4, E12-S5
-- **Modules:** `/crates/mandate-core/src/emergency/`
+- **Modules:** `/crates/sbo3l-core/src/emergency/`
 - **blocked_by:** SLOT-P3-A (needs audit)
 - **parallel_with:** SLOT-P3-A (after audit ready), P3-C
 - **size:** L
@@ -202,7 +202,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P3-C: Approval CLI
 - **Stories:** E11-S2
-- **Modules:** `/crates/mandate-cli/src/approvals.rs`
+- **Modules:** `/crates/sbo3l-cli/src/approvals.rs`
 - **blocked_by:** SLOT-P3-A
 - **parallel_with:** SLOT-P3-A, P3-B
 - **size:** M
@@ -215,7 +215,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P4-A: Transaction simulator
 - **Stories:** E7-S1, E7-S2, E7-S3, E10-S7
-- **Modules:** `/crates/mandate-core/src/simulator/`, `/crates/mandate-core/src/chains/rpc_health.rs`
+- **Modules:** `/crates/sbo3l-core/src/simulator/`, `/crates/sbo3l-core/src/chains/rpc_health.rs`
 - **blocked_by:** SLOT-P0-05, KB §5.4
 - **parallel_with:** SLOT-P4-B, P4-C
 - **size:** L
@@ -225,7 +225,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P4-B: Chain integration (Base/Polygon/Arbitrum)
 - **Stories:** E16-S1, E16-S2
-- **Modules:** `/crates/mandate-core/src/chains/{base,polygon,arbitrum}.rs`, `/examples/base-sepolia-x402/`
+- **Modules:** `/crates/sbo3l-core/src/chains/{base,polygon,arbitrum}.rs`, `/examples/base-sepolia-x402/`
 - **blocked_by:** SLOT-P4-A (simulator), P2-C (x402 verifier), P1-C (signing)
 - **parallel_with:** SLOT-P4-A, P4-C
 - **size:** L
@@ -235,7 +235,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P4-C: Settlement watcher + replay protection
 - **Stories:** E2-S5, E2-S6, E10-S8
-- **Modules:** `/crates/mandate-storage/src/settlement.rs`, `/crates/mandate-core/src/server/idempotency.rs`, `/crates/mandate-core/src/protocol/replay.rs`
+- **Modules:** `/crates/sbo3l-storage/src/settlement.rs`, `/crates/sbo3l-core/src/server/idempotency.rs`, `/crates/sbo3l-core/src/protocol/replay.rs`
 - **blocked_by:** SLOT-P4-A, P3-A
 - **parallel_with:** SLOT-P4-A, P4-B
 - **size:** M
@@ -248,7 +248,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P5-A: PKCS#11 backend
 - **Stories:** E8-S2, E8-S6, E8-S7
-- **Modules:** `/crates/mandate-core/src/signing/backend/pkcs11.rs`, `/crates/mandate-core/src/signing/health.rs`, `/crates/mandate-core/src/config/production_lint.rs`
+- **Modules:** `/crates/sbo3l-core/src/signing/backend/pkcs11.rs`, `/crates/sbo3l-core/src/signing/health.rs`, `/crates/sbo3l-core/src/config/production_lint.rs`
 - **blocked_by:** SLOT-P1-C
 - **parallel_with:** SLOT-P5-B, P5-C, P5-D
 - **size:** L
@@ -258,7 +258,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P5-B: TPM 2.0 backend
 - **Stories:** E8-S3
-- **Modules:** `/crates/mandate-core/src/signing/backend/tpm.rs`
+- **Modules:** `/crates/sbo3l-core/src/signing/backend/tpm.rs`
 - **blocked_by:** SLOT-P1-C
 - **parallel_with:** SLOT-P5-A, P5-C, P5-D
 - **size:** L
@@ -268,7 +268,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P5-C: Admin enrollment + multisig
 - **Stories:** E13-S1, E13-S2
-- **Modules:** `/crates/mandate-cli/src/admin/enroll.rs`, `/crates/mandate-core/src/governance/`
+- **Modules:** `/crates/sbo3l-cli/src/admin/enroll.rs`, `/crates/sbo3l-core/src/governance/`
 - **blocked_by:** SLOT-P2-A
 - **parallel_with:** SLOT-P5-A, P5-B, P5-D
 - **size:** M
@@ -277,7 +277,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P5-D: MCP server
 - **Stories:** E16-S5
-- **Modules:** `/crates/mandate-mcp/`
+- **Modules:** `/crates/sbo3l-mcp/`
 - **blocked_by:** SLOT-P1-A, P1-B
 - **parallel_with:** SLOT-P5-A, P5-B, P5-C
 - **size:** M
@@ -291,7 +291,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P6-A: Web UI + WebAuthn
 - **Stories:** E11-S1, E11-S5, E11-S6, E11-S7
-- **Modules:** `/web-ui/`, `/crates/mandate-web/`
+- **Modules:** `/web-ui/`, `/crates/sbo3l-web/`
 - **blocked_by:** SLOT-P3-C
 - **parallel_with:** SLOT-P6-B, P6-C, P6-D
 - **size:** XL
@@ -300,7 +300,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P6-B: Push notification + bots
 - **Stories:** E11-S3, E11-S4
-- **Modules:** `/crates/mandate-push/`, `/relay-server/`, `/crates/mandate-bots/`
+- **Modules:** `/crates/sbo3l-push/`, `/relay-server/`, `/crates/sbo3l-bots/`
 - **blocked_by:** SLOT-P3-C
 - **parallel_with:** SLOT-P6-A, P6-C, P6-D
 - **size:** M
@@ -309,7 +309,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P6-C: RBAC + webhooks + digest
 - **Stories:** E13-S3, E10-S9, E10-S10
-- **Modules:** `/crates/mandate-core/src/governance/rbac.rs`, `/crates/mandate-core/src/webhooks/`, `/crates/mandate-core/src/audit/digest.rs`
+- **Modules:** `/crates/sbo3l-core/src/governance/rbac.rs`, `/crates/sbo3l-core/src/webhooks/`, `/crates/sbo3l-core/src/audit/digest.rs`
 - **blocked_by:** SLOT-P5-C
 - **parallel_with:** SLOT-P6-A, P6-B, P6-D
 - **size:** M
@@ -332,7 +332,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P7-A: Self-signed attestation + drift
 - **Stories:** E9-S1, E9-S4, E9-S5
-- **Modules:** `/crates/mandate-core/src/attestation/{self_signed,drift,audit_link}.rs`
+- **Modules:** `/crates/sbo3l-core/src/attestation/{self_signed,drift,audit_link}.rs`
 - **blocked_by:** SLOT-P3-A
 - **parallel_with:** SLOT-P7-B, P7-C, P7-D
 - **size:** M
@@ -341,7 +341,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P7-B: TDX attestation
 - **Stories:** E9-S2, E8-S4
-- **Modules:** `/crates/mandate-core/src/attestation/tdx.rs`, `/crates/mandate-core/src/signing/backend/tee_sealed.rs`
+- **Modules:** `/crates/sbo3l-core/src/attestation/tdx.rs`, `/crates/sbo3l-core/src/signing/backend/tee_sealed.rs`
 - **blocked_by:** SLOT-P7-A
 - **parallel_with:** SLOT-P7-C, P7-D
 - **size:** XL
@@ -351,7 +351,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P7-C: SEV-SNP attestation
 - **Stories:** E9-S3
-- **Modules:** `/crates/mandate-core/src/attestation/sev_snp.rs`
+- **Modules:** `/crates/sbo3l-core/src/attestation/sev_snp.rs`
 - **blocked_by:** SLOT-P7-A
 - **parallel_with:** SLOT-P7-B, P7-D
 - **size:** L
@@ -361,7 +361,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P7-D: Packaging + reproducible builds
 - **Stories:** E14-S1, E14-S2, E14-S3, E14-S5, E10-S11
-- **Modules:** `/.github/workflows/release.yml`, `/.github/workflows/reproducible-build.yml`, `/packaging/{deb,rpm}/`, `/examples/docker-compose/`, `/crates/mandate-core/src/incident/`
+- **Modules:** `/.github/workflows/release.yml`, `/.github/workflows/reproducible-build.yml`, `/packaging/{deb,rpm}/`, `/examples/docker-compose/`, `/crates/sbo3l-core/src/incident/`
 - **blocked_by:** SLOT-P0-01
 - **parallel_with:** SLOT-P7-A, B, C
 - **size:** L
@@ -375,7 +375,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P8-A: Safe attested module
 - **Stories:** E16-S3
-- **Modules:** `/contracts/SafeAttestedModule.sol`, `/crates/mandate-onchain/src/safe.rs`
+- **Modules:** `/contracts/SafeAttestedModule.sol`, `/crates/sbo3l-onchain/src/safe.rs`
 - **blocked_by:** SLOT-P7-A or B
 - **parallel_with:** SLOT-P8-B, C, D, E
 - **size:** L
@@ -395,7 +395,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P8-C: On-chain audit anchor + policy registry
 - **Stories:** E16-S7, E16-S8
-- **Modules:** `/contracts/AuditAnchor.sol`, `/contracts/PolicyRegistry.sol`, `/crates/mandate-onchain/src/anchor.rs`
+- **Modules:** `/contracts/AuditAnchor.sol`, `/contracts/PolicyRegistry.sol`, `/crates/sbo3l-onchain/src/anchor.rs`
 - **blocked_by:** SLOT-P3-A, P2-A
 - **parallel_with:** SLOT-P8-A, B, D, E
 - **size:** M
@@ -414,7 +414,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P8-E: ENS + EAS + Verax integration
 - **Stories:** E16-S11, E16-S12
-- **Modules:** `/crates/mandate-core/src/identity/ens.rs`, `/crates/mandate-onchain/src/eas.rs`
+- **Modules:** `/crates/sbo3l-core/src/identity/ens.rs`, `/crates/sbo3l-onchain/src/eas.rs`
 - **blocked_by:** SLOT-P8-C
 - **parallel_with:** SLOT-P8-A, B, C, D
 - **size:** M
@@ -437,7 +437,7 @@ SLOT-PX-NN: <human-name>
 
 ## SLOT-P9-B: ZK proof of policy eval (stretch)
 - **Stories:** E16-S10
-- **Modules:** `/zk-circuits/`, `/crates/mandate-zk/`
+- **Modules:** `/zk-circuits/`, `/crates/sbo3l-zk/`
 - **blocked_by:** SLOT-P2-A
 - **parallel_with:** SLOT-P9-A, C, D
 - **size:** XL

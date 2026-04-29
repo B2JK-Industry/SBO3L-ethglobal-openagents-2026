@@ -166,7 +166,7 @@ Celá súčasná ponuka spadá do jedného z troch klastrov:
 2. **Hardvérové trezory pre ľudí** (Trezor, Ledger) — bezpečné, ale UX neumožňuje autonómiu.
 3. **Enterprise key management** (HSM, Vault, KMS) — robustné, ale nevedia o blockchaine, x402, ani o agentoch.
 
-**Medzera, ktorú zapĺňa mandate:**
+**Medzera, ktorú zapĺňa sbo3l:**
 > Lokálny, otvorený, agent-natívny, policy-driven, hardvérovo-izolovaný a attestable platobný koprocesor pre vlastný Linux server.
 
 Žiadne existujúce riešenie nepokrýva všetky štyri vlastnosti naraz: **lokálnosť + agentic-natívnosť + policy-as-code + attestable hardware-isolated signing**.

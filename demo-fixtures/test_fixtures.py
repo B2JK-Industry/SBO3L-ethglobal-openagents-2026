@@ -7,9 +7,9 @@
 #
 #   - parses as JSON
 #   - declares an envelope: schema, mock=true, explanation, live_replacement
-#   - has a non-empty schema id following `mandate-mock-*-v1`
+#   - has a non-empty schema id following `sbo3l-mock-*-v1`
 #   - contains no http/https URL outside the safe set (RFC 2606 reserved
-#     hostnames + the existing `schemas.mandate.dev` $id pattern)
+#     hostnames + the existing `schemas.sbo3l.dev` $id pattern)
 #   - contains no obvious secret-looking strings (PEM blocks, "private_key",
 #     "signing_key", `kh_*` / `wfb_*` workflow tokens)
 #   - if it claims `no_private_material`, has zero hex strings >= 64 chars
@@ -33,8 +33,8 @@ HERE = Path(__file__).resolve().parent
 # allowlist anchored only at the start of the URL and used `\b` (word
 # boundary) at the end of the host, which lets attacker-controlled
 # infixes slip through:
-#   "https://schemas.mandate.dev.attacker.io/x"
-# matches `^https?://schemas\.mandate\.dev/` only if anchored, but a
+#   "https://schemas.sbo3l.dev.attacker.io/x"
+# matches `^https?://schemas\.sbo3l\.dev/` only if anchored, but a
 # regex like `^https?://(?:[a-z0-9-]+\.)*example\.(?:com|net|org|test)\b`
 # does match `https://example.com.evil.org/x` because `\b` sits between
 # `m` and `.` (word↔non-word). Switching to `urllib.parse.urlparse` +
@@ -52,7 +52,7 @@ HERE = Path(__file__).resolve().parent
 # reject.
 #
 #   - exact hosts:
-#       127.0.0.1, localhost, schemas.mandate.dev,
+#       127.0.0.1, localhost, schemas.sbo3l.dev,
 #       example.com, example.net, example.org
 #   - safe suffixes (RFC 2606 / 6761 reserved + RFC 2606 §3 docs):
 #       .invalid, .example, .test, .localhost,
@@ -62,7 +62,7 @@ HERE = Path(__file__).resolve().parent
 SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
-    "schemas.mandate.dev",
+    "schemas.sbo3l.dev",
     "example.com",
     "example.net",
     "example.org",
@@ -101,8 +101,8 @@ def url_is_safe(url: str) -> bool:
 
     The hostname comes from `urllib.parse.urlparse(...).hostname`, which
     extracts only the `host` component (port stripped, lowercased) — so
-    `https://schemas.mandate.dev.attacker.io/x` resolves to host
-    `schemas.mandate.dev.attacker.io`, which is neither in the exact set
+    `https://schemas.sbo3l.dev.attacker.io/x` resolves to host
+    `schemas.sbo3l.dev.attacker.io`, which is neither in the exact set
     nor ends with a safe suffix → reject.
     """
     try:
@@ -148,7 +148,7 @@ def validate_one(path: Path) -> int:
 
     # 2. Envelope: schema, mock=true, explanation, live_replacement.
     schema = doc.get("schema")
-    if not isinstance(schema, str) or not re.match(r"^mandate-mock-[a-z0-9-]+-v\d+$", schema):
+    if not isinstance(schema, str) or not re.match(r"^sbo3l-mock-[a-z0-9-]+-v\d+$", schema):
         _fail(f"{label}: schema", f"missing or malformed schema id (got {schema!r})")
         failures += 1
     else:
@@ -223,9 +223,9 @@ def _self_test_url_safety() -> int:
             "infix bypass: 'example.com' inside an attacker-controlled host",
         ),
         (
-            "https://schemas.mandate.dev.attacker.io/x",
+            "https://schemas.sbo3l.dev.attacker.io/x",
             False,
-            "infix bypass: 'schemas.mandate.dev' as a left-prefix of attacker host",
+            "infix bypass: 'schemas.sbo3l.dev' as a left-prefix of attacker host",
         ),
         (
             "https://evilexample/x",
@@ -243,13 +243,13 @@ def _self_test_url_safety() -> int:
             "infix bypass on RFC 2606 §3 docs domain: host is 'example.org.attacker.io', not 'example.org'",
         ),
         (
-            "ftp://schemas.mandate.dev/x",
+            "ftp://schemas.sbo3l.dev/x",
             False,
             "non-http(s) scheme: only http/https are allowed",
         ),
         # --- legitimate references MUST be accepted ---
         (
-            "https://schemas.mandate.dev/x",
+            "https://schemas.sbo3l.dev/x",
             True,
             "exact-host allowlist member",
         ),

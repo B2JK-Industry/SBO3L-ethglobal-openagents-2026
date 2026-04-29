@@ -1,6 +1,6 @@
-# Mandate
+# SBO3L
 
-**Názov produktu / public brand:** **Mandate** (rozhodnuté 2026-04-27, viď `OQ-15 UPDATED` + `19_knowledge_base.md §11`)
+**Názov produktu / public brand:** **SBO3L** (rozhodnuté 2026-04-27, viď `OQ-15 UPDATED` + `19_knowledge_base.md §11`)
 **Tagline:** **Spending mandates for autonomous agents.**
 **Pitch veta:** **Don't give your agent a wallet. Give it a mandate.**
 **Predchádzajúce pracovné názvy:** Agent Vault OS, Local Agent Trezor, Agent Payment Coprocessor (zahodené po naming research-u — kolízie s `cloudweaver/agentvault`, `Infisical/agent-vault`, ThoughtMachine VaultOS, Trezor brand)
@@ -15,9 +15,9 @@
 
 > **AI agent nesmie mať wallet. AI agent musí dostať mandát: obmedzené, auditovateľné oprávnenie konať.**
 
-Mandate je lokálny bezpečnostný produkt na vlastnom Linux servery, ktorý umožňuje AI agentom vykonávať autonómne mikroplatby a on-chain akcie (x402, stablecoin, API payments), bez toho aby agent vlastnil alebo videl private key — a zároveň bez nutnosti manuálneho potvrdzovania každej transakcie ako pri klasickom Trezore.
+SBO3L je lokálny bezpečnostný produkt na vlastnom Linux servery, ktorý umožňuje AI agentom vykonávať autonómne mikroplatby a on-chain akcie (x402, stablecoin, API payments), bez toho aby agent vlastnil alebo videl private key — a zároveň bez nutnosti manuálneho potvrdzovania každej transakcie ako pri klasickom Trezore.
 
-**Brand vs implementation:** V pitchi, submission, UI aj kóde používame jednotne **Mandate** / `mandate`: crate prefix, daemon, CLI, filesystem path aj schema host.
+**Brand vs implementation:** V pitchi, submission, UI aj kóde používame jednotne **SBO3L** / `mandate`: crate prefix, daemon, CLI, filesystem path aj schema host.
 
 ---
 
@@ -198,7 +198,7 @@ Agent(
   description: "SLOT-PN-X: <slot-name>",
   subagent_type: "general-purpose",
   prompt: """
-  You are implementing SLOT-PN-X of the Mandate project (technical namespace: mandate).
+  You are implementing SLOT-PN-X of the SBO3L project (technical namespace: mandate).
 
   ## Pre-read (mandatory, in order)
   1. /Users/danielbabjak/Desktop/agent-vault-os/17_interface_contracts.md

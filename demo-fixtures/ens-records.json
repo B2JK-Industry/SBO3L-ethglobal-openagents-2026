@@ -1,9 +1,9 @@
 {
   "research-agent.team.eth": {
-    "mandate:agent_id": "research-agent-01",
-    "mandate:endpoint": "http://127.0.0.1:8730/v1",
-    "mandate:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
-    "mandate:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
-    "mandate:receipt_schema": "https://schemas.mandate.dev/policy-receipt/v1.json"
+    "sbo3l:agent_id": "research-agent-01",
+    "sbo3l:endpoint": "http://127.0.0.1:8730/v1",
+    "sbo3l:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+    "sbo3l:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sbo3l:receipt_schema": "https://schemas.sbo3l.dev/policy-receipt/v1.json"
   }
 }

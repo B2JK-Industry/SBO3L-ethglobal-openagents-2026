@@ -182,7 +182,7 @@ curl -k https://mock-x402.local:9402/health
 | 1:00 | Slide: architecture | (slide deck s 6 zónami) | Slide deck |
 | 2:30 | Demo: x402 happy path | `python coinbase-x402-demo.py` | Terminal output + Basescan tx |
 | 2:45 | Demo: kill switch | Stlač gombík | Vault UI freezuje, ďalší pokus deny |
-| 2:55 | Demo: tampering detect | `sqlite3 mandate.db "..."` + `mandate audit verify` | Verifier vykrikuje TAMPER seq=N |
+| 2:55 | Demo: tampering detect | `sqlite3 sbo3l.db "..."` + `sbo3l audit verify` | Verifier vykrikuje TAMPER seq=N |
 | 3:10 | Demo: on-chain attestation verifier | `python aa-attested-validator.py` | Etherscan/Basescan tx s on-chain DCAP verifikáciou |
 | 3:40 | Demo: full diagram s rozsvietenými zónami | (UI animation počas behu) | Web UI live attestation monitor |
 | 4:00 | Why it matters | (slide) | Slide |
@@ -221,11 +221,11 @@ Predikované otázky:
 set -e
 # Wipe state
 systemctl stop mandate
-rm -f /var/lib/mandate/mandate.db
-rm -rf /var/lib/mandate/audit/*
+rm -f /var/lib/sbo3l/sbo3l.db
+rm -rf /var/lib/sbo3l/audit/*
 
 # Reload baseline policy
-cp demo-fixtures/policies/demo.yaml /etc/mandate/policies/active.yaml
+cp demo-fixtures/policies/demo.yaml /etc/sbo3l/policies/active.yaml
 
 # Restart vault
 systemctl start mandate

@@ -1,14 +1,14 @@
-# Deep Market Research 2026 - Mandate
+# Deep Market Research 2026 - SBO3L
 
 **Datum:** 2026-04-26  
-**Projekt:** **Mandate** (technical namespace `mandate`, povodne Agent Vault OS)  
+**Projekt:** **SBO3L** (technical namespace `mandate`, povodne Agent Vault OS)  
 **Otazka:** Aky ma projekt buduci potencial, kto robi podobne veci a kde je skutocna trhova medzera?
 
 ---
 
 ## 1. Executive verdict
 
-**Mandate** ma realny, ale uzko definovany trhovy potencial. Najsilnejsia teza nie je "dalsia agent wallet", ale:
+**SBO3L** ma realny, ale uzko definovany trhovy potencial. Najsilnejsia teza nie je "dalsia agent wallet", ale:
 
 > **Lokálny payment firewall / signer coprocessor pre AI agentov. Agent moze poziadat o platbu, ale nikdy nevlastni private key ani nema pravo podpisat transakciu mimo policy.**
 
@@ -18,7 +18,7 @@ Najvacsia medzera na trhu je stale otvorena:
 
 > **Self-hosted, hardware-isolated, policy-as-code a attestable platobny trezor pre agentov na vlastnom Linuxe.**
 
-Coinbase, Turnkey, Skyfire, Payman a Nevermined riesia casti problemu, ale primarne ako hosted platformy, agent wallet infra, payment network, bank/payment orchestration alebo billing layer. **Mandate** by malo byt nizkourovnove bezpecnostne jadro, ktore moze fungovat aj pod nimi alebo vedla nich.
+Coinbase, Turnkey, Skyfire, Payman a Nevermined riesia casti problemu, ale primarne ako hosted platformy, agent wallet infra, payment network, bank/payment orchestration alebo billing layer. **SBO3L** by malo byt nizkourovnove bezpecnostne jadro, ktore moze fungovat aj pod nimi alebo vedla nich.
 
 **Potencial:** vysoky technicky, stredne vysoky komercny, vysoke riziko timing/standards fragmentation.  
 **Najlepsia pozicia:** "HashiCorp Vault for agent payments", nie "MetaMask for agents".  
@@ -40,7 +40,7 @@ Z existujucej dokumentacie je projekt definovany ako lokalny Linux daemon pre ag
 
 Kriticky produktovy posun:
 
-`Agent Vault OS` znie ako operacny system a koliduje s viacerymi existujucimi nazvami. **Mandate** je lepsi nazov, lebo pomenúva oprávnenie, ktoré agent dostane: nie wallet, ale obmedzený, auditovateľný mandát konať.
+`Agent Vault OS` znie ako operacny system a koliduje s viacerymi existujucimi nazvami. **SBO3L** je lepsi nazov, lebo pomenúva oprávnenie, ktoré agent dostane: nie wallet, ale obmedzený, auditovateľný mandát konať.
 
 ---
 

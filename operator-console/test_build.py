@@ -2,8 +2,8 @@
 # Render-regression coverage for operator-console/build.py.
 #
 # Drives build.py against operator-console/fixtures/operator-summary.json
-# (mandate-demo-summary-v1) and operator-console/fixtures/operator-evidence.json
-# (mandate-operator-evidence-v1), asserts every required proof field renders,
+# (sbo3l-demo-summary-v1) and operator-console/fixtures/operator-evidence.json
+# (sbo3l-operator-evidence-v1), asserts every required proof field renders,
 # asserts each B2.v2 real-evidence panel surfaces values pulled directly from
 # the evidence fixture, asserts PSM-A1.9/A2/A3/A4/A5 never appear inside a
 # blocked/pending placeholder pill (would lie about merged backends), asserts
@@ -54,7 +54,7 @@ else:
 SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
-    "schemas.mandate.dev",
+    "schemas.sbo3l.dev",
     "example.com",
     "example.net",
     "example.org",
@@ -179,7 +179,7 @@ def main() -> int:
     legit = summary["scenarios"]["legit_x402"]
     pi = summary["scenarios"]["prompt_injection"]
     required = [
-        ("page title",                       "Mandate · Operator Console"),
+        ("page title",                       "SBO3L · Operator Console"),
         ("agent_id",                         summary["agent_id"]),
         ("demo_commit (full 40-char SHA)",   summary["demo_commit"]),
         ("tagline",                          "Don't give your agent a wallet"),
@@ -225,7 +225,7 @@ def main() -> int:
         ("bundle not provided pill",         ">not provided<"),
         # B2.v2 evidence-panel section header
         ("evidence-panel section header",    "Real-evidence panels (B2.v2)"),
-        ("evidence schema id",               "mandate-operator-evidence-v1"),
+        ("evidence schema id",               "sbo3l-operator-evidence-v1"),
     ]
     print("== required content (v1 panels) ==")
     for label, needle in required:
@@ -258,7 +258,7 @@ def main() -> int:
         ("PSM-A2 case-3 conflict code",          idem["case_3_idempotency_conflict"]["code"]),
         ("PSM-A2 case-4 nonce-replay code",      idem["case_4_nonce_replay_with_new_key"]["code"]),
         # PSM-A5 doctor (--json grouped ok/skip/fail)
-        ("PSM-A5 panel header",                  "PSM-A5 · mandate doctor"),
+        ("PSM-A5 panel header",                  "PSM-A5 · sbo3l doctor"),
         ("PSM-A5 report_type",                   doctor_report["report_type"]),
         ("PSM-A5 ok count",                      f"ok={doctor_summary['ok']}"),
         ("PSM-A5 skip count",                    f"skip={doctor_summary['skip']}"),
@@ -334,12 +334,12 @@ def main() -> int:
     print("\n== passport capsule panel (P2.2) ==")
     capsule_required = [
         ("Passport panel header",            "Passport capsule (P2.2)"),
-        ("schema id reference",              "mandate.passport_capsule.v1"),
+        ("schema id reference",              "sbo3l.passport_capsule.v1"),
         ("Allow tile header",                "Allow capsule"),
         ("Deny tile header",                 "Deny capsule"),
         ("agent ens_name (allow tile)",      capsule_allow["agent"]["ens_name"]),
         ("agent resolver source",            capsule_allow["agent"]["resolver"]),
-        ("ENS record key mandate:policy_hash", "mandate:policy_hash"),
+        ("ENS record key sbo3l:policy_hash", "sbo3l:policy_hash"),
         ("policy_hash short prefix",         capsule_allow["policy"]["policy_hash"][:12]),
         ("policy source (allow)",            capsule_allow["policy"]["source"]),
         ("Allow decision pill in tile",      ">Allow<"),
@@ -367,9 +367,9 @@ def main() -> int:
             failures += 1
 
     # 4. Forbidden surface (case-insensitive). The Passport panel renders
-    #    URL values from agent records (e.g. `mandate:mcp_endpoint`), so
+    #    URL values from agent records (e.g. `sbo3l:mcp_endpoint`), so
     #    the URL check uses the safe-host allowlist (RFC 2606/6761
-    #    reserved + 127.0.0.1 + schemas.mandate.dev) instead of refusing
+    #    reserved + 127.0.0.1 + schemas.sbo3l.dev) instead of refusing
     #    every http(s):// occurrence.
     print("\n== forbidden surface ==")
     forbidden = [
@@ -388,7 +388,7 @@ def main() -> int:
         _fail("no unsafe http(s):// URL", f"found unsafe URLs: {unsafe_urls[:3]}")
         failures += 1
     else:
-        _ok("no unsafe http(s):// URL (only RFC 2606 + schemas.mandate.dev)")
+        _ok("no unsafe http(s):// URL (only RFC 2606 + schemas.sbo3l.dev)")
 
     # 5. Well-formedness.
     print("\n== html parse ==")
@@ -419,7 +419,7 @@ def main() -> int:
         # State 3: wrong_schema → file is valid JSON but schema is wrong.
         wrong_path = Path(tmp) / "wrong-schema.json"
         wrong_path.write_text(
-            json.dumps({"schema": "not-mandate-operator-evidence-v1"}),
+            json.dumps({"schema": "not-sbo3l-operator-evidence-v1"}),
             encoding="utf-8",
         )
         fallback_cases.append(("wrong_schema", str(wrong_path),
@@ -473,7 +473,7 @@ def main() -> int:
         capsule_fallback_cases.append(("parse_failed", str(parse_capsule)))
         wrong_capsule = Path(tmp) / "wrong-schema-capsule.json"
         wrong_capsule.write_text(
-            json.dumps({"schema": "mandate.audit_bundle.v1"}),
+            json.dumps({"schema": "sbo3l.audit_bundle.v1"}),
             encoding="utf-8",
         )
         capsule_fallback_cases.append(("wrong_schema", str(wrong_capsule)))

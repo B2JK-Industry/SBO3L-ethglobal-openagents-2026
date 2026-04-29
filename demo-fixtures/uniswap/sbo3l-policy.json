@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "policy_id": "uniswap-guarded-swap",
+  "description": "SBO3L policy variant the demo uses while exercising the Uniswap guarded-swap adapter. Allows the research agent to spend up to 20 USDC per smart-account-session swap to the configured treasury recipient on Base; denies unknown providers and denied recipients. Used only by demo-scripts/sponsors/uniswap-guarded-swap.sh.",
+  "default_decision": "deny",
+  "agents": [
+    {
+      "agent_id": "research-agent-01",
+      "status": "active",
+      "policy_role": "research"
+    }
+  ],
+  "budgets": [
+    {
+      "agent_id": "research-agent-01",
+      "scope": "per_tx",
+      "cap_usd": "20.00"
+    },
+    {
+      "agent_id": "research-agent-01",
+      "scope": "daily",
+      "cap_usd": "100.00"
+    }
+  ],
+  "providers": [
+    {
+      "id": "api.example.com",
+      "url": "https://api.example.com",
+      "status": "trusted",
+      "cert_pin_sha256": null
+    }
+  ],
+  "recipients": [
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "chain": "base",
+      "status": "allowed",
+      "label": "treasury-recipient"
+    },
+    {
+      "address": "0x9999999999999999999999999999999999999999",
+      "chain": "base",
+      "status": "denied",
+      "label": "uniswap-attacker-demo"
+    }
+  ],
+  "rules": [
+    {
+      "id": "deny-emergency-freeze",
+      "effect": "deny",
+      "deny_code": "policy.deny_emergency_frozen",
+      "when": "input.emergency.freeze_all == true"
+    },
+    {
+      "id": "deny-unknown-provider",
+      "effect": "deny",
+      "deny_code": "policy.deny_unknown_provider",
+      "when": "not input.provider.trusted"
+    },
+    {
+      "id": "deny-recipient-not-allowlisted",
+      "effect": "deny",
+      "deny_code": "policy.deny_recipient_not_allowlisted",
+      "when": "not input.recipient.allowed"
+    },
+    {
+      "id": "allow-bounded-swap",
+      "effect": "allow",
+      "deny_code": null,
+      "when": "input.payment_protocol == \"smart_account_session\" and input.amount_usd <= 20.00 and input.provider.trusted and input.recipient.allowed"
+    }
+  ],
+  "emergency": {
+    "freeze_all": false,
+    "paused_agents": []
+  }
+}
