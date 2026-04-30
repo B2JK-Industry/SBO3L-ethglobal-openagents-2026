@@ -29,8 +29,14 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 ulid = { workspace = true }
+hex = { workspace = true }
+# F-1 auth middleware: bearer (bcrypt) + JWT (Ed25519). Pinned majors.
+jsonwebtoken = "9"
+bcrypt = "0.15"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 tempfile = { workspace = true }
+ed25519-dalek = { workspace = true }
+base64 = "0.22"

@@ -1,4 +1,4 @@
-use sbo3l_server::{reference_policy, router, AppState};
+use sbo3l_server::{reference_policy, router, AppState, AuthConfig};
 use sbo3l_storage::Storage;
 
 #[tokio::main]
@@ -17,8 +17,20 @@ async fn main() -> anyhow::Result<()> {
         Storage::open(storage_path.clone())?
     };
 
+    let auth = AuthConfig::from_env();
+    if auth.allow_unauthenticated {
+        // F-1 acceptance: a visible stderr banner when the dev bypass is
+        // engaged. The exact substring "UNAUTHENTICATED MODE — DEV ONLY" is
+        // grepped by the QA test plan; do not reword without updating that.
+        eprintln!("⚠ UNAUTHENTICATED MODE — DEV ONLY ⚠");
+        eprintln!(
+            "  SBO3L_ALLOW_UNAUTHENTICATED=1 is set; \
+             POST /v1/payment-requests will accept unauthenticated requests."
+        );
+    }
+
     let policy = reference_policy();
-    let state = AppState::new(policy, storage);
+    let state = AppState::with_auth_config(policy, storage, auth);
     let app = router(state);
 
     let addr = std::env::var("SBO3L_LISTEN").unwrap_or_else(|_| "127.0.0.1:8730".to_string());
