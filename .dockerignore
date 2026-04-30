@@ -1,0 +1,76 @@
+# Keep build context lean. The builder stage runs `cargo build --release
+# --locked` against the workspace; everything outside that path is excluded
+# below to cut send-context time and to ensure local artefacts (target/,
+# node_modules/, sbo3l.db) don't leak into the image.
+
+# Build output
+target
+**/target
+
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
+sbo3l.db*
+demo-fixtures/**/*.db*
+
+# Node / TS / frontend build output
+node_modules
+**/node_modules
+.next
+.turbo
+.vercel
+dist
+**/dist
+build
+**/build
+
+# Python caches
+__pycache__
+**/__pycache__
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
+# Editor / OS noise
+.DS_Store
+.idea
+.vscode
+
+# Git metadata — not needed inside the image
+.git
+.gitattributes
+.gitignore
+.github
+
+# Local env / secrets — never copy into context
+.env
+.env.*
+!.env.example
+
+# CI / orchestrator fixtures unrelated to the runtime
+apps/orchestrator/dist
+apps/orchestrator/node_modules
+
+# Demo + docs artefacts (not needed by the daemon at runtime)
+demo-scripts/artifacts
+docs/_site
+
+# Markdown + non-source tooling
+*.md
+!QUICKSTART.md
+!SECURITY_NOTES.md
+docs
+README*
+LICENSE
+FEEDBACK.md
+FINAL_REVIEW*.md
+IMPLEMENTATION_STATUS.md
+SUBMISSION*.md
+AI_USAGE.md
+
+# This file itself
+.dockerignore
+Dockerfile
+docker-compose.yml
