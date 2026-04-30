@@ -1,0 +1,122 @@
+name: Docker
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "demo-agents/**"
+      - "migrations/**"
+      - "test-corpus/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "demo-agents/**"
+      - "migrations/**"
+      - "test-corpus/**"
+      - ".github/workflows/docker.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build + size + smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build sbo3l/server:test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: sbo3l/server:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image size < 100 MB
+        run: |
+          set -euo pipefail
+          BYTES=$(docker image inspect sbo3l/server:test --format='{{.Size}}')
+          MB=$(( BYTES / 1024 / 1024 ))
+          echo "image size: ${MB} MiB (${BYTES} bytes)"
+          if [ "$MB" -gt 100 ]; then
+            echo "::error::image exceeds 100 MiB cap (got ${MB} MiB)"
+            exit 1
+          fi
+
+      - name: Smoke — start container
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name sbo3l-test \
+            -p 18730:8730 \
+            -e SBO3L_ALLOW_UNAUTHENTICATED=1 \
+            sbo3l/server:test
+          # wait for /v1/payment-requests to come up; tolerate slow start
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null -X POST \
+                 -H "Content-Type: application/json" \
+                 -d '{}' http://localhost:18730/v1/payment-requests \
+                 -w "%{http_code}" 2>/dev/null | grep -qE '^(400|422)$'; then
+              # 400/422 means the daemon is up and rejecting an empty body
+              # (which is the right behaviour). 200 would also be a "live"
+              # signal but we expect a malformed empty {} to deny.
+              echo "daemon up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Smoke — POST golden APRP, expect decision=allow
+        run: |
+          set -euo pipefail
+          # ULID regex: ^[0-7][0-9A-HJKMNP-TV-Z]{25}$
+          # First char MUST be 0-7 (encodes high bits of the 48-bit Unix-ms
+          # timestamp). Remaining 25 chars are full Crockford alphabet (no I/L/O/U).
+          # Previous version used `tr | head -c 26` which triggers SIGPIPE on tr
+          # under set -o pipefail (fails the entire step). Use bash $RANDOM to
+          # avoid pipes entirely — deterministic, fast, no SIGPIPE risk.
+          ALPHA32='0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+          NONCE="${ALPHA32:$((RANDOM % 8)):1}"
+          for _ in $(seq 1 25); do
+            NONCE+="${ALPHA32:$((RANDOM % 32)):1}"
+          done
+          EXPIRY=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
+          BODY=$(jq --arg e "$EXPIRY" --arg n "$NONCE" \
+                  '.expiry=$e | .nonce=$n' \
+                  test-corpus/aprp/golden_001_minimal.json)
+          echo "$BODY" | jq -c '{nonce, expiry}'
+          RESP=$(echo "$BODY" | curl -fsS \
+              -H "Content-Type: application/json" \
+              -X POST --data-binary @- \
+              http://localhost:18730/v1/payment-requests)
+          echo "$RESP" | jq .
+          DEC=$(echo "$RESP" | jq -r .decision)
+          if [ "$DEC" != "allow" ]; then
+            echo "::error::decision was '$DEC', expected 'allow'"
+            docker logs sbo3l-test || true
+            exit 1
+          fi
+
+      - name: Container logs (always)
+        if: always()
+        run: docker logs sbo3l-test || true
+
+      - name: Stop container
+        if: always()
+        run: docker stop sbo3l-test || true
