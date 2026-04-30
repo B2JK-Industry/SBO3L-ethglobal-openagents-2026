@@ -125,9 +125,14 @@ mkdir -p "$ARTIFACTS"
       fields: quote_id, quote_source, input/output token, route,
       notional_in, slippage_cap_bps, quote_timestamp_unix,
       quote_freshness_seconds, recipient_address);
-    - `sbo3l passport verify --path <capsule>` re-derives every
-      claim from the capsule alone using only the agent's published
-      Ed25519 pubkey (read off the receipt's signature.key_id).
+    - `sbo3l passport verify --path <capsule>` re-verifies the schema
+      and every cross-field invariant offline by default
+      (deny→no execution, live→evidence, request/policy hash
+      internal-consistency); to additionally re-derive cryptography
+      from the capsule alone, pass `--strict --policy <file>
+      --receipt-pubkey <hex> --audit-bundle <file>`. Both modes work
+      with the agent's published Ed25519 pubkey only — no daemon, no
+      network, no RPC.
 
   Offline. Post-hoc. Single file. That's the SBO3L story.
 EOF

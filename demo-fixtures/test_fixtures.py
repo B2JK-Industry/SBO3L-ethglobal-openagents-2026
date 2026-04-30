@@ -53,16 +53,28 @@ HERE = Path(__file__).resolve().parent
 #
 #   - exact hosts:
 #       127.0.0.1, localhost, schemas.sbo3l.dev,
+#       b2jk-industry.github.io,
 #       example.com, example.net, example.org
 #   - safe suffixes (RFC 2606 / 6761 reserved + RFC 2606 §3 docs):
 #       .invalid, .example, .test, .localhost,
 #       .example.com, .example.net, .example.org
 #     The leading dot is required so "evilexample" does NOT end with
 #     ".example" and "evilexample.com" does NOT end with ".example.com".
+#
+# `b2jk-industry.github.io` is the canonical public GitHub Pages host
+# for SBO3L's static proof site (deployed from `main` by
+# `.github/workflows/pages.yml`). ENS fixtures publish a
+# `sbo3l:proof_uri` pointing at `https://b2jk-industry.github.io/SBO3L-…/capsule.json`,
+# which flows into the runtime Passport capsule and from there into
+# any fixture / artefact a URL scanner traverses. Listed as an EXACT
+# host (not a suffix) so `evil.b2jk-industry.github.io.attacker.com`
+# is still rejected by the same infix-bypass guard the comment block
+# above describes for `schemas.sbo3l.dev`.
 SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
     "schemas.sbo3l.dev",
+    "b2jk-industry.github.io",
     "example.com",
     "example.net",
     "example.org",
