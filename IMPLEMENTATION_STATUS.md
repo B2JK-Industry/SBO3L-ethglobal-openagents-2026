@@ -2,10 +2,10 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-04-30 (post URL slug + truth cleanup, dev review in flight)
-**Branch:** `main` (HEAD `3f2eb07` — post `chore: post-rename truth + brand cleanup (#60)` and `chore: align repo URL references with new SBO3L slug (#59)`, with Uniswap P6.1 `(#57)`, rebrand `(#58)` and standalone KeeperHub adapter `(#56)` already in)
-**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired. Dev review and polishing are in flight (Dev A positioning + sponsor depth on `feat/dev-a-positioning-polish`, Dev B cryptographic verifier + IP audit on `feat/dev-b-crypto-resilience-ip` + `audit/scopeblind-ip-low-risk`).
-**Open implementation PRs:** **2** open at audit time — [#61](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/61) `feat: cryptographic passport verifier (B1)` and [#62](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/62) `docs(audit): ScopeBlind / Veritas Acta IP — verdict LOW`. Neither blocks submission.
+**Last updated:** 2026-04-30 (post-cleanup sweep)
+**Branch:** `main` (HEAD `29e2135` — post URL slug rename, sponsor narrative refresh, CI security pass, repo URL updates, plus the B1/B2/B3/B7 implementation track)
+**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired.
+**Open implementation PRs:** **0** open at audit time. PRs [#61](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/61) (cryptographic passport verifier — B1) and [#62](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/62) (ScopeBlind IP audit — B2) merged earlier on 2026-04-30 along with the rest of the post-rename cleanup (#63, #64, #67, #69, #71, #72, #73, #74, #75).
 **CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
 **Blockers:** none.
 
