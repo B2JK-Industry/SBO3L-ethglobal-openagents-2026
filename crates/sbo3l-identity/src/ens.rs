@@ -30,8 +30,14 @@ pub struct EnsRecords {
     pub policy_hash: String,
     #[serde(rename = "sbo3l:audit_root")]
     pub audit_root: String,
-    #[serde(rename = "sbo3l:receipt_schema")]
-    pub receipt_schema: String,
+    /// URL to the published proof capsule for this agent. Renamed
+    /// from `receipt_schema` to match the actually-deployed
+    /// `sbo3lagent.eth` text records on Ethereum mainnet (the
+    /// previous name pointed at a static JSON Schema; the new name
+    /// points at a specific deployed proof instance, which is the
+    /// useful thing for an agent registry).
+    #[serde(rename = "sbo3l:proof_uri")]
+    pub proof_uri: String,
 }
 
 impl EnsRecords {
@@ -88,7 +94,7 @@ mod tests {
                 "sbo3l:endpoint": "http://127.0.0.1:8730/v1",
                 "sbo3l:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
                 "sbo3l:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
-                "sbo3l:receipt_schema": "https://schemas.sbo3l.dev/policy-receipt/v1.json"
+                "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json"
             }
         }"#
     }
