@@ -1,0 +1,33 @@
+---
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+---
+<header>
+  <nav>
+    <a href="/" class="brand">SBO3L</a>
+    <div class="links">
+      <a href={githubRepoUrl}>GitHub</a>
+      <a href="/proof">Proof</a>
+      <a href={`${githubRepoUrl}/blob/main/QUICKSTART.md`}>Quickstart</a>
+    </div>
+  </nav>
+</header>
+
+<style>
+  header { border-bottom: 1px solid var(--border); padding: 1em 1.5em; }
+  nav {
+    max-width: var(--max);
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2em;
+    flex-wrap: wrap;
+  }
+  .brand { font-weight: 700; font-size: 1.2em; color: var(--fg); }
+  .brand:hover { text-decoration: none; color: var(--accent); }
+  .links { display: flex; gap: 1.6em; flex-wrap: wrap; }
+  @media (max-width: 640px) {
+    nav { gap: 1em; }
+    .links { gap: 1em; font-size: 0.95em; }
+  }
+</style>
