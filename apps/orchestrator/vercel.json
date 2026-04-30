@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/linear-webhook.ts": {
+      "runtime": "@vercel/node@5.0.0",
+      "maxDuration": 30
+    },
+    "api/health.ts": {
+      "runtime": "@vercel/node@5.0.0",
+      "maxDuration": 10
+    }
+  }
+}
