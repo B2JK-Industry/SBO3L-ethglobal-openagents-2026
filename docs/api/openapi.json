@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "SBO3L API",
+    "title": "SBO3L API (DRAFT — partial implementation)",
     "version": "1.0.0-draft",
-    "description": "Normative REST surface for the sbo3l daemon. This file is generated/maintained from 09_api_design.md and 17_interface_contracts.md until implementation can generate it from code."
+    "description": "**DRAFT spec — partial implementation on `main`.**\n\nNormative REST surface for the SBO3L daemon. This file is generated/maintained from `docs/spec/09_api_design.md` and `docs/spec/17_interface_contracts.md` until implementation can generate it from code.\n\n**What is actually wired on `main` today** (verifiable with `cargo test --workspace --all-targets` against `crates/sbo3l-server/src/lib.rs`):\n\n- `GET /v1/health` — fully implemented.\n- `POST /v1/payment-requests` — fully implemented, including `Idempotency-Key` semantics (PSM-A2), persistent SQLite-backed nonce-replay (V002), policy / budget / audit / sign pipeline. **Response body shape diverges from this spec**: server returns `{status, decision, deny_code, matched_rule_id, request_hash, policy_hash, audit_event_id, receipt}`, not the `{payment_request_id, status, policy_version, ...}` documented here.\n\n**What is forward-looking design** (in this spec, NOT on `main`):\n\n- `GET /v1/payment-requests/{id}`, `POST /.../approve`, `POST /.../reject` — async / human-in-the-loop flow not implemented.\n- `/agents`, `/agents/{id}/policies`, `/budgets`, `/audit-log`, `/emergency/stop`, `/emergency/resume` — endpoints not implemented.\n- `agentMtls`, `adminMtls`, `agentJwt`, `auditJwt` security schemes — not enforced. `POST /v1/payment-requests` has **no auth** in this build (daemon binds 127.0.0.1 by default and is documented `⚠ DEV ONLY ⚠`; see `SECURITY_NOTES.md` §Daemon authentication for the production path).\n- `application/problem+json` envelope — server emits `application/json` with a smaller `{type, title, status, detail, code}` shape; full RFC 7807 conformance is forward-looking.\n\nThe schemas this spec references under `schemas/*.json` (APRP, policy, policy receipt, decision token, audit event, x402, passport capsule) are the **canonical wire-format contracts** and are validated against the test corpus in CI."
   },
   "servers": [
     {
