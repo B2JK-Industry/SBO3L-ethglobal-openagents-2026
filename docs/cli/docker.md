@@ -12,7 +12,7 @@ The repository ships a multi-stage `Dockerfile` at the project root.
 
 | Stage  | Base                                  | Role                                                |
 |--------|---------------------------------------|-----------------------------------------------------|
-| build  | `rust:1.85-bookworm`                  | `cargo build --release --locked --bin sbo3l-server --bin sbo3l` with `RUSTFLAGS="-C strip=symbols"` |
+| build  | `rust:1-bookworm` (latest 1.x stable) | `cargo build --release --locked --bin sbo3l-server --bin sbo3l` with `RUSTFLAGS="-C strip=symbols"` |
 | runtime| `gcr.io/distroless/cc-debian12:nonroot` | runs as UID 65532, no shell, no package manager     |
 
 Final image is **under 100 MB**. The runtime layer ships the
