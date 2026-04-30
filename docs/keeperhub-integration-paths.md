@@ -217,5 +217,5 @@ If any of IP-1 through IP-5 is something the KeeperHub team would *consider* ado
 - Audit-bundle CLI reference: [`docs/cli/audit-bundle.md`](cli/audit-bundle.md)
 - SBO3L Passport product plan: [`docs/product/SBO3L_PASSPORT_BACKLOG.md`](product/SBO3L_PASSPORT_BACKLOG.md), [`docs/product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md`](product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md)
 - MCP tool surface (functional on `main` from PR #46): [`crates/sbo3l-mcp/`](../crates/sbo3l-mcp/) — judge-facing walk-through at [`docs/mcp-integration-guide.md`](mcp-integration-guide.md).
-- Schemas: [`schemas/`](../schemas/) (six JSON Schema 2020-12 files)
+- Schemas: [`schemas/`](../schemas/) (seven JSON Schema 2020-12 files)
 - OpenAPI 3.1 contract: [`docs/api/openapi.json`](api/openapi.json)

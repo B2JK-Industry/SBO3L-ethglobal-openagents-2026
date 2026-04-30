@@ -120,6 +120,6 @@ The `--root-seed` is **never** stored in the SQLite database — only the result
 ## Limitations carried forward (truthful disclosure)
 
 - **`derive_signing_key` is a deterministic seed-stretch, not a production KDF.** Do not adopt it for any non-mock context.
-- **No live KMS / HSM backend.** Production deployments inject signers via `AppState::with_signers` (TEE/HSM-backed). The `SBO3L_SIGNER_BACKEND` selector and per-role `MANDATE_*_SIGNER_KEY_ID` env vars are documented in [`docs/production-transition-checklist.md`](../production-transition-checklist.md#signer--mock-kms--hsm); none of those wirings exist in this build.
+- **No live KMS / HSM backend.** Production deployments inject signers via `AppState::with_signers` (TEE/HSM-backed). The `SBO3L_SIGNER_BACKEND` selector and per-role `SBO3L_*_SIGNER_KEY_ID` env vars are documented in [`docs/production-transition-checklist.md`](../production-transition-checklist.md#signer--mock-kms--hsm); none of those wirings exist in this build.
 - **Daemon still constructs `DevSigner`.** `sbo3l-server` does not yet load the persistent mock keyring at startup. Wiring the daemon to read v(n) public keys from the mock-KMS table for receipt/audit signing is follow-up work, not part of PSM-A1.9.
 - **`--root-seed` is a CLI input, not a secret.** It is *never* persisted to the SQLite DB (only the per-version public material is). Operators must keep the seed out of shell history / process listings the same way they would treat any other key bootstrap input.
