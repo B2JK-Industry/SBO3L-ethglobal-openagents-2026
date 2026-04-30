@@ -24,5 +24,19 @@ thiserror = { workspace = true }
 ulid = { workspace = true }
 hex = { workspace = true }
 
+# A8: real KeeperHub HTTP submission for `KeeperHubExecutor::live()`.
+# `blocking` keeps this off the async runtime since the executor's
+# `GuardedExecutor::execute` signature is sync; `rustls-tls` avoids
+# linking system OpenSSL on every consumer's build. `default-features`
+# off because we don't need cookies / gzip / multipart.
+#
+# Crate-local only — NOT promoted to workspace deps (per A8 brief), so
+# crates that don't depend on `sbo3l-keeperhub-adapter` don't pull
+# reqwest into their compile graph.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+
 [dev-dependencies]
 chrono = { workspace = true }
+# A8: offline mock HTTP server so tests don't hit the network. Pinned
+# loosely; mockito's API stabilised at 1.x. Crate-local dev-dep only.
+mockito = "1"

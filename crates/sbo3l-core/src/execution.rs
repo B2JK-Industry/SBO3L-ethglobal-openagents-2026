@@ -23,6 +23,16 @@ pub enum ExecutionError {
     BackendOffline(String),
     #[error("integration: {0}")]
     Integration(String),
+    /// A live sponsor backend was reachable but the round-trip failed
+    /// at the protocol layer: non-2xx HTTP status, network error,
+    /// timeout, or a 2xx body that couldn't be parsed into the
+    /// expected response shape. Used by `KeeperHubExecutor::live()`
+    /// (A8 / Round-3 KH-prize follow-up); distinct from
+    /// `BackendOffline` (which means "live mode not configured at
+    /// all") and `Integration` (which is for sponsor-internal errors
+    /// surfaced *inside* a successful round-trip).
+    #[error("protocol: {0}")]
+    ProtocolError(String),
 }
 
 #[derive(Debug, Clone)]

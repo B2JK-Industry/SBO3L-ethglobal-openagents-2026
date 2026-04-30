@@ -14,9 +14,18 @@ this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   and get a `GuardedExecutor` plus the IP-1 `sbo3l_*` envelope without
   pulling the rest of the SBO3L workspace.
 - `KeeperHubExecutor` with `local_mock()` and `live()` constructors.
-  Mock returns deterministic `kh-<ULID>` execution refs;
-  live currently returns `ExecutionError::BackendOffline` (no
-  credentials wired into this build).
+  Mock returns deterministic `kh-<ULID>` execution refs.
+  Live posts the IP-1 envelope to `$SBO3L_KEEPERHUB_WEBHOOK_URL` via
+  `reqwest::blocking` (5-s timeout) with
+  `Authorization: Bearer $SBO3L_KEEPERHUB_TOKEN`, parses `executionId`
+  (or `id` fallback) from the response body, and returns
+  `ExecutionReceipt { mock: false, evidence: Some(envelope), … }`.
+  Token MUST start with `wfb_` (workflow-webhook prefix); `kh_`
+  tokens are rejected up front with
+  `ProtocolError("wrong-token-prefix; …")`. Unset URL →
+  `BackendOffline`; unset token / network / non-2xx / parse failure →
+  `ProtocolError`. All branches pinned by tests via `mockito` (no
+  real network in CI).
 - `KeeperHubMode` enum (`LocalMock` / `Live`).
 - `build_envelope(&PolicyReceipt) -> Sbo3lEnvelope` — builds the IP-1
   upstream-proof envelope that future live KeeperHub submissions
