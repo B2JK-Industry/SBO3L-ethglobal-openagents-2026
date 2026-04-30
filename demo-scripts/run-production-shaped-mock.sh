@@ -271,7 +271,13 @@ SERVER_LOG="$TMPDIR_PSM/idempotency-server.log"
 
 # Spawn a fresh sbo3l-server. EXIT trap was set in step 5 to clean
 # $TMPDIR_PSM; we extend it to also kill the server PID.
+#
+# Auth is required by default since F-1 (PR #91) — the production-shaped
+# mock runs every request unauthenticated, so we engage the dev bypass
+# explicitly. The stderr "⚠ UNAUTHENTICATED MODE — DEV ONLY ⚠" banner is
+# expected and part of the production-shaped surface for a local mock.
 SBO3L_DB="$IDEM_DB" SBO3L_LISTEN="127.0.0.1:${IDEM_PORT}" \
+  SBO3L_ALLOW_UNAUTHENTICATED=1 \
   ./target/debug/sbo3l-server >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 trap 'kill "${SERVER_PID:-0}" 2>/dev/null || true; rm -rf "$TMPDIR_PSM"' EXIT

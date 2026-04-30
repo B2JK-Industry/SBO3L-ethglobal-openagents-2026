@@ -56,9 +56,11 @@ RC=$(curl -sw "%{http_code}" -o /dev/null :8730/v1/payment-requests -X POST \
 [ "$RC" = "401" ] || (echo "F-1 unauth FAIL"; exit 1)
 pkill sbo3l-server
 
-# F-2: Budget persistence
+# F-2: Budget persistence (uses tight-cap demo policy via SBO3L_POLICY so
+# the literal $0.05 + $0.06 > $0.10 daily flow exercises the cap).
 rm -f /tmp/budget-exit.db
 SBO3L_DB=/tmp/budget-exit.db SBO3L_ALLOW_UNAUTHENTICATED=1 \
+  SBO3L_POLICY=test-corpus/policy/tight_daily_budget_demo.json \
   cargo run --bin sbo3l-server > /dev/null 2>&1 &
 sleep 2
 PAYLOAD=$(jq '.amount.value = "0.05" | .nonce = "01HTAWX5K3R8YV9NQB7C6P2D81"' test-corpus/aprp/golden_001_minimal.json)
@@ -66,6 +68,7 @@ curl -s :8730/v1/payment-requests -X POST -H "Content-Type: application/json" -d
 pkill sbo3l-server
 sleep 1
 SBO3L_DB=/tmp/budget-exit.db SBO3L_ALLOW_UNAUTHENTICATED=1 \
+  SBO3L_POLICY=test-corpus/policy/tight_daily_budget_demo.json \
   cargo run --bin sbo3l-server > /dev/null 2>&1 &
 sleep 2
 PAYLOAD=$(jq '.amount.value = "0.06" | .nonce = "01HTAWX5K3R8YV9NQB7C6P2D82"' test-corpus/aprp/golden_001_minimal.json)

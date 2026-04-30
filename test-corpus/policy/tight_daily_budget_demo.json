@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "policy_id": "tight-daily-budget-demo",
+  "description": "F-2 demo policy: identical to reference_low_risk except daily cap is 0.10 USD. Used by the QA test plan and exit gate to exercise budget persistence across daemon restart in 2 requests (0.05 + 0.06 > 0.10). Loaded via SBO3L_POLICY=test-corpus/policy/tight_daily_budget_demo.json.",
+  "default_decision": "deny",
+  "agents": [
+    {
+      "agent_id": "research-agent-01",
+      "status": "active",
+      "policy_role": "research"
+    }
+  ],
+  "budgets": [
+    {
+      "agent_id": "research-agent-01",
+      "scope": "per_tx",
+      "cap_usd": "0.50"
+    },
+    {
+      "agent_id": "research-agent-01",
+      "scope": "daily",
+      "cap_usd": "0.10"
+    },
+    {
+      "agent_id": "research-agent-01",
+      "scope": "per_provider",
+      "scope_key": "api.example.com",
+      "cap_usd": "5.00"
+    }
+  ],
+  "providers": [
+    {
+      "id": "api.example.com",
+      "url": "https://api.example.com",
+      "status": "trusted",
+      "cert_pin_sha256": null
+    }
+  ],
+  "recipients": [
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "chain": "base",
+      "status": "allowed",
+      "label": "example-api-x402-recipient"
+    },
+    {
+      "address": "0x9999999999999999999999999999999999999999",
+      "chain": "base-sepolia",
+      "status": "denied",
+      "label": "ethprague-attacker-demo"
+    }
+  ],
+  "rules": [
+    {
+      "id": "deny-emergency-freeze",
+      "effect": "deny",
+      "deny_code": "policy.deny_emergency_frozen",
+      "when": "input.emergency.freeze_all == true"
+    },
+    {
+      "id": "deny-unknown-provider",
+      "effect": "deny",
+      "deny_code": "policy.deny_unknown_provider",
+      "when": "not input.provider.trusted"
+    },
+    {
+      "id": "deny-recipient-not-allowlisted",
+      "effect": "deny",
+      "deny_code": "policy.deny_recipient_not_allowlisted",
+      "when": "not input.recipient.allowed"
+    },
+    {
+      "id": "allow-small-x402-api-call",
+      "effect": "allow",
+      "deny_code": null,
+      "when": "input.intent == \"purchase_api_call\" and input.payment_protocol == \"x402\" and input.amount_usd <= 0.50 and input.provider.trusted and input.recipient.allowed"
+    }
+  ],
+  "emergency": {
+    "freeze_all": false,
+    "paused_agents": []
+  }
+}

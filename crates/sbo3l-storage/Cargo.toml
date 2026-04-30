@@ -19,6 +19,8 @@ hex = { workspace = true }
 chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 ulid = { workspace = true }
+# F-2: USD-string → cents conversion lives at the policy/storage boundary.
+rust_decimal = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

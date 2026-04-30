@@ -45,7 +45,6 @@ pub struct AppState(pub Arc<AppInner>);
 pub struct AppInner {
     pub policy: Policy,
     pub storage: Mutex<Storage>,
-    pub budgets: Mutex<BudgetTracker>,
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
     pub auth: AuthConfig,
@@ -112,7 +111,6 @@ impl AppState {
         Self(Arc::new(AppInner {
             policy,
             storage: Mutex::new(storage),
-            budgets: Mutex::new(BudgetTracker::new()),
             audit_signer,
             receipt_signer,
             auth,
@@ -453,30 +451,25 @@ async fn run_pipeline(
     let mut final_decision = outcome.decision.clone();
     let mut final_deny_code = outcome.deny_code.clone();
 
+    // F-2: storage-backed budget check. Reads current per-bucket spend
+    // from `budget_state` (V008). On a deny we still emit a signed audit
+    // row downstream — the budget table itself is left untouched (no
+    // persisted side effect).
     if matches!(outcome.decision, EngineDecision::Allow) {
-        let mut budgets = inner.budgets.lock().expect("budget lock");
-        match budgets.check(&inner.policy, &aprp, now) {
+        let storage = inner.storage.lock().expect("storage lock");
+        match BudgetTracker::check(&storage, &inner.policy, &aprp, now) {
             Ok(Some(deny)) => {
                 final_decision = EngineDecision::Deny;
                 final_deny_code = Some(deny.deny_code.to_string());
             }
             Ok(None) => {
-                // commit() can fail only with `BudgetError::BadValue` — i.e. a
-                // malformed `cap_usd` decimal in the loaded policy. That is a
-                // server-side configuration error, not a business denial; use
-                // a distinct code so callers don't confuse it with a real cap
-                // breach (which surfaces via `Ok(Some(deny))` above with code
-                // `budget.hard_cap_exceeded`).
-                budgets.commit(&inner.policy, &aprp, now).map_err(|e| {
-                    problem(
-                        "policy.config_error",
-                        500,
-                        "policy config error",
-                        e.to_string(),
-                    )
-                })?;
+                // The actual increment + audit append happens below in a
+                // single transaction (`BudgetTracker::commit`), satisfying
+                // the F-2 acceptance criterion that "policy + budget +
+                // audit wrap in single transaction".
             }
             Err(e) => {
+                drop(storage);
                 return Err(problem(
                     "policy.config_error",
                     500,
@@ -525,10 +518,23 @@ async fn run_pipeline(
         ts: now,
     };
 
+    // F-2: on allow, delegate to `BudgetTracker::commit` which wraps
+    // budget upserts AND the audit append in a single transaction. On
+    // deny / requires_human there is no budget to charge, so we go
+    // straight to the same atomic seam (`Storage::finalize_decision`)
+    // with an empty increments slice — the two writes always either
+    // both land or both roll back, regardless of decision.
     let signed_event: SignedAuditEvent = {
         let mut storage = inner.storage.lock().expect("storage lock");
-        storage
-            .audit_append(audit_event, &inner.audit_signer)
+        if matches!(final_decision, EngineDecision::Allow) {
+            BudgetTracker::commit(
+                &mut storage,
+                &inner.policy,
+                &aprp,
+                now,
+                audit_event,
+                &inner.audit_signer,
+            )
             .map_err(|e| {
                 problem(
                     "audit.write_failed",
@@ -537,6 +543,18 @@ async fn run_pipeline(
                     e.to_string(),
                 )
             })?
+        } else {
+            storage
+                .finalize_decision(&[], audit_event, &inner.audit_signer)
+                .map_err(|e| {
+                    problem(
+                        "audit.write_failed",
+                        500,
+                        "audit append failed",
+                        e.to_string(),
+                    )
+                })?
+        }
     };
 
     let receipt = UnsignedReceipt {
