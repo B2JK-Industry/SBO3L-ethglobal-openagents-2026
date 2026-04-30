@@ -196,8 +196,8 @@ Anywhere in this chain, an auditor with the right keys can reconstruct *what was
 
 ## What this document is NOT
 
-- **Not a claim that any of IP-1 through IP-5 is implemented end-to-end with a live KeeperHub backend in this build.** The SBO3L side has the schemas, the adapter, the audit-bundle codec, the Passport capsule schema and verifier; the live network call to KeeperHub is gated behind unblocking the open questions in [`docs/keeperhub-live-spike.md` §Open questions for the KeeperHub team](keeperhub-live-spike.md). Today the demo always constructs `KeeperHubExecutor::local_mock()`.
-- **Not a request for special treatment.** Every claim above is reproducible from a fresh clone in ~5 seconds: `bash demo-scripts/run-openagents-final.sh` (vertical demo, 13 gates) and `bash demo-scripts/run-production-shaped-mock.sh` (operator surface, 26 real / 0 mock / 1 skipped tally). The mock is honestly disclosed in every output.
+- **Live integration in this build is partial, not full IP-1..IP-5 coverage.** IP-1 (envelope helper, `crates/sbo3l-keeperhub-adapter/src/lib.rs::submit_live_to`) is shipped and was exercised end-to-end against a real KeeperHub workflow during the submission window — env-gated on `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN`, returns a real `executionId`. IP-4 (standalone publishable crate `crates/sbo3l-keeperhub-adapter`, depends only on `sbo3l-core`) is shipped. IP-2 (MCP symmetric tool), IP-3 (capsule-bound webhook variant), and IP-5 (capsule URI in receipts) are not yet wired live. The demo default still constructs `KeeperHubExecutor::local_mock()`.
+- **Not a request for special treatment.** Every claim above is reproducible from a fresh clone in ~10s end-to-end: `bash demo-scripts/run-openagents-final.sh` (vertical demo, 13 gates) and `bash demo-scripts/run-production-shaped-mock.sh` (operator surface, 26 real / 0 mock / 1 skipped tally). The mock is honestly disclosed in every output.
 - **Not a marketing landing page.** This doc lives in `docs/` next to the existing CLI and partner one-pager docs, owns its own filename, and links into the actual Rust source where each shape lives.
 
 ---
