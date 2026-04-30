@@ -259,7 +259,14 @@ pub(crate) fn submit_live_to(
         serde_json::from_str(&envelope.to_json_payload()).map_err(|e| {
             ExecutionError::ProtocolError(format!("could not re-parse own envelope: {e}"))
         })?;
-    let intent_value = serde_json::to_value(&request.intent).unwrap_or(serde_json::Value::Null);
+    // `to_value` is `T: Serialize` over an owned value. `Intent` is `Copy`,
+    // so `request.intent` (without `&` or `.clone()`) just copies the field
+    // out of the borrowed `&PaymentRequest`. Clippy on Rust 1.95 rejects
+    // both `&request.intent` (`needless_borrows_for_generic_args`) and
+    // `request.intent.clone()` (`clone_on_copy`); the bare field access
+    // is the only form that passes `-D warnings`.
+    let intent_value =
+        serde_json::to_value(request.intent).unwrap_or(serde_json::Value::Null);
     let mut body = serde_json::Map::new();
     body.insert(
         "agent_id".into(),
