@@ -12,11 +12,35 @@ on:
 
 jobs:
   codex:
+    # Author-association gate (defence in depth):
+    # `issue_comment` / `pull_request_review_comment` / `pull_request_review` /
+    # `issues` all fire on activity from anyone with read access (or no access
+    # at all, for public repo issues). The original `@codex` substring filter
+    # was the only gate, so a drive-by stranger could trigger a job that holds
+    # `secrets.CLAUDE_CODE_OAUTH_TOKEN` and `contents: write`. The association
+    # check restricts execution to repo OWNER / MEMBER / COLLABORATOR — i.e.
+    # the people who already have direct push access. Bot comments (Codex
+    # bot, Dependabot, etc.) post under their own logins so this filter is
+    # author-driven, not phrase-driven.
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@codex')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@codex')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@codex')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@codex') || contains(github.event.issue.title, '@codex')))
+      (
+        github.event.sender.type == 'User' && (
+          github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR' ||
+          github.event.review.author_association == 'OWNER' ||
+          github.event.review.author_association == 'MEMBER' ||
+          github.event.review.author_association == 'COLLABORATOR' ||
+          github.event.issue.author_association == 'OWNER' ||
+          github.event.issue.author_association == 'MEMBER' ||
+          github.event.issue.author_association == 'COLLABORATOR'
+        )
+      ) && (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@codex')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@codex')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@codex')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@codex') || contains(github.event.issue.title, '@codex')))
+      )
 
     runs-on: ubuntu-latest
 
