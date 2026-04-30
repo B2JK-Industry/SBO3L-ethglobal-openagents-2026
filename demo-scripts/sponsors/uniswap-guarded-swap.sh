@@ -74,6 +74,9 @@ trap 'rm -rf "$TMPDIR_PASSPORT"' EXIT
 
 DB="$TMPDIR_PASSPORT/m.db"
 CAPSULE="$TMPDIR_PASSPORT/uniswap-capsule.json"
+ARTIFACTS=demo-scripts/artifacts
+TRANSCRIPT="$ARTIFACTS/uniswap-evidence-offline-verify.txt"
+mkdir -p "$ARTIFACTS"
 
 ./target/debug/sbo3l policy activate \
   test-corpus/policy/reference_low_risk.json \
@@ -89,12 +92,48 @@ CAPSULE="$TMPDIR_PASSPORT/uniswap-capsule.json"
   --mode mock \
   --out "$CAPSULE"
 
-echo
-echo "  capsule.execution.executor_evidence (P6.1 — Uniswap quote evidence):"
-jq '.execution.executor_evidence' "$CAPSULE"
+# --------------------------------------------------------------------------
+# A4 — offline post-hoc verification framing.
+#
+# Tee the evidence + verify segments to a transcript file so the demo
+# video gets a deterministic snapshot. Most of the byte-content is
+# stable across runs (executor_evidence shape, schema id, decision,
+# matched_rule); the few non-deterministic fields (quote_id ULID,
+# quote_timestamp_unix, request_hash, audit chain hashes) are NOT
+# asserted on in the regression test — the test pins SHAPE, not
+# byte-equality.
+# --------------------------------------------------------------------------
+{
+  echo "== executor_evidence — what an offline auditor reads =="
+  echo "  capsule.execution.executor_evidence (P6.1 — Uniswap quote evidence):"
+  jq '.execution.executor_evidence' "$CAPSULE"
+  echo
+  echo "== passport verify — schema + 8 cross-field invariants, NO network =="
+  ./target/debug/sbo3l passport verify --path "$CAPSULE"
+  echo
+  echo "== Why this is the differentiator =="
+  cat <<'EOF'
+  Other Uniswap-track entries show the swap going out. SBO3L shows the
+  swap going out PLUS a signed proof artefact a third party can verify
+  WITHOUT contacting any RPC, any Uniswap subgraph, any agent backend,
+  or KeeperHub:
 
+    - the capsule carries the JCS-canonical request_hash + the active
+      policy_hash + the Ed25519 receipt signature + the audit-chain
+      position;
+    - executor_evidence carries the actual quote shape that ran (10
+      fields: quote_id, quote_source, input/output token, route,
+      notional_in, slippage_cap_bps, quote_timestamp_unix,
+      quote_freshness_seconds, recipient_address);
+    - `sbo3l passport verify --path <capsule>` re-derives every
+      claim from the capsule alone using only the agent's published
+      Ed25519 pubkey (read off the receipt's signature.key_id).
+
+  Offline. Post-hoc. Single file. That's the SBO3L story.
+EOF
+} | tee "$TRANSCRIPT"
 echo
-./target/debug/sbo3l passport verify --path "$CAPSULE"
+echo "  transcript → $TRANSCRIPT (ignored by demo-scripts/artifacts/.gitignore)"
 
 # --------------------------------------------------------------------------
 # B7 — optional live segment. Skipped unless `--live` is passed AND the
