@@ -1,0 +1,41 @@
+---
+// Number strip — currently hardcoded; build-time injection from
+// scripts/collect-marketing-stats.sh lands in a follow-up PR (per
+// docs/design/phase-2-frontend.md §3.5, gated on Q2 answer).
+const stats = [
+  { value: "377/377", label: "tests passing" },
+  { value: "13/13",   label: "demo gates green" },
+  { value: "8/8",     label: "adversarial inputs fail-closed" },
+  { value: "3 sponsor live paths", label: "verified end-to-end" },
+];
+---
+<section class="numbers" aria-label="SBO3L verification metrics">
+  {stats.map(({ value, label }) => (
+    <div class="number">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  ))}
+</section>
+
+<style>
+  .numbers {
+    max-width: var(--max);
+    margin: 2em auto;
+    padding: 1.5em;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5em;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+  .number { text-align: center; color: var(--muted); }
+  .number strong {
+    display: block;
+    font-size: 1.6em;
+    color: var(--accent);
+    margin-bottom: 0.2em;
+    font-weight: 700;
+  }
+  .number span { font-size: 0.95em; }
+</style>
