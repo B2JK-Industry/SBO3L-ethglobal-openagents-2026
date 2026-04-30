@@ -26,7 +26,7 @@ Sources for each row are listed under [§Sources](#sources) below.
 We mark our own gaps explicitly so they don't get lost in the table:
 
 - **On-chain anchor — `~` not `✓`.** `mock_anchor_ref` is deterministic, local, and labelled `mock anchoring, NOT onchain` in every CLI line and JSON artifact. The `sbo3l audit checkpoint verify` path refuses any artifact with `mock_anchor: false`. A real anchor (e.g. EAS attestation of the chain digest, or a `keccak256` write to a registry contract) is design-described in `docs/cli/audit-checkpoint.md` but **not shipped**. Treat the SBO3L row's `~` as honest — every other row's `✓` for on-chain anchor refers to actual chain writes.
-- **ENS — `✓` only because the resolver trait is shipped and the offline fixture flow is end-to-end.** Live testnet ENS resolution is a one-constructor swap (`OfflineEnsResolver` → `LiveEnsResolver`); the trait itself is unchanged. We don't ship the live resolver in this build. The `✓` is for the architecture + offline path, not for "we resolve names against mainnet today".
+- **ENS — `✓` because both the resolver trait and the live mainnet resolver are shipped.** `LiveEnsResolver` (`crates/sbo3l-identity/src/ens_live.rs`) reads the five `sbo3l:*` text records from a real Ethereum JSON-RPC endpoint; verified end-to-end against `sbo3lagent.eth` on mainnet during the submission window (5/5 records resolved, `policy_hash` truth-aligned with the offline fixture). Demo default remains `OfflineEnsResolver` for CI determinism.
 - **KeeperHub integration — `✓` for the SBO3L side of the IP-1..IP-5 pair.** The `keeperhub.lookup_execution` half (KeeperHub's MCP tool) and the live HTTP submission body are KeeperHub's deliverable; we ship the adapter, the envelope helper, the schema sketch, and the symmetric `sbo3l.audit_lookup` MCP tool. See [`docs/keeperhub-integration-paths.md`](keeperhub-integration-paths.md).
 - **Executor evidence slot — `✓` only for Uniswap.** P6.1 ships `UniswapQuoteEvidence` (10 fields: `quote_id`, `quote_source`, `input_token`, `output_token`, `route_tokens`, `notional_in`, `slippage_cap_bps`, `quote_timestamp_unix`, `quote_freshness_seconds`, `recipient_address`). KeeperHub's executor leaves `evidence: None` today; the slot is mode-agnostic, so populating it is one constructor body change.
 
@@ -61,7 +61,7 @@ A production deployment can stack two or three of these — e.g. SBO3L for per-d
 
 | Project | URLs consulted |
 |---|---|
-| **SBO3L** | This repository at `main` HEAD `ab6e838` (`feat: Uniswap P6.1 — Passport capsule quote evidence (#57)`). Test count `cargo test --workspace --all-targets` → 377/377; demo runner 13/13; production-shaped runner 26/0/1. |
+| **SBO3L** | This repository at `main` HEAD `0707079` (`docs: P0c final truth-align — KH live exercised, timing reflects warm-cache reality (#78)`). Test count `cargo test --workspace --all-targets` → 377/377; demo runner 13/13; production-shaped runner 26/0/1. All three sponsor live paths (KeeperHub `submit_live_to`, `LiveEnsResolver`, `UniswapExecutor::live_from_env`) verified end-to-end during the submission window. |
 | **PEAC Protocol** | [github.com/peacprotocol/peac](https://github.com/peacprotocol/peac), [peacprotocol.org](https://www.peacprotocol.org/docs), npm `@peac/protocol`. |
 | **Signet** | [github.com/Prismer-AI/signet](https://github.com/Prismer-AI/signet). |
 | **ScopeBlind / `protect-mcp`** | [github.com/scopeblind/scopeblind-gateway](https://github.com/scopeblind/scopeblind-gateway). The `scopeblind/protect-mcp` URL given in some references is a 404; `protect-mcp` is the npx command, not a repo. |
@@ -74,4 +74,4 @@ A production deployment can stack two or three of these — e.g. SBO3L for per-d
 
 - For every `✗` row outside SBO3L's column, the feature is *not documented* in the project's own README/spec. Absence in README ≠ guaranteed absence in code; if the project ships the feature without naming it in their public docs, the table will be wrong in their favour. Corrections welcome.
 - For every `~` row, the project ships *something* in that direction but doesn't headline it the way SBO3L would; we leave the door open to upgrade `~` → `✓` if a maintainer points us at code.
-- The matrix is accurate as of `main` HEAD `ab6e838` and the public state of the listed projects in late April 2026. Both move; this document does not.
+- The matrix is accurate as of `main` HEAD `0707079` and the public state of the listed projects in late April 2026. Both move; this document does not.

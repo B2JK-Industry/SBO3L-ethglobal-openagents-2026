@@ -81,7 +81,7 @@ footer a:hover{text-decoration:underline}
 <section class="panel">
 <h2>What this site is NOT</h2>
 <div class="body">
-<p>Not a daemon. Not a hosted API. Not a live KeeperHub / live Uniswap / live ENS integration — every sponsor adapter in this build is a clearly-disclosed local mock or offline fixture. The "live" path is documented in <code>docs/keeperhub-live-spike.md</code> with the eight open questions for the KeeperHub team and the file-by-file shopping list for the live PR; it is not exercised here. Mocks remain explicitly labelled — this site never silently upgrades a mock to a live claim.</p>
+<p>Not a daemon. Not a hosted API. <strong>This deployed static site renders mock/offline-fixture demo runs</strong> — all sponsor adapters on this page show their <code>local_mock()</code> / <code>OfflineEnsResolver</code> evidence, not live network calls. <strong>The repo build itself ships env-gated live paths</strong> (KeeperHub <code>submit_live_to</code>, <code>LiveEnsResolver</code>, <code>UniswapExecutor::live_from_env</code>) that were verified end-to-end against real KeeperHub / mainnet ENS / Sepolia QuoterV2 during the submission window. The static site never silently upgrades a mock to a live claim — and the live paths are kept clearly separated from the deterministic demo surface this page shows.</p>
 </div>
 </section>
 
