@@ -70,7 +70,7 @@ Live integrations available for all three sponsors, gated by operator-supplied e
 
 - **KeeperHub:** `KeeperHubExecutor::live()` POSTs the IP-1 envelope to a real workflow webhook + captures `executionId`. Activated by `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN` (a `wfb_*` token, NOT `kh_*`).
 - **ENS:** `LiveEnsResolver` reads the five `sbo3l:*` text records from a real ENS Public Resolver via JSON-RPC. Activated by `SBO3L_ENS_RPC_URL`. The team's `sbo3lagent.eth` (mainnet) carries the records that `cargo run -p sbo3l-identity --example ens_live_smoke` resolves end-to-end.
-- **Uniswap:** `UniswapExecutor::live()` issues a real `quoteExactInputSingle` against the Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`). Activated by `SBO3L_UNISWAP_RPC_URL` (Sepolia endpoint).
+- **Uniswap:** `UniswapExecutor::live_from_env()` issues a real `quoteExactInputSingle` against the Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) when `SBO3L_UNISWAP_RPC_URL` and `SBO3L_UNISWAP_TOKEN_OUT` are set; missing env vars surface as `LiveConfigError::MissingEnvVar` at construction time. The bare back-compat `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime.
 
 Demo defaults (`KeeperHubExecutor::local_mock()` / `UniswapExecutor::local_mock()` / `OfflineEnsResolver`) are clearly labelled in demo output and ship that way to keep CI offline and deterministic. The dev signing seeds in `AppState::new` are deterministic public constants (clearly marked `⚠ DEV ONLY ⚠`); production deployments inject real signers via `AppState::with_signers`.
 

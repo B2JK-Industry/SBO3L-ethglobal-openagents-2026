@@ -65,3 +65,13 @@ jobs:
 
       - name: Trust-badge render regression test
         run: python trust-badge/test_build.py
+
+      - name: Demo-fixtures URL allowlist + mock-fixture regression test
+        run: python demo-fixtures/test_fixtures.py
+
+      - name: Operator-console render regression test
+        run: |
+          python operator-console/build.py \
+            --input operator-console/fixtures/operator-summary.json \
+            --evidence operator-console/fixtures/operator-evidence.json
+          python operator-console/test_build.py

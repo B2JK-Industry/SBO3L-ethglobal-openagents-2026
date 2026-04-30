@@ -61,9 +61,9 @@ These are documentation/specifications, not prior product code. See [`AI_USAGE.m
 ## What is live vs mocked
 
 - APRP / policy / receipts / audit chain / persistent nonce-replay / audit-bundle export & verify / no-key proof / trust-badge render — **live, end-to-end, deterministic**.
-- ENS resolution — offline fixture (`OfflineEnsResolver` reads `demo-fixtures/ens-records.json`). The `EnsResolver` trait abstraction is real; live resolver is a future swap.
-- KeeperHub adapter — local mock (`KeeperHubExecutor::local_mock()`). The adapter boundary is real; the live constructor exists but is not exercised in the demo.
-- Uniswap adapter — local mock (`UniswapExecutor::local_mock()`). The swap-policy guard runs before any executor call. `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`.
+- ENS resolution — demo default is offline fixture (`OfflineEnsResolver` reads `demo-fixtures/ens-records.json`). `LiveEnsResolver` (in `crates/sbo3l-identity/src/ens_live.rs`) is shipped and env-gated on `SBO3L_ENS_RPC_URL`; verified end-to-end against `sbo3lagent.eth` on mainnet during the submission window (5/5 `sbo3l:*` records resolved).
+- KeeperHub adapter — demo default is `KeeperHubExecutor::local_mock()`. The live arm (`submit_live_to`, env-gated on `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN`) is shipped and was verified end-to-end against a real KeeperHub workflow during the submission window — real `executionId` returned.
+- Uniswap adapter — demo default is `UniswapExecutor::local_mock()`. The swap-policy guard runs before any executor call. The shipped live path is `UniswapExecutor::live_from_env()`, which hits Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) when `SBO3L_UNISWAP_RPC_URL` and `SBO3L_UNISWAP_TOKEN_OUT` are set; the bare back-compat `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime. Live read-side quote evidence verified against Sepolia during the submission window; real swap broadcast remains scope-cut.
 - Signing seeds — deterministic dev seeds in `AppState::new` are public and demo-only. Production deployments inject real signers via `AppState::with_signers`. We do not claim production readiness for TEE/HSM in this build.
 - There is **no** `SBO3L_*_LIVE` environment variable feature flag in this build.
 
