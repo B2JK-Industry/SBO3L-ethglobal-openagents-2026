@@ -1,12 +1,14 @@
 use std::io::IsTerminal;
 use std::net::SocketAddr;
 
+use sbo3l_policy::Policy;
 use sbo3l_server::{reference_policy, router, AppState, AuthConfig};
 use sbo3l_storage::Storage;
 
 const DEFAULT_LISTEN: &str = "127.0.0.1:8730";
 const ENV_LISTEN: &str = "SBO3L_LISTEN";
 const ENV_ALLOW_UNSAFE_PUBLIC_BIND: &str = "SBO3L_ALLOW_UNSAFE_PUBLIC_BIND";
+const ENV_POLICY: &str = "SBO3L_POLICY";
 const UNSAFE_BIND_EXIT_CODE: i32 = 2;
 
 #[tokio::main]
@@ -59,7 +61,15 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    let policy = reference_policy();
+    let policy = match std::env::var(ENV_POLICY).ok() {
+        None => reference_policy(),
+        Some(path) => {
+            let raw = std::fs::read_to_string(&path)
+                .map_err(|e| anyhow::anyhow!("failed to read {ENV_POLICY}={path}: {e}"))?;
+            Policy::parse_json(&raw)
+                .map_err(|e| anyhow::anyhow!("failed to parse policy at {path}: {e}"))?
+        }
+    };
     let state = AppState::with_auth_config(policy, storage, auth);
     let app = router(state);
 

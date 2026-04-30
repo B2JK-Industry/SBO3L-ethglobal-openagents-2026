@@ -13,13 +13,16 @@ This is a hackathon-scope demo. SBO3L's daemon and CLI are labelled `⚠ DEV ONL
 
 Default-deny: a request without `Authorization` is rejected with HTTP 401 + `auth.required` (RFC 7807). The development-only bypass `SBO3L_ALLOW_UNAUTHENTICATED=1` is advertised at startup with a stderr `⚠ UNAUTHENTICATED MODE — DEV ONLY ⚠` banner; never enable in production. The auth gate runs before idempotency, before the nonce gate, and before any signing — a rejected request produces zero side effects.
 
+## Budget persistence (F-2, ACID across restart)
+
+Budget caps (`per_tx`, `daily`, `monthly`, `per_provider`) persist in SQLite via the V008 `budget_state` table ([`crates/sbo3l-storage/src/budget_store.rs`](crates/sbo3l-storage/src/budget_store.rs)). On the request path, [`BudgetTracker::commit`](crates/sbo3l-policy/src/budget.rs) wraps the budget upsert AND the audit append in a single rusqlite transaction via `Storage::finalize_decision`: both writes either land or roll back together. Daemon restart against the same SQLite file replays committed spend; deny on restart with the spec-canonical `policy.budget_exceeded` is exercised by `cargo test --test test_budget_persistence`.
+
+`per_tx` is a single-request cap and is intentionally never persisted — its row is never written, only the request amount is compared.
+
 ## Known limitations (scope-cut for submission)
 
 ### Production signer wiring
 `sbo3l-server` constructs `AppState::new()` directly today, which uses the deterministic public dev seed. `AppState::new()` is documented `⚠ DEV ONLY ⚠`. Production path: `AppState::with_signers(...)` injects a real KMS-backed `SignerBackend`; daemon refuses startup if `SBO3L_SIGNER_BACKEND` is unset. Mock-KMS persistence (PSM-A1.9, V005) is the production-shaped lifecycle preview, not the production signer. Tracked.
-
-### Budget tracker persistence
-Budget caps (`per_tx`, `daily`, `monthly`, `per_provider`) are an in-memory `HashMap` inside `AppState`. They reset on daemon restart; they don't survive multi-process deployment. Production path: SQLite-backed budget rows committed transactionally alongside the nonce-replay claim and the audit append. Tracked.
 
 ### Idempotency in-flight semantics
 `Idempotency-Key` cache lookup happens before the pipeline runs; cache write happens after the pipeline returns 200. Concurrent same-key requests can race and both pass the lookup. Production path: a `processing` / `succeeded` / `failed` state machine with an atomic reservation on first lookup, so a second concurrent request blocks or returns 409 instead of running the pipeline twice. Tracked.

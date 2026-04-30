@@ -251,7 +251,7 @@ pub enum Error {
 | `policy.deny_attestation_drift` | PolicyError::DenyAttestationDrift | 423 | critical |
 | `policy.escalation_required` | PolicyError::EscalationRequired | 202 | info |
 | `policy.insufficient_signatures` | PolicyError::InsufficientSignatures | 401 | warning |
-| `budget.hard_cap_exceeded` | BudgetError::HardCapExceeded | 403 | warning |
+| `policy.budget_exceeded` | BudgetError::CapExceeded | 403 | warning |
 | `budget.soft_cap_warning` | BudgetError::SoftCapWarning | 202 | info |
 | `signer.missing_decision_token` | SignerError::MissingDecisionToken | 401 | critical |
 | `signer.invalid_decision_token` | SignerError::InvalidDecisionToken | 401 | critical |

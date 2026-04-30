@@ -9,6 +9,7 @@ description = "SBO3L policy: YAML/JSON policy parsing and rule evaluation."
 
 [dependencies]
 sbo3l-core = { workspace = true }
+sbo3l-storage = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
@@ -18,3 +19,6 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 serde_json_canonicalizer = { workspace = true }
 chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

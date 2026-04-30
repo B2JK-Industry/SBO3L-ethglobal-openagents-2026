@@ -2044,11 +2044,13 @@ dependencies = [
  "hex",
  "rust_decimal",
  "sbo3l-core",
+ "sbo3l-storage",
  "serde",
  "serde_json",
  "serde_json_canonicalizer",
  "serde_yaml",
  "sha2",
+ "tempfile",
  "thiserror 1.0.69",
 ]
 
@@ -2087,6 +2089,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "rusqlite",
+ "rust_decimal",
  "sbo3l-core",
  "serde",
  "serde_json",
