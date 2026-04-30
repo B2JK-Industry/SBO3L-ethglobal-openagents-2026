@@ -2,8 +2,11 @@
 #
 # SBO3L server + CLI multi-stage image.
 #
-# Stage 1: rust:1.85-bookworm — builds the `sbo3l-server` daemon and the
-#          `sbo3l` CLI in release mode with debug symbols stripped.
+# Stage 1: rust:1-bookworm — builds the `sbo3l-server` daemon and the
+#          `sbo3l` CLI in release mode with debug symbols stripped. Tracks
+#          the latest 1.x stable; some workspace transitive deps (icu_*,
+#          time-macros) demand rustc >= 1.88, so a fixed minor pin would
+#          drift out of compliance over time.
 # Stage 2: gcr.io/distroless/cc-debian12:nonroot — minimal runtime, glibc
 #          + libgcc only, no shell, runs as UID 65532. The migrations/ tree
 #          is also copied into /usr/local/share/sbo3l/migrations as a
@@ -18,7 +21,7 @@
 # See docs/cli/docker.md for full operator notes (env vars, volume layout,
 # health check, security caveats around SBO3L_ALLOW_UNSAFE_PUBLIC_BIND=1).
 
-ARG RUST_VERSION=1.85
+ARG RUST_VERSION=1
 ARG DEBIAN_VERSION=bookworm
 ARG DISTROLESS_TAG=nonroot
 
