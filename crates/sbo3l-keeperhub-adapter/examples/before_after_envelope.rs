@@ -91,11 +91,26 @@ fn main() {
     let after_json =
         serde_json::to_string_pretty(&serde_json::Value::Object(after_body)).expect("AFTER pretty");
 
+    // 5. Synthesise the response shape KeeperHub returns. Verified
+    //    against the live endpoint at office-hours time (real curl POST
+    //    came back `{"executionId":"<id>","status":"running"}` HTTP 200).
+    //    The id below is a fixed placeholder for demo determinism — NOT
+    //    a real KH id; never commit a real kh_/wfb_ token or live id.
+    let after_response = serde_json::json!({
+        "executionId": "kh-demo-placeholder-fixed-for-determinism",
+        "status":      "running",
+    });
+    let after_response_json =
+        serde_json::to_string_pretty(&after_response).expect("response pretty");
+
     println!("== BEFORE SBO3L — raw KeeperHub workflow-webhook submission ==");
     println!("{before_json}");
     println!();
     println!("== AFTER SBO3L — same workflow with IP-1 envelope attached ==");
     println!("{after_json}");
+    println!();
+    println!("== AFTER SBO3L — KeeperHub response shape (placeholder id) ==");
+    println!("{after_response_json}");
     println!();
     println!("== Why this matters ==");
     println!(
@@ -106,6 +121,13 @@ fn main() {
          — without trusting KeeperHub or the agent. The BEFORE body offers no such\n\
          offline-verifiable path: the auditor must trust the agent's prose claim\n\
          that this submission was authorised.\n\
+         \n\
+         The AFTER round-trip itself is implemented by `KeeperHubExecutor::live()`\n\
+         (A8 — see `crates/sbo3l-keeperhub-adapter/src/lib.rs::submit_live`); when\n\
+         SBO3L_KEEPERHUB_WEBHOOK_URL + SBO3L_KEEPERHUB_TOKEN are set, the executor\n\
+         POSTs the AFTER body via `reqwest::blocking` and parses `executionId`\n\
+         (or `id` fallback) from the 2xx response. The id printed above is a\n\
+         placeholder for demo-video determinism, not a captured live value.\n\
          \n\
          IP-1 (envelope), IP-3 (sbo3l.audit_lookup MCP tool — symmetric to\n\
          keeperhub.lookup_execution), and IP-4 (this crate, `cargo add\n\
