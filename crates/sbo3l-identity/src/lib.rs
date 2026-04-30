@@ -16,9 +16,14 @@
 
 pub mod ens;
 pub mod ens_anchor;
+pub mod ens_live;
 
 pub use ens::{EnsRecords, EnsResolver, OfflineEnsResolver, ResolveError};
 pub use ens_anchor::{
     build_envelope, namehash, set_text_calldata, AnchorEnvelope, AnchorError, AnchorMode,
     AnchorParams, EnsNetwork, AUDIT_ROOT_KEY, ENVELOPE_SCHEMA_ID, SET_TEXT_SELECTOR,
+};
+pub use ens_live::{
+    JsonRpcTransport, LiveEnsResolver, ReqwestTransport, RpcError, ENS_REGISTRY_ADDRESS,
+    RESOLVER_SELECTOR, SBO3L_TEXT_KEYS, TEXT_SELECTOR,
 };

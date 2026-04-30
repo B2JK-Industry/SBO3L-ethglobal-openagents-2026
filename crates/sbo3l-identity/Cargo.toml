@@ -14,7 +14,14 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
-# B3 anchor side: keccak256 for ENS namehash + setText selector.
-# Crate-local (not workspace) to keep blast radius small — only the
-# anchor envelope path uses it; offline resolver does not.
+# B3 anchor side + LiveEnsResolver: keccak256 for ENS namehash and
+# function selectors. Crate-local (not workspace) to keep blast
+# radius small — only the live-resolver and anchor-envelope paths
+# use it; the offline resolver does not.
 tiny-keccak = { version = "2", features = ["keccak"] }
+# B3 LiveEnsResolver: blocking HTTP for synchronous JSON-RPC calls
+# (the EnsResolver trait is sync). Builds on top of the workspace
+# reqwest (rustls-tls + json) with the additional `blocking` feature
+# scoped to this crate; CI tests use an in-process fake transport,
+# so the blocking client is only exercised in real runtime.
+reqwest = { workspace = true, features = ["blocking"] }

@@ -1843,6 +1843,7 @@ name = "sbo3l-identity"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "reqwest",
  "sbo3l-core",
  "serde",
  "serde_json",
