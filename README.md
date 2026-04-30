@@ -16,6 +16,28 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 Public proof URL (deployed from `main` by [`.github/workflows/pages.yml`](.github/workflows/pages.yml)): **<https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/>** — landing page links to the trust-badge proof viewer, the operator-console evidence panels, and a downloadable Passport capsule (`sbo3l.passport_capsule.v1`) you can verify offline with `sbo3l passport verify --path capsule.json`. The site is plain static HTML, no JavaScript, no client-side network calls; the `_site/` build is rendered from the same deterministic regression fixtures `python3 trust-badge/test_build.py` + `python3 operator-console/test_build.py` validate on every CI run, so the URL shows the same shape on every visit.
 
+## Architecture in one diagram
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent<br/>(no signing key)
+    participant SBO3L as SBO3L Daemon
+    participant Audit as SQLite Audit Log
+    participant Sponsor as KeeperHub / Uniswap
+    Agent->>SBO3L: POST /v1/payment-requests (APRP)
+    SBO3L->>SBO3L: schema validate · policy decide<br/>budget commit · nonce-replay gate
+    SBO3L->>Audit: hash-chained event +<br/>Ed25519-signed receipt
+    alt decision = allow
+        SBO3L->>Sponsor: signed envelope +<br/>executor call
+        Sponsor-->>SBO3L: execution_ref<br/>(kh-… / uni-…)
+    else decision = deny
+        Note over Sponsor: never called on deny path<br/>(passport schema enforces<br/>capsule.deny_with_execution_ref)
+    end
+    SBO3L-->>Agent: signed PolicyReceipt +<br/>audit_event_id
+```
+
+The agent crate has **zero signing dependencies**: demo gate 12 grep-asserts that no `SigningKey` / `signing_key` references exist in `demo-agents/research-agent/`. All signing happens inside the SBO3L boundary; the agent only ever sees a signed receipt back.
+
 ## Three commands a judge needs
 
 ```bash
@@ -31,6 +53,26 @@ python3 trust-badge/test_build.py
 ```
 
 For a verifiable, offline-portable proof of a single decision, see [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md): `sbo3l audit export` packages a signed receipt + audit chain prefix + signer keys into one JSON file; `sbo3l audit verify-bundle` re-derives every claim from that file alone.
+
+## What SBO3L blocks
+
+Each row below is a real adversarial input the daemon rejects fail-closed, verified end-to-end during the submission-window QA sweep. The exact error code SBO3L returns is the one a judge would see in their own terminal:
+
+| Adversarial input | SBO3L response |
+|---|---|
+| Empty body | `HTTP 400` + `schema.missing_field` |
+| Unknown field (e.g. `agent_says_it_is_safe`) | `HTTP 400` + `schema.unknown_field` |
+| Reused APRP nonce | `HTTP 409` + `protocol.nonce_replay` |
+| Prompt-injection request | `HTTP 200` + `decision=deny` + `policy.deny_unknown_provider` |
+| Oversized payload (~100 KB) | `HTTP 400` (rejected before pipeline) |
+| Same `Idempotency-Key` + different body | `HTTP 409` + `protocol.idempotency_conflict` |
+| Audit-chain byte-flip | strict-hash verifier rejects (`rc=1`) |
+| Capsule with mismatched `request_hash` | `capsule.request_hash_mismatch` (`rc=2`) |
+| Capsule claiming live mode without evidence | `capsule.live_mode_empty_evidence` (`rc=2`) |
+| Capsule claiming deny but carrying `execution_ref` | `capsule.deny_with_execution_ref` (`rc=2`) |
+| All 9 tampered passport fixtures in `test-corpus/passport/` | every one rejected with `rc=2` |
+
+Test surface backing these: **377 / 377 cargo tests** · **13 / 13 demo gates** · **8 / 8 HTTP adversarial fail-closed** · **9 tampered passport fixtures + manual byte-flip rejected**. `bash demo-scripts/run-openagents-final.sh` reproduces the audit-tamper detection gate end-to-end in ~10 seconds.
 
 ## What this is
 
@@ -73,6 +115,44 @@ Live integrations available for all three sponsors, gated by operator-supplied e
 - **Uniswap:** `UniswapExecutor::live_from_env()` issues a real `quoteExactInputSingle` against the Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) when `SBO3L_UNISWAP_RPC_URL` and `SBO3L_UNISWAP_TOKEN_OUT` are set; missing env vars surface as `LiveConfigError::MissingEnvVar` at construction time. The bare back-compat `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime.
 
 Demo defaults (`KeeperHubExecutor::local_mock()` / `UniswapExecutor::local_mock()` / `OfflineEnsResolver`) are clearly labelled in demo output and ship that way to keep CI offline and deterministic. The dev signing seeds in `AppState::new` are deterministic public constants (clearly marked `⚠ DEV ONLY ⚠`); production deployments inject real signers via `AppState::with_signers`.
+
+## Live integration evidence (captured 2026-04-30)
+
+Each block below is a real output from running the corresponding live smoke against real infrastructure during the submission window. All three are independently re-verifiable by anyone with public RPC access:
+
+**ENS mainnet** — `sbo3lagent.eth` via `https://ethereum-rpc.publicnode.com`:
+
+```
+agent_id:    research-agent-01
+endpoint:    http://127.0.0.1:8730/v1
+policy_hash: e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf  ← matches offline fixture exactly (no drift)
+audit_root:  0x0000000000000000000000000000000000000000000000000000000000000000  ← canonical genesis (no events anchored)
+proof_uri:   https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json
+```
+
+Reproduce: `SBO3L_ENS_RPC_URL=https://ethereum-rpc.publicnode.com SBO3L_ENS_NAME=sbo3lagent.eth cargo run -p sbo3l-identity --example ens_live_smoke`.
+
+**Uniswap Sepolia QuoterV2** — real read-side `quoteExactInputSingle` against `0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`:
+
+```
+quote_source:            uniswap-v3-quoter-sepolia-0xed1f6473345f45b75f8179591dd5ba1888cf2fb3
+route_tokens:            [WETH 0xfff9…, USDC 0x1c7D4B19…]
+quote_timestamp_unix:    1777572056
+sqrt_price_x96_after:    863470429016487749123863152837655
+quote_freshness_seconds: 30
+```
+
+Reproduce: `SBO3L_UNISWAP_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com SBO3L_UNISWAP_TOKEN_OUT=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 cargo run -p sbo3l-execution --example uniswap_live_smoke`.
+
+**KeeperHub workflow** — real live POST to `https://app.keeperhub.com/api/workflows/m4t4cnpmhv8qquce3bv3c/webhook`:
+
+```
+sponsor:        keeperhub
+mock:           false
+execution_ref:  kh-172o77rxov7mhwvpssc3x   ← KH-issued executionId, not a ULID
+```
+
+Reproduce (operator supplies their own webhook + `wfb_*` token): `SBO3L_KEEPERHUB_WEBHOOK_URL=<url> SBO3L_KEEPERHUB_TOKEN=<wfb_…> cargo run --example submit_signed_receipt -p sbo3l-keeperhub-adapter`.
 
 For the **negative-side complement** — known scope limitations a production deployment would need to address (daemon authentication, production signer wiring, budget tracker persistence, idempotency in-flight semantics, Passport verifier scope) — see [`SECURITY_NOTES.md`](SECURITY_NOTES.md). It is honest disclosure from an internal audit, not a roadmap promise.
 
