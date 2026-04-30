@@ -87,10 +87,9 @@ fn main() {
     // Format both blocks as pretty JSON for demo readability. The
     // wire form sent by `KeeperHubExecutor::live()` would be the same
     // bytes in compact form (see `Sbo3lEnvelope::to_json_payload`).
-    let before_json =
-        serde_json::to_string_pretty(&raw_kh_body).expect("BEFORE pretty");
-    let after_json = serde_json::to_string_pretty(&serde_json::Value::Object(after_body))
-        .expect("AFTER pretty");
+    let before_json = serde_json::to_string_pretty(&raw_kh_body).expect("BEFORE pretty");
+    let after_json =
+        serde_json::to_string_pretty(&serde_json::Value::Object(after_body)).expect("AFTER pretty");
 
     println!("== BEFORE SBO3L — raw KeeperHub workflow-webhook submission ==");
     println!("{before_json}");

@@ -22,12 +22,13 @@
 //! let result = executor.execute(&request, &receipt);
 //! ```
 //!
-//! Live mode (`KeeperHubExecutor::live()`) currently returns
-//! `ExecutionError::BackendOffline` — KeeperHub credentials and
-//! workflow-webhook submission land in a follow-up release. The IP-1
-//! envelope IS still constructed inside the `Live` arm so the
-//! wire-format invariant is exercised in CI before the live HTTP path
-//! turns on.
+//! Live mode (`KeeperHubExecutor::live()`) posts the IP-1 envelope
+//! to the webhook URL in `SBO3L_KEEPERHUB_WEBHOOK_URL` via
+//! `reqwest::blocking` (5-s timeout). When the env var is unset the
+//! executor returns `ExecutionError::BackendOffline`; any network /
+//! non-2xx / parse failure surfaces as
+//! `ExecutionError::ProtocolError`. See [`submit_live`] for the
+//! full contract.
 //!
 //! ## What this crate is *not*
 //!
@@ -65,12 +66,13 @@ pub use sbo3l_core::execution::{
 
 /// Two execution modes:
 ///
-/// - [`KeeperHubMode::Live`] — would call KeeperHub's workflow-webhook
-///   endpoint. Today this returns
-///   [`ExecutionError::BackendOffline`] because public KeeperHub
-///   credentials are not wired into the hackathon build; the IP-1
-///   envelope IS built and serialised in this arm so the wire-format
-///   invariant has CI coverage before the live HTTP send turns on.
+/// - [`KeeperHubMode::Live`] — POSTs the IP-1 envelope to the URL in
+///   `SBO3L_KEEPERHUB_WEBHOOK_URL` via `reqwest::blocking` (5-s
+///   timeout), parses `executionId` (or `id` fallback) from the 2xx
+///   response, and returns an `ExecutionReceipt` with `mock: false`
+///   plus the envelope as `evidence`. Unset env var →
+///   [`ExecutionError::BackendOffline`]; network / non-2xx /
+///   parse failure → [`ExecutionError::ProtocolError`].
 /// - [`KeeperHubMode::LocalMock`] — returns a deterministic
 ///   `ExecutionReceipt` with a fresh ULID `execution_ref` and
 ///   `mock: true`. Demos disclose this clearly.
@@ -98,9 +100,9 @@ impl KeeperHubExecutor {
         }
     }
 
-    /// Construct a live-mode executor. Today this returns
-    /// `BackendOffline` from `execute()`; live submission lands with
-    /// concrete credentials + `live_evidence` in a follow-up release.
+    /// Construct a live-mode executor. `execute()` POSTs the IP-1
+    /// envelope to the URL in `SBO3L_KEEPERHUB_WEBHOOK_URL`; see
+    /// [`submit_live`] for the full contract.
     pub fn live() -> Self {
         Self {
             mode: KeeperHubMode::Live,
@@ -148,21 +150,7 @@ impl CoreGuardedExecutor for KeeperHubExecutor {
                 // `docs/keeperhub-live-spike.md`.
                 evidence: None,
             }),
-            KeeperHubMode::Live => {
-                // P5.1 contract: build AND serialise the envelope before
-                // returning `BackendOffline`, so a future receipt-shape
-                // change can't silently desync the wire format. The
-                // payload is intentionally dropped via `let _ = …` —
-                // explicit disclosure that we proved we *could* send it
-                // without actually sending.
-                let _envelope = build_envelope(receipt);
-                let _payload_str = _envelope.to_json_payload();
-                Err(ExecutionError::BackendOffline(
-                    "live KeeperHub backend not configured for this hackathon build; \
-                     switch to KeeperHubMode::LocalMock or wire credentials"
-                        .to_string(),
-                ))
-            }
+            KeeperHubMode::Live => submit_live(request, receipt),
         }
     }
 }
@@ -170,14 +158,190 @@ impl CoreGuardedExecutor for KeeperHubExecutor {
 /// Build the IP-1 envelope (see
 /// `docs/keeperhub-integration-paths.md` §IP-1) that a live KeeperHub
 /// submission carries alongside the APRP body and signed
-/// `PolicyReceipt`. Today the envelope is constructed but never sent
-/// — the live arm of [`GuardedExecutor::execute`] always returns
-/// `BackendOffline`.
+/// `PolicyReceipt`.
 ///
 /// Exposed at module level so tests can pin the wire shape without
-/// poking through the executor's error path.
+/// poking through the executor's submission path.
 pub fn build_envelope(receipt: &PolicyReceipt) -> Sbo3lEnvelope {
     Sbo3lEnvelope::from_receipt(receipt, &receipt.audit_event_id)
+}
+
+/// Env var that holds the live KeeperHub workflow-webhook URL. Per
+/// Daniel's office-hours intel, KeeperHub's webhook is per-workflow:
+/// `https://app.keeperhub.com/api/workflows/{workflowId}/webhook`.
+/// The operator supplies the full URL with the `{workflowId}` baked
+/// in; `submit_live` does not assemble it.
+pub const LIVE_WEBHOOK_ENV: &str = "SBO3L_KEEPERHUB_WEBHOOK_URL";
+
+/// Env var holding the KeeperHub workflow-webhook bearer token.
+/// MUST start with `wfb_` (workflow-webhook prefix per KeeperHub's
+/// token-naming convention). The `kh_` prefix is for the platform
+/// REST API / MCP — submitting to the workflow webhook with a `kh_`
+/// token will return a sponsor-side auth error, so we reject up
+/// front with a clear `ProtocolError` rather than burning a
+/// round-trip on a known-bad shape.
+pub const LIVE_TOKEN_ENV: &str = "SBO3L_KEEPERHUB_TOKEN";
+
+/// A8 — execute one live submission against KeeperHub's workflow webhook.
+///
+/// Wire shape: POSTs `{ agent_id, intent, sbo3l_*: ... }`
+/// (a thin APRP echo + the IP-1 envelope from [`build_envelope`])
+/// as JSON, with `Authorization: Bearer ${SBO3L_KEEPERHUB_TOKEN}`.
+/// Reads the URL + token from [`LIVE_WEBHOOK_ENV`] / [`LIVE_TOKEN_ENV`].
+///
+/// Returns:
+/// - `Ok(ExecutionReceipt { mock: false, … })` on 2xx + JSON body
+///   carrying `executionId` (KeeperHub's documented field) or `id`
+///   (common fallback). `execution_ref` carries `kh-<id>`.
+/// - `Err(ExecutionError::BackendOffline(…))` when
+///   `SBO3L_KEEPERHUB_WEBHOOK_URL` is unset — operator hasn't wired
+///   live mode at all. Distinguishable from `ProtocolError` ("wired
+///   but the round-trip itself failed").
+/// - `Err(ExecutionError::ProtocolError(…))` for every other failure:
+///   token unset, token wrong-prefix (`kh_` instead of `wfb_`),
+///   network error, timeout, non-2xx, body-parse failure, missing
+///   `executionId`/`id`. Error message carries diagnostic context
+///   without leaking secrets (token never logged).
+fn submit_live(
+    request: &PaymentRequest,
+    receipt: &PolicyReceipt,
+) -> Result<ExecutionReceipt, ExecutionError> {
+    let webhook_url = std::env::var(LIVE_WEBHOOK_ENV).map_err(|_| {
+        ExecutionError::BackendOffline(format!(
+            "live KeeperHub backend not configured: set {LIVE_WEBHOOK_ENV} or \
+             switch to KeeperHubExecutor::local_mock()"
+        ))
+    })?;
+    let token = std::env::var(LIVE_TOKEN_ENV).map_err(|_| {
+        ExecutionError::ProtocolError(format!(
+            "live KeeperHub bearer token not set: supply {LIVE_TOKEN_ENV} (must \
+             start with `wfb_`)"
+        ))
+    })?;
+    submit_live_to(request, receipt, &webhook_url, &token)
+}
+
+/// Inner submission helper exposed for tests so a `mockito::Server`'s
+/// URL + a deterministic token can be passed in without mutating the
+/// process-global env vars. Production callers go through
+/// [`submit_live`] which reads `SBO3L_KEEPERHUB_WEBHOOK_URL` +
+/// `SBO3L_KEEPERHUB_TOKEN`.
+///
+/// Token-prefix rule: KeeperHub uses `wfb_` for workflow-webhook
+/// tokens and `kh_` for the platform REST API / MCP. Submitting to a
+/// workflow webhook with a `kh_` token is a known-bad shape — this
+/// helper rejects up front with a `ProtocolError` rather than burning
+/// a round-trip on a request the sponsor will refuse.
+pub(crate) fn submit_live_to(
+    request: &PaymentRequest,
+    receipt: &PolicyReceipt,
+    webhook_url: &str,
+    token: &str,
+) -> Result<ExecutionReceipt, ExecutionError> {
+    if token.starts_with("kh_") {
+        return Err(ExecutionError::ProtocolError(
+            "wrong-token-prefix; webhook submissions require wfb_ tokens (got kh_)".to_string(),
+        ));
+    }
+    if !token.starts_with("wfb_") {
+        return Err(ExecutionError::ProtocolError(format!(
+            "wrong-token-prefix; webhook submissions require wfb_ tokens (got {} prefix)",
+            token.chars().take(4).collect::<String>()
+        )));
+    }
+    let envelope = build_envelope(receipt);
+    // Compose the wire body: thin APRP echo (agent_id + intent) plus
+    // the IP-1 envelope. KeeperHub's documented IP-1 shape adds the
+    // sbo3l_* fields alongside the workflow body the agent already
+    // posted; we assemble a minimal-but-shaped body here so tests pin
+    // the exact JSON the live submission produces.
+    let env_value: serde_json::Value =
+        serde_json::from_str(&envelope.to_json_payload()).map_err(|e| {
+            ExecutionError::ProtocolError(format!("could not re-parse own envelope: {e}"))
+        })?;
+    let intent_value = serde_json::to_value(&request.intent).unwrap_or(serde_json::Value::Null);
+    let mut body = serde_json::Map::new();
+    body.insert(
+        "agent_id".into(),
+        serde_json::Value::String(request.agent_id.clone()),
+    );
+    body.insert("intent".into(), intent_value);
+    if let Some(env_obj) = env_value.as_object() {
+        for (k, v) in env_obj {
+            body.insert(k.clone(), v.clone());
+        }
+    }
+    let body = serde_json::Value::Object(body);
+
+    // 5-second hard timeout — long enough for transient slowness, short
+    // enough that an unresponsive backend doesn't block the executor.
+    // Operators who need a longer ceiling can wrap `submit_live` with
+    // their own retry/timeout policy upstream.
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| ExecutionError::ProtocolError(format!("HTTP client init failed: {e}")))?;
+    let resp = client
+        .post(webhook_url)
+        .bearer_auth(token)
+        .json(&body)
+        .send()
+        .map_err(|e| ExecutionError::ProtocolError(format!("HTTP send failed: {e}")))?;
+
+    let status = resp.status();
+    let resp_body = resp.text().map_err(|e| {
+        ExecutionError::ProtocolError(format!("HTTP {status}: read body failed: {e}"))
+    })?;
+    if !status.is_success() {
+        // Truncate body in error message — sponsor responses can be
+        // large or contain sensitive data; first 200 bytes is enough
+        // for diagnosis.
+        let snippet: String = resp_body.chars().take(200).collect();
+        return Err(ExecutionError::ProtocolError(format!(
+            "HTTP {status}: {snippet}"
+        )));
+    }
+    let parsed: serde_json::Value = serde_json::from_str(&resp_body).map_err(|e| {
+        ExecutionError::ProtocolError(format!(
+            "2xx body did not parse as JSON: {e} (body prefix: {})",
+            resp_body.chars().take(100).collect::<String>()
+        ))
+    })?;
+    let execution_id = parsed
+        .get("executionId")
+        .or_else(|| parsed.get("id"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            ExecutionError::ProtocolError(format!(
+                "2xx body missing `executionId` or `id` field: {}",
+                resp_body.chars().take(200).collect::<String>()
+            ))
+        })?;
+
+    Ok(ExecutionReceipt {
+        sponsor: "keeperhub",
+        execution_ref: format!("kh-{execution_id}"),
+        mock: false,
+        note: format!(
+            "live: submitted to {host} via IP-1 envelope; received executionId={execution_id}",
+            host = url_host_for_note(webhook_url),
+        ),
+        // The IP-1 envelope is the executor-side evidence today.
+        // Surfaced into the capsule's `execution.executor_evidence`
+        // slot via `ExecutionReceipt.evidence`.
+        evidence: Some(env_value),
+    })
+}
+
+/// Extract a host string from a webhook URL for the `ExecutionReceipt.note`
+/// field. Returns the URL verbatim if parsing fails — better to leak the
+/// raw URL into a note (which is operator-side) than to swallow it.
+fn url_host_for_note(url: &str) -> String {
+    url.split("://")
+        .nth(1)
+        .and_then(|rest| rest.split('/').next())
+        .unwrap_or(url)
+        .to_string()
 }
 
 #[cfg(test)]
@@ -229,13 +393,204 @@ mod tests {
         assert!(matches!(err, ExecutionError::NotApproved(_)));
     }
 
+    /// A8 — `submit_live_to` against an unroutable URL surfaces as
+    /// `ProtocolError`. This pins the network-failure path without
+    /// mutating the process-global `SBO3L_KEEPERHUB_WEBHOOK_URL` env
+    /// var (which would race with parallel tests and re-trip the
+    /// Codex P2 flagged on PR #55). The env-var-unset path itself
+    /// is one obvious line in `submit_live`; mockito covers the
+    /// reachable paths.
     #[test]
-    fn live_mode_fails_loudly_without_credentials() {
-        let exec = KeeperHubExecutor::live();
-        let err = exec
-            .execute(&aprp(), &receipt(Decision::Allow))
-            .unwrap_err();
-        assert!(matches!(err, ExecutionError::BackendOffline(_)));
+    fn live_returns_protocol_error_for_unreachable_url() {
+        // Port 1 / TCP is reserved (RFC 5735) and never listens — fast
+        // connection-refused on every loopback-capable platform.
+        let unreachable = "http://127.0.0.1:1/sbo3l-test-no-listener";
+        let err = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            unreachable,
+            "wfb_test_token",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, ExecutionError::ProtocolError(_)),
+            "expected ProtocolError, got: {err:?}"
+        );
+    }
+
+    /// A8 — happy path. Mockito stands up a local HTTP server, returns
+    /// 200 + a JSON body with `executionId`, and we assert the live
+    /// receipt carries `mock: false` and the parsed id prefixed with
+    /// `kh-`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn live_happy_path_parses_executionId_field() {
+        let mut server = mockito::Server::new();
+        let _m = server
+            .mock("POST", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"executionId":"wf-abc123","status":"submitted"}"#)
+            .create();
+
+        let r = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            &server.url(),
+            "wfb_test_token",
+        )
+        .expect("happy path must succeed");
+        assert_eq!(r.sponsor, "keeperhub");
+        assert!(!r.mock, "live receipt must NOT carry mock=true");
+        assert_eq!(r.execution_ref, "kh-wf-abc123");
+        // Evidence slot carries the IP-1 envelope so an auditor reading
+        // the capsule can re-verify the wire body offline.
+        let env = r.evidence.as_ref().expect("live evidence present");
+        assert!(env.get("sbo3l_request_hash").is_some());
+        assert!(env.get("sbo3l_audit_event_id").is_some());
+    }
+
+    /// A8 — fallback `id` field. Some sponsor backends return `id` not
+    /// `executionId`; the brief said to accept either. Pin that.
+    #[test]
+    fn live_happy_path_parses_id_field_fallback() {
+        let mut server = mockito::Server::new();
+        let _m = server
+            .mock("POST", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"wf-fallback-7","status":"submitted"}"#)
+            .create();
+
+        let r = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            &server.url(),
+            "wfb_test_token",
+        )
+        .unwrap();
+        assert_eq!(r.execution_ref, "kh-wf-fallback-7");
+    }
+
+    /// A8 — non-2xx response. KeeperHub-side rejection (4xx) or
+    /// internal error (5xx) surfaces as `ProtocolError` with the
+    /// status code in the message.
+    #[test]
+    fn live_returns_protocol_error_on_non_2xx() {
+        let mut server = mockito::Server::new();
+        let _m = server
+            .mock("POST", "/")
+            .with_status(503)
+            .with_body("KeeperHub: workflow runner unavailable")
+            .create();
+
+        let err = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            &server.url(),
+            "wfb_test_token",
+        )
+        .unwrap_err();
+        match err {
+            ExecutionError::ProtocolError(msg) => {
+                assert!(
+                    msg.contains("503"),
+                    "ProtocolError message must include status: {msg}"
+                );
+            }
+            other => panic!("expected ProtocolError, got: {other:?}"),
+        }
+    }
+
+    /// A8 — 200 status but unparseable / id-less body. Surfaces as
+    /// `ProtocolError` so the operator sees the contract violation
+    /// rather than a silent success that downstream auditors can't
+    /// re-verify.
+    #[test]
+    fn live_returns_protocol_error_on_unparseable_body() {
+        let mut server = mockito::Server::new();
+        let _m = server
+            .mock("POST", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"status":"submitted","other":"field"}"#)
+            .create();
+
+        let err = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            &server.url(),
+            "wfb_test_token",
+        )
+        .unwrap_err();
+        match err {
+            ExecutionError::ProtocolError(msg) => {
+                assert!(
+                    msg.contains("executionId") || msg.contains("id"),
+                    "diagnostic must mention the missing id field: {msg}"
+                );
+            }
+            other => panic!("expected ProtocolError, got: {other:?}"),
+        }
+    }
+
+    /// A8 — wrong-prefix `kh_` token (platform REST API / MCP token,
+    /// not workflow-webhook) must be rejected up front. KeeperHub's
+    /// webhook will refuse it anyway; we surface the local diagnostic
+    /// rather than burn a round-trip on a known-bad shape.
+    #[test]
+    fn live_rejects_kh_prefix_token_without_network_call() {
+        // Use an unreachable URL — we expect the prefix check to fire
+        // BEFORE any network attempt; if it didn't, the test would also
+        // fail (timeout / connection-refused) but with a different
+        // ProtocolError message. Asserting on the message text
+        // distinguishes "rejected by prefix check" from "network
+        // failed".
+        let unreachable = "http://127.0.0.1:1/sbo3l-test-no-listener";
+        let err = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            unreachable,
+            "kh_platform_token_abc",
+        )
+        .unwrap_err();
+        match err {
+            ExecutionError::ProtocolError(msg) => {
+                assert!(
+                    msg.contains("wrong-token-prefix"),
+                    "must surface wrong-token-prefix diagnostic, got: {msg}"
+                );
+                assert!(
+                    msg.contains("wfb_"),
+                    "must mention required wfb_ prefix, got: {msg}"
+                );
+            }
+            other => panic!("expected ProtocolError, got: {other:?}"),
+        }
+    }
+
+    /// A8 — token with neither `wfb_` nor `kh_` prefix is also
+    /// rejected up front. Catches typos / stale tokens / placeholder
+    /// values like "TODO" before they hit the wire.
+    #[test]
+    fn live_rejects_bare_token_without_known_prefix() {
+        let unreachable = "http://127.0.0.1:1/sbo3l-test-no-listener";
+        let err = submit_live_to(
+            &aprp(),
+            &receipt(Decision::Allow),
+            unreachable,
+            "TODO_set_real_token",
+        )
+        .unwrap_err();
+        match err {
+            ExecutionError::ProtocolError(msg) => {
+                assert!(
+                    msg.contains("wrong-token-prefix"),
+                    "must surface wrong-token-prefix diagnostic, got: {msg}"
+                );
+            }
+            other => panic!("expected ProtocolError, got: {other:?}"),
+        }
     }
 
     #[test]
