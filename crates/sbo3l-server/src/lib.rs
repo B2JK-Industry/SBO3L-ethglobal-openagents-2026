@@ -31,6 +31,9 @@ use sbo3l_storage::audit_store::NewAuditEvent;
 use sbo3l_storage::idempotency_store::IdempotencyEntry;
 use sbo3l_storage::Storage;
 
+pub mod auth;
+pub use auth::AuthConfig;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
@@ -45,33 +48,66 @@ pub struct AppInner {
     pub budgets: Mutex<BudgetTracker>,
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
+    pub auth: AuthConfig,
 }
 
 impl AppState {
-    /// Build a server state with **deterministic, public dev signing seeds**.
+    /// Build a server state with **deterministic, public dev signing seeds**
+    /// and auth disabled.
     ///
     /// ⚠ DEV ONLY ⚠ — the seeds below are constants in this public repo, so
     /// anyone can forge audit events and policy receipts that pass `verify()`.
-    /// Acceptable for the hackathon demo and CI; **production deployments
-    /// must inject real signers** via `AppState::with_signers` (or load them
-    /// from a TEE/HSM-backed signing backend per
-    /// `docs/spec/17_interface_contracts.md` §1).
+    /// Acceptable for the hackathon demo and inline tests; **production
+    /// deployments must inject real signers** via `AppState::with_signers`
+    /// (or load them from a TEE/HSM-backed signing backend per
+    /// `docs/spec/17_interface_contracts.md` §1) **and** must construct via
+    /// [`AppState::with_auth_config`] passing an [`AuthConfig`] from
+    /// [`AuthConfig::from_env`].
     pub fn new(policy: Policy, storage: Storage) -> Self {
-        Self::with_signers(
+        Self::full(
             policy,
             storage,
             DevSigner::from_seed("audit-signer-v1", [11u8; 32]),
             DevSigner::from_seed("decision-signer-v1", [7u8; 32]),
+            AuthConfig::disabled(),
         )
     }
 
-    /// Build a server state with caller-supplied signers. Use this in any
-    /// non-demo deployment.
+    /// Build a server state with caller-supplied signers and auth disabled.
     pub fn with_signers(
         policy: Policy,
         storage: Storage,
         audit_signer: DevSigner,
         receipt_signer: DevSigner,
+    ) -> Self {
+        Self::full(
+            policy,
+            storage,
+            audit_signer,
+            receipt_signer,
+            AuthConfig::disabled(),
+        )
+    }
+
+    /// Build a server state with the dev signing seeds and a caller-supplied
+    /// [`AuthConfig`]. The binary uses this with [`AuthConfig::from_env`].
+    pub fn with_auth_config(policy: Policy, storage: Storage, auth: AuthConfig) -> Self {
+        Self::full(
+            policy,
+            storage,
+            DevSigner::from_seed("audit-signer-v1", [11u8; 32]),
+            DevSigner::from_seed("decision-signer-v1", [7u8; 32]),
+            auth,
+        )
+    }
+
+    /// Build a server state with caller-supplied signers and auth config.
+    pub fn full(
+        policy: Policy,
+        storage: Storage,
+        audit_signer: DevSigner,
+        receipt_signer: DevSigner,
+        auth: AuthConfig,
     ) -> Self {
         Self(Arc::new(AppInner {
             policy,
@@ -79,6 +115,7 @@ impl AppState {
             budgets: Mutex::new(BudgetTracker::new()),
             audit_signer,
             receipt_signer,
+            auth,
         }))
     }
 }
@@ -130,7 +167,7 @@ impl IntoResponse for Problem {
     }
 }
 
-fn problem(code: &str, status: u16, title: &str, detail: impl Into<String>) -> Problem {
+pub(crate) fn problem(code: &str, status: u16, title: &str, detail: impl Into<String>) -> Problem {
     Problem {
         r#type: format!("https://schemas.sbo3l.dev/errors/{code}"),
         title: title.to_string(),
@@ -202,6 +239,14 @@ async fn create_payment_request(
     Json(body): Json<Value>,
 ) -> Response {
     let inner = state.0.clone();
+
+    // F-1: authorize before any side-effecting work, before idempotency
+    // lookup, before nonce claim, before policy/audit/signing. A rejected
+    // request must produce zero state changes — same property the nonce
+    // and idempotency layers depend on.
+    if let Err(p) = auth::authorize(&inner.auth, &headers, &body) {
+        return p.into_response();
+    }
 
     // Step 0: idempotency lookup. Runs BEFORE schema validation, nonce
     // gate, policy, budget, audit and signing — so a successful retry
