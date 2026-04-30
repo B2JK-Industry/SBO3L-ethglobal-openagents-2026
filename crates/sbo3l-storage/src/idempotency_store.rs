@@ -158,14 +158,26 @@ impl Storage {
     /// failure responses are never replayed; the row only exists so a
     /// retry within the grace window gets `idempotency_in_flight`
     /// instead of double-running the pipeline.
-    pub fn idempotency_fail(&mut self, key: &str, response_status: u16) -> StorageResult<bool> {
+    ///
+    /// Resets `created_at` to the failure moment so the grace window
+    /// (`idempotency_try_reclaim_failed`) starts counting from FAIL,
+    /// not from the original `try_claim`. Without this, a slow pipeline
+    /// (>60s before failing) would have an immediately reclaimable row
+    /// — defeating the back-off intent of the grace window.
+    pub fn idempotency_fail(
+        &mut self,
+        key: &str,
+        response_status: u16,
+        now: DateTime<Utc>,
+    ) -> StorageResult<bool> {
         let rows = self.conn.execute(
             "UPDATE idempotency_keys
                 SET state = 'failed',
                     response_status = ?1,
-                    response_body = ''
-              WHERE key = ?2 AND state = 'processing'",
-            params![response_status as i64, key],
+                    response_body = '',
+                    created_at = ?2
+              WHERE key = ?3 AND state = 'processing'",
+            params![response_status as i64, now.to_rfc3339(), key],
         )?;
         Ok(rows == 1)
     }
@@ -322,7 +334,7 @@ mod tests {
         let mut s = Storage::open_in_memory().unwrap();
         s.idempotency_try_claim("idem-key-005", "req-hash", ts(0))
             .unwrap();
-        let updated = s.idempotency_fail("idem-key-005", 409).unwrap();
+        let updated = s.idempotency_fail("idem-key-005", 409, ts(5)).unwrap();
         assert!(updated);
         let entry = s.idempotency_lookup("idem-key-005").unwrap().unwrap();
         assert_eq!(entry.state, IdempotencyState::Failed);
@@ -335,10 +347,11 @@ mod tests {
         let mut s = Storage::open_in_memory().unwrap();
         s.idempotency_try_claim("idem-key-006", "old-hash", ts(0))
             .unwrap();
-        s.idempotency_fail("idem-key-006", 500).unwrap();
-        // 30s after the failure, with a 60s grace, reclaim must fail.
+        // Pipeline failed at ts(5); grace counts from FAIL, not original claim.
+        s.idempotency_fail("idem-key-006", 500, ts(5)).unwrap();
+        // 30s after the failure (ts(35)), with a 60s grace, reclaim must fail.
         let reclaimed = s
-            .idempotency_try_reclaim_failed("idem-key-006", "new-hash", ts(30), 60)
+            .idempotency_try_reclaim_failed("idem-key-006", "new-hash", ts(35), 60)
             .unwrap();
         assert!(!reclaimed);
         let entry = s.idempotency_lookup("idem-key-006").unwrap().unwrap();
@@ -350,10 +363,10 @@ mod tests {
         let mut s = Storage::open_in_memory().unwrap();
         s.idempotency_try_claim("idem-key-007", "old-hash", ts(0))
             .unwrap();
-        s.idempotency_fail("idem-key-007", 500).unwrap();
-        // 61s after the failure, with a 60s grace, reclaim succeeds.
+        s.idempotency_fail("idem-key-007", 500, ts(5)).unwrap();
+        // 61s after the failure (ts(66)), with a 60s grace, reclaim succeeds.
         let reclaimed = s
-            .idempotency_try_reclaim_failed("idem-key-007", "new-hash", ts(61), 60)
+            .idempotency_try_reclaim_failed("idem-key-007", "new-hash", ts(66), 60)
             .unwrap();
         assert!(reclaimed);
         let entry = s.idempotency_lookup("idem-key-007").unwrap().unwrap();
@@ -366,13 +379,45 @@ mod tests {
     }
 
     #[test]
+    fn slow_pipeline_failure_does_not_immediately_unlock_reclaim() {
+        // The grace window counts from FAIL, not from try_claim. A pipeline
+        // that takes 90s before failing must NOT be reclaimable at fail-time —
+        // the row needs `grace_secs` after the failure mark to be reclaimable.
+        let mut s = Storage::open_in_memory().unwrap();
+        s.idempotency_try_claim("idem-key-slow-fail", "old-hash", ts(0))
+            .unwrap();
+        // Pipeline ran 90s, exceeding the 60s grace window measured from claim.
+        s.idempotency_fail("idem-key-slow-fail", 500, ts(90))
+            .unwrap();
+        // Immediately after failure: must still be blocked from reclaim
+        // (grace counts from ts(90), not ts(0)).
+        let reclaimed = s
+            .idempotency_try_reclaim_failed("idem-key-slow-fail", "new-hash", ts(90), 60)
+            .unwrap();
+        assert!(
+            !reclaimed,
+            "grace window must count from the FAIL timestamp, not the original claim"
+        );
+        // 30s after fail still blocked.
+        let reclaimed_mid = s
+            .idempotency_try_reclaim_failed("idem-key-slow-fail", "new-hash", ts(120), 60)
+            .unwrap();
+        assert!(!reclaimed_mid);
+        // 61s after fail: now reclaimable.
+        let reclaimed_late = s
+            .idempotency_try_reclaim_failed("idem-key-slow-fail", "new-hash", ts(151), 60)
+            .unwrap();
+        assert!(reclaimed_late);
+    }
+
+    #[test]
     fn try_reclaim_only_one_concurrent_winner() {
         // Pin the race-safe property of the reclaim UPDATE: only one
         // concurrent reclaimer sees rows=1, others see rows=0.
         let mut s = Storage::open_in_memory().unwrap();
         s.idempotency_try_claim("idem-key-008", "old", ts(0))
             .unwrap();
-        s.idempotency_fail("idem-key-008", 500).unwrap();
+        s.idempotency_fail("idem-key-008", 500, ts(5)).unwrap();
 
         let first = s
             .idempotency_try_reclaim_failed("idem-key-008", "winner", ts(120), 60)

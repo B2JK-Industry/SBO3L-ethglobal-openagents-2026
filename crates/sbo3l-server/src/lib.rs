@@ -340,7 +340,7 @@ async fn create_payment_request(
         if status == StatusCode::OK {
             let _ = storage.idempotency_succeed(&key, status.as_u16(), &response_body);
         } else {
-            let _ = storage.idempotency_fail(&key, status.as_u16());
+            let _ = storage.idempotency_fail(&key, status.as_u16(), Utc::now());
         }
     }
 
