@@ -21,6 +21,7 @@ Ship SBO3L as **the cryptographically verifiable trust layer for autonomous AI a
 8. **[07-phase-3.md](07-phase-3.md)** — Phase 3 tickets (All-tracks attack)
 9. **[08-exit-gates.md](08-exit-gates.md)** — phase exit criteria (cannot skip phases)
 10. **[09-prompt-template.md](09-prompt-template.md)** — the prompt Daniel sends to spin you up
+11. **[10-first-tier-amplifiers.md](10-first-tier-amplifiers.md)** — "only 1st place" amplifier tickets per track (additive to Phase 2 + Phase 3)
 
 ## Three-phase plan
 
@@ -31,6 +32,8 @@ Ship SBO3L as **the cryptographically verifiable trust layer for autonomous AI a
 | **Phase 3** | 61-100 | Top product: 0G integration, multi-agent swarm, Gensyn AXL, golden vertical demo, master video | All 8 tracks submitted, going for 1st in every track |
 
 Total prize ceiling targeted: **$10,500** (KH $2,500 + KH BF $250 + ENS Most Creative $1,250 + ENS AI Agents $1,250 + Uniswap $2,500 + 0G Track A $2,500 + 0G Track B $1,500 + Gensyn $2,500 — minus overlapping wins, realistic ceiling ~$10,500).
+
+**Mandate (per Daniel 2026-04-30):** "only 1st places". 0G + Gensyn under decision gates (Day 14 + Day 21); drop if low-probability signals. ENS Most Creative kept despite ~65% ceiling. See [`10-first-tier-amplifiers.md`](10-first-tier-amplifiers.md) for the per-track 1st-tier amplifier tickets.
 
 ## How to start (per developer)
 
