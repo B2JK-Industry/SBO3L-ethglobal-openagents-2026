@@ -19,7 +19,20 @@ Budget caps (`per_tx`, `daily`, `monthly`, `per_provider`) are an in-memory `Has
 `Idempotency-Key` cache lookup happens before the pipeline runs; cache write happens after the pipeline returns 200. Concurrent same-key requests can race and both pass the lookup. Production path: a `processing` / `succeeded` / `failed` state machine with an atomic reservation on first lookup, so a second concurrent request blocks or returns 409 instead of running the pipeline twice. Tracked.
 
 ### Passport verifier scope
-`sbo3l passport verify` is **structural-only by design** (schema + cross-field invariants — see the doc-comment at [`crates/sbo3l-cli/src/passport.rs`](crates/sbo3l-cli/src/passport.rs) line 11). It does **not** verify Ed25519 signatures, audit-chain hash linkage, or recompute the canonical APRP / policy hashes. Cryptographic verification lives in `sbo3l audit verify-bundle`, which the capsule references via `audit.bundle_ref`. A future Passport v2 verifier can wrap `sbo3l-core::audit_bundle::verify` + receipt signature verification under one CLI; for this build, the structural verifier is the explicit scope and the capsule's `verification.offline_verifiable` field reflects the structural result, not a full crypto re-verify.
+`sbo3l passport verify` defaults to a **structural-only** pass for backwards compat (schema + cross-field invariants — see the doc-comment at [`crates/sbo3l-cli/src/passport.rs`](crates/sbo3l-cli/src/passport.rs) line 11). The default mode does **not** verify Ed25519 signatures, audit-chain hash linkage, or recompute the canonical APRP / policy hashes. The capsule's `verification.offline_verifiable` field reflects the structural result, not a full crypto re-verify.
+
+**Opt-in cryptographic strict mode (B1):** pass `--strict` (alias `--verify-cryptographically`) to additionally run, in one CLI invocation, a structured 6-check report:
+
+1. **structural** — same as the default mode.
+2. **request_hash_recompute** — recompute `request_hash` from `capsule.request.aprp` via JCS+SHA-256 and assert it matches both `capsule.request.request_hash` AND `capsule.decision.receipt.request_hash`. The capsule alone is enough; no auxiliary input required.
+3. **policy_hash_recompute** — when `--policy <path>` is supplied, recompute JCS+SHA-256 over the canonical policy snapshot and assert it matches `capsule.policy.policy_hash`.
+4. **receipt_signature** — when `--receipt-pubkey <hex>` is supplied, verify the embedded `decision.receipt`'s Ed25519 signature against the canonical receipt body.
+5. **audit_chain** — when `--audit-bundle <path>` is supplied, run `sbo3l-core::audit_bundle::verify` over the bundle (signatures + chain linkage + summary consistency).
+6. **audit_event_link** — when `--audit-bundle <path>` is supplied, assert that `bundle.summary.audit_event_id == capsule.audit.audit_event_id` and that the bundle's chain segment actually contains that event.
+
+Each crypto check whose auxiliary input is absent is reported as `Skipped(reason)` rather than failed — never a fake-OK. A run where no check failed (`is_ok() == true`) but some were skipped is reported as `PASSED (with skips)` so a reader can't mistake a partial pass for a complete one. A structural failure short-circuits every downstream crypto check (every other entry becomes `Skipped(structural failed; crypto checks not meaningful)`) so the operator knows the structural cause is what to fix first.
+
+**Heads-up on the on-main golden fixture:** `test-corpus/passport/golden_001_allow_keeperhub_mock.json` was built for structural-only coverage and uses placeholder hash values (e.g. `c0bd2fab1234…` instead of the real JCS+SHA-256 of its embedded APRP). Running `sbo3l passport verify --strict --path test-corpus/passport/golden_001_*.json` correctly reports `request_hash_recompute: FAILED` — that is the strict verifier doing its job, not a regression. To exercise strict mode against a cryptographically-valid capsule, use the runtime artifact `demo-scripts/artifacts/passport-allow.json` emitted by `bash demo-scripts/run-production-shaped-mock.sh`.
 
 ## What is real today
 

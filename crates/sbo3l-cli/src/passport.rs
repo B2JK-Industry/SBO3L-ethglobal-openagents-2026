@@ -21,7 +21,11 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use sbo3l_core::passport::{verify_capsule, CapsuleVerifyError};
+use sbo3l_core::audit_bundle::AuditBundle;
+use sbo3l_core::passport::{
+    verify_capsule, verify_capsule_strict, CapsuleVerifyError, CheckOutcome, StrictVerifyOpts,
+    StrictVerifyReport,
+};
 use sbo3l_core::schema::validate_passport_capsule;
 use sbo3l_execution::keeperhub::KeeperHubExecutor;
 use sbo3l_execution::uniswap::UniswapExecutor;
@@ -33,26 +37,166 @@ use sbo3l_storage::audit_checkpoint_store::compute_chain_digest;
 use sbo3l_storage::Storage;
 use serde_json::{json, Map, Value};
 
-/// `sbo3l passport verify --path <capsule>`
+/// `sbo3l passport verify --path <capsule> [--strict [--receipt-pubkey ...] [--audit-bundle ...] [--policy ...]]`
 ///
 /// Exit codes:
-/// - 0 — capsule verifies (schema + every cross-field invariant).
-/// - 1 — IO / parse failure (file missing, not JSON).
-/// - 2 — capsule is malformed, tampered, or internally inconsistent.
-pub fn cmd_verify(path: &Path) -> ExitCode {
-    let value = match load_capsule(path) {
+/// - 0 — capsule verifies (structural by default; strict iff `--strict` and
+///   no `Failed` outcomes — `Skipped` outcomes for absent aux inputs do
+///   not count as failures).
+/// - 1 — IO / parse failure (capsule file missing, audit-bundle/policy file
+///   missing, not JSON).
+/// - 2 — capsule is malformed, tampered, or fails any strict crypto check.
+pub struct VerifyArgs {
+    pub path: PathBuf,
+    pub strict: bool,
+    pub receipt_pubkey: Option<String>,
+    pub audit_bundle: Option<PathBuf>,
+    pub policy: Option<PathBuf>,
+}
+
+pub fn cmd_verify(args: VerifyArgs) -> ExitCode {
+    let value = match load_capsule(&args.path) {
         Ok(v) => v,
         Err(rc) => return rc,
     };
 
-    match verify_capsule(&value) {
-        Ok(()) => {
-            print_verify_summary(&value);
-            ExitCode::SUCCESS
+    if !args.strict {
+        return match verify_capsule(&value) {
+            Ok(()) => {
+                print_verify_summary(&value);
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("sbo3l passport verify: {} ({})", e, e.code());
+                ExitCode::from(2)
+            }
+        };
+    }
+
+    // Strict mode — load auxiliary inputs (each independent + optional).
+    let bundle: Option<AuditBundle> = match args.audit_bundle.as_ref() {
+        Some(p) => match load_audit_bundle(p) {
+            Ok(b) => Some(b),
+            Err(rc) => return rc,
+        },
+        None => None,
+    };
+    let policy_value: Option<Value> = match args.policy.as_ref() {
+        Some(p) => match load_policy_snapshot(p) {
+            Ok(v) => Some(v),
+            Err(rc) => return rc,
+        },
+        None => None,
+    };
+    let opts = StrictVerifyOpts {
+        receipt_pubkey_hex: args.receipt_pubkey.as_deref(),
+        audit_bundle: bundle.as_ref(),
+        policy_json: policy_value.as_ref(),
+    };
+    let report = verify_capsule_strict(&value, &opts);
+    print_strict_report(&report);
+    if report.is_ok() {
+        if !report.is_fully_ok() {
+            // Some checks were skipped due to absent aux inputs — that's
+            // acceptable but worth flagging so an operator who wanted full
+            // coverage doesn't mistake a partial pass for a complete one.
+            eprintln!(
+                "sbo3l passport verify --strict: PASSED (with skips — supply --receipt-pubkey, \
+                 --audit-bundle, --policy for full crypto coverage)"
+            );
         }
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("sbo3l passport verify --strict: FAILED");
+        ExitCode::from(2)
+    }
+}
+
+fn load_audit_bundle(path: &Path) -> Result<AuditBundle, ExitCode> {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("sbo3l passport verify: {} ({})", e, e.code());
-            ExitCode::from(2)
+            eprintln!(
+                "sbo3l passport verify --strict: read audit-bundle {} failed: {e}",
+                path.display()
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    serde_json::from_str(&raw).map_err(|e| {
+        eprintln!(
+            "sbo3l passport verify --strict: parse audit-bundle {} failed: {e}",
+            path.display()
+        );
+        ExitCode::from(1)
+    })
+}
+
+/// Load a policy JSON file, deserialize into [`Policy`] so that
+/// `#[serde(default)]` fields (e.g. `emergency`, `budgets`,
+/// `providers`, `recipients`) are materialized, then re-serialize to
+/// [`Value`]. The returned Value hashes (under JCS+SHA-256) to the
+/// same digest as [`Policy::canonical_hash`] — which is what
+/// production receipts pin in `policy_hash`.
+///
+/// Without this normalization, a user-supplied policy file that
+/// omits a defaulted field (semantically valid, minimal) would hash
+/// pre-normalization and produce a false `policy_hash_recompute`
+/// failure in strict mode. Codex P2 on PR #61.
+fn load_policy_snapshot(path: &Path) -> Result<Value, ExitCode> {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "sbo3l passport verify --strict: read policy snapshot {} failed: {e}",
+                path.display()
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    let policy = Policy::parse_json(&raw).map_err(|e| {
+        eprintln!(
+            "sbo3l passport verify --strict: parse policy snapshot {} failed: {e}",
+            path.display()
+        );
+        ExitCode::from(1)
+    })?;
+    serde_json::to_value(&policy).map_err(|e| {
+        eprintln!(
+            "sbo3l passport verify --strict: re-serialize normalised policy {} failed: {e}",
+            path.display()
+        );
+        ExitCode::from(1)
+    })
+}
+
+fn outcome_label(o: &CheckOutcome) -> &'static str {
+    match o {
+        CheckOutcome::Passed => "PASSED",
+        CheckOutcome::Skipped(_) => "SKIPPED",
+        CheckOutcome::Failed(_) => "FAILED",
+    }
+}
+
+fn outcome_detail(o: &CheckOutcome) -> &str {
+    match o {
+        CheckOutcome::Passed => "",
+        CheckOutcome::Skipped(s) => s,
+        CheckOutcome::Failed(s) => s,
+    }
+}
+
+fn print_strict_report(report: &StrictVerifyReport) {
+    let labels = StrictVerifyReport::labels();
+    let outcomes: Vec<&CheckOutcome> = report.iter().collect();
+    println!("sbo3l passport verify --strict — per-check report:");
+    for (label, outcome) in labels.iter().zip(outcomes.iter()) {
+        let status = outcome_label(outcome);
+        let detail = outcome_detail(outcome);
+        if detail.is_empty() {
+            println!("  {label:30} {status}");
+        } else {
+            println!("  {label:30} {status} — {detail}");
         }
     }
 }
@@ -1117,4 +1261,62 @@ fn atomic_write_json(out_path: &Path, value: &Value) -> std::io::Result<()> {
 fn _silence_capsule_unused(_e: &CapsuleVerifyError) {
     // CapsuleVerifyError is re-exported via `verify_capsule` use; this
     // sentinel keeps clippy quiet if the verifier ever returns Ok-only.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::load_policy_snapshot;
+    use sbo3l_core::hashing;
+    use sbo3l_policy::Policy;
+    use std::io::Write;
+
+    /// Codex P2 on PR #61: a user-supplied policy file with a
+    /// `#[serde(default)]` field omitted (e.g. `emergency`) is
+    /// semantically valid but its raw bytes do not include the
+    /// default. Production `policy_hash` is computed via
+    /// `Policy::canonical_hash`, which materializes defaults before
+    /// canonicalisation. `load_policy_snapshot` therefore must
+    /// deserialize → re-serialize so the strict verifier hashes the
+    /// same shape production does. Without normalization, this case
+    /// would surface a false `policy_hash_recompute` failure.
+    #[test]
+    fn load_policy_snapshot_normalises_serde_defaults_emergency_omitted() {
+        let raw = include_str!("../../../test-corpus/policy/reference_low_risk.json");
+        let full_policy = Policy::parse_json(raw).expect("parse reference policy");
+        let production_hash = full_policy
+            .canonical_hash()
+            .expect("Policy::canonical_hash must succeed");
+
+        let mut json: serde_json::Value = serde_json::from_str(raw).expect("raw policy json");
+        let removed = json
+            .as_object_mut()
+            .expect("top-level must be object")
+            .remove("emergency");
+        assert!(
+            removed.is_some(),
+            "fixture must contain `emergency` for this regression test"
+        );
+        let minimal_raw = serde_json::to_string(&json).expect("re-serialise minimal");
+        assert!(
+            !minimal_raw.contains("\"emergency\""),
+            "minimal policy must not include `emergency` field"
+        );
+
+        let mut tmp = tempfile::NamedTempFile::new().expect("temp file");
+        tmp.write_all(minimal_raw.as_bytes())
+            .expect("write minimal");
+        tmp.flush().expect("flush minimal");
+
+        let normalised = load_policy_snapshot(tmp.path())
+            .expect("load_policy_snapshot must succeed on a valid minimal policy");
+        let bytes = hashing::canonical_json(&normalised).expect("JCS canonicalisation");
+        let recomputed = hashing::sha256_hex(&bytes);
+
+        assert_eq!(
+            recomputed, production_hash,
+            "load_policy_snapshot must materialise serde defaults so a \
+             policy file with `emergency` omitted hashes to the same digest \
+             as `Policy::canonical_hash()` of the full policy"
+        );
+    }
 }
