@@ -663,7 +663,6 @@ fn check_audit_event_link(capsule: &Value, bundle: Option<&AuditBundle>) -> Chec
     CheckOutcome::Passed
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1104,7 +1103,10 @@ mod tests {
             policy_json: Some(&policy),
         };
         let report = verify_capsule_strict(&capsule, &opts);
-        assert!(report.is_fully_ok(), "expected fully-ok; report = {report:?}");
+        assert!(
+            report.is_fully_ok(),
+            "expected fully-ok; report = {report:?}"
+        );
         assert!(report.structural.is_passed());
         assert!(report.request_hash_recompute.is_passed());
         assert!(report.policy_hash_recompute.is_passed());
@@ -1131,7 +1133,10 @@ mod tests {
             policy_json: Some(&policy),
         };
         let report = verify_capsule_strict(&capsule, &opts);
-        assert!(report.structural.is_passed(), "structural should still pass");
+        assert!(
+            report.structural.is_passed(),
+            "structural should still pass"
+        );
         assert!(
             report.request_hash_recompute.is_failed(),
             "request_hash_recompute should fail on mutated APRP body"
@@ -1206,10 +1211,7 @@ mod tests {
         // canonical bytes? actually the signature is over canonical
         // bytes including prev_event_hash, so this also breaks the
         // event signature) — either way audit_chain must fail.
-        let original = bundle.audit_chain_segment[1]
-            .event
-            .prev_event_hash
-            .clone();
+        let original = bundle.audit_chain_segment[1].event.prev_event_hash.clone();
         let mut chars: Vec<char> = original.chars().collect();
         chars[0] = if chars[0] == '0' { '1' } else { '0' };
         bundle.audit_chain_segment[1].event.prev_event_hash = chars.into_iter().collect();
@@ -1256,7 +1258,7 @@ mod tests {
 
     /// Bonus — minimal (no aux inputs). Runs only the structural pass
     /// + the request_hash recompute (the only crypto check the capsule
-    /// alone supports). Every other check is `Skipped` with a reason.
+    ///   alone supports). Every other check is `Skipped` with a reason.
     #[test]
     fn strict_verify_no_aux_inputs_skips_aux_dependent_checks() {
         let (capsule, _receipt_signer, _audit_signer, _bundle, _policy) = strict_fixture();
@@ -1268,10 +1270,7 @@ mod tests {
         assert!(report.audit_chain.is_skipped());
         assert!(report.audit_event_link.is_skipped());
         assert!(report.is_ok(), "no failures means is_ok() = true");
-        assert!(
-            !report.is_fully_ok(),
-            "skips mean is_fully_ok() = false"
-        );
+        assert!(!report.is_fully_ok(), "skips mean is_fully_ok() = false");
     }
 
     /// Bonus — structural failure short-circuits crypto. A capsule that
@@ -1284,8 +1283,9 @@ mod tests {
         // Break a structural invariant: force capsule.request.request_hash
         // to mismatch the receipt's request_hash. The structural verifier
         // catches this as RequestHashMismatch.
-        capsule["request"]["request_hash"] =
-            serde_json::Value::String("0000000000000000000000000000000000000000000000000000000000000000".into());
+        capsule["request"]["request_hash"] = serde_json::Value::String(
+            "0000000000000000000000000000000000000000000000000000000000000000".into(),
+        );
         let pk = receipt_signer.verifying_key_hex();
         let opts = StrictVerifyOpts {
             receipt_pubkey_hex: Some(&pk),

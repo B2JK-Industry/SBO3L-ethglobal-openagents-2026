@@ -1303,7 +1303,8 @@ mod tests {
         );
 
         let mut tmp = tempfile::NamedTempFile::new().expect("temp file");
-        tmp.write_all(minimal_raw.as_bytes()).expect("write minimal");
+        tmp.write_all(minimal_raw.as_bytes())
+            .expect("write minimal");
         tmp.flush().expect("flush minimal");
 
         let normalised = load_policy_snapshot(tmp.path())
