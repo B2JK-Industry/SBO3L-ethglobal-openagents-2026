@@ -28,7 +28,7 @@ use sbo3l_core::signer::DevSigner;
 use sbo3l_policy::engine::Decision as EngineDecision;
 use sbo3l_policy::{decide, BudgetTracker, Policy};
 use sbo3l_storage::audit_store::NewAuditEvent;
-use sbo3l_storage::idempotency_store::IdempotencyEntry;
+use sbo3l_storage::idempotency_store::{ClaimOutcome, IdempotencyEntry, IdempotencyState};
 use sbo3l_storage::Storage;
 
 pub mod auth;
@@ -38,6 +38,11 @@ pub use auth::AuthConfig;
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
 const IDEMPOTENCY_KEY_MAX_LEN: usize = 64;
+
+/// F-3: a `failed` idempotency row is held for this many seconds before
+/// a same-key retry can reclaim it. Within the window, retries return
+/// HTTP 409 `protocol.idempotency_in_flight`.
+const IDEMPOTENCY_FAILED_GRACE_SECS: i64 = 60;
 
 #[derive(Clone)]
 pub struct AppState(pub Arc<AppInner>);
@@ -246,45 +251,42 @@ async fn create_payment_request(
         return p.into_response();
     }
 
-    // Step 0: idempotency lookup. Runs BEFORE schema validation, nonce
-    // gate, policy, budget, audit and signing — so a successful retry
-    // produces zero new side effects (no nonce reclaim, no audit row, no
-    // budget commit, no fresh signed receipt). A retry with the same key
-    // but a different canonical body is rejected with HTTP 409
-    // `protocol.idempotency_conflict`.
+    // Step 0a: extract the optional `Idempotency-Key` header.
     let idempotency_key = match extract_idempotency_key(&headers) {
         Ok(k) => k,
         Err(p) => return p.into_response(),
     };
-    // Hash up front: needed both for the cache lookup (conflict
-    // detection) and the cache write on a 200. If hashing fails (which
-    // it shouldn't for any well-formed JSON Value), default to empty
-    // and let the pipeline surface the underlying problem via schema
-    // validation downstream.
+    // Hash up front: needed for atomic claim (race-safe insert), for
+    // cache-replay body matching, and for conflict detection. Defaulting
+    // to empty on hash failure keeps the pipeline reachable so schema
+    // validation can surface the real problem.
     let body_canonical_hash = request_hash(&body).unwrap_or_default();
+
+    // Step 0b: F-3 atomic claim. Replaces the pre-F-3 lookup-then-post-
+    // success-INSERT race. The CLAIM is a single INSERT keyed on the
+    // PRIMARY KEY: exactly one concurrent same-key writer wins, every
+    // other concurrent same-key request observes the existing row and
+    // is rejected here without ever entering the pipeline. The pipeline
+    // therefore runs **at most once per Idempotency-Key**, irrespective
+    // of how many concurrent retries arrive.
     if let Some(ref key) = idempotency_key {
-        let storage = inner.storage.lock().expect("storage lock");
-        match storage.idempotency_lookup(key) {
-            Ok(Some(entry)) => {
-                if entry.request_hash == body_canonical_hash {
-                    // Cache hit, body matches → replay the original
-                    // response without touching the pipeline.
-                    return cached_response(&entry);
-                }
-                // Cache hit, body differs → conflict.
-                drop(storage);
-                return problem(
-                    "protocol.idempotency_conflict",
-                    409,
-                    "Idempotency-Key conflict",
-                    format!(
-                        "key={key} was used previously with a different canonical request body"
-                    ),
-                )
-                .into_response();
+        let now = Utc::now();
+        let mut storage = inner.storage.lock().expect("storage lock");
+        match storage.idempotency_try_claim(key, &body_canonical_hash, now) {
+            Ok(ClaimOutcome::Claimed) => {
+                // We won the race; fall through to the pipeline. The
+                // finalize step at the bottom of the handler promotes
+                // the row to `succeeded` (200) or `failed` (non-200).
             }
-            Ok(None) => {
-                // Fall through to fresh pipeline; we'll cache on 200.
+            Ok(ClaimOutcome::Existing(entry)) => {
+                drop(storage);
+                if let Some(resp) =
+                    handle_existing_claim(key, &entry, &body_canonical_hash, now, &inner)
+                {
+                    return resp;
+                }
+                // None means "we successfully reclaimed past-grace
+                // failed row; proceed with the pipeline".
             }
             Err(e) => {
                 drop(storage);
@@ -327,25 +329,18 @@ async fn create_payment_request(
         }
     };
 
-    // Cache only deterministic 200 successes. Errors flow through fresh
-    // on retry: a 5xx might have been transient; a 4xx will reproduce on
-    // the same body anyway via the pipeline.
+    // F-3 finalize: promote the claimed row to `succeeded` (cache the
+    // 200 envelope for byte-identical replay) or `failed` (block retries
+    // for the grace window so a buggy client can't double-spend by
+    // hammering retries). We log but ignore Err(_): the response is
+    // correct; a failure to update the row just means the row stays in
+    // `processing` until the grace-window reclaim path mops it up.
     if let Some(key) = idempotency_key {
+        let mut storage = inner.storage.lock().expect("storage lock");
         if status == StatusCode::OK {
-            let entry = IdempotencyEntry {
-                key,
-                request_hash: body_canonical_hash,
-                response_status: status.as_u16(),
-                response_body: response_body.clone(),
-                created_at: Utc::now(),
-            };
-            let mut storage = inner.storage.lock().expect("storage lock");
-            // We ignore the Ok(false) case (a concurrent winner already
-            // stored a row under this key). We also ignore Err(_) — the
-            // response itself is correct; failing to cache it just means
-            // the next retry will re-run the pipeline, which is the
-            // pre-idempotency behaviour.
-            let _ = storage.idempotency_try_store(&entry);
+            let _ = storage.idempotency_succeed(&key, status.as_u16(), &response_body);
+        } else {
+            let _ = storage.idempotency_fail(&key, status.as_u16());
         }
     }
 
@@ -355,6 +350,98 @@ async fn create_payment_request(
         response_body,
     )
         .into_response()
+}
+
+/// Decide what to surface to the client when the F-3 claim observed an
+/// existing row for the same `key`. Returns `Some(resp)` on a definitive
+/// outcome (cached replay, conflict, or in_flight); returns `None` when
+/// the caller successfully reclaimed a stale `failed` row and should
+/// proceed with the pipeline.
+fn handle_existing_claim(
+    key: &str,
+    entry: &IdempotencyEntry,
+    body_canonical_hash: &str,
+    now: chrono::DateTime<Utc>,
+    inner: &Arc<AppInner>,
+) -> Option<Response> {
+    match entry.state {
+        IdempotencyState::Succeeded => {
+            if entry.request_hash == body_canonical_hash {
+                Some(cached_response(entry))
+            } else {
+                Some(
+                    problem(
+                        "protocol.idempotency_conflict",
+                        409,
+                        "Idempotency-Key conflict",
+                        format!(
+                            "key={key} was used previously with a different canonical request body"
+                        ),
+                    )
+                    .into_response(),
+                )
+            }
+        }
+        IdempotencyState::Processing => Some(
+            problem(
+                "protocol.idempotency_in_flight",
+                409,
+                "Idempotency-Key in flight",
+                format!("key={key} is currently being processed by another request"),
+            )
+            .into_response(),
+        ),
+        IdempotencyState::Failed => {
+            // Within the grace window every retry gets in_flight. Past
+            // the window we attempt an atomic reclaim — the UPDATE is
+            // race-safe; only one concurrent reclaimer wins.
+            let age = now - entry.created_at;
+            if age < chrono::Duration::seconds(IDEMPOTENCY_FAILED_GRACE_SECS) {
+                return Some(
+                    problem(
+                        "protocol.idempotency_in_flight",
+                        409,
+                        "Idempotency-Key in flight (failed within grace window)",
+                        format!(
+                            "key={key} failed in last {IDEMPOTENCY_FAILED_GRACE_SECS}s; \
+                             retries are blocked during the grace window"
+                        ),
+                    )
+                    .into_response(),
+                );
+            }
+            let mut storage = inner.storage.lock().expect("storage lock");
+            match storage.idempotency_try_reclaim_failed(
+                key,
+                body_canonical_hash,
+                now,
+                IDEMPOTENCY_FAILED_GRACE_SECS,
+            ) {
+                Ok(true) => {
+                    // Reclaimed; signal "proceed with pipeline".
+                    None
+                }
+                Ok(false) => Some(
+                    problem(
+                        "protocol.idempotency_in_flight",
+                        409,
+                        "Idempotency-Key in flight",
+                        format!("key={key} reclaim race: another request reclaimed the row first"),
+                    )
+                    .into_response(),
+                ),
+                Err(e) => Some(
+                    problem(
+                        "audit.write_failed",
+                        500,
+                        "idempotency reclaim failed",
+                        e.to_string(),
+                    )
+                    .into_response(),
+                ),
+            }
+        }
+    }
 }
 
 async fn run_pipeline(
