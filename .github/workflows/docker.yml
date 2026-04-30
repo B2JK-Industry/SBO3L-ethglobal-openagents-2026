@@ -85,7 +85,17 @@ jobs:
       - name: Smoke — POST golden APRP, expect decision=allow
         run: |
           set -euo pipefail
-          NONCE=$(LC_ALL=C tr -dc '0-9A-HJKMNPQRSTVWXYZ' </dev/urandom | head -c 26)
+          # ULID regex: ^[0-7][0-9A-HJKMNP-TV-Z]{25}$
+          # First char MUST be 0-7 (encodes high bits of the 48-bit Unix-ms
+          # timestamp). Remaining 25 chars are full Crockford alphabet (no I/L/O/U).
+          # Previous version used `tr | head -c 26` which triggers SIGPIPE on tr
+          # under set -o pipefail (fails the entire step). Use bash $RANDOM to
+          # avoid pipes entirely — deterministic, fast, no SIGPIPE risk.
+          ALPHA32='0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+          NONCE="${ALPHA32:$((RANDOM % 8)):1}"
+          for _ in $(seq 1 25); do
+            NONCE+="${ALPHA32:$((RANDOM % 32)):1}"
+          done
           EXPIRY=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
           BODY=$(jq --arg e "$EXPIRY" --arg n "$NONCE" \
                   '.expiry=$e | .nonce=$n' \
