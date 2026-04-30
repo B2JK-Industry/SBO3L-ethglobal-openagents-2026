@@ -74,13 +74,18 @@ services:
     stdin_open: true
     tty: false
     volumes:
-      # Read-only mount so the MCP tool catalogue can `audit_lookup` etc.
-      # against the daemon's database without ever writing to it. The
-      # daemon owns writes; MCP queries.
-      - ./data:/var/lib/sbo3l:ro
+      # Read-write — `sbo3l-mcp` exposes pipeline-touching tools
+      # (`sbo3l.decide`, `sbo3l.run_guarded_execution`) which append audit
+      # rows + claim nonces, so the SQLite file must be writable. Codex
+      # P1 (PR #99) caught the `:ro` mistake.
+      #
+      # Concurrency note: SQLite uses file-level write locks; running
+      # `sbo3l-server` and `sbo3l-mcp` against the same DB simultaneously
+      # serializes writes via SQLite's busy-handler. Acceptable for the
+      # demo profile; production deployments should split daemons or use
+      # WAL mode (already enabled in `Storage::open`).
+      - ./data:/var/lib/sbo3l
     environment:
-      # Pointed at the same DB the daemon uses; default-readonly is
-      # enforced above by the volume mode flag.
       SBO3L_DB: /var/lib/sbo3l/sbo3l.db
 
 volumes:

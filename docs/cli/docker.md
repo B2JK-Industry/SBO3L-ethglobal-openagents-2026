@@ -84,8 +84,11 @@ The `sbo3l` service:
 
 - Builds the image from the local `Dockerfile` on first `up`.
 - Maps `localhost:8730` → container `:8730`.
-- Bind-mounts `./data` → `/var/lib/sbo3l` so SQLite survives `restart`
-  and `down` (it does **not** survive `down -v`, which clears volumes).
+- Bind-mounts `./data` → `/var/lib/sbo3l` so SQLite survives `restart`,
+  `down`, **and** `down -v`. Bind-mount contents on the host are NOT
+  removed by `docker compose down -v` — the `-v` flag only removes
+  named/anonymous Docker-managed volumes. To clear bind-mounted state
+  intentionally, run `rm -rf ./data` after `down`.
 - Sets `SBO3L_ALLOW_UNAUTHENTICATED=1` for local dev. Override per
   environment in production by editing `docker-compose.override.yml` or
   passing `-e SBO3L_BEARER_TOKEN_HASH=...`.
