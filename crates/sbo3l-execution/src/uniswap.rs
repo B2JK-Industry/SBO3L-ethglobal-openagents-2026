@@ -18,12 +18,18 @@
 //! enforceable limits.*
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 use rust_decimal::Decimal;
 use sbo3l_core::aprp::PaymentRequest;
 use sbo3l_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor};
 use sbo3l_core::receipt::{Decision, PolicyReceipt};
 use serde::{Deserialize, Serialize};
+
+use crate::uniswap_live::{
+    quote_exact_input_single, JsonRpcTransport, LiveConfig, QuoteResult, ReqwestTransport,
+    RpcError, SEPOLIA_WETH,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -324,23 +330,120 @@ pub enum UniswapMode {
     LocalMock,
 }
 
-#[derive(Debug, Clone)]
+/// Live-mode context: the Uniswap V3 QuoterV2 RPC config + the
+/// transport carrying the eth_call. Stored behind `Arc` so the
+/// `Clone`-able `UniswapExecutor` doesn't duplicate the underlying
+/// HTTP client. Absent (`None` on `UniswapExecutor.live_context`)
+/// means the executor was built via the bare `Self::live()` ctor —
+/// `execute()` returns `BackendOffline` in that case, mirroring the
+/// pre-B7 "live mode without credentials fails loudly" contract.
+pub struct LiveContext {
+    pub config: LiveConfig,
+    pub transport: Arc<dyn JsonRpcTransport>,
+}
+
+#[derive(Clone)]
 pub struct UniswapExecutor {
     pub mode: UniswapMode,
+    /// Set on the live path (`live_from_env` or `live_with_context`).
+    /// Bare `live()` leaves this `None` — execute() routes to a loud
+    /// `BackendOffline` error in that case (back-compat with the
+    /// pre-B7 test).
+    pub(crate) live_context: Option<Arc<LiveContext>>,
+}
+
+impl std::fmt::Debug for UniswapExecutor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UniswapExecutor")
+            .field("mode", &self.mode)
+            .field("live_context_present", &self.live_context.is_some())
+            .finish()
+    }
+}
+
+/// Reasons `live_from_env` can refuse to construct. Surfaces the
+/// missing env var so the operator knows which to set.
+#[derive(Debug, thiserror::Error)]
+pub enum LiveConfigError {
+    #[error("env var {0} is not set")]
+    MissingEnvVar(&'static str),
+    #[error("env var {var} is set but invalid: {detail}")]
+    BadEnvVar { var: &'static str, detail: String },
 }
 
 impl UniswapExecutor {
     pub fn local_mock() -> Self {
         Self {
             mode: UniswapMode::LocalMock,
+            live_context: None,
         }
     }
 
+    /// Bare live ctor — no transport, no config. Kept for back-compat
+    /// with pre-B7 call sites; `execute()` returns `BackendOffline`
+    /// because there's nothing to talk to. Use [`Self::live_from_env`]
+    /// or [`Self::live_with_context`] for an actually-functional
+    /// live executor.
     pub fn live() -> Self {
         Self {
             mode: UniswapMode::Live,
+            live_context: None,
         }
     }
+
+    /// Live ctor wired to a real Sepolia QuoterV2 via env config:
+    /// - `SBO3L_UNISWAP_RPC_URL` (required)
+    /// - `SBO3L_UNISWAP_TOKEN_IN` (default: Sepolia WETH)
+    /// - `SBO3L_UNISWAP_TOKEN_OUT` (required)
+    /// - `SBO3L_UNISWAP_FEE_TIER` (default: `3000`)
+    /// - `SBO3L_UNISWAP_AMOUNT_IN_WEI` (default: `1000000000000000000`)
+    pub fn live_from_env() -> Result<Self, LiveConfigError> {
+        let rpc_url = read_env("SBO3L_UNISWAP_RPC_URL")?;
+        let token_in =
+            std::env::var("SBO3L_UNISWAP_TOKEN_IN").unwrap_or_else(|_| SEPOLIA_WETH.to_string());
+        let token_out = read_env("SBO3L_UNISWAP_TOKEN_OUT")?;
+        let fee_tier_raw =
+            std::env::var("SBO3L_UNISWAP_FEE_TIER").unwrap_or_else(|_| "3000".to_string());
+        let fee_tier: u32 = fee_tier_raw.parse().map_err(|e: std::num::ParseIntError| {
+            LiveConfigError::BadEnvVar {
+                var: "SBO3L_UNISWAP_FEE_TIER",
+                detail: e.to_string(),
+            }
+        })?;
+        let amount_in_wei = std::env::var("SBO3L_UNISWAP_AMOUNT_IN_WEI")
+            .unwrap_or_else(|_| "1000000000000000000".to_string());
+
+        let config = LiveConfig::sepolia_default(
+            token_in,
+            token_out,
+            fee_tier,
+            amount_in_wei,
+            rpc_url.clone(),
+        );
+        let transport = Arc::new(ReqwestTransport::new(rpc_url));
+        Ok(Self::live_with_context(LiveContext { config, transport }))
+    }
+
+    /// Live ctor that takes a fully-built [`LiveContext`]. Production
+    /// uses [`Self::live_from_env`]; tests build an in-process
+    /// transport and pass it here.
+    pub fn live_with_context(ctx: LiveContext) -> Self {
+        Self {
+            mode: UniswapMode::Live,
+            live_context: Some(Arc::new(ctx)),
+        }
+    }
+}
+
+fn read_env(var: &'static str) -> Result<String, LiveConfigError> {
+    let v = std::env::var(var).map_err(|_| LiveConfigError::MissingEnvVar(var))?;
+    if v.trim().is_empty() {
+        return Err(LiveConfigError::BadEnvVar {
+            var,
+            detail: "empty".into(),
+        });
+    }
+    Ok(v)
 }
 
 impl GuardedExecutor for UniswapExecutor {
@@ -380,11 +483,267 @@ impl GuardedExecutor for UniswapExecutor {
                     evidence: Some(evidence),
                 })
             }
-            UniswapMode::Live => Err(ExecutionError::BackendOffline(
-                "live Uniswap backend not configured for this hackathon build; \
-                 switch to UniswapMode::LocalMock or wire credentials"
-                    .to_string(),
+            UniswapMode::Live => {
+                let ctx = self.live_context.as_ref().ok_or_else(|| {
+                    ExecutionError::BackendOffline(
+                        "live Uniswap backend has no LiveContext; build via \
+                         UniswapExecutor::live_from_env() or live_with_context()"
+                            .to_string(),
+                    )
+                })?;
+                let quote = quote_exact_input_single(ctx.transport.as_ref(), &ctx.config)
+                    .map_err(map_rpc_err)?;
+                let evidence = build_live_evidence(request, &ctx.config, &quote);
+                Ok(ExecutionReceipt {
+                    sponsor: "uniswap",
+                    execution_ref: format!("uni-{}", ulid::Ulid::new()),
+                    mock: false,
+                    note: format!(
+                        "live: Sepolia QuoterV2 at {} returned amountOut={} gasEstimate={}",
+                        ctx.config.quoter, quote.amount_out, quote.gas_estimate
+                    ),
+                    evidence: Some(evidence),
+                })
+            }
+        }
+    }
+}
+
+/// Map a JSON-RPC error to the right `ExecutionError` variant.
+/// Transport-level (HTTP, parse) → `BackendOffline`; protocol-level
+/// (server reverted, decode) → `Integration`. Keeps the existing
+/// "BackendOffline = sponsor unreachable" contract.
+fn map_rpc_err(e: RpcError) -> ExecutionError {
+    match e {
+        RpcError::Http(s) | RpcError::Parse(s) => {
+            ExecutionError::BackendOffline(format!("uniswap RPC: {s}"))
+        }
+        RpcError::Server { code, message } => {
+            ExecutionError::Integration(format!("uniswap RPC server error {code}: {message}"))
+        }
+        RpcError::Decode(s) => ExecutionError::Integration(format!("uniswap RPC decode: {s}")),
+    }
+}
+
+/// Build the evidence payload for a live allow-path quote. Reuses
+/// the 10 [`UniswapQuoteEvidence`] fields the mock path emits and
+/// extends with 4 live-only fields (`chain_id`, `amount_out`,
+/// `sqrt_price_x96_after`, `gas_estimate`) — the capsule schema
+/// permits `additionalProperties` on `executor_evidence`, so the
+/// extra fields land cleanly without a schema bump.
+///
+/// `quote_source` carries the network + quoter address verbatim so
+/// an auditor reading the capsule sees exactly which contract
+/// answered.
+fn build_live_evidence(
+    request: &PaymentRequest,
+    config: &LiveConfig,
+    quote: &QuoteResult,
+) -> serde_json::Value {
+    let now = chrono::Utc::now().timestamp();
+    let _ = request; // request is forwarded for future routing decisions
+    let in_token = TokenRef {
+        symbol: "TOKEN_IN".to_string(),
+        address: config.token_in.clone(),
+    };
+    let out_token = TokenRef {
+        symbol: "TOKEN_OUT".to_string(),
+        address: config.token_out.clone(),
+    };
+    serde_json::json!({
+        "quote_id": format!("uni-{}", ulid::Ulid::new()),
+        "quote_source": format!(
+            "uniswap-v3-quoter-sepolia-{}",
+            config.quoter.to_lowercase()
+        ),
+        "input_token": in_token,
+        "output_token": out_token,
+        "route_tokens": [in_token.clone(), out_token.clone()],
+        "notional_in": config.amount_in_wei,
+        "slippage_cap_bps": 0u32,
+        "quote_timestamp_unix": now,
+        "quote_freshness_seconds": 30u32,
+        "recipient_address": "0x0000000000000000000000000000000000000000",
+        // Live-only fields (extra to UniswapQuoteEvidence shape):
+        "chain_id": config.chain_id,
+        "amount_out": quote.amount_out,
+        "sqrt_price_x96_after": quote.sqrt_price_x96_after,
+        "initialized_ticks_crossed": quote.initialized_ticks_crossed,
+        "gas_estimate": quote.gas_estimate,
+    })
+}
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+    use crate::uniswap_live::tests_support::{abi_encode_quad, FakeTransport};
+    use crate::uniswap_live::{SEPOLIA_CHAIN_ID, SEPOLIA_QUOTER_V2_ADDRESS};
+
+    fn aprp() -> PaymentRequest {
+        let raw = include_str!("../../../test-corpus/aprp/golden_001_minimal.json");
+        let v: serde_json::Value = serde_json::from_str(raw).unwrap();
+        serde_json::from_value(v).unwrap()
+    }
+
+    fn allow_receipt() -> PolicyReceipt {
+        use sbo3l_core::receipt::{EmbeddedSignature, ReceiptType, SignatureAlgorithm};
+        PolicyReceipt {
+            receipt_type: ReceiptType::PolicyReceiptV1,
+            version: 1,
+            agent_id: "research-agent-01".to_string(),
+            decision: Decision::Allow,
+            deny_code: None,
+            request_hash: "1".repeat(64),
+            policy_hash: "2".repeat(64),
+            policy_version: Some(1),
+            audit_event_id: "evt-01HTAWX5K3R8YV9NQB7C6P2DGS".to_string(),
+            execution_ref: None,
+            issued_at: chrono::Utc::now(),
+            expires_at: None,
+            signature: EmbeddedSignature {
+                algorithm: SignatureAlgorithm::Ed25519,
+                key_id: "test".to_string(),
+                signature_hex: "0".repeat(128),
+            },
+        }
+    }
+
+    fn live_cfg() -> LiveConfig {
+        LiveConfig::sepolia_default(
+            SEPOLIA_WETH.to_string(),
+            "0x0000000000000000000000000000000000000022".to_string(),
+            3000,
+            "1000000000000000000".to_string(),
+            "http://example.invalid".to_string(),
+        )
+    }
+
+    #[test]
+    fn live_path_emits_executor_evidence_with_real_amount_out() {
+        let t = FakeTransport::new();
+        t.expect(
+            SEPOLIA_QUOTER_V2_ADDRESS,
+            "0xc6a5026a",
+            Ok(abi_encode_quad(
+                "2500000000000000000",
+                "1234567",
+                3,
+                "85000",
             )),
+        );
+        let exec = UniswapExecutor::live_with_context(LiveContext {
+            config: live_cfg(),
+            transport: Arc::new(t),
+        });
+        let receipt = exec.execute(&aprp(), &allow_receipt()).unwrap();
+        assert!(!receipt.mock, "live mode must NOT mark mock=true");
+        assert_eq!(receipt.sponsor, "uniswap");
+        assert!(receipt.execution_ref.starts_with("uni-"));
+        let evidence = receipt
+            .evidence
+            .expect("live path must emit executor_evidence");
+        assert_eq!(
+            evidence["amount_out"].as_str().unwrap(),
+            "2500000000000000000"
+        );
+        assert_eq!(evidence["chain_id"].as_u64().unwrap(), SEPOLIA_CHAIN_ID);
+        assert!(evidence["quote_source"]
+            .as_str()
+            .unwrap()
+            .contains("sepolia"));
+        assert!(evidence["quote_source"]
+            .as_str()
+            .unwrap()
+            .contains(&SEPOLIA_QUOTER_V2_ADDRESS.to_lowercase()));
+    }
+
+    #[test]
+    fn live_path_server_revert_surfaces_as_integration_error() {
+        let t = FakeTransport::new();
+        t.expect(
+            SEPOLIA_QUOTER_V2_ADDRESS,
+            "0xc6a5026a",
+            Err(RpcError::Server {
+                code: 3,
+                message: "execution reverted: insufficient liquidity".into(),
+            }),
+        );
+        let exec = UniswapExecutor::live_with_context(LiveContext {
+            config: live_cfg(),
+            transport: Arc::new(t),
+        });
+        let err = exec.execute(&aprp(), &allow_receipt()).unwrap_err();
+        match err {
+            ExecutionError::Integration(msg) => {
+                assert!(msg.contains("insufficient liquidity"));
+                assert!(msg.contains("3"));
+            }
+            other => panic!("expected Integration, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn live_path_http_timeout_surfaces_as_backend_offline() {
+        let t = FakeTransport::new();
+        t.expect(
+            SEPOLIA_QUOTER_V2_ADDRESS,
+            "0xc6a5026a",
+            Err(RpcError::Http("request timed out".into())),
+        );
+        let exec = UniswapExecutor::live_with_context(LiveContext {
+            config: live_cfg(),
+            transport: Arc::new(t),
+        });
+        let err = exec.execute(&aprp(), &allow_receipt()).unwrap_err();
+        match err {
+            ExecutionError::BackendOffline(msg) => {
+                assert!(msg.contains("timed out"));
+                assert!(msg.contains("uniswap RPC"));
+            }
+            other => panic!("expected BackendOffline, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn live_path_denied_receipt_never_calls_rpc() {
+        let t = FakeTransport::new();
+        // No expectations registered — any eth_call hit would fail.
+        let exec = UniswapExecutor::live_with_context(LiveContext {
+            config: live_cfg(),
+            transport: Arc::new(t),
+        });
+        let mut deny = allow_receipt();
+        deny.decision = Decision::Deny;
+        let err = exec.execute(&aprp(), &deny).unwrap_err();
+        assert!(matches!(err, ExecutionError::NotApproved(_)));
+    }
+
+    #[test]
+    fn live_from_env_errors_when_rpc_url_missing() {
+        // Save and clear all five vars to ensure a clean state.
+        let saved: Vec<(&str, Option<String>)> = [
+            "SBO3L_UNISWAP_RPC_URL",
+            "SBO3L_UNISWAP_TOKEN_IN",
+            "SBO3L_UNISWAP_TOKEN_OUT",
+            "SBO3L_UNISWAP_FEE_TIER",
+            "SBO3L_UNISWAP_AMOUNT_IN_WEI",
+        ]
+        .iter()
+        .map(|v| (*v, std::env::var(v).ok()))
+        .collect();
+        for (v, _) in &saved {
+            std::env::remove_var(v);
+        }
+        let r = UniswapExecutor::live_from_env();
+        assert!(matches!(
+            r,
+            Err(LiveConfigError::MissingEnvVar("SBO3L_UNISWAP_RPC_URL"))
+        ));
+        // Restore.
+        for (v, val) in saved {
+            if let Some(val) = val {
+                std::env::set_var(v, val);
+            }
         }
     }
 }
