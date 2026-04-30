@@ -12,14 +12,14 @@ The repository ships a multi-stage `Dockerfile` at the project root.
 
 | Stage  | Base                                  | Role                                                |
 |--------|---------------------------------------|-----------------------------------------------------|
-| build  | `rust:1-bookworm` (latest 1.x stable) | `cargo build --release --locked --bin sbo3l-server --bin sbo3l` with `RUSTFLAGS="-C strip=symbols"` |
+| build  | `rust:1-bookworm` (latest 1.x stable) | `cargo build --release --locked --bin sbo3l-server --bin sbo3l --bin sbo3l-mcp` with `RUSTFLAGS="-C strip=symbols"` |
 | runtime| `gcr.io/distroless/cc-debian12:nonroot` | runs as UID 65532, no shell, no package manager     |
 
 Final image is **under 100 MB**. The runtime layer ships the
-`sbo3l-server` daemon, the `sbo3l` CLI, and the `migrations/` tree (the
-server already embeds them via `include_str!`; the on-disk copy at
-`/usr/local/share/sbo3l/migrations` is a belt-and-suspenders artefact for
-offline inspection).
+`sbo3l-server` daemon, the `sbo3l` CLI, the `sbo3l-mcp` stdio JSON-RPC
+server, and the `migrations/` tree (the server already embeds migrations
+via `include_str!`; the on-disk copy at `/usr/local/share/sbo3l/migrations`
+is a belt-and-suspenders artefact for offline inspection).
 
 ## Build
 
@@ -68,6 +68,89 @@ curl -fsS http://localhost:8730/v1/payment-requests -X POST \
 >   curl -fsS http://localhost:8730/v1/payment-requests -X POST \
 >     -H "Content-Type: application/json" --data-binary @- | jq -r .decision
 > ```
+
+## docker-compose (single-command up)
+
+For a one-command development stack with persistent SQLite under `./data`,
+use the `docker-compose.yml` shipped at the repo root:
+
+```bash
+mkdir -p ./data
+sudo chown -R 65532:65532 ./data    # nonroot UID, see "Persistent SQLite"
+docker compose up sbo3l -d
+```
+
+The `sbo3l` service:
+
+- Builds the image from the local `Dockerfile` on first `up`.
+- Maps `localhost:8730` → container `:8730`.
+- Bind-mounts `./data` → `/var/lib/sbo3l` so SQLite survives `restart`
+  and `down` (it does **not** survive `down -v`, which clears volumes).
+- Sets `SBO3L_ALLOW_UNAUTHENTICATED=1` for local dev. Override per
+  environment in production by editing `docker-compose.override.yml` or
+  passing `-e SBO3L_BEARER_TOKEN_HASH=...`.
+- `restart: unless-stopped` so a daemon crash auto-recovers.
+- Compose-side healthcheck runs `sbo3l schema aprp` (in-image binary, no
+  shell needed). This is a *binary-alive* check, not an HTTP-liveness
+  probe; the latter waits on a `/health` endpoint follow-up to F-1.
+
+Smoke test the running stack:
+
+```bash
+NONCE=$(LC_ALL=C tr -dc '0-9A-HJKMNPQRSTVWXYZ' </dev/urandom | head -c 26)
+EXPIRY=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
+jq --arg e "$EXPIRY" --arg n "$NONCE" '.expiry=$e | .nonce=$n' \
+    test-corpus/aprp/golden_001_minimal.json | \
+  curl -fsS http://localhost:8730/v1/payment-requests -X POST \
+    -H "Content-Type: application/json" --data-binary @- | jq -r .decision
+# expect: allow
+```
+
+Persistence check (state survives a process restart):
+
+```bash
+docker compose restart sbo3l
+sleep 3
+ls -la ./data        # sbo3l.db should still be there
+# repeat the smoke POST — same fixture but a fresh nonce — still "allow"
+```
+
+Tear down without losing data:
+
+```bash
+docker compose down            # keeps ./data
+```
+
+Tear down + nuke data:
+
+```bash
+docker compose down -v         # also removes the named volume
+rm -rf ./data                  # removes the bind-mounted SQLite
+```
+
+### MCP profile (stdio JSON-RPC)
+
+The same image ships `sbo3l-mcp`, the Passport P3.1 stdio JSON-RPC
+server. Run it as a one-shot session attached to your terminal:
+
+```bash
+docker compose --profile mcp run --rm sbo3l-mcp
+```
+
+The container reads NDJSON requests from stdin and writes NDJSON
+responses to stdout (logs go to stderr). The MCP read-only mounts
+`./data` so its `sbo3l.audit_lookup` tool can query the same SQLite the
+daemon writes — handy for letting an LLM client introspect your daemon's
+audit chain. Example interaction:
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | \
+  docker compose --profile mcp run --rm -T sbo3l-mcp | head -1
+# {"jsonrpc":"2.0","id":1,"result":[{"name":"sbo3l.validate_aprp", ...}]}
+```
+
+`-T` disables TTY allocation so the stdin pipe is honoured. See
+`docs/cli/mcp.md` for the full tool catalogue.
 
 ## Persistent SQLite storage
 

@@ -1,0 +1,93 @@
+# SBO3L docker-compose: single-command development + smoke environment.
+#
+# Default service:
+#   docker compose up sbo3l -d
+# Spins up the daemon on http://localhost:8730 with persistent SQLite under
+# ./data (bind-mounted, survives `restart` and `down -v` modes documented
+# below). Auth is bypassed by default for local dev (set
+# SBO3L_BEARER_TOKEN_HASH or SBO3L_JWT_PUBKEY for prod).
+#
+# Optional MCP profile:
+#   docker compose --profile mcp run --rm sbo3l-mcp
+# Spawns the stdio JSON-RPC MCP server (Passport P3.1) attached to your
+# terminal. `up` won't keep it running because MCP is request-driven over
+# stdin/stdout — `run --rm` is the correct invocation for a one-shot
+# session. Both services share the same image; the MCP binary is shipped
+# alongside the daemon (see Dockerfile).
+#
+# Volume layout:
+#   ./data → /var/lib/sbo3l        (host-bind, owned by UID 65532 — see
+#                                   docs/cli/docker.md "Persistent SQLite"
+#                                   for permission caveats)
+#
+# Health check:
+#   The image runs distroless/cc-debian12 — no shell, no curl, no nc — so
+#   compose's healthcheck `test:` runs the in-image `sbo3l` CLI. We use
+#   `sbo3l schema aprp` because it (a) is exec-form (no shell needed),
+#   (b) exits 0 deterministically when the binary stack is intact,
+#   (c) does not require the daemon to have come up yet (so it races
+#   correctly with `start_period`). It is a *binary-alive* probe, not an
+#   HTTP-liveness probe — once the server crate gains a /health endpoint
+#   (see follow-up to F-1), this should become an HTTP probe via a future
+#   `sbo3l ping` subcommand or a sidecar `wget`.
+
+services:
+  sbo3l:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sbo3l/server:latest
+    container_name: sbo3l
+    restart: unless-stopped
+    ports:
+      - "8730:8730"
+    volumes:
+      - ./data:/var/lib/sbo3l
+    environment:
+      # Default-deny is the daemon's safe default; flip on the dev bypass
+      # for local docker-compose use. Override per-environment in prod.
+      SBO3L_ALLOW_UNAUTHENTICATED: "1"
+      # Embedded migrations + image-default SBO3L_DB path are sufficient.
+      # Override SBO3L_DB to ":memory:" if you don't want a host volume.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/sbo3l", "schema", "aprp"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Surface stderr in `docker compose logs` so the F-1 unauthenticated
+    # banner + F-4 unsafe-public-bind warning are visible.
+    tty: false
+    stdin_open: false
+
+  sbo3l-mcp:
+    profiles: ["mcp"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sbo3l/server:latest
+    container_name: sbo3l-mcp
+    # No restart policy: MCP stdio is one-shot per `compose run --rm`.
+    entrypoint: ["/usr/local/bin/sbo3l-mcp"]
+    # MCP stdio is line-oriented JSON-RPC over stdin/stdout. `tty: false`
+    # because MCP clients send raw NDJSON, not interactive ANSI.
+    stdin_open: true
+    tty: false
+    volumes:
+      # Read-only mount so the MCP tool catalogue can `audit_lookup` etc.
+      # against the daemon's database without ever writing to it. The
+      # daemon owns writes; MCP queries.
+      - ./data:/var/lib/sbo3l:ro
+    environment:
+      # Pointed at the same DB the daemon uses; default-readonly is
+      # enforced above by the volume mode flag.
+      SBO3L_DB: /var/lib/sbo3l/sbo3l.db
+
+volumes:
+  # Documentation-only — all real persistence is bind-mounted at
+  # ./data above, per the F-8 acceptance criterion. Listed here so
+  # `docker compose config` shows the intended persistent surface.
+  sbo3l-data:
+    name: sbo3l-data
+    driver: local
+    external: false
