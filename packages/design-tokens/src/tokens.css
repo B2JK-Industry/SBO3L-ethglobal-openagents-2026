@@ -1,0 +1,64 @@
+/*
+ * SBO3L design tokens — canonical CSS-variable surface.
+ *
+ * Imported by all four sites (marketing, docs, hosted-app, trust-dns-viz)
+ * via `@sbo3l/design-tokens/css`. Editing a value here updates every site
+ * on next build. Do not redeclare these variables elsewhere.
+ *
+ * Source-of-truth values mirror packages/design-tokens/src/tokens.ts.
+ * Keep the two in sync (lightweight tokens.ts test asserts it).
+ */
+
+:root {
+  /* colour — dark theme default */
+  --bg:       #0a0a0f;
+  --fg:       #e6e6ec;
+  --muted:    #9999a8;
+  --accent:   #4ad6a7;
+  --code-bg:  #14141c;
+  --border:   #2a2a3a;
+
+  /* layout */
+  --max:      920px;
+  --max-app:  1280px;
+
+  /* type */
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+               system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --line-height-prose: 1.55;
+  --line-height-code:  1.4;
+
+  /* type scale (1.25 modular) */
+  --fs-0: 0.85rem;
+  --fs-1: 1rem;
+  --fs-2: 1.15em;
+  --fs-3: 1.7em;
+  --fs-4: clamp(1.8em, 4vw, 2.6em);
+
+  /* spacing + radii (4-px grid) */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+[data-theme="light"] {
+  --bg:       #ffffff;
+  --fg:       #1a1a25;
+  --muted:    #5a5a6a;
+  --accent:   #1a8b6c;
+  --code-bg:  #f5f5fa;
+  --border:   #e0e0e8;
+}
+
+/* honour OS preference unless an explicit data-theme override is set */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:       #ffffff;
+    --fg:       #1a1a25;
+    --muted:    #5a5a6a;
+    --accent:   #1a8b6c;
+    --code-bg:  #f5f5fa;
+    --border:   #e0e0e8;
+  }
+}
