@@ -124,10 +124,46 @@ enum PassportCmd {
     /// the embedded schema and the cross-field truthfulness rules
     /// (deny→no execution, live→evidence, request/policy hash
     /// internal-consistency, etc.).
+    ///
+    /// Default mode is **structural-only** for backwards compat —
+    /// schema + cross-field invariants only, no cryptographic
+    /// re-verification. Pass `--strict` (alias `--verify-cryptographically`)
+    /// to additionally recompute `request_hash` from the capsule's
+    /// embedded APRP, recompute `policy_hash` from a supplied policy
+    /// snapshot (`--policy`), verify the receipt's Ed25519 signature
+    /// against a supplied pubkey (`--receipt-pubkey`), and walk the
+    /// audit chain in a supplied bundle (`--audit-bundle`). Each crypto
+    /// check whose auxiliary input is absent is reported as
+    /// `Skipped(reason)` rather than failed — never a fake-OK.
     Verify {
         /// Path to a capsule JSON file.
         #[arg(long)]
         path: PathBuf,
+
+        /// Run the cryptographic strict verifier on top of the
+        /// structural pass. Each crypto check that requires an
+        /// absent auxiliary input is reported as `Skipped(reason)`.
+        #[arg(long, alias = "verify-cryptographically")]
+        strict: bool,
+
+        /// Hex-encoded Ed25519 public key for the receipt signer.
+        /// Required for the `receipt_signature` strict check;
+        /// otherwise that check is skipped.
+        #[arg(long, requires = "strict")]
+        receipt_pubkey: Option<String>,
+
+        /// Path to a `sbo3l.audit_bundle.v1` JSON file whose chain
+        /// segment contains the capsule's `audit.audit_event_id`.
+        /// Required for the `audit_chain` and `audit_event_link`
+        /// strict checks; otherwise both are skipped.
+        #[arg(long, requires = "strict")]
+        audit_bundle: Option<PathBuf>,
+
+        /// Path to the canonical policy JSON snapshot whose JCS+SHA-256
+        /// hash should match `capsule.policy.policy_hash`. Required for
+        /// the `policy_hash_recompute` strict check; otherwise skipped.
+        #[arg(long, requires = "strict")]
+        policy: Option<PathBuf>,
     },
     /// Run an APRP through the existing SBO3L offline pipeline
     /// (schema → request_hash → policy → budget → audit → signed
@@ -504,8 +540,21 @@ fn main() -> ExitCode {
             op: PolicyCmd::Diff { a, b },
         } => policy::cmd_diff(&a, &b),
         Command::Passport {
-            op: PassportCmd::Verify { path },
-        } => passport::cmd_verify(&path),
+            op:
+                PassportCmd::Verify {
+                    path,
+                    strict,
+                    receipt_pubkey,
+                    audit_bundle,
+                    policy,
+                },
+        } => passport::cmd_verify(passport::VerifyArgs {
+            path,
+            strict,
+            receipt_pubkey,
+            audit_bundle,
+            policy,
+        }),
         Command::Passport {
             op:
                 PassportCmd::Run {
