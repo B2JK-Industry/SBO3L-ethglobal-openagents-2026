@@ -7,7 +7,7 @@
 //! * `sbo3l:endpoint`
 //! * `sbo3l:policy_hash`
 //! * `sbo3l:audit_root`
-//! * `sbo3l:receipt_schema`
+//! * `sbo3l:proof_uri`
 //!
 //! The trait abstracts the resolution backend so a live testnet ENS lookup and
 //! an offline fixture can plug in interchangeably. The hackathon demo defaults
