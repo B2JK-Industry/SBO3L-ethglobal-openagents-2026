@@ -1,7 +1,7 @@
 # `mock-kms-keys.json` — production-shaped mock-KMS key catalogue
 
 Public verification-key metadata for SBO3L's two demo signers — same
-deterministic dev seeds that ship in `crates/sbo3l-server/src/lib.rs:54-55`
+deterministic dev seeds that ship in `crates/sbo3l-server/src/lib.rs:63-64`
 and that the production-shaped runner's step 9
 (`demo-scripts/run-production-shaped-mock.sh`) uses to verify audit
 bundles. **Public Ed25519 verification keys only — no private/signing
@@ -67,7 +67,7 @@ adapter authors writing KMS-listing parsers and for verification tests
 that don't want to execute the binary. The fixture's `verifying_key_hex`
 values are the same dev-signer pubkeys the runner uses today; they are
 deterministically derivable from the public dev seeds at
-`crates/sbo3l-server/src/lib.rs:54-55`. **Mock — not production-grade.**
+`crates/sbo3l-server/src/lib.rs:63-64`. **Mock — not production-grade.**
 
 A future B-side follow-up can teach `demo-scripts/run-production-shaped-mock.sh`
 step 9 to read the verification pubkeys from `sbo3l key list --mock`
@@ -122,4 +122,4 @@ for the env-var / endpoint / credentials matrix.
 - The two `verifying_key_hex` values match the constants in
   `demo-scripts/run-production-shaped-mock.sh` step 9 (production-shaped
   runner — verifies audit bundles using these public keys).
-- The seed sources match `crates/sbo3l-server/src/lib.rs:54-55`.
+- The seed sources match `crates/sbo3l-server/src/lib.rs:63-64`.

@@ -67,21 +67,22 @@ A small static proof viewer (`trust-badge/build.py`, stdlib-only Python) reads t
 ## Tech stack
 
 ```
-Rust workspace (8 crates + research-agent demo binary):
-  - sbo3l-core        APRP types, JCS canonical hashing, Ed25519 signer, receipts, decision tokens, audit events, audit-bundle codec.
-  - sbo3l-policy      Policy model + Rego-compatible expression evaluator, decide(), multi-scope budget tracker.
-  - sbo3l-storage     SQLite-backed audit log with hash-chain verifier (rusqlite + migrations); persistent nonce-replay table (V002); chain prefix slicing for audit-bundle export.
-  - sbo3l-server      axum HTTP server, POST /v1/payment-requests pipeline, persistent SQLite-backed APRP nonce-replay gate.
-  - sbo3l-execution   Guarded-executor adapters (KeeperHub, Uniswap) with explicit local_mock / live constructors.
-  - sbo3l-identity    ENS resolver trait + offline fixture resolver + policy_hash drift check.
-  - sbo3l-mcp         Functional MCP stdio JSON-RPC server (PR #46): sbo3l.validate_aprp / sbo3l.decide / sbo3l.run_guarded_execution / sbo3l.verify_capsule / sbo3l.audit_lookup.
-  - sbo3l-cli         `sbo3l` CLI: aprp validate|hash|run-corpus, schema, verify-audit, audit export, audit verify-bundle.
+Rust workspace (9 crates + research-agent demo binary):
+  - sbo3l-core               APRP types, JCS canonical hashing, Ed25519 signer, receipts, decision tokens, audit events, audit-bundle codec.
+  - sbo3l-policy             Policy model + Rego-compatible expression evaluator, decide(), multi-scope budget tracker.
+  - sbo3l-storage            SQLite-backed audit log with hash-chain verifier (rusqlite + migrations); persistent nonce-replay table (V002); chain prefix slicing for audit-bundle export.
+  - sbo3l-server             axum HTTP server, POST /v1/payment-requests pipeline, persistent SQLite-backed APRP nonce-replay gate.
+  - sbo3l-execution          Guarded-executor adapters (KeeperHub, Uniswap) with explicit local_mock / live constructors.
+  - sbo3l-identity           ENS resolver trait + offline fixture resolver + policy_hash drift check.
+  - sbo3l-mcp                Functional MCP stdio JSON-RPC server (PR #46): sbo3l.validate_aprp / sbo3l.decide / sbo3l.run_guarded_execution / sbo3l.verify_capsule / sbo3l.audit_lookup / sbo3l.explain_denial.
+  - sbo3l-keeperhub-adapter  Standalone publishable IP-4 adapter crate (PR #56): re-exports KeeperHubExecutor + GuardedExecutor + Sbo3lEnvelope + build_envelope; depends only on sbo3l-core.
+  - sbo3l-cli                `sbo3l` CLI: aprp {validate, hash, run-corpus}, schema, verify-audit, audit {export, verify-bundle, checkpoint {create, verify}}, passport {verify, run, explain}, policy {validate, current, activate, diff}, key {init, list, rotate} --mock, doctor.
 
 Cryptography & wire format:
   - ed25519-dalek                 Ed25519 signatures over canonical JSON (receipts, decision tokens, audit events).
   - serde_json_canonicalizer      JCS (RFC 8785) for request and policy canonical hashing.
   - sha2                          SHA-256 for request_hash, policy_hash, audit event_hash.
-  - JSON Schema 2020-12           6 schemas (aprp, policy, x402, policy_receipt, decision_token, audit_event).
+  - JSON Schema 2020-12           7 schemas (aprp, policy, x402, policy_receipt, decision_token, audit_event, sbo3l.passport_capsule.v1).
   - OpenAPI 3.1                   docs/api/openapi.json validated in CI.
   - ULID                          Stable, sortable identifiers for audit and execution refs.
 
@@ -100,7 +101,7 @@ The demo runs offline and deterministically. The submission narrative deliberate
 REAL (end-to-end, exercised by the test suite + the final demo):
   - APRP wire format and `serde(deny_unknown_fields)` strictness — adversarial fixture rejected with `schema.unknown_field`.
   - JCS canonical request hash — golden hash `c0bd2fab…` locked in test.
-  - JSON Schema validation — 6 schemas, 4-fixture corpus, no network.
+  - JSON Schema validation — 7 schemas, 14-fixture corpus, no network.
   - Policy engine + agent gate (unknown / paused / revoked / `emergency.paused_agents` / `emergency.freeze_all`).
   - Multi-scope budget tracker (per_tx non-accumulating; daily / monthly / per_provider accumulating; commit only on Allow).
   - APRP nonce replay rejection — HTTP 409 + `protocol.nonce_replay`, fires before request_hash / policy / budget / audit / signing so a replay produces no side effects. Dedup is backed by the persistent `nonce_replay` SQLite table (migration V002) via `Storage::nonce_try_claim`, so a daemon configured with `Storage::open(path)` rejects replays across process restart; the demo defaults to `Storage::open_in_memory()`, where the same SQLite-backed dedup persists for the lifetime of the demo process.

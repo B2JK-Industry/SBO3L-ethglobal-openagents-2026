@@ -60,7 +60,7 @@ should compose these primitives instead of replacing them.
 | ENS adapter | Offline fixture resolver | Agent identity/discovery model. |
 | KeeperHub adapter | `local_mock()` plus live-spike doc | Execution layer handoff model. |
 | Uniswap guard | Mock quote and guard checks | Agentic finance safety model. |
-| MCP crate | Placeholder | Natural product interface for agents and tools. |
+| MCP crate | Functional stdio JSON-RPC server (PR #46, P3.1) — six tools | Natural product interface for agents and tools. |
 
 The Passport is a product wrapper over these pieces. It is not a rewrite.
 

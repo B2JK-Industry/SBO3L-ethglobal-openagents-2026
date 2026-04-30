@@ -232,7 +232,7 @@ in [`mock-uniswap-quotes.md`](../demo-fixtures/mock-uniswap-quotes.md).
 ### Status today
 
 `AppState::new()` constructs deterministic `DevSigner`s from public
-seeds in `crates/sbo3l-server/src/lib.rs:54-55` (`audit-signer-v1` +
+seeds in `crates/sbo3l-server/src/lib.rs:63-64` (`audit-signer-v1` +
 `[11u8; 32]`, `decision-signer-v1` + `[7u8; 32]`). These are clearly
 labelled `⚠ DEV ONLY ⚠` in the source and in `SUBMISSION_NOTES.md`.
 `AppState::with_signers(...)` is the production injection point.
