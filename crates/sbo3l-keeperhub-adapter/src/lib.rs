@@ -265,8 +265,7 @@ pub(crate) fn submit_live_to(
     // both `&request.intent` (`needless_borrows_for_generic_args`) and
     // `request.intent.clone()` (`clone_on_copy`); the bare field access
     // is the only form that passes `-D warnings`.
-    let intent_value =
-        serde_json::to_value(request.intent).unwrap_or(serde_json::Value::Null);
+    let intent_value = serde_json::to_value(request.intent).unwrap_or(serde_json::Value::Null);
     let mut body = serde_json::Map::new();
     body.insert(
         "agent_id".into(),
