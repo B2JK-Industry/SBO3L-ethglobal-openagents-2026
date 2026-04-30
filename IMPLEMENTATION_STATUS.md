@@ -17,7 +17,7 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --all-targets` | ✅ **317 / 317 pass** (0 fail, 0 ignored) |
+| `cargo test --workspace --all-targets` | ✅ **371 / 371 pass** (0 fail, 0 ignored) |
 | `python3 scripts/validate_schemas.py` | ✅ (7 schemas + 14 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |
