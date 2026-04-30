@@ -7,6 +7,7 @@ use sbo3l_core::audit_bundle::{self, AuditBundle};
 use sbo3l_core::receipt::PolicyReceipt;
 use sbo3l_core::{schema, SchemaError};
 
+mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
 mod key;
@@ -389,6 +390,57 @@ enum AuditCmd {
         #[command(subcommand)]
         op: CheckpointCmd,
     },
+    /// Build the ENS `setText(sbo3l:audit_root, ...)` envelope that
+    /// would write the current audit chain digest into an ENS Public
+    /// Resolver text record. **Dry-run by default** — no network, no
+    /// signing. `--offline-fixture` writes the same envelope to disk
+    /// for demo / CI fixture use. `--broadcast` is gated and emits an
+    /// honest "not implemented in this build" error pointing the
+    /// operator at the dry-run for the same content. See B3.
+    AnchorEns {
+        /// SBO3L SQLite database path. The chain digest is computed
+        /// over every event_hash in the chain prefix, in seq order.
+        #[arg(long)]
+        db: PathBuf,
+        /// ENS domain whose `sbo3l:audit_root` text record will be
+        /// written. The CLI does not normalise (ENSIP-15 / UTS-46);
+        /// supply an already-normalised name.
+        #[arg(long)]
+        domain: String,
+        /// Network: `mainnet` or `sepolia`. Determines which Public
+        /// Resolver address the dry-run targets when `--resolver` is
+        /// not supplied.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+        /// Override the resolver contract address. Default: the
+        /// network's well-known ENS Public Resolver.
+        #[arg(long)]
+        resolver: Option<String>,
+        /// Send the tx for real. Currently emits an honest
+        /// "not implemented in this build" error.
+        #[arg(long)]
+        broadcast: bool,
+        /// JSON-RPC endpoint to broadcast through (only consulted in
+        /// `--broadcast` mode, which is currently gated).
+        #[arg(long)]
+        rpc_url: Option<String>,
+        /// Name of the env var holding the operator's signing key
+        /// (only consulted in `--broadcast` mode, which is currently
+        /// gated). The key itself is read at runtime, never logged.
+        #[arg(long, default_value = "SBO3L_ANCHOR_KEY")]
+        private_key_env_var: String,
+        /// Write the dry-run envelope to a fixture path. Default:
+        /// `demo-fixtures/mock-ens-anchor.json`. When supplied, the
+        /// envelope is written to that path *in addition* to being
+        /// printed.
+        #[arg(long, num_args = 0..=1, default_missing_value = audit_anchor_ens::DEFAULT_OFFLINE_FIXTURE)]
+        offline_fixture: Option<PathBuf>,
+        /// Optional dry-run-only output path. When supplied without
+        /// `--offline-fixture`, the dry-run envelope is also written
+        /// to this path.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -504,6 +556,30 @@ fn main() -> ExitCode {
                     op: CheckpointCmd::Verify { path, db },
                 },
         } => audit_checkpoint::cmd_verify(&path, db.as_deref()),
+        Command::Audit {
+            op:
+                AuditCmd::AnchorEns {
+                    db,
+                    domain,
+                    network,
+                    resolver,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
+                    offline_fixture,
+                    out,
+                },
+        } => audit_anchor_ens::cmd_anchor_ens(audit_anchor_ens::AnchorEnsArgs {
+            db,
+            domain,
+            network,
+            resolver,
+            broadcast,
+            rpc_url,
+            private_key_env_var: Some(private_key_env_var),
+            offline_fixture,
+            out,
+        }),
         Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
         Command::Key {
             op:
