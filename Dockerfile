@@ -43,9 +43,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/build/target,sharing=locked \
     cargo build --release --locked \
         --bin sbo3l-server \
-        --bin sbo3l && \
+        --bin sbo3l \
+        --bin sbo3l-mcp && \
     install -Dm0755 target/release/sbo3l-server /out/usr/local/bin/sbo3l-server && \
     install -Dm0755 target/release/sbo3l        /out/usr/local/bin/sbo3l && \
+    install -Dm0755 target/release/sbo3l-mcp    /out/usr/local/bin/sbo3l-mcp && \
     mkdir -p /out/usr/local/share/sbo3l && \
     cp -r migrations /out/usr/local/share/sbo3l/migrations && \
     install -d -m 0700 -o 65532 -g 65532 /out/var/lib/sbo3l
@@ -59,8 +61,11 @@ LABEL org.opencontainers.image.title="sbo3l-server" \
       org.opencontainers.image.licenses="Apache-2.0"
 
 # Binaries + embedded migrations + writable data dir.
+# `sbo3l-mcp` ships in the same image so docker-compose can spin up a stdio
+# JSON-RPC MCP server (profile `mcp`) without a second build.
 COPY --from=builder /out/usr/local/bin/sbo3l-server     /usr/local/bin/sbo3l-server
 COPY --from=builder /out/usr/local/bin/sbo3l            /usr/local/bin/sbo3l
+COPY --from=builder /out/usr/local/bin/sbo3l-mcp        /usr/local/bin/sbo3l-mcp
 COPY --from=builder /out/usr/local/share/sbo3l          /usr/local/share/sbo3l
 COPY --from=builder --chown=nonroot:nonroot /out/var/lib/sbo3l /var/lib/sbo3l
 
