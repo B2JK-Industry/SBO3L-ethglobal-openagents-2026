@@ -19,13 +19,31 @@ Budget caps (`per_tx`, `daily`, `monthly`, `per_provider`) persist in SQLite via
 
 `per_tx` is a single-request cap and is intentionally never persisted — its row is never written, only the request amount is compared.
 
+## Idempotency atomicity (F-3, race-safe state machine)
+
+The HTTP daemon CLAIMs an `Idempotency-Key` atomically before running the pipeline. V009 adds a `state TEXT NOT NULL CHECK (state IN ('processing','succeeded','failed'))` column to `idempotency_keys`; the request path uses three new race-safe primitives in [`crates/sbo3l-storage/src/idempotency_store.rs`](crates/sbo3l-storage/src/idempotency_store.rs):
+
+* `Storage::idempotency_try_claim` — atomic `INSERT … state='processing'`. PRIMARY KEY collision returns the existing row instead of running the pipeline.
+* `Storage::idempotency_succeed` / `idempotency_fail` — UPDATE the row to its terminal state once the pipeline returns. Only fire on the `processing → succeeded|failed` edge.
+* `Storage::idempotency_try_reclaim_failed` — atomic `UPDATE … WHERE state='failed' AND created_at < cutoff`. Past the 60-second grace window exactly one concurrent reclaimer wins; others see rows = 0 and surface `idempotency_in_flight`.
+
+Behaviour matrix:
+
+| Pre-claim observed row | Same body | Outcome |
+|---|---|---|
+| (none) | — | claim wins, pipeline runs, finalize at end |
+| `succeeded` | yes | byte-identical cached replay (no pipeline run) |
+| `succeeded` | no | HTTP 409 `protocol.idempotency_conflict` |
+| `processing` | (any) | HTTP 409 `protocol.idempotency_in_flight` |
+| `failed` (within 60s) | (any) | HTTP 409 `protocol.idempotency_in_flight` |
+| `failed` (past 60s) | — | reclaim wins → pipeline runs; reclaim race losers get `idempotency_in_flight` |
+
+The 50-concurrent stress is in `cargo test --test test_idempotency_race`. Pre-F-3 the lookup-then-INSERT race let multiple writers run the pipeline; F-3's atomic claim caps that at exactly one pipeline run per `Idempotency-Key`.
+
 ## Known limitations (scope-cut for submission)
 
 ### Production signer wiring
 `sbo3l-server` constructs `AppState::new()` directly today, which uses the deterministic public dev seed. `AppState::new()` is documented `⚠ DEV ONLY ⚠`. Production path: `AppState::with_signers(...)` injects a real KMS-backed `SignerBackend`; daemon refuses startup if `SBO3L_SIGNER_BACKEND` is unset. Mock-KMS persistence (PSM-A1.9, V005) is the production-shaped lifecycle preview, not the production signer. Tracked.
-
-### Idempotency in-flight semantics
-`Idempotency-Key` cache lookup happens before the pipeline runs; cache write happens after the pipeline returns 200. Concurrent same-key requests can race and both pass the lookup. Production path: a `processing` / `succeeded` / `failed` state machine with an atomic reservation on first lookup, so a second concurrent request blocks or returns 409 instead of running the pipeline twice. Tracked.
 
 ### Passport verifier scope
 `sbo3l passport verify` defaults to a **structural-only** pass for backwards compat (schema + cross-field invariants — see the doc-comment at [`crates/sbo3l-cli/src/passport.rs`](crates/sbo3l-cli/src/passport.rs) line 11). The default mode does **not** verify Ed25519 signatures, audit-chain hash linkage, or recompute the canonical APRP / policy hashes. The capsule's `verification.offline_verifiable` field reflects the structural result, not a full crypto re-verify.
