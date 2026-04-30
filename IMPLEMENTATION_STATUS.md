@@ -2,10 +2,10 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-04-29 (post Uniswap P6.1 + rebrand to SBO3L)
-**Branch:** `main` (HEAD `6ffb5eb` — post `feat: Uniswap P6.1 — Passport capsule quote evidence (#57)`, with rebrand `(#58)` and standalone KeeperHub adapter `(#56)` already in)
-**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired. Polishing and dev review in flight (Dev A positioning + sponsor depth, Dev B cryptographic verifier + IP audit).
-**Open implementation PRs:** **2** open at audit time — [#59](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/59) `chore: align repo URL references with new SBO3L slug` and the present cleanup PR (`chore: post-rename truth + brand cleanup`). Both chore-only; neither blocks submission.
+**Last updated:** 2026-04-30 (post URL slug + truth cleanup, dev review in flight)
+**Branch:** `main` (HEAD `3f2eb07` — post `chore: post-rename truth + brand cleanup (#60)` and `chore: align repo URL references with new SBO3L slug (#59)`, with Uniswap P6.1 `(#57)`, rebrand `(#58)` and standalone KeeperHub adapter `(#56)` already in)
+**Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired. Dev review and polishing are in flight (Dev A positioning + sponsor depth on `feat/dev-a-positioning-polish`, Dev B cryptographic verifier + IP audit on `feat/dev-b-crypto-resilience-ip` + `audit/scopeblind-ip-low-risk`).
+**Open implementation PRs:** **2** open at audit time — [#61](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/61) `feat: cryptographic passport verifier (B1)` and [#62](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/62) `docs(audit): ScopeBlind / Veritas Acta IP — verdict LOW`. Neither blocks submission.
 **CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
 **Blockers:** none.
 
@@ -18,7 +18,7 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
 | `cargo test --workspace --all-targets` | ✅ **317 / 317 pass** (0 fail, 0 ignored) |
-| `python3 scripts/validate_schemas.py` | ✅ (6 schemas + 4 corpus fixtures) |
+| `python3 scripts/validate_schemas.py` | ✅ (7 schemas + 14 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |
 | `bash demo-scripts/run-production-shaped-mock.sh` | ✅ **Tally: 26 real, 0 mock, 1 skipped** — PSM-A1.9 mock-KMS lifecycle + PSM-A2 four-case Idempotency-Key matrix + PSM-A3 active-policy lifecycle + **PSM-A4 audit checkpoint create/verify with mock anchoring** + PSM-A5 doctor + Passport P2.1 capsule emit/verify all walked end-to-end, plus step 12 emits the `sbo3l-operator-evidence-v1` transcript consumed by the operator console; only the optional `--include-final-demo` flag remains on the SKIPPED list |
@@ -32,7 +32,7 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 
 Full Open Agents vertical:
 
-- Rust workspace (8 crates + research-agent demo binary).
+- Rust workspace (9 crates + research-agent demo binary).
 - `sbo3l` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit`, `audit export`, `audit verify-bundle`.
 - APRP v1 wire format with `serde(deny_unknown_fields)` end-to-end + JCS canonical request hashing (golden hash `c0bd2fab…` locked in test).
 - Strict JSON Schema validation (embedded, local refs, no network).
@@ -56,8 +56,8 @@ Full Open Agents vertical:
 - Audit checkpoints + mock anchoring: `sbo3l audit checkpoint {create, verify}` (PSM-A4) backed by SQLite migration V007 (`audit_checkpoints` table). This is **mock anchoring**, NOT real onchain anchoring — the `mock_anchor_ref` is a deterministic local id, never broadcast and never attested by any chain. Every CLI line carries a `mock-anchor:` prefix; `mock_anchor: true` is in every JSON artifact; the verifier refuses any artifact with `mock_anchor: false`. Documented in `docs/cli/audit-checkpoint.md`.
 - Active-policy lifecycle: `sbo3l policy {validate, current, activate, diff}` (PSM-A3) backed by SQLite migration V006 (`active_policy` table with partial UNIQUE singleton index). Local lifecycle, not remote governance — `docs/cli/policy.md` documents the scope honestly.
 - Static, offline trust-badge proof viewer (`trust-badge/build.py`, stdlib Python) + stdlib regression test (`trust-badge/test_build.py`). No JS, no fetch, works from `file://`.
-- **SBO3L Passport capsule schema + verifier + CLI** (`schemas/sbo3l.passport_capsule.v1.json`, `crates/sbo3l-core/src/passport.rs`, `crates/sbo3l-cli/src/passport.rs`, Passport P1.1 + P2.1). `sbo3l passport run` drives the existing `POST /v1/payment-requests` pipeline in-process, reads back the audit event, builds a checkpoint, and self-verifies the capsule before atomic write. `sbo3l passport verify` runs the structural verifier against any capsule. 8 tampered fixtures pin every cross-field invariant.
-- **MCP-callable SBO3L gateway** (`crates/sbo3l-mcp/`, Passport P3.1) — stdio JSON-RPC 2.0 server exposing `sbo3l.validate_aprp`, `sbo3l.decide`, `sbo3l.run_guarded_execution`, `sbo3l.verify_capsule`, and `sbo3l.audit_lookup` (the IP-3 sister tool to KeeperHub's proposed `keeperhub.lookup_execution`). 29 integration tests across in-process dispatch, stdio child-process transport, and path-sandbox escapes. Judge-facing walk-through: [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md) (Passport P3.2). Sponsor demo: `bash demo-scripts/sponsors/mcp-passport.sh` (writes `demo-scripts/artifacts/mcp-transcript.json`).
+- **SBO3L Passport capsule schema + verifier + CLI** (`schemas/sbo3l.passport_capsule.v1.json`, `crates/sbo3l-core/src/passport.rs`, `crates/sbo3l-cli/src/passport.rs`, Passport P1.1 + P2.1). `sbo3l passport run` drives the existing `POST /v1/payment-requests` pipeline in-process, reads back the audit event, builds a checkpoint, and self-verifies the capsule before atomic write. `sbo3l passport verify` runs the structural verifier against any capsule. 9 tampered fixtures pin every cross-field invariant.
+- **MCP-callable SBO3L gateway** (`crates/sbo3l-mcp/`, Passport P3.1) — stdio JSON-RPC 2.0 server exposing six tools: `sbo3l.validate_aprp`, `sbo3l.decide`, `sbo3l.run_guarded_execution`, `sbo3l.verify_capsule`, `sbo3l.audit_lookup` (the IP-3 sister tool to KeeperHub's proposed `keeperhub.lookup_execution`), and `sbo3l.explain_denial` (machine-readable deny-code lookup). 29 integration tests across in-process dispatch, stdio child-process transport, and path-sandbox escapes. Judge-facing walk-through: [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md) (Passport P3.2). Sponsor demo: `bash demo-scripts/sponsors/mcp-passport.sh` (writes `demo-scripts/artifacts/mcp-transcript.json`).
 - **KeeperHub `sbo3l_*` envelope helper** (`sbo3l_keeperhub_adapter::build_envelope`, Passport P5.1, IP-1) — composes `sbo3l_request_hash` + `sbo3l_policy_hash` + `sbo3l_receipt_signature` + `sbo3l_audit_event_id` (target: `sbo3l_passport_capsule_hash`) directly from an existing `PolicyReceipt` so a `KeeperHubExecutor::live()` body can drop it onto the workflow webhook submission. **Helper shipped; the live HTTP wiring is still gated on KeeperHub publishing a stable submission/result schema** (see `docs/keeperhub-live-spike.md` §Open questions).
 - **Standalone `sbo3l-keeperhub-adapter` workspace crate** (`crates/sbo3l-keeperhub-adapter/`, IP-4) — exposes `KeeperHubExecutor`, `KeeperHubMode`, `build_envelope`, and re-exports `GuardedExecutor` / `ExecutionReceipt` / `ExecutionError` / `Sbo3lEnvelope` from `sbo3l-core`; `sbo3l-execution` re-exports it for back-compat. Crates.io publication remains a target, not a shipped claim.
 - **GitHub Pages public proof site** (`.github/workflows/pages.yml` + `site/index.html`, Passport P7.1) — deploys from `main`. Renders the trust-badge + operator-console + a downloadable Passport capsule into a stable static URL. Plain HTML, no JS, no client-side network calls, no external asset; byte-grep-clean against the same safe-host allowlist as `demo-fixtures/test_fixtures.py`.
@@ -88,7 +88,7 @@ Full Open Agents vertical:
 - Live KeeperHub backend (one-constructor switch via `KeeperHubExecutor::live()`; demo uses `local_mock()`). Wire-format design notes in `docs/keeperhub-live-spike.md`.
 - Live ENS testnet resolver (offline fixture today; trait already abstracts the backend).
 - Live Uniswap quote backend (`UniswapExecutor::live()` is intentionally stubbed; demo uses `local_mock()`).
-- Production KMS / HSM signer (`SBO3L_SIGNER_BACKEND` selector + per-role `MANDATE_*_SIGNER_KEY_ID` env vars). The dev `DevSigner` and the persistent mock `MockKmsSigner` are both `⚠ DEV ONLY ⚠`; production injects real signers via `AppState::with_signers`.
+- Production KMS / HSM signer (`SBO3L_SIGNER_BACKEND` selector + per-role `SBO3L_*_SIGNER_KEY_ID` env vars). The dev `DevSigner` and the persistent mock `MockKmsSigner` are both `⚠ DEV ONLY ⚠`; production injects real signers via `AppState::with_signers`.
 - Recorded demo video (3:30 cut). Script committed in `demo-scripts/demo-video-script.md`.
 - Pruned / Merkle-proof variants of the audit bundle, and optional embedded original APRP. Tracked in `docs/cli/audit-bundle.md`.
 - Soft-cap warning emission in receipts (`Budget.soft_cap_usd` parsed but not enforced).
