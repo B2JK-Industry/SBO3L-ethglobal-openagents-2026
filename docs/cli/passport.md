@@ -84,14 +84,17 @@ Both round-trip through `passport verify` before the runner moves on. The runner
 
 The 13-gate hackathon demo (`demo-scripts/run-openagents-final.sh`) is **untouched** — Passport surfaces live in the production-shaped runner only.
 
-## Out of scope on this CLI surface (Passport P2.1)
+## Phase status
 
-These belong to later Passport phases:
+Of the seven follow-on items originally listed as out-of-scope for Passport P2.1, six have shipped on `main`:
 
-- **`sbo3l passport resolve`** (P2.1+ stretch) — pure ENS-records-only lookup.
-- **`sbo3l-mcp` server tools** (P3.1) — `sbo3l.run_guarded_execution`, `sbo3l.verify_capsule`, etc., wrapping the same logic.
-- **Live ENS resolver** — `LiveEnsResolver` (in `crates/sbo3l-identity/src/ens_live.rs`) ships on `main`. Operator activates it via `SBO3L_ENS_RPC_URL`. Smoke: `cargo run -p sbo3l-identity --example ens_live_smoke` against `sbo3lagent.eth` (mainnet).
-- **Live KeeperHub envelope** (P5.1) — `--mode live` lands here with concrete credentials + `live_evidence`.
-- **Uniswap quote evidence in capsule** (P6.1) — quote id / route / freshness / slippage cap captured into the capsule's execution block.
-- **Trust-badge / operator-console capsule panels** (P2.2 — Developer B) — the static UI rendering of the capsule.
-- **Public proof page** (P7.1) — GitHub Pages hosting of trust-badge + operator-console + selected capsule JSON.
+- ✅ **`sbo3l-mcp` server tools** (P3.1, PR #46) — `sbo3l.validate_aprp`, `sbo3l.decide`, `sbo3l.run_guarded_execution`, `sbo3l.verify_capsule`, `sbo3l.audit_lookup`, `sbo3l.explain_denial` — exercised by `bash demo-scripts/sponsors/mcp-passport.sh`.
+- ✅ **Live ENS resolver** — `LiveEnsResolver` (`crates/sbo3l-identity/src/ens_live.rs`) is on `main`. Operator activates via `SBO3L_ENS_RPC_URL`. Smoke: `cargo run -p sbo3l-identity --example ens_live_smoke` — verified end-to-end against `sbo3lagent.eth` on mainnet during the submission window.
+- ✅ **Live KeeperHub envelope** (P5.1, IP-1) — `KeeperHubExecutor::execute` with `submit_live_to`, env-gated on `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN`. Verified end-to-end against a real KeeperHub workflow during the submission window (real `executionId` returned).
+- ✅ **Uniswap quote evidence in capsule** (P6.1, PR #57) — `UniswapQuoteEvidence` captured into the capsule's `execution.executor_evidence` block (10 fields). Live `UniswapExecutor::live_from_env()` against Sepolia QuoterV2 verified end-to-end.
+- ✅ **Trust-badge / operator-console capsule panels** (P2.2) — capsule summary tile + 4 fallback states rendered into `trust-badge/index.html` and `operator-console/index.html` (`118` + `49` stdlib regression checks gating CI).
+- ✅ **Public proof page** (P7.1) — GitHub Pages live at <https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/>.
+
+Still scope-cut:
+
+- **`sbo3l passport resolve`** (P2.1+ stretch) — pure ENS-records-only lookup as a first-class CLI subcommand. Today the same lookup is reachable via the `sbo3l-identity` smoke example or the MCP `sbo3l.audit_lookup` shape, just not as `passport resolve`.

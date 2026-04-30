@@ -118,11 +118,18 @@ These are the same asks recorded in
 
 ## What this one-pager will NOT claim
 
-- SBO3L **does not** call the Uniswap Trading API in this build.
-  `UniswapExecutor::live()` is a `BackendOffline` stub today; every demo
-  path uses `UniswapExecutor::local_mock()` against the fixture catalogue.
+- SBO3L **does not** call the Uniswap Trading API (real swap broadcast)
+  in this build. What it does call live is the Sepolia QuoterV2 contract
+  (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) via JSON-RPC for a real
+  read-side `quoteExactInputSingle`, env-gated on `SBO3L_UNISWAP_RPC_URL`
+  + `SBO3L_UNISWAP_TOKEN_OUT` — verified end-to-end during the submission
+  window. The demo default still uses `UniswapExecutor::local_mock()`
+  against the fixture catalogue; the bare back-compat
+  `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime.
 - The mock `uni-<ULID>` execution_ref **is not** a real Uniswap
-  transaction id.
+  transaction id; live mode emits real QuoterV2 return values
+  (`amountOut`, `sqrtPriceX96After`, `initializedTicksCrossed`,
+  `gasEstimate`) into the Passport capsule's `executor_evidence`.
 - This is **not** a Uniswap v4 hook project. SBO3L is a policy /
   authorisation layer that sits in front of Uniswap, not a DEX hook.
 - The Uniswap quote-evidence section of the SBO3L Passport capsule is

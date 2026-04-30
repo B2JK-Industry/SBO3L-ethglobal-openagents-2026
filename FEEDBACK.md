@@ -136,7 +136,7 @@ upstream:
 
 ### Known limitations of the hackathon implementation
 
-- `demo-scripts/sponsors/uniswap-guarded-swap.sh` runs against a stored quote fixture. The live path (`UniswapExecutor::live()`) is intentionally stubbed in this hackathon build and would error with `BackendOffline`; the demo always uses `UniswapExecutor::local_mock()`. There is no env-var feature flag in this build — wiring up a real Uniswap Trading API endpoint is one function-body change.
+- `demo-scripts/sponsors/uniswap-guarded-swap.sh` runs against a stored quote fixture by default. The shipped live path is `UniswapExecutor::live_from_env()` (env-gated on `SBO3L_UNISWAP_RPC_URL` + `SBO3L_UNISWAP_TOKEN_OUT`), which hits Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) for a real read-side `quoteExactInputSingle` call — verified end-to-end against Sepolia during the submission window. The bare back-compat `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime. Real swap broadcast (Trading API) remains scope-cut — only the read-side quote evidence is wired today.
 - The treasury recipient check uses the demo allowlist; production deployments should source it from the active SBO3L policy's `recipients` list (already supported by `sbo3l-policy::Policy`).
 - `UniswapQuoteEvidence::quote_source` is hard-coded to the string `"mock-uniswap-v3-router"` and the `quote_id` carries a `mock-` prefix on the demo path — explicit honest-disclosure so judges (and any auditor reading a capsule offline) cannot mistake the demo evidence for a real Trading API response. When the live path lands, both fields flip to the real router endpoint URL and the real server-issued quote id.
 
