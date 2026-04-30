@@ -14,11 +14,27 @@
 #      engine denies (`policy.deny_recipient_not_allowlisted`). The Uniswap
 #      executor refuses to run on the denied receipt.
 #
-# The live executor (`UniswapExecutor::live()`) is intentionally stubbed in
-# this hackathon build and would error with `BackendOffline`. There is no
-# env-var feature flag — the demo always uses `local_mock()`. See FEEDBACK.md.
+# B7: `UniswapExecutor::live()` now wires to the real Sepolia QuoterV2
+# (0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3). Default behaviour is mock
+# for CI determinism. To exercise the live path locally:
+#
+#   export SBO3L_UNISWAP_RPC_URL='https://sepolia.example/...'
+#   export SBO3L_UNISWAP_TOKEN_OUT='0x...'   # required Sepolia ERC20 address
+#   ./demo-scripts/sponsors/uniswap-guarded-swap.sh --live
+#
+# The `--live` segment runs the `uniswap_live_smoke` example, which calls
+# `quoteExactInputSingle` via `UniswapExecutor::live_from_env()` and prints
+# the four QuoterV2 return values. CI never runs this segment (no RPC URL).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+
+LIVE_MODE=0
+for arg in "$@"; do
+  case "$arg" in
+    --live) LIVE_MODE=1 ;;
+    *) echo "uniswap-guarded-swap.sh: unknown arg: $arg" >&2; exit 2 ;;
+  esac
+done
 
 cargo build --quiet --bin research-agent
 
@@ -79,3 +95,24 @@ jq '.execution.executor_evidence' "$CAPSULE"
 
 echo
 ./target/debug/sbo3l passport verify --path "$CAPSULE"
+
+# --------------------------------------------------------------------------
+# B7 — optional live segment. Skipped unless `--live` is passed AND the
+# SBO3L_UNISWAP_RPC_URL env var is set. CI does not invoke either, so the
+# block above remains the always-green default.
+# --------------------------------------------------------------------------
+if [ "$LIVE_MODE" -eq 1 ]; then
+  echo
+  bold "Uniswap guarded swap — LIVE Sepolia QuoterV2 (B7)"
+  echo
+  if [ -z "${SBO3L_UNISWAP_RPC_URL:-}" ]; then
+    echo "  --live requested, but SBO3L_UNISWAP_RPC_URL is unset. Skipping."
+    echo "  Set the env var (and SBO3L_UNISWAP_TOKEN_OUT) and rerun to exercise"
+    echo "  the live path. The mock segments above continue to work without it."
+  else
+    echo "  RPC: $SBO3L_UNISWAP_RPC_URL"
+    echo "  Quoter: 0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3 (Sepolia QuoterV2)"
+    echo
+    cargo run --quiet -p sbo3l-execution --example uniswap_live_smoke
+  fi
+fi

@@ -21,3 +21,8 @@ sha2 = { workspace = true }
 ulid = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }
+# B7: keccak256 for the QuoterV2 function selector + Sepolia
+# JSON-RPC integration. Crate-local deps (NOT workspace) to keep
+# blast radius small — only the Uniswap live-quote path uses them.
+tiny-keccak = { version = "2", features = ["keccak"] }
+reqwest = { workspace = true, features = ["blocking"] }
