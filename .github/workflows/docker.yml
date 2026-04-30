@@ -6,6 +6,7 @@ on:
     paths:
       - "Dockerfile"
       - ".dockerignore"
+      - "docker-compose.yml"
       - "Cargo.lock"
       - "Cargo.toml"
       - "crates/**"
@@ -17,6 +18,7 @@ on:
     paths:
       - "Dockerfile"
       - ".dockerignore"
+      - "docker-compose.yml"
       - "Cargo.lock"
       - "Cargo.toml"
       - "crates/**"
@@ -40,12 +42,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build sbo3l/server:test
+      - name: Build sbo3l/server (test + latest tags)
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
-          tags: sbo3l/server:test
+          tags: |
+            sbo3l/server:test
+            sbo3l/server:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -120,3 +124,154 @@ jobs:
       - name: Stop container
         if: always()
         run: docker stop sbo3l-test || true
+
+  compose:
+    name: docker-compose smoke (F-8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build via docker compose (hits GHA cache from build job)
+        run: |
+          set -euo pipefail
+          # `docker compose build` uses the workspace builder; cache-from
+          # GHA keeps this near-instant after the build job.
+          DOCKER_BUILDKIT=1 docker compose build --pull=false sbo3l
+
+      - name: Prepare host bind-mount (./data owned by container UID 65532)
+        run: |
+          set -euo pipefail
+          mkdir -p ./data
+          # The image runs as distroless `nonroot` (UID 65532). Bind-mounted
+          # host directory must be writable by that UID, otherwise SQLite
+          # write fails on first request. Documented in docs/cli/docker.md.
+          sudo chown -R 65532:65532 ./data
+
+      - name: docker compose up sbo3l -d
+        run: |
+          set -euo pipefail
+          docker compose up sbo3l -d
+          # 10s window per ticket AC for daemon to come up
+          for i in $(seq 1 10); do
+            STATUS=$(docker compose ps --format json sbo3l | jq -r '.[0].State // .State // "unknown"' 2>/dev/null || echo "unknown")
+            if [ "$STATUS" = "running" ]; then
+              echo "compose service running after ${i}s (state=$STATUS)"
+              break
+            fi
+            sleep 1
+          done
+          docker compose ps
+
+      - name: Smoke — POST golden APRP, expect decision=allow
+        run: |
+          set -euo pipefail
+          ALPHA32='0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+          NONCE="${ALPHA32:$((RANDOM % 8)):1}"
+          for _ in $(seq 1 25); do
+            NONCE+="${ALPHA32:$((RANDOM % 32)):1}"
+          done
+          EXPIRY=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
+          BODY=$(jq --arg e "$EXPIRY" --arg n "$NONCE" \
+                  '.expiry=$e | .nonce=$n' \
+                  test-corpus/aprp/golden_001_minimal.json)
+          # Daemon may take a beat after compose ps reports running; retry
+          # briefly without masking errors.
+          for i in $(seq 1 15); do
+            if RESP=$(echo "$BODY" | curl -fsS \
+                  -H "Content-Type: application/json" \
+                  -X POST --data-binary @- \
+                  http://localhost:8730/v1/payment-requests 2>/dev/null); then
+              break
+            fi
+            sleep 1
+          done
+          echo "$RESP" | jq .
+          DEC=$(echo "$RESP" | jq -r .decision)
+          if [ "$DEC" != "allow" ]; then
+            echo "::error::pre-restart decision was '$DEC', expected 'allow'"
+            docker compose logs sbo3l || true
+            exit 1
+          fi
+
+      - name: Verify SQLite persisted to ./data
+        run: |
+          set -euo pipefail
+          # The DB path inside the container is /var/lib/sbo3l/sbo3l.db,
+          # bind-mounted from ./data, so the host should see the file.
+          ls -la ./data
+          test -f ./data/sbo3l.db
+          # Size > 0 — schema migrations should have written by now.
+          [ -s ./data/sbo3l.db ]
+          echo "sbo3l.db size: $(stat -c%s ./data/sbo3l.db) bytes"
+
+      - name: docker compose restart sbo3l (state should survive)
+        run: |
+          set -euo pipefail
+          docker compose restart sbo3l
+          for i in $(seq 1 10); do
+            STATUS=$(docker compose ps --format json sbo3l | jq -r '.[0].State // .State // "unknown"' 2>/dev/null || echo "unknown")
+            if [ "$STATUS" = "running" ]; then
+              echo "compose service running after restart in ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Smoke — POST APRP after restart, expect decision=allow
+        run: |
+          set -euo pipefail
+          ALPHA32='0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+          NONCE="${ALPHA32:$((RANDOM % 8)):1}"
+          for _ in $(seq 1 25); do
+            NONCE+="${ALPHA32:$((RANDOM % 32)):1}"
+          done
+          EXPIRY=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
+          BODY=$(jq --arg e "$EXPIRY" --arg n "$NONCE" \
+                  '.expiry=$e | .nonce=$n' \
+                  test-corpus/aprp/golden_001_minimal.json)
+          for i in $(seq 1 15); do
+            if RESP=$(echo "$BODY" | curl -fsS \
+                  -H "Content-Type: application/json" \
+                  -X POST --data-binary @- \
+                  http://localhost:8730/v1/payment-requests 2>/dev/null); then
+              break
+            fi
+            sleep 1
+          done
+          echo "$RESP" | jq .
+          DEC=$(echo "$RESP" | jq -r .decision)
+          if [ "$DEC" != "allow" ]; then
+            echo "::error::post-restart decision was '$DEC', expected 'allow'"
+            docker compose logs sbo3l || true
+            exit 1
+          fi
+
+      - name: Smoke — MCP profile via stdio (tools/list)
+        run: |
+          set -euo pipefail
+          # `compose run -T` disables TTY so the stdin pipe is honoured.
+          # We send one NDJSON request, expect one NDJSON response.
+          REQ='{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+          RESP=$(printf '%s\n' "$REQ" | \
+            timeout 30 docker compose --profile mcp run --rm -T sbo3l-mcp \
+            2>/tmp/mcp-stderr.log | head -1 || true)
+          echo "stderr from mcp:"
+          cat /tmp/mcp-stderr.log || true
+          echo "stdout (first line):"
+          echo "$RESP"
+          # Validate: jsonrpc=="2.0", id==1, result is an array
+          echo "$RESP" | jq -e '.jsonrpc == "2.0" and .id == 1 and (.result | type == "array")' >/dev/null
+
+      - name: Compose logs (always)
+        if: always()
+        run: docker compose logs --no-color || true
+
+      - name: docker compose down -v
+        if: always()
+        run: docker compose down -v --remove-orphans || true
