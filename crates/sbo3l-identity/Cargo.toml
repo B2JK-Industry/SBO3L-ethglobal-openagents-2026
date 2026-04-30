@@ -14,3 +14,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
+# B3 anchor side: keccak256 for ENS namehash + setText selector.
+# Crate-local (not workspace) to keep blast radius small — only the
+# anchor envelope path uses it; offline resolver does not.
+tiny-keccak = { version = "2", features = ["keccak"] }
