@@ -90,7 +90,7 @@ These belong to later Passport phases:
 
 - **`sbo3l passport resolve`** (P2.1+ stretch) — pure ENS-records-only lookup.
 - **`sbo3l-mcp` server tools** (P3.1) — `sbo3l.run_guarded_execution`, `sbo3l.verify_capsule`, etc., wrapping the same logic.
-- **Live ENS resolver** (P4.1) — the `live-ens` resolver enum value is reserved but rejected by P2.1.
+- **Live ENS resolver** — `LiveEnsResolver` (in `crates/sbo3l-identity/src/ens_live.rs`) ships on `main`. Operator activates it via `SBO3L_ENS_RPC_URL`. Smoke: `cargo run -p sbo3l-identity --example ens_live_smoke` against `sbo3lagent.eth` (mainnet).
 - **Live KeeperHub envelope** (P5.1) — `--mode live` lands here with concrete credentials + `live_evidence`.
 - **Uniswap quote evidence in capsule** (P6.1) — quote id / route / freshness / slippage cap captured into the capsule's execution block.
 - **Trust-badge / operator-console capsule panels** (P2.2 — Developer B) — the static UI rendering of the capsule.

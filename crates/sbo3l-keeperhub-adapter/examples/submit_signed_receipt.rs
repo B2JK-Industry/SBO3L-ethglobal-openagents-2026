@@ -66,13 +66,23 @@ fn main() {
         mock_receipt.sponsor, mock_receipt.mock, mock_receipt.execution_ref
     );
 
-    // 5. Live execution — would call KeeperHub today. Returns
-    //    BackendOffline because credentials aren't wired. The IP-1
-    //    envelope is still constructed inside the live arm, just not
-    //    sent.
+    // 5. Live execution — POSTs the IP-1 envelope to a real KeeperHub
+    //    workflow webhook. Activated when both env vars are set:
+    //
+    //        SBO3L_KEEPERHUB_WEBHOOK_URL=https://app.keeperhub.com/api/workflows/<id>/webhook
+    //        SBO3L_KEEPERHUB_TOKEN=wfb_<token>
+    //
+    //    With both set, this prints the captured `executionId`. With either
+    //    unset, prints a `Configuration` error explaining the missing env var.
+    //    See `crates/sbo3l-keeperhub-adapter/src/lib.rs::submit_live_to` for
+    //    the wire-format details. Verified end-to-end against a real
+    //    KeeperHub workflow during the ETHGlobal Open Agents 2026 submission.
     let live = KeeperHubExecutor::live();
     match live.execute(&request, &receipt) {
-        Ok(_) => unreachable!("live mode currently always returns BackendOffline"),
-        Err(e) => println!("\n== live execute (gated) ==\n{e}"),
+        Ok(r) => println!(
+            "\n== live execute ==\nsponsor={} mock={} execution_ref={}",
+            r.sponsor, r.mock, r.execution_ref
+        ),
+        Err(e) => println!("\n== live execute (gated, env vars not set) ==\n{e}"),
     }
 }

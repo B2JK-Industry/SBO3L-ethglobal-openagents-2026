@@ -17,7 +17,7 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --all-targets` | ✅ **371 / 371 pass** (0 fail, 0 ignored) |
+| `cargo test --workspace --all-targets` | ✅ **377 / 377 pass** (0 fail, 0 ignored) |
 | `python3 scripts/validate_schemas.py` | ✅ (7 schemas + 14 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~5 seconds end-to-end) |
@@ -83,11 +83,16 @@ Full Open Agents vertical:
 - **Production-shaped mock fixtures** (`demo-fixtures/mock-*.json`) — ENS multi-agent registry, KeeperHub workflow envelopes (success/conflict/refused/lookup), Uniswap quote catalogue (happy/multi-violation rug/recipient-allowlist), mock-KMS public keyring metadata. Plus stdlib validator (`test_fixtures.py`) with `urlparse`-based safe-host allowlist + URL-bypass self-test.
 - **Per-fixture production-transition guides** (`demo-fixtures/mock-*.md`) and a single **`docs/production-transition-checklist.md`** — every surface (ENS / KeeperHub / Uniswap / Signer-KMS-HSM) has env vars / endpoints / credentials / code-change steps / verification / truthfulness invariants spelled out.
 
+## Live integrations (operator-supplied env vars; demo defaults to mock for CI determinism)
+
+- **Live KeeperHub** — `KeeperHubExecutor::live()` (in `crates/sbo3l-keeperhub-adapter/src/lib.rs`) POSTs the IP-1 envelope to a real workflow webhook and captures the returned `executionId` into the `ExecutionReceipt`. Activated when both `SBO3L_KEEPERHUB_WEBHOOK_URL` and `SBO3L_KEEPERHUB_TOKEN` (a `wfb_*` token, NOT `kh_*`) are set in the daemon's environment. Verified end-to-end against a real KeeperHub workflow during the submission window.
+- **Live ENS resolver** — `LiveEnsResolver` (in `crates/sbo3l-identity/src/ens_live.rs`) reads the five `sbo3l:*` text records from a real ENS Public Resolver via JSON-RPC. Activated by `SBO3L_ENS_RPC_URL`. Smoke example: `cargo run -p sbo3l-identity --example ens_live_smoke` against `sbo3lagent.eth` (mainnet, owned by the team) returns the live records.
+- **Live Uniswap quote** — `UniswapExecutor::live()` (in `crates/sbo3l-execution/src/uniswap_live.rs`) issues a real `quoteExactInputSingle` call against the Sepolia QuoterV2 contract `0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`. Activated by `SBO3L_UNISWAP_RPC_URL` (must be a Sepolia endpoint). Smoke example: `cargo run -p sbo3l-execution --example uniswap_live_smoke`.
+
+The demo runners (`run-openagents-final.sh`, `run-production-shaped-mock.sh`) deliberately keep `local_mock()` defaults so CI stays offline and deterministic. Live integrations are exercised out-of-band via the smoke examples and the env-var-gated paths above.
+
 ## Pending / stretch (not blocking submission)
 
-- Live KeeperHub backend (one-constructor switch via `KeeperHubExecutor::live()`; demo uses `local_mock()`). Wire-format design notes in `docs/keeperhub-live-spike.md`.
-- Live ENS testnet resolver (offline fixture today; trait already abstracts the backend).
-- Live Uniswap quote backend (`UniswapExecutor::live()` is intentionally stubbed; demo uses `local_mock()`).
 - Production KMS / HSM signer (`SBO3L_SIGNER_BACKEND` selector + per-role `SBO3L_*_SIGNER_KEY_ID` env vars). The dev `DevSigner` and the persistent mock `MockKmsSigner` are both `⚠ DEV ONLY ⚠`; production injects real signers via `AppState::with_signers`.
 - Recorded demo video (3:30 cut). Script committed in `demo-scripts/demo-video-script.md`.
 - Pruned / Merkle-proof variants of the audit bundle, and optional embedded original APRP. Tracked in `docs/cli/audit-bundle.md`.

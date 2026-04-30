@@ -66,7 +66,7 @@ The rest of this document expands each path with concrete pointers, schemas, and
 }
 ```
 
-**Where it lives in our repo.** Our own contracts are under [`schemas/`](../schemas/) — six JSON Schema 2020-12 files (`aprp_v1`, `policy_v1`, `policy_receipt_v1`, `decision_token_v1`, `audit_event_v1`, `x402_v1`) plus an OpenAPI 3.1 spec at [`docs/api/openapi.json`](api/openapi.json). They are validated in CI by [`scripts/validate_schemas.py`](../scripts/validate_schemas.py) and [`scripts/validate_openapi.py`](../scripts/validate_openapi.py). We are happy to PR a draft `workflow_submission_v1.json` against KeeperHub's docs repo if that is useful.
+**Where it lives in our repo.** Our own contracts are under [`schemas/`](../schemas/) — seven JSON Schema 2020-12 files (`aprp_v1`, `policy_v1`, `policy_receipt_v1`, `decision_token_v1`, `audit_event_v1`, `x402_v1`, `sbo3l.passport_capsule.v1`) plus an OpenAPI 3.1 spec at [`docs/api/openapi.json`](api/openapi.json). They are validated in CI by [`scripts/validate_schemas.py`](../scripts/validate_schemas.py) and [`scripts/validate_openapi.py`](../scripts/validate_openapi.py). We are happy to PR a draft `workflow_submission_v1.json` against KeeperHub's docs repo if that is useful.
 
 **Smallest adoption shape on KeeperHub side.** A single JSON Schema file under your docs, plus one paragraph naming where the canonical version lives. We will validate against it on every commit; we will file issues if we find mismatches.
 

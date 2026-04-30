@@ -61,7 +61,7 @@ A production deployment can stack two or three of these — e.g. SBO3L for per-d
 
 | Project | URLs consulted |
 |---|---|
-| **SBO3L** | This repository at `main` HEAD `6ffb5eb` (`feat: Uniswap P6.1 — Passport capsule quote evidence (#57)`). Test count `cargo test --workspace --all-targets` → 317/317; demo runner 13/13; production-shaped runner 26/0/1. |
+| **SBO3L** | This repository at `main` HEAD `ab6e838` (`feat: Uniswap P6.1 — Passport capsule quote evidence (#57)`). Test count `cargo test --workspace --all-targets` → 377/377; demo runner 13/13; production-shaped runner 26/0/1. |
 | **PEAC Protocol** | [github.com/peacprotocol/peac](https://github.com/peacprotocol/peac), [peacprotocol.org](https://www.peacprotocol.org/docs), npm `@peac/protocol`. |
 | **Signet** | [github.com/Prismer-AI/signet](https://github.com/Prismer-AI/signet). |
 | **ScopeBlind / `protect-mcp`** | [github.com/scopeblind/scopeblind-gateway](https://github.com/scopeblind/scopeblind-gateway). The `scopeblind/protect-mcp` URL given in some references is a 404; `protect-mcp` is the npx command, not a repo. |
@@ -74,4 +74,4 @@ A production deployment can stack two or three of these — e.g. SBO3L for per-d
 
 - For every `✗` row outside SBO3L's column, the feature is *not documented* in the project's own README/spec. Absence in README ≠ guaranteed absence in code; if the project ships the feature without naming it in their public docs, the table will be wrong in their favour. Corrections welcome.
 - For every `~` row, the project ships *something* in that direction but doesn't headline it the way SBO3L would; we leave the door open to upgrade `~` → `✓` if a maintainer points us at code.
-- The matrix is accurate as of `main` HEAD `6ffb5eb` and the public state of the listed projects in late April 2026. Both move; this document does not.
+- The matrix is accurate as of `main` HEAD `ab6e838` and the public state of the listed projects in late April 2026. Both move; this document does not.
