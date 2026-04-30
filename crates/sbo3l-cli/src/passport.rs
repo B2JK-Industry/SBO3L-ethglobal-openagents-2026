@@ -132,6 +132,17 @@ fn load_audit_bundle(path: &Path) -> Result<AuditBundle, ExitCode> {
     })
 }
 
+/// Load a policy JSON file, deserialize into [`Policy`] so that
+/// `#[serde(default)]` fields (e.g. `emergency`, `budgets`,
+/// `providers`, `recipients`) are materialized, then re-serialize to
+/// [`Value`]. The returned Value hashes (under JCS+SHA-256) to the
+/// same digest as [`Policy::canonical_hash`] — which is what
+/// production receipts pin in `policy_hash`.
+///
+/// Without this normalization, a user-supplied policy file that
+/// omits a defaulted field (semantically valid, minimal) would hash
+/// pre-normalization and produce a false `policy_hash_recompute`
+/// failure in strict mode. Codex P2 on PR #61.
 fn load_policy_snapshot(path: &Path) -> Result<Value, ExitCode> {
     let raw = match std::fs::read_to_string(path) {
         Ok(s) => s,
@@ -143,9 +154,16 @@ fn load_policy_snapshot(path: &Path) -> Result<Value, ExitCode> {
             return Err(ExitCode::from(1));
         }
     };
-    serde_json::from_str(&raw).map_err(|e| {
+    let policy = Policy::parse_json(&raw).map_err(|e| {
         eprintln!(
             "sbo3l passport verify --strict: parse policy snapshot {} failed: {e}",
+            path.display()
+        );
+        ExitCode::from(1)
+    })?;
+    serde_json::to_value(&policy).map_err(|e| {
+        eprintln!(
+            "sbo3l passport verify --strict: re-serialize normalised policy {} failed: {e}",
             path.display()
         );
         ExitCode::from(1)
@@ -1243,4 +1261,61 @@ fn atomic_write_json(out_path: &Path, value: &Value) -> std::io::Result<()> {
 fn _silence_capsule_unused(_e: &CapsuleVerifyError) {
     // CapsuleVerifyError is re-exported via `verify_capsule` use; this
     // sentinel keeps clippy quiet if the verifier ever returns Ok-only.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::load_policy_snapshot;
+    use sbo3l_core::hashing;
+    use sbo3l_policy::Policy;
+    use std::io::Write;
+
+    /// Codex P2 on PR #61: a user-supplied policy file with a
+    /// `#[serde(default)]` field omitted (e.g. `emergency`) is
+    /// semantically valid but its raw bytes do not include the
+    /// default. Production `policy_hash` is computed via
+    /// `Policy::canonical_hash`, which materializes defaults before
+    /// canonicalisation. `load_policy_snapshot` therefore must
+    /// deserialize → re-serialize so the strict verifier hashes the
+    /// same shape production does. Without normalization, this case
+    /// would surface a false `policy_hash_recompute` failure.
+    #[test]
+    fn load_policy_snapshot_normalises_serde_defaults_emergency_omitted() {
+        let raw = include_str!("../../../test-corpus/policy/reference_low_risk.json");
+        let full_policy = Policy::parse_json(raw).expect("parse reference policy");
+        let production_hash = full_policy
+            .canonical_hash()
+            .expect("Policy::canonical_hash must succeed");
+
+        let mut json: serde_json::Value = serde_json::from_str(raw).expect("raw policy json");
+        let removed = json
+            .as_object_mut()
+            .expect("top-level must be object")
+            .remove("emergency");
+        assert!(
+            removed.is_some(),
+            "fixture must contain `emergency` for this regression test"
+        );
+        let minimal_raw = serde_json::to_string(&json).expect("re-serialise minimal");
+        assert!(
+            !minimal_raw.contains("\"emergency\""),
+            "minimal policy must not include `emergency` field"
+        );
+
+        let mut tmp = tempfile::NamedTempFile::new().expect("temp file");
+        tmp.write_all(minimal_raw.as_bytes()).expect("write minimal");
+        tmp.flush().expect("flush minimal");
+
+        let normalised = load_policy_snapshot(tmp.path())
+            .expect("load_policy_snapshot must succeed on a valid minimal policy");
+        let bytes = hashing::canonical_json(&normalised).expect("JCS canonicalisation");
+        let recomputed = hashing::sha256_hex(&bytes);
+
+        assert_eq!(
+            recomputed, production_hash,
+            "load_policy_snapshot must materialise serde defaults so a \
+             policy file with `emergency` omitted hashes to the same digest \
+             as `Policy::canonical_hash()` of the full policy"
+        );
+    }
 }
