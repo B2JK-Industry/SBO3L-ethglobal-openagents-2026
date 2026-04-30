@@ -9,21 +9,21 @@
       "sbo3l:endpoint": "http://127.0.0.1:8730/v1",
       "sbo3l:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
       "sbo3l:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
-      "sbo3l:receipt_schema": "https://schemas.sbo3l.dev/policy-receipt/v1.json"
+      "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json"
     },
     "trading-agent.team.eth": {
       "sbo3l:agent_id": "trading-agent-01",
       "sbo3l:endpoint": "http://127.0.0.1:8731/v1",
       "sbo3l:policy_hash": "1111111111111111111111111111111111111111111111111111111111111111",
       "sbo3l:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
-      "sbo3l:receipt_schema": "https://schemas.sbo3l.dev/policy-receipt/v1.json"
+      "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json"
     },
     "support-agent.team.eth": {
       "sbo3l:agent_id": "support-agent-01",
       "sbo3l:endpoint": "http://127.0.0.1:8732/v1",
       "sbo3l:policy_hash": "2222222222222222222222222222222222222222222222222222222222222222",
       "sbo3l:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
-      "sbo3l:receipt_schema": "https://schemas.sbo3l.dev/policy-receipt/v1.json"
+      "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json"
     }
   }
 }

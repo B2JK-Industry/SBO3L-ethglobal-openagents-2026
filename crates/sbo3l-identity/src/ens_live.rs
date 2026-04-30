@@ -7,7 +7,7 @@
 //!    when the name isn't registered or doesn't have a resolver set.
 //! 2. Call `Resolver.text(node, key)` for each of the five SBO3L
 //!    text-record keys (`sbo3l:agent_id`, `sbo3l:endpoint`,
-//!    `sbo3l:policy_hash`, `sbo3l:audit_root`, `sbo3l:receipt_schema`).
+//!    `sbo3l:policy_hash`, `sbo3l:audit_root`, `sbo3l:proof_uri`).
 //!    Any missing key surfaces as `MissingRecord`.
 //!
 //! ENS bounty rule "no hardcoded values": the *agent's* identity
@@ -50,7 +50,7 @@ pub const SBO3L_TEXT_KEYS: [&str; 5] = [
     "sbo3l:endpoint",
     "sbo3l:policy_hash",
     "sbo3l:audit_root",
-    "sbo3l:receipt_schema",
+    "sbo3l:proof_uri",
 ];
 
 /// Reasons a JSON-RPC call can fail. Surfaced through
@@ -229,7 +229,7 @@ impl<T: JsonRpcTransport> EnsResolver for LiveEnsResolver<T> {
             endpoint: values.remove("sbo3l:endpoint").unwrap_or_default(),
             policy_hash: values.remove("sbo3l:policy_hash").unwrap_or_default(),
             audit_root: values.remove("sbo3l:audit_root").unwrap_or_default(),
-            receipt_schema: values.remove("sbo3l:receipt_schema").unwrap_or_default(),
+            proof_uri: values.remove("sbo3l:proof_uri").unwrap_or_default(),
         })
     }
 }
@@ -243,7 +243,7 @@ fn static_key_label(key: &str) -> &'static str {
         "sbo3l:endpoint" => "endpoint",
         "sbo3l:policy_hash" => "policy_hash",
         "sbo3l:audit_root" => "audit_root",
-        "sbo3l:receipt_schema" => "receipt_schema",
+        "sbo3l:proof_uri" => "proof_uri",
         _ => "unknown",
     }
 }
@@ -480,8 +480,8 @@ mod tests {
                 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             ),
             (
-                "sbo3l:receipt_schema",
-                "https://schemas.sbo3l.dev/policy-receipt/v1.json",
+                "sbo3l:proof_uri",
+                "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json",
             ),
         ]
     }
@@ -516,7 +516,7 @@ mod tests {
         assert_eq!(recs.endpoint, expected[1].1);
         assert_eq!(recs.policy_hash, expected[2].1);
         assert_eq!(recs.audit_root, expected[3].1);
-        assert_eq!(recs.receipt_schema, expected[4].1);
+        assert_eq!(recs.proof_uri, expected[4].1);
     }
 
     #[test]
