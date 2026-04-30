@@ -9,8 +9,9 @@ registrations are involved.**
 
 - The `sbo3l:*` text-record convention (`sbo3l:agent_id`,
   `sbo3l:endpoint`, `sbo3l:policy_hash`, `sbo3l:audit_root`,
-  `sbo3l:receipt_schema`) used by SBO3L to bind an ENS name to its
-  SBO3L identity, declared policy hash, and receipt schema.
+  `sbo3l:proof_uri`) used by SBO3L to bind an ENS name to its
+  SBO3L identity, declared policy hash, and the URL of its
+  published proof capsule.
 - The **catalogue shape** for multi-agent deployments — three
   deterministic agent identities (`research-agent`, `trading-agent`,
   `support-agent`) so adapter authors can see what the resolver returns

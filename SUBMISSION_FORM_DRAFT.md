@@ -114,7 +114,7 @@ REAL (end-to-end, exercised by the test suite + the final demo):
   - Static, offline trust-badge proof viewer with stdlib-only regression test.
 
 MOCKED / OFFLINE in this hackathon build (clearly labelled in demo output):
-  - ENS resolution — the demo uses an offline `OfflineEnsResolver` fixture loaded from `demo-fixtures/ens-records.json`; the `EnsResolver` trait abstracts a future live testnet resolver but no live resolver is shipped in this build.
+  - ENS resolution — the demo default is the offline `OfflineEnsResolver` fixture loaded from `demo-fixtures/ens-records.json`. A `LiveEnsResolver` (in `crates/sbo3l-identity/src/ens_live.rs`) is shipped and reads the five `sbo3l:*` text records from a real Ethereum JSON-RPC endpoint; it is env-gated on `SBO3L_ENS_RPC_URL` and is not the demo default. `cargo run -p sbo3l-identity --example ens_live_smoke` validates the live path against `sbo3lagent.eth` on mainnet (5 `sbo3l:*` records, owned by the team during the submission window).
   - KeeperHub backend — the demo always constructs `KeeperHubExecutor::local_mock()`. A `KeeperHubExecutor::live()` constructor exists for the production path but is not exercised; the demo's KeeperHub mock receipt prints `mock: true` and a sponsor note.
   - Uniswap backend — the demo always constructs `UniswapExecutor::local_mock()`. `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`; the swap-policy guard (token allowlist, max notional, max slippage, treasury recipient, quote freshness) is real and runs before any executor call.
   - Signing seeds — `AppState::new` uses deterministic dev seeds in `sbo3l-server::lib.rs` (clearly labelled `⚠ DEV ONLY ⚠`); these seeds are public and demo-only. Production deployments inject real signers via `AppState::with_signers` (TEE/HSM-backed). We do not claim production readiness for TEE/HSM in this build.
@@ -138,7 +138,7 @@ SBO3L uses ENS as the public identity layer for autonomous agents. The demo agen
   sbo3l:endpoint        https://example.com/agents/research-agent-01
   sbo3l:policy_hash     <canonical SHA-256 of the active SBO3L policy>
   sbo3l:audit_root      <root of the agent's hash-chained audit log>
-  sbo3l:receipt_schema  <link to the policy_receipt_v1 schema>
+  sbo3l:proof_uri       <link to the agent's public proof site / passport capsule>
 
 The demo verifies that the published `sbo3l:policy_hash` matches the canonical hash of the daemon's currently-loaded policy. If they ever drift, the agent is treated as un-trustable. This is a one-line check that gives sponsor reviewers immediate, cryptographic confidence that the on-chain identity and the off-chain enforcement are bound together.
 
@@ -180,7 +180,7 @@ SBO3L is not a trading bot. The Uniswap adapter exists to prove that an agent wh
 
 Demo allow path: USDC → ETH within all caps. Demo deny path: USDC → rug-token at 1500 bps slippage to a non-allowlisted recipient — both the swap-policy guard and SBO3L deny independently. The static fixture's quote uses a `(relaxed)` freshness flag that is explicitly visible in demo output; live mode would use the strict freshness check.
 
-In this hackathon build the demo always constructs `UniswapExecutor::local_mock()`; `UniswapExecutor::live()` is intentionally stubbed and returns `BackendOffline`. The guard and the deny path are real; the executor is mock. Wiring the Uniswap Trading API is a single-function-body change.
+Demo default constructs `UniswapExecutor::local_mock()`. `UniswapExecutor::live_from_env()` (in `crates/sbo3l-execution/src/uniswap.rs`) is shipped and hits Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) when `SBO3L_UNISWAP_RPC_URL` is set; without the env var the executor returns `BackendOffline`. The guard and the deny path are real; the executor is mock by default; live mode emits a real read-side quote evidence object (the four QuoterV2 return values: `amountOut`, `sqrtPriceX96After`, `initializedTicksCrossed`, `gasEstimate`). Real swap broadcast is still scope-cut — only the read-side quote is wired.
 ```
 
 ## Demo link

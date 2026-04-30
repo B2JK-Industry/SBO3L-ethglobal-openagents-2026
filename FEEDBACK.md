@@ -52,7 +52,7 @@ This is what the live path looks like once a stable schema + credentials are ava
 
 ## ENS
 
-How SBO3L uses ENS: ENS is the agent's public identity. `research-agent.team.eth` resolves to `sbo3l:agent_id`, `sbo3l:endpoint`, `sbo3l:policy_hash`, `sbo3l:audit_root` and `sbo3l:receipt_schema`. The demo verifies that the published policy hash matches the **active** SBO3L policy hash; drift is treated as un-trustable.
+How SBO3L uses ENS: ENS is the agent's public identity. `research-agent.team.eth` resolves to `sbo3l:agent_id`, `sbo3l:endpoint`, `sbo3l:policy_hash`, `sbo3l:audit_root` and `sbo3l:proof_uri`. The demo verifies that the published policy hash matches the **active** SBO3L policy hash; drift is treated as un-trustable.
 
 - **What worked:** text records are perfect for arbitrary structured metadata — no custom contract needed. The "policy hash matches what is published" pattern is a one-line check that gives judges immediate confidence.
 - **What was unclear:** there is no canonical reverse pointer from a SBO3L-style identity back to its ENS name. The text-record namespace is a soft convention; we picked the `sbo3l:*` prefix and would happily move under a blessed `agent:*` namespace if the ecosystem standardises one.
