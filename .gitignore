@@ -49,3 +49,4 @@ __pycache__/
 *.log
 _site/
 .claude/
+.vercel
