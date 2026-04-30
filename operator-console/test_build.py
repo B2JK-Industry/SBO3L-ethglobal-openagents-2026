@@ -55,6 +55,12 @@ SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
     "schemas.sbo3l.dev",
+    # Canonical public GitHub Pages host for SBO3L's static proof
+    # site. ENS fixtures publish `sbo3l:proof_uri` here, which flows
+    # into the runtime Passport capsule the operator-console renders.
+    # Listed as EXACT host (not suffix) so a `*.attacker.com`
+    # infix-bypass on this label is still rejected.
+    "b2jk-industry.github.io",
     "example.com",
     "example.net",
     "example.org",

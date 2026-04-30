@@ -71,7 +71,7 @@ footer a:hover{text-decoration:underline}
 
 <li>
 <a href="capsule.json">SBO3L Passport capsule — <code>sbo3l.passport_capsule.v1</code></a>
-<div class="desc">A self-contained, offline-verifiable proof artefact for one Allow decision. Schema + structural verifier shipped in PR #42; the passport CLI MVP shipped in PR #44. Download this file and run <code>sbo3l passport verify --path capsule.json</code> from a fresh clone — every signature, hash, and link should re-derive without any daemon.</div>
+<div class="desc">A self-contained, offline-verifiable proof artefact for one Allow decision. Schema + structural verifier shipped in PR #42; the passport CLI MVP shipped in PR #44. Download this file and run <code>sbo3l passport verify --path capsule.json</code> from a fresh clone — the schema and every cross-field invariant (deny→no execution, live→evidence, request/policy hash internal-consistency) re-verifies offline; pass <code>--strict</code> with <code>--policy</code> / <code>--receipt-pubkey</code> / <code>--audit-bundle</code> to additionally re-derive cryptography from the capsule alone.</div>
 </li>
 
 </ul>
