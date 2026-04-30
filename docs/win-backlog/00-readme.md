@@ -22,6 +22,7 @@ Ship SBO3L as **the cryptographically verifiable trust layer for autonomous AI a
 9. **[08-exit-gates.md](08-exit-gates.md)** — phase exit criteria (cannot skip phases)
 10. **[09-prompt-template.md](09-prompt-template.md)** — the prompt Daniel sends to spin you up
 11. **[10-first-tier-amplifiers.md](10-first-tier-amplifiers.md)** — "only 1st place" amplifier tickets per track (additive to Phase 2 + Phase 3)
+12. **[11-nonstop-operation-guide.md](11-nonstop-operation-guide.md)** — how to run 4 AI devs + 1 QA at ~70-85% uptime (permission modes, Linear webhook, GitHub auto-merge, ScheduleWakeup, review batching, token budget)
 
 ## Three-phase plan
 
