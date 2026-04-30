@@ -1,0 +1,81 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import NumberStrip from "~/components/NumberStrip.astro";
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+---
+<BaseLayout title="SBO3L — Don't give your agent a wallet. Give it a mandate.">
+  <section class="hero">
+    <h1>Don't give your agent a wallet.<br />Give it a mandate.</h1>
+    <p class="lede">
+      SBO3L is the cryptographically verifiable <strong>trust layer</strong> for
+      autonomous AI agents. Every action your agent takes — pay, swap, store,
+      compute, coordinate — passes through SBO3L's policy boundary first.
+      Output: a self-contained Passport capsule anyone can verify offline.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href={`${githubRepoUrl}/blob/main/QUICKSTART.md`}>
+        Start in 5 minutes
+      </a>
+      <a class="btn ghost" href={githubRepoUrl}>View source</a>
+    </div>
+  </section>
+
+  <NumberStrip />
+
+  <section class="panel">
+    <h2>What SBO3L is</h2>
+    <p>
+      A Rust workspace implementing a local
+      <strong>policy + budget + receipt + audit firewall</strong> for AI
+      agents. Every <code>POST /v1/payment-requests</code> goes through:
+    </p>
+    <ol>
+      <li>Schema validation (<code>serde(deny_unknown_fields)</code>)</li>
+      <li>JCS-canonical request hashing</li>
+      <li>APRP nonce-replay gate (HTTP 409 on reuse)</li>
+      <li>Deterministic policy decision</li>
+      <li>Multi-scope budget commit</li>
+      <li>Hash-chained audit append</li>
+      <li>Ed25519-signed PolicyReceipt back to agent</li>
+    </ol>
+    <p>
+      Allow → routes to sponsor executor (KeeperHub, Uniswap). Deny →
+      executor never called. Every decision can be wrapped in a Passport
+      capsule that anyone can verify offline against the agent's published
+      Ed25519 pubkey alone.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>More on the way</h2>
+    <p>
+      This page is the prep slice of <a href={`${githubRepoUrl}/blob/main/docs/win-backlog/06-phase-2.md#cti-3-2`}>CTI-3-2</a>.
+      The follow-up PR adds: live integration evidence (ENS / Uniswap / KH),
+      adversarial-block list, architecture diagram, reproduce-yourself
+      block, /features, /proof (with WASM verifier), and the Trust DNS story
+      teaser. Track progress at <a href={`${githubRepoUrl}/issues/92`}>issue #92</a>.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { max-width: var(--max); margin: 4em auto 3em; padding: 0 1.5em; }
+  .hero h1 {
+    font-size: var(--fs-4);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.7em;
+  }
+  .hero .lede {
+    font-size: var(--fs-2);
+    color: var(--muted);
+    margin-bottom: 1.5em;
+    max-width: 700px;
+  }
+  .hero strong { color: var(--fg); }
+  .cta { display: flex; gap: 1em; flex-wrap: wrap; }
+  @media (max-width: 640px) {
+    .hero { margin: 2.5em auto 2em; }
+  }
+</style>
