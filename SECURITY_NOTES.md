@@ -4,10 +4,16 @@
 
 This is a hackathon-scope demo. SBO3L's daemon and CLI are labelled `⚠ DEV ONLY ⚠` in code (`AppState::new()` warning at [`crates/sbo3l-server/src/lib.rs`](crates/sbo3l-server/src/lib.rs), the dev signer comments in [`crates/sbo3l-core/src/signer.rs`](crates/sbo3l-core/src/signer.rs), and every sponsor-adapter `local_mock()` constructor in [`crates/sbo3l-execution/`](crates/sbo3l-execution/)). The notes below pin specific known limitations a production deployment would need to address. Each item is honest disclosure, not a roadmap promise: nothing here is committed to ship within this hackathon.
 
-## Known limitations (scope-cut for submission)
+## Daemon authentication (F-1, required by default)
 
-### Daemon authentication
-`POST /v1/payment-requests` has no auth middleware in this build; `agent_id` is trusted from the request JSON. The daemon binds to `127.0.0.1` by default and is documented as DEV ONLY. Production path: mTLS or JWT capability tokens cryptographically bound to `agent_id`, plus a refuse-non-loopback guard on startup unless an auth backend is configured. Tracked as post-hackathon work.
+`POST /v1/payment-requests` requires authentication. Two acceptable forms of `Authorization: Bearer <token>` ([`crates/sbo3l-server/src/auth.rs`](crates/sbo3l-server/src/auth.rs)):
+
+1. **Plain bearer** — bcrypt-verified against the hash held in env `SBO3L_BEARER_TOKEN_HASH` (htpasswd-shaped, e.g. `$2y$05$...`).
+2. **JWT (EdDSA)** — verified against the Ed25519 public key in env `SBO3L_JWT_PUBKEY_HEX` (64 hex chars). The JWT `sub` claim must equal the APRP `agent_id`, otherwise the request is rejected with `auth.agent_id_mismatch`.
+
+Default-deny: a request without `Authorization` is rejected with HTTP 401 + `auth.required` (RFC 7807). The development-only bypass `SBO3L_ALLOW_UNAUTHENTICATED=1` is advertised at startup with a stderr `⚠ UNAUTHENTICATED MODE — DEV ONLY ⚠` banner; never enable in production. The auth gate runs before idempotency, before the nonce gate, and before any signing — a rejected request produces zero side effects.
+
+## Known limitations (scope-cut for submission)
 
 ### Production signer wiring
 `sbo3l-server` constructs `AppState::new()` directly today, which uses the deterministic public dev seed. `AppState::new()` is documented `⚠ DEV ONLY ⚠`. Production path: `AppState::with_signers(...)` injects a real KMS-backed `SignerBackend`; daemon refuses startup if `SBO3L_SIGNER_BACKEND` is unset. Mock-KMS persistence (PSM-A1.9, V005) is the production-shaped lifecycle preview, not the production signer. Tracked.
