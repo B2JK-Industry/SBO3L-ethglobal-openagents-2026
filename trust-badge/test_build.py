@@ -53,6 +53,13 @@ SAFE_HOSTS_EXACT = frozenset({
     "127.0.0.1",
     "localhost",
     "schemas.sbo3l.dev",
+    # Canonical public GitHub Pages host for SBO3L's static proof
+    # site. ENS fixtures publish `sbo3l:proof_uri` here; if the
+    # trust-badge renderer ever surfaces that URL into the rendered
+    # HTML, the URL-scan stays clean. Kept consistent with the same
+    # constant in `demo-fixtures/test_fixtures.py` +
+    # `operator-console/test_build.py`.
+    "b2jk-industry.github.io",
     "example.com",
     "example.net",
     "example.org",
