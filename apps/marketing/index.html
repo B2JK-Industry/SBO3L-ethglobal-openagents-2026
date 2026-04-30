@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBO3L — Don't give your agent a wallet. Give it a mandate.</title>
+<meta name="description" content="SBO3L is the cryptographically verifiable trust layer for autonomous AI agents. Policy + budget + signed receipts + audit chain + offline-verifiable Passport capsule.">
+<meta property="og:title" content="SBO3L — Agent Trust Layer">
+<meta property="og:description" content="Don't give your agent a wallet. Give it a mandate.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="/" class="brand">SBO3L</a>
+    <div class="links">
+      <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026">GitHub</a>
+      <a href="/proof">Proof</a>
+      <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/QUICKSTART.md">Quickstart</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Don't give your agent a wallet.<br>Give it a mandate.</h1>
+  <p class="lede">SBO3L is the cryptographically verifiable <strong>trust layer</strong> for autonomous AI agents. Every action your agent takes — pay, swap, store, compute, coordinate — passes through SBO3L's policy boundary first. Output: a self-contained Passport capsule anyone can verify offline.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/QUICKSTART.md">Start in 5 minutes</a>
+    <a class="btn ghost" href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026">View source</a>
+  </div>
+</section>
+
+<section class="numbers">
+  <div class="number"><strong>377/377</strong> tests passing</div>
+  <div class="number"><strong>13/13</strong> demo gates green</div>
+  <div class="number"><strong>8/8</strong> adversarial inputs fail-closed</div>
+  <div class="number"><strong>3 sponsor live paths</strong> verified end-to-end</div>
+</section>
+
+<section class="panel">
+  <h2>What SBO3L is</h2>
+  <p>A Rust workspace implementing a local <strong>policy + budget + receipt + audit firewall</strong> for AI agents. Every <code>POST /v1/payment-requests</code> goes through:</p>
+  <ol>
+    <li>Schema validation (<code>serde(deny_unknown_fields)</code>)</li>
+    <li>JCS-canonical request hashing</li>
+    <li>APRP nonce-replay gate (HTTP 409 on reuse)</li>
+    <li>Deterministic policy decision</li>
+    <li>Multi-scope budget commit</li>
+    <li>Hash-chained audit append</li>
+    <li>Ed25519-signed PolicyReceipt back to agent</li>
+  </ol>
+  <p>Allow → routes to sponsor executor (KeeperHub, Uniswap). Deny → executor never called. Every decision can be wrapped in a Passport capsule that anyone can verify offline against the agent's published Ed25519 pubkey alone.</p>
+</section>
+
+<section class="panel">
+  <h2>What SBO3L blocks</h2>
+  <p>Every input below is rejected fail-closed by the daemon, with the exact error code SBO3L returns:</p>
+  <ul class="blocks">
+    <li><strong>Empty body</strong> → <code>HTTP 400</code> + <code>schema.missing_field</code></li>
+    <li><strong>Unknown field</strong> → <code>HTTP 400</code> + <code>schema.unknown_field</code></li>
+    <li><strong>Reused APRP nonce</strong> → <code>HTTP 409</code> + <code>protocol.nonce_replay</code></li>
+    <li><strong>Prompt-injection request</strong> → <code>HTTP 200</code> + <code>decision=deny</code> + <code>policy.deny_unknown_provider</code></li>
+    <li><strong>Oversized payload (~100 KB)</strong> → <code>HTTP 400</code> rejected before pipeline</li>
+    <li><strong>Same Idempotency-Key, different body</strong> → <code>HTTP 409</code> + <code>protocol.idempotency_conflict</code></li>
+    <li><strong>Audit-chain byte-flip</strong> → strict-hash verifier rejects (<code>rc=1</code>)</li>
+    <li><strong>Capsule with mismatched <code>request_hash</code></strong> → <code>capsule.request_hash_mismatch</code> (<code>rc=2</code>)</li>
+    <li><strong>Capsule claiming live mode without evidence</strong> → <code>capsule.live_mode_empty_evidence</code></li>
+    <li><strong>Capsule claiming deny but carrying <code>execution_ref</code></strong> → <code>capsule.deny_with_execution_ref</code></li>
+    <li><strong>9 tampered passport fixtures</strong> → all reject with <code>rc=2</code></li>
+  </ul>
+</section>
+
+<section class="panel">
+  <h2>Live integration evidence (2026-04-30)</h2>
+  <p>Real outputs from running the corresponding live smoke against real infrastructure during the submission window. Independently re-verifiable by anyone with public RPC access.</p>
+
+  <h3>ENS mainnet — <code>sbo3lagent.eth</code></h3>
+<pre><code>agent_id:    research-agent-01
+endpoint:    http://127.0.0.1:8730/v1
+policy_hash: e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf  ← matches offline fixture exactly
+audit_root:  0x0000000000000000000000000000000000000000000000000000000000000000  ← canonical genesis
+proof_uri:   https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json</code></pre>
+
+  <h3>Uniswap Sepolia QuoterV2 — <code>0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3</code></h3>
+<pre><code>quote_source:            uniswap-v3-quoter-sepolia-0xed1f6473345f45b75f8179591dd5ba1888cf2fb3
+route_tokens:            [WETH 0xfff9…, USDC 0x1c7D4B19…]
+quote_timestamp_unix:    1777572056
+sqrt_price_x96_after:    863470429016487749123863152837655
+quote_freshness_seconds: 30</code></pre>
+
+  <h3>KeeperHub workflow — <code>m4t4cnpmhv8qquce3bv3c</code></h3>
+<pre><code>sponsor:        keeperhub
+mock:           false
+execution_ref:  kh-172o77rxov7mhwvpssc3x   ← KH-issued executionId, not a ULID</code></pre>
+</section>
+
+<section class="panel">
+  <h2>Reproduce yourself</h2>
+  <p>Every claim above is reproducible from a fresh clone. Public RPCs work — no API keys required for read paths.</p>
+<pre><code>git clone https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+cd SBO3L-ethglobal-openagents-2026
+
+# Full vertical demo (13 gates, ~10 seconds)
+bash demo-scripts/run-openagents-final.sh
+
+# Production-shaped runner (26 real / 0 mock / 1 skipped)
+bash demo-scripts/run-production-shaped-mock.sh
+
+# Live ENS smoke (mainnet)
+SBO3L_ENS_RPC_URL=https://ethereum-rpc.publicnode.com \
+  cargo run -p sbo3l-identity --example ens_live_smoke
+
+# Live Uniswap Sepolia smoke
+SBO3L_UNISWAP_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com \
+SBO3L_UNISWAP_TOKEN_OUT=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 \
+  cargo run -p sbo3l-execution --example uniswap_live_smoke</code></pre>
+</section>
+
+<section class="panel">
+  <h2>Architecture</h2>
+  <p>The agent never holds a key. SBO3L decides, signs, audits, and routes — in that order. Deny blocks every downstream sponsor call.</p>
+  <svg viewBox="0 0 800 360" class="arch-diagram" role="img" aria-label="SBO3L architecture sequence: agent posts APRP, SBO3L decides + signs + audits, routes to sponsor only on allow">
+    <!-- simplified architecture sequence -->
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <rect x="20" y="40" width="160" height="280" rx="10" stroke="currentColor" fill="none" stroke-width="2"/>
+    <text x="100" y="65" text-anchor="middle" font-weight="700">Agent</text>
+    <text x="100" y="85" text-anchor="middle" font-size="12" opacity="0.7">(no signing key)</text>
+    <rect x="320" y="40" width="160" height="280" rx="10" stroke="currentColor" fill="none" stroke-width="2"/>
+    <text x="400" y="65" text-anchor="middle" font-weight="700">SBO3L</text>
+    <text x="400" y="85" text-anchor="middle" font-size="11" opacity="0.7">schema · policy · budget</text>
+    <text x="400" y="100" text-anchor="middle" font-size="11" opacity="0.7">audit · sign</text>
+    <rect x="620" y="40" width="160" height="280" rx="10" stroke="currentColor" fill="none" stroke-width="2"/>
+    <text x="700" y="65" text-anchor="middle" font-weight="700">Sponsor</text>
+    <text x="700" y="85" text-anchor="middle" font-size="12" opacity="0.7">KH · Uniswap · ENS</text>
+    <line x1="180" y1="160" x2="320" y2="160" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="250" y="150" text-anchor="middle" font-size="11">APRP intent</text>
+    <line x1="480" y1="200" x2="620" y2="200" stroke="currentColor" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrow)"/>
+    <text x="550" y="190" text-anchor="middle" font-size="11">if allow</text>
+    <line x1="320" y1="240" x2="180" y2="240" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="250" y="230" text-anchor="middle" font-size="11">signed receipt</text>
+  </svg>
+</section>
+
+<section class="panel">
+  <h2>Resources</h2>
+  <ul>
+    <li><a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/QUICKSTART.md">Quickstart — daemon + curl in 5 minutes</a></li>
+    <li><a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/README.md">README — full architecture + status</a></li>
+    <li><a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/IMPLEMENTATION_STATUS.md">Implementation Status — what's shipped</a></li>
+    <li><a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/SECURITY_NOTES.md">Security Notes — production deployment limits</a></li>
+    <li><a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/docs/win-backlog">Win Backlog — 100-day attack plan</a></li>
+    <li><a href="https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/">Public proof page (GitHub Pages, current)</a></li>
+  </ul>
+</section>
+
+<footer>
+  <p>SBO3L · ETHGlobal Open Agents 2026 submission · <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026">B2JK-Industry/SBO3L-ethglobal-openagents-2026</a></p>
+  <p>This is a starter landing page. The proper marketing site (CTI-3-2 in the win backlog) replaces this in Phase 2.</p>
+</footer>
+
+</body>
+</html>
