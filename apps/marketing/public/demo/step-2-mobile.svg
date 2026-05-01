@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Demo step preview placeholder">
+  <rect width="640" height="400" fill="#0a0a0f"/>
+  <g fill="#4ad6a7" opacity="0.15">
+    <circle cx="180" cy="180" r="40"/>
+    <circle cx="360" cy="120" r="40"/>
+    <circle cx="460" cy="220" r="40"/>
+    <circle cx="240" cy="280" r="40"/>
+    <circle cx="380" cy="300" r="40"/>
+  </g>
+  <g stroke="#2a2a3a" stroke-width="2" fill="none" opacity="0.6">
+    <line x1="180" y1="180" x2="360" y2="120"/>
+    <line x1="360" y1="120" x2="460" y2="220"/>
+    <line x1="180" y1="180" x2="240" y2="280"/>
+    <line x1="240" y1="280" x2="380" y2="300"/>
+    <line x1="460" y1="220" x2="380" y2="300"/>
+  </g>
+  <text x="320" y="370" text-anchor="middle" fill="#9999a8" font-family="ui-monospace, monospace" font-size="13">screenshot pending — run scripts/capture-demo-screenshots.mjs</text>
+</svg>

@@ -18,18 +18,17 @@ const annotations = [
     <DemoNav current={4} />
     <h1>Step 4 — Explore the trust graph</h1>
     <p class="lede">
-      The full visualization. Same code that runs at <code>sbo3l-trust-dns-viz.vercel.app</code>. Annotations below the frame walk you through what to interact with.
+      The full visualization. Same code that runs at <code>sbo3l-trust-dns-viz.vercel.app</code>. <strong>~30 seconds.</strong> Annotations below walk you through what to interact with.
     </p>
 
-    <div class="viz-frame">
-      <iframe
-        src="https://sbo3l-trust-dns-viz.vercel.app/?embed=1&mock=1"
-        title="Trust DNS visualization — full interactive"
-        loading="lazy"
-        allow=""
-        sandbox="allow-scripts allow-same-origin"
-      ></iframe>
-    </div>
+    <a class="hero-card" href="https://sbo3l-trust-dns-viz.vercel.app/?embed=1&mock=1" target="_blank" rel="noopener">
+      <picture>
+        <source media="(max-width: 640px)" srcset="/demo/step-4-mobile.svg" />
+        <img src="/demo/step-4.svg" alt="Trust DNS visualization — full force-directed graph with hovering tooltip showing ENS name and pubkey"
+             width="1440" height="900" loading="lazy" />
+      </picture>
+      <span class="open-live">Open the live viz →</span>
+    </a>
 
     <ul class="annotations">
       {annotations.map((a) => (
@@ -56,8 +55,15 @@ const annotations = [
   section.step h1 { font-size: var(--fs-3); margin-bottom: 0.5em; }
   section.step .lede { color: var(--muted); margin-bottom: 1.5em; max-width: 700px; }
 
-  .viz-frame { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; aspect-ratio: 4 / 3; background: var(--code-bg); }
-  .viz-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .hero-card { display: block; position: relative; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; transition: border-color 0.15s; text-decoration: none; }
+  .hero-card:hover { border-color: var(--accent); text-decoration: none; }
+  .hero-card img { width: 100%; height: auto; display: block; aspect-ratio: 16 / 10; object-fit: cover; background: var(--code-bg); }
+  .hero-card .open-live {
+    position: absolute; bottom: 0.8em; right: 0.8em;
+    background: var(--accent); color: var(--bg);
+    padding: 0.5em 0.9em; border-radius: var(--r-sm); font-weight: 600; font-size: 0.9em;
+  }
+  section.step .lede strong { color: var(--fg); }
 
   .annotations { list-style: none; padding: 0; margin: 1.5em 0; display: grid; gap: 0.6em; }
   .annotations li { display: grid; grid-template-columns: 2em 1fr; gap: 0.8em; align-items: start; padding: 0.7em 1em; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--code-bg); }
@@ -68,7 +74,4 @@ const annotations = [
   .caption p { margin: 0 0 0.5em; }
   .caption p:last-child { margin: 0; }
 
-  @media (max-width: 640px) {
-    .viz-frame { aspect-ratio: 1 / 1; }
-  }
 </style>
