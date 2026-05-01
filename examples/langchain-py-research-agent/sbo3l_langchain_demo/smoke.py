@@ -7,27 +7,38 @@ from __future__ import annotations
 
 import json
 import sys
+import uuid
+from datetime import datetime, timedelta, timezone
 
 from .tools import KH_WORKFLOW_ID, build_sbo3l_pay_func, default_client, fetch_url
 
-APRP = {
-    "agent_id": "research-agent-01",
-    "task_id": "demo-langchain-py-smoke-1",
-    "intent": "purchase_api_call",
-    "amount": {"value": "0.05", "currency": "USD"},
-    "token": "USDC",
-    "destination": {
-        "type": "x402_endpoint",
-        "url": "https://api.example.com/v1/inference",
-        "method": "POST",
-    },
-    "payment_protocol": "x402",
-    "chain": "base",
-    "provider_url": "https://api.example.com",
-    "expiry": "2026-05-01T10:31:00Z",
-    "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGM",
-    "risk_class": "low",
-}
+
+def _aprp() -> dict:
+    # Fresh nonce + expiry per call. The daemon's protocol.nonce_replay
+    # guard rejects exact-duplicate (nonce, agent_id) tuples, so a static
+    # nonce only works for the first run; an expired expiry denies even
+    # the first run.
+    return {
+        "agent_id": "research-agent-01",
+        "task_id": "demo-langchain-py-smoke-1",
+        "intent": "purchase_api_call",
+        "amount": {"value": "0.05", "currency": "USD"},
+        "token": "USDC",
+        "destination": {
+            "type": "x402_endpoint",
+            "url": "https://api.example.com/v1/inference",
+            "method": "POST",
+        },
+        "payment_protocol": "x402",
+        "chain": "base",
+        "provider_url": "https://api.example.com",
+        "expiry": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        "nonce": str(uuid.uuid4()),
+        "risk_class": "low",
+    }
+
+
+APRP = _aprp()  # kept for backwards-compat with importers; rebuilt fresh in main()
 
 
 def main() -> int:
@@ -41,9 +52,10 @@ def main() -> int:
         print(f"  ✓ HTTP {fetch_out['status']}")
 
     print("\n▶ tool: sbo3l_payment_request (APRP → SBO3L → KH adapter)")
+    aprp = _aprp()  # fresh nonce + expiry per run, not the import-time snapshot
     with default_client() as client:
         sbo3l_pay = build_sbo3l_pay_func(client)
-        decision_raw = sbo3l_pay(json.dumps(APRP))
+        decision_raw = sbo3l_pay(json.dumps(aprp))
     decision = json.loads(decision_raw)
 
     print("  envelope:")
