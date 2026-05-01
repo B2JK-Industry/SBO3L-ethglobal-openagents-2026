@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-langgraph"
+version = "0.1.0"
+description = "LangGraph adapter for SBO3L — drop a PolicyGuardNode between your plan and execute nodes to gate every action through SBO3L's policy boundary."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+keywords = ["sbo3l", "langgraph", "agent", "policy", "guard", "stategraph"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
+]
+dependencies = [
+    "sbo3l-sdk>=0.1.0,<1",
+]
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=0.2,<1"]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-httpx>=0.30,<1",
+    "ruff>=0.4,<1",
+    "mypy>=1.10,<2",
+    # sbo3l-sdk pulled via dependencies above; for editable dev install of
+    # the workspace SDK pin path — done via constraints file in CI.
+]
+
+[project.urls]
+Homepage = "https://sbo3l.dev"
+Repository = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_langgraph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "W", "UP", "N", "C90", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"sbo3l_langgraph/__init__.py" = ["RUF022"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+plugins = ["pydantic.mypy"]

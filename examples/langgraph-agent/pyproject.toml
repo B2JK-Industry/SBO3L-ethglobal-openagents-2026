@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-example-langgraph-agent"
+version = "0.1.0"
+description = "Minimal 3-node LangGraph: plan → policy_guard → execute. Demonstrates SBO3L gating in a stateful graph."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-httpx>=0.30,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_example_langgraph"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+filterwarnings = ["error"]
