@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sbo3l-llamaindex"
-version = "0.1.0"
+version = "1.0.0"
 description = "LlamaIndex tool wrapping SBO3L — gate every agent payment intent through SBO3L's policy boundary."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-sdk = ["sbo3l-sdk>=0.1.0,<1"]
+sdk = ["sbo3l-sdk>=1.0.0,<2"]
 llamaindex = ["llama-index-core>=0.10,<1"]
 dev = [
     "pytest>=8.0,<9",
