@@ -15,6 +15,7 @@
 //! be added without touching call sites.
 
 pub mod ccip_read;
+pub mod cross_chain;
 pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
@@ -25,6 +26,12 @@ pub use ccip_read::{
     decode_gateway_data, decode_gateway_response_body, decode_string_result,
     parse_offchain_lookup_revert, CcipError, GatewayBody, GatewayResponse, OffchainLookup,
     OFFCHAIN_LOOKUP_SELECTOR,
+};
+pub use cross_chain::{
+    build_set_attestation_calldata, commit_report, compute_eip712_digest, from_text_record,
+    sign_attestation, to_text_record, verify_attestation, verify_attestation_with_context,
+    verify_consistency, ConsistencyReport, CrossChainAttestation, CrossChainError, KnownChain,
+    ATTESTATION_TEXT_KEY, DOMAIN_ANCHOR_CHAIN_ID, DOMAIN_NAME, DOMAIN_VERSION, PUBKEY_TEXT_KEY,
 };
 pub use durin::{
     build_dry_run as build_durin_dry_run, multicall_calldata, register_calldata, DurinDryRun,
