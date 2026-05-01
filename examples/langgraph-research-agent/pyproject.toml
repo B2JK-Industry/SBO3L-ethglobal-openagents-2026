@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-example-langgraph-research-agent"
+version = "1.0.0"
+description = "End-to-end LangGraph research agent: 3-node graph (plan → policy_guard → execute) where plan reasons across two tools (data_fetch + APRP-builder). Routes through KH workflow m4t4cnpmhv8qquce3bv3c."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "sbo3l-sdk>=1.0.0,<2",
+    "sbo3l-langgraph>=1.0.0,<2",
+    "langgraph>=0.2,<1",
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-httpx>=0.30,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_langgraph_demo"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+filterwarnings = ["error"]
