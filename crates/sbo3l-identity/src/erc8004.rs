@@ -160,7 +160,9 @@ pub fn build_dry_run(
     req: RegisterRequest<'_>,
 ) -> Result<Erc8004DryRun, Erc8004Error> {
     if !req.metadata_uri.starts_with("https://") && !req.metadata_uri.starts_with("http://") {
-        return Err(Erc8004Error::InvalidMetadataUri(req.metadata_uri.to_string()));
+        return Err(Erc8004Error::InvalidMetadataUri(
+            req.metadata_uri.to_string(),
+        ));
     }
     if req.metadata_uri.len() > 1024 {
         return Err(Erc8004Error::MetadataUriTooLong {
@@ -207,9 +209,7 @@ pub fn register_agent_calldata(
 
     // 4-byte selector + 4 head words (4*32) + tails for the two
     // strings (length word + padded bytes each).
-    let mut out = Vec::with_capacity(
-        4 + 4 * 32 + 32 + metadata_padded + 32 + did_padded,
-    );
+    let mut out = Vec::with_capacity(4 + 4 * 32 + 32 + metadata_padded + 32 + did_padded);
     out.extend_from_slice(&REGISTER_AGENT_SELECTOR);
 
     // arg 0: address (left-padded 20 bytes to 32).
@@ -232,7 +232,10 @@ pub fn register_agent_calldata(
     // Tail for arg 1: length word + padded bytes.
     out.extend_from_slice(&u256_be(metadata_uri.len() as u64));
     out.extend_from_slice(metadata_uri.as_bytes());
-    out.extend(std::iter::repeat_n(0u8, metadata_padded - metadata_uri.len()));
+    out.extend(std::iter::repeat_n(
+        0u8,
+        metadata_padded - metadata_uri.len(),
+    ));
 
     // Tail for arg 2: length word + padded bytes.
     out.extend_from_slice(&u256_be(did.len() as u64));
@@ -305,7 +308,10 @@ mod tests {
         assert_eq!(dr.schema, ERC8004_DRY_RUN_SCHEMA);
         assert_eq!(dr.network, "sepolia");
         assert_eq!(dr.registry, "0x4242424242424242424242424242424242424242");
-        assert_eq!(dr.agent_address, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert_eq!(
+            dr.agent_address,
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
         assert_eq!(dr.did, "did:ens:research-agent.sbo3lagent.eth");
         assert_eq!(dr.ens_fqdn, "research-agent.sbo3lagent.eth");
         assert!(dr.register_calldata_hex.starts_with("0x5a27c211"));
@@ -323,7 +329,10 @@ mod tests {
             ens_fqdn: "research-agent.sbo3lagent.eth",
         };
         let dr = build_dry_run(cfg, req).unwrap();
-        assert_eq!(dr.did, "did:ethr:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert_eq!(
+            dr.did,
+            "did:ethr:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
     }
 
     #[test]

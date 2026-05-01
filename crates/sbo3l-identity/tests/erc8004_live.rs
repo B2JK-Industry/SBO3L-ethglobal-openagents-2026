@@ -36,8 +36,8 @@
 
 use std::env;
 
-use sbo3l_identity::erc8004::{build_dry_run, ChainConfig, RegisterRequest};
 use sbo3l_identity::ens_anchor::EnsNetwork;
+use sbo3l_identity::erc8004::{build_dry_run, ChainConfig, RegisterRequest};
 use serde_json::json;
 
 const ENV_REGISTRY: &str = "SBO3L_ERC8004_ADDR";
@@ -131,10 +131,8 @@ fn live_register_agent_calldata_targets_real_contract() {
     // that the contract is reachable. What we DON'T want is a
     // null result + null error (RPC misconfigured) or a generic
     // "execution reverted: function not found" signal.
-    let has_result = json.get("result").is_some()
-        && !json["result"].is_null();
-    let has_error = json.get("error").is_some()
-        && !json["error"].is_null();
+    let has_result = json.get("result").is_some() && !json["result"].is_null();
+    let has_error = json.get("error").is_some() && !json["error"].is_null();
 
     assert!(
         has_result || has_error,

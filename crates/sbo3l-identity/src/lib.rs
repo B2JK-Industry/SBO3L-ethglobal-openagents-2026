@@ -20,11 +20,6 @@ pub mod ens_live;
 pub mod erc8004;
 
 pub use ens::{EnsRecords, EnsResolver, OfflineEnsResolver, ResolveError};
-pub use erc8004::{
-    build_dry_run as build_erc8004_dry_run, register_agent_calldata, ChainConfig as Erc8004ChainConfig,
-    Erc8004DryRun, Erc8004Error, RegisterRequest as Erc8004RegisterRequest,
-    ERC8004_DRY_RUN_SCHEMA, REGISTER_AGENT_SELECTOR,
-};
 pub use ens_anchor::{
     build_envelope, namehash, set_text_calldata, AnchorEnvelope, AnchorError, AnchorMode,
     AnchorParams, EnsNetwork, AUDIT_ROOT_KEY, ENVELOPE_SCHEMA_ID, SET_TEXT_SELECTOR,
@@ -32,4 +27,9 @@ pub use ens_anchor::{
 pub use ens_live::{
     JsonRpcTransport, LiveEnsResolver, ReqwestTransport, RpcError, ENS_REGISTRY_ADDRESS,
     RESOLVER_SELECTOR, SBO3L_TEXT_KEYS, TEXT_SELECTOR,
+};
+pub use erc8004::{
+    build_dry_run as build_erc8004_dry_run, register_agent_calldata,
+    ChainConfig as Erc8004ChainConfig, Erc8004DryRun, Erc8004Error,
+    RegisterRequest as Erc8004RegisterRequest, ERC8004_DRY_RUN_SCHEMA, REGISTER_AGENT_SELECTOR,
 };
