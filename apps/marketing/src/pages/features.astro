@@ -1,0 +1,137 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import ArchDiagram from "~/components/ArchDiagram.astro";
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+
+const pillars = [
+  {
+    title: "APRP wire format",
+    claim: "Payment-shaped envelope with deny-unknown-fields end-to-end.",
+    bullets: [
+      "intent · amount · chain · expiry · risk_class · nonce",
+      "JCS-canonical SHA-256 request hash",
+      "serde(deny_unknown_fields)",
+    ],
+    ref: "crates/sbo3l-server/src/aprp.rs",
+  },
+  {
+    title: "Hash-chained Ed25519 audit",
+    claim: "Every event linked by prev_event_hash; flip one byte and strict verifier rejects.",
+    bullets: [
+      "Linkage-only structural verifier",
+      "Strict verifier: linkage + signatures + content hashes",
+      "Tamper-evident by construction, no oracle required",
+    ],
+    ref: "crates/sbo3l-storage/src/audit.rs",
+  },
+  {
+    title: "Self-contained Passport capsule",
+    claim: "Embeds policy_snapshot + audit_segment so --strict re-derives without aux inputs.",
+    bullets: [
+      "passport verify --strict succeeds with zero SKIPPED checks",
+      "Test: cargo test --test passport_v2_self_contained",
+      "Offline-verifiable against the agent's published Ed25519 pubkey alone",
+    ],
+    ref: "crates/sbo3l-core/src/passport.rs",
+  },
+  {
+    title: "Sponsor adapter trait",
+    claim: "GuardedExecutor with local_mock() and live_from_env() as first-class peers.",
+    bullets: [
+      "KeeperHub · Uniswap · ENS adapters shipped",
+      "Mock = CI-safe default; live = production switch",
+      "Per-sponsor evidence schema in execution.executor_evidence",
+    ],
+    ref: "crates/sbo3l-execution/src/adapter.rs",
+  },
+  {
+    title: "ENS as agent trust DNS",
+    claim: "sbo3l:* text records publish per-agent identity + policy + endpoint.",
+    bullets: [
+      "Mainnet: sbo3lagent.eth (5 records correct)",
+      "Phase 2: ENSIP-25 CCIP-Read for off-chain records",
+      "Cross-agent verification via signed attestations",
+    ],
+    ref: "docs/spec/ens-text-records.md",
+  },
+  {
+    title: "No-key agent boundary",
+    claim: "Agent crate has zero SigningKey references; signing happens only inside SBO3L.",
+    bullets: [
+      "grep -rn SigningKey demo-agents/ → 0 lines",
+      "Demo gate 12 grep-asserts this",
+      "Agent never holds, never sees, never broadcasts",
+    ],
+    ref: "demo-agents/research-agent/src/main.rs",
+  },
+];
+---
+<BaseLayout
+  title="Features — SBO3L"
+  description="Six load-bearing pillars of the SBO3L agent trust layer."
+  ogTitle="SBO3L — Six pillars. One signed envelope."
+>
+  <section class="hero-strip">
+    <h1>Six pillars. One signed envelope.</h1>
+    <p class="lede">
+      Each pillar is testable: file:line reference + green test in CI. Click
+      through to the docs site for spec-level depth (lands once
+      <code>docs.sbo3l.dev</code> is up).
+    </p>
+  </section>
+
+  <section class="pillars">
+    {pillars.map((p) => (
+      <article class="pillar">
+        <h2>{p.title}</h2>
+        <p class="claim">{p.claim}</p>
+        <ul>
+          {p.bullets.map((b) => <li>{b}</li>)}
+        </ul>
+        <code class="ref">{p.ref}</code>
+      </article>
+    ))}
+  </section>
+
+  <section class="panel arch">
+    <h2>Architecture (deep-dive)</h2>
+    <p>
+      The agent never holds a key. SBO3L decides, signs, audits, and routes —
+      in that order. Deny blocks every downstream sponsor call.
+    </p>
+    <ArchDiagram size="large" />
+    <p>
+      Source-of-truth: <a href={`${githubRepoUrl}/blob/main/README.md`}>repo README</a>.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero-strip { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
+  .hero-strip h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin-bottom: 0.7em; }
+  .hero-strip .lede { font-size: var(--fs-2); color: var(--muted); max-width: 700px; }
+
+  .pillars {
+    max-width: var(--max);
+    margin: 2em auto;
+    padding: 0 1.5em;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.2em;
+  }
+  .pillar {
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 1.2em;
+    background: var(--code-bg);
+  }
+  .pillar h2 { font-size: 1.1em; font-weight: 700; margin-bottom: 0.4em; color: var(--fg); }
+  .pillar .claim { color: var(--fg); margin-bottom: 0.6em; font-size: 0.95em; }
+  .pillar ul { list-style: none; padding: 0; margin-bottom: 0.6em; color: var(--muted); font-size: 0.9em; }
+  .pillar ul li { margin-bottom: 0.25em; padding-left: 1em; position: relative; }
+  .pillar ul li::before { content: "→"; position: absolute; left: 0; color: var(--accent); }
+  .pillar .ref { display: inline-block; font-size: 0.8em; opacity: 0.7; }
+
+  .panel.arch { max-width: var(--max); margin: 3em auto; padding: 0 1.5em; }
+</style>

@@ -1,8 +1,25 @@
 ---
 import BaseLayout from "~/layouts/BaseLayout.astro";
 import NumberStrip from "~/components/NumberStrip.astro";
+import ArchDiagram from "~/components/ArchDiagram.astro";
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+
+// Adversarial inputs SBO3L rejects fail-closed. Hand-curated from the
+// production-shaped runner; each row is a runnable assertion in CI.
+const blocks = [
+  ["Empty body", "HTTP 400", "schema.missing_field"],
+  ["Unknown field", "HTTP 400", "schema.unknown_field"],
+  ["Reused APRP nonce", "HTTP 409", "protocol.nonce_replay"],
+  ["Prompt-injection request", "HTTP 200 + decision=deny", "policy.deny_unknown_provider"],
+  ["Oversized payload (~100 KB)", "HTTP 400", "rejected before pipeline"],
+  ["Same Idempotency-Key, different body", "HTTP 409", "protocol.idempotency_conflict"],
+  ["Audit-chain byte-flip", "rc=1", "strict-hash verifier rejects"],
+  ["Capsule with mismatched request_hash", "rc=2", "capsule.request_hash_mismatch"],
+  ["Capsule claiming live mode without evidence", "rc=2", "capsule.live_mode_empty_evidence"],
+  ["Capsule claiming deny but carrying execution_ref", "rc=2", "capsule.deny_with_execution_ref"],
+  ["9 tampered passport fixtures", "rc=2", "all reject byte-exactly"],
+];
 ---
 <BaseLayout title="SBO3L — Don't give your agent a wallet. Give it a mandate.">
   <section class="hero">
@@ -48,14 +65,91 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
   </section>
 
   <section class="panel">
-    <h2>More on the way</h2>
+    <h2>What SBO3L blocks</h2>
+    <p>Every input below is rejected fail-closed by the daemon, with the exact error code SBO3L returns:</p>
+    <ul class="blocks">
+      {blocks.map(([label, status, code]) => (
+        <li>
+          <strong>{label}</strong> → <code>{status}</code> + <code>{code}</code>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Live integration evidence (2026-04-30)</h2>
     <p>
-      This page is the prep slice of <a href={`${githubRepoUrl}/blob/main/docs/win-backlog/06-phase-2.md#cti-3-2`}>CTI-3-2</a>.
-      The follow-up PR adds: live integration evidence (ENS / Uniswap / KH),
-      adversarial-block list, architecture diagram, reproduce-yourself
-      block, /features, /proof (with WASM verifier), and the Trust DNS story
-      teaser. Track progress at <a href={`${githubRepoUrl}/issues/92`}>issue #92</a>.
+      Real outputs from running the corresponding live smoke against real
+      infrastructure during the submission window. Independently
+      re-verifiable by anyone with public RPC access.
     </p>
+
+    <h3>ENS mainnet — <code>sbo3lagent.eth</code></h3>
+    <pre><code>{`agent_id:    research-agent-01
+endpoint:    http://127.0.0.1:8730/v1
+policy_hash: e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf  ← matches offline fixture exactly
+audit_root:  0x0000000000000000000000000000000000000000000000000000000000000000  ← canonical genesis
+proof_uri:   https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json`}</code></pre>
+
+    <h3>Uniswap Sepolia QuoterV2 — <code>0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3</code></h3>
+    <pre><code>{`quote_source:            uniswap-v3-quoter-sepolia-0xed1f6473345f45b75f8179591dd5ba1888cf2fb3
+route_tokens:            [WETH 0xfff9…, USDC 0x1c7D4B19…]
+quote_timestamp_unix:    1777572056
+sqrt_price_x96_after:    863470429016487749123863152837655
+quote_freshness_seconds: 30`}</code></pre>
+
+    <h3>KeeperHub workflow — <code>m4t4cnpmhv8qquce3bv3c</code></h3>
+    <pre><code>{`sponsor:        keeperhub
+mock:           false
+execution_ref:  kh-172o77rxov7mhwvpssc3x   ← KH-issued executionId, not a ULID`}</code></pre>
+  </section>
+
+  <section class="panel">
+    <h2>Architecture</h2>
+    <p>
+      The agent never holds a key. SBO3L decides, signs, audits, and routes —
+      in that order. Deny blocks every downstream sponsor call.
+    </p>
+    <ArchDiagram size="compact" />
+  </section>
+
+  <section class="panel">
+    <h2>Reproduce yourself</h2>
+    <p>
+      Every claim above is reproducible from a fresh clone. Public RPCs work —
+      no API keys required for read paths.
+    </p>
+    <pre><code>{`git clone https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+cd SBO3L-ethglobal-openagents-2026
+
+# Full vertical demo (13 gates, ~10 seconds)
+bash demo-scripts/run-openagents-final.sh
+
+# Production-shaped runner (26 real / 0 mock / 1 skipped)
+bash demo-scripts/run-production-shaped-mock.sh
+
+# Live ENS smoke (mainnet)
+SBO3L_ENS_RPC_URL=https://ethereum-rpc.publicnode.com \\
+  cargo run -p sbo3l-identity --example ens_live_smoke
+
+# Live Uniswap Sepolia smoke
+SBO3L_UNISWAP_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com \\
+SBO3L_UNISWAP_TOKEN_OUT=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 \\
+  cargo run -p sbo3l-execution --example uniswap_live_smoke`}</code></pre>
+  </section>
+
+  <section class="panel">
+    <h2>Resources</h2>
+    <ul>
+      <li><a href={`${githubRepoUrl}/blob/main/QUICKSTART.md`}>Quickstart — daemon + curl in 5 minutes</a></li>
+      <li><a href={`${githubRepoUrl}/blob/main/README.md`}>README — full architecture + status</a></li>
+      <li><a href={`${githubRepoUrl}/blob/main/IMPLEMENTATION_STATUS.md`}>Implementation Status — what's shipped</a></li>
+      <li><a href={`${githubRepoUrl}/blob/main/SECURITY_NOTES.md`}>Security Notes — production deployment limits</a></li>
+      <li><a href={`${githubRepoUrl}/tree/main/docs/win-backlog`}>Win Backlog — 100-day attack plan</a></li>
+      <li><a href="https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/">Public proof page (GitHub Pages)</a></li>
+      <li><a href="/features">Features deep-dive — six pillars</a></li>
+      <li><a href="/trust-dns-story">Trust DNS story (zine, coming soon)</a></li>
+    </ul>
   </section>
 </BaseLayout>
 
@@ -75,6 +169,17 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
   }
   .hero strong { color: var(--fg); }
   .cta { display: flex; gap: 1em; flex-wrap: wrap; }
+
+  ul.blocks { padding-left: 0; }
+  ul.blocks li { list-style: none; padding-left: 1.4em; position: relative; }
+  ul.blocks li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
   @media (max-width: 640px) {
     .hero { margin: 2.5em auto 2em; }
   }
