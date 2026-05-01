@@ -3431,6 +3431,7 @@ dependencies = [
  "hex",
  "reqwest",
  "sbo3l-core",
+ "sbo3l-policy",
  "serde",
  "serde_json",
  "sha2",
