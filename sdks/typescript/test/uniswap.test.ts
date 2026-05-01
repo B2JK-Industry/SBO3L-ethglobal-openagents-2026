@@ -181,3 +181,48 @@ describe("sepoliaEtherscanTxUrl", () => {
     );
   });
 });
+
+describe("encodeExactInputSingle (input validation)", () => {
+  // Regression for the codex P1: hexToBytes used parseInt() which silently
+  // returns NaN for non-hex chars; Uint8Array.set then coerces NaN to 0,
+  // letting malformed addresses produce calldata that broadcasts garbage.
+  // After the fix, any non-hex char must throw at encode time.
+  it("rejects non-hex characters in tokenIn address", () => {
+    expect(() =>
+      encodeExactInputSingle({
+        tokenIn: "0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
+        tokenOut: SEPOLIA_USDC,
+        fee: 500,
+        recipient: SEPOLIA_USDC,
+        amountIn: 1n,
+        amountOutMinimum: 1n,
+      }),
+    ).toThrow(/non-hex characters/);
+  });
+
+  it("rejects non-hex characters in tokenOut address", () => {
+    expect(() =>
+      encodeExactInputSingle({
+        tokenIn: SEPOLIA_WETH,
+        tokenOut: "0xgggggggggggggggggggggggggggggggggggggggg",
+        fee: 500,
+        recipient: SEPOLIA_USDC,
+        amountIn: 1n,
+        amountOutMinimum: 1n,
+      }),
+    ).toThrow(/non-hex characters/);
+  });
+
+  it("rejects non-hex characters in recipient address", () => {
+    expect(() =>
+      encodeExactInputSingle({
+        tokenIn: SEPOLIA_WETH,
+        tokenOut: SEPOLIA_USDC,
+        fee: 500,
+        recipient: "0xQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ",
+        amountIn: 1n,
+        amountOutMinimum: 1n,
+      }),
+    ).toThrow(/non-hex characters/);
+  });
+});

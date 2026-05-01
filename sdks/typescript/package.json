@@ -84,6 +84,14 @@
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   },
+  "peerDependencies": {
+    "viem": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "viem": {
+      "optional": true
+    }
+  },
   "publishConfig": {
     "access": "public"
   }

@@ -14,7 +14,7 @@
  * if you need EIP-712 / Permit2 / multi-call paths — out of scope for v1.
  */
 
-import { createHash, createHmac } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   EXACT_INPUT_SINGLE_SELECTOR,
   SEPOLIA_CHAIN_ID,
@@ -161,9 +161,16 @@ function parseAddress(s: string): Uint8Array {
   return hexToBytes(trimmed);
 }
 
+const HEX_RE = /^[0-9a-fA-F]*$/;
+
 function hexToBytes(hex: string): Uint8Array {
   const trimmed = hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
   if (trimmed.length % 2 !== 0) throw new Error("hex must be even-length");
+  // parseInt("gg", 16) returns NaN which silently coerces to 0 in `Uint8Array.set`,
+  // letting malformed calldata reach the chain. Validate explicitly first.
+  if (!HEX_RE.test(trimmed)) {
+    throw new Error(`hex contains non-hex characters: ${JSON.stringify(hex)}`);
+  }
   const out = new Uint8Array(trimmed.length / 2);
   for (let i = 0; i < out.length; i++) {
     out[i] = parseInt(trimmed.slice(i * 2, i * 2 + 2), 16);
@@ -200,10 +207,18 @@ function sha256Hex(input: string): string {
 }
 
 /**
- * Sign + broadcast an EIP-1559 transaction. For demo purposes only:
- * uses fixed gas params (no fee oracle) and unchecked nonce fetch.
- * Production callers should use `viem` or `ethers` for proper fee bumping
- * and confirmation tracking.
+ * Sign + broadcast an EIP-1559 transaction via `viem` (optional peer dep).
+ *
+ * `viem` is dynamically imported so the SDK's *non-live* surface (calldata
+ * encoding, mock-mode swap, demo smoke) keeps zero runtime dependencies.
+ * Live mode requires consumers to install `viem` themselves —
+ * `peerDependenciesMeta.viem.optional: true` flags it as non-mandatory at
+ * install time so npm doesn't warn for the 99% of users who never enable
+ * live mode.
+ *
+ * Why not vendor secp256k1+RLP: ~600 LoC of audited crypto would dwarf the
+ * SDK's ~1500 LoC core, and viem's tree-shaken footprint (~30kB gzipped)
+ * is smaller than what we'd ship by vendoring noble-secp256k1 ourselves.
  */
 async function broadcastEip1559(
   rpcUrl: string,
@@ -212,71 +227,85 @@ async function broadcastEip1559(
   to: string,
   data: string,
 ): Promise<string> {
-  const fromAddress = addressFromPrivateKey(privateKeyHex);
-  const [nonce, gasPrice] = await Promise.all([
-    rpcCall(rpcUrl, "eth_getTransactionCount", [fromAddress, "pending"]),
-    rpcCall(rpcUrl, "eth_gasPrice", []),
-  ]);
-
-  // For simplicity broadcast a legacy-style tx (type 0). EIP-1559 is the
-  // best-practice but full support needs a fee oracle; keeping this
-  // intentionally simple so the demo path is auditable. Sepolia accepts
-  // both legacy and EIP-1559.
-  const txFields = {
-    nonce: BigInt(nonce as string),
-    gasPrice: BigInt(gasPrice as string),
-    gasLimit: 300_000n,
-    to,
-    value: 0n,
-    data,
-    chainId: BigInt(chainId),
-  };
-
-  // Defer the actual signing import — keeping a vendored implementation
-  // here would be hundreds of LoC of secp256k1 + RLP. Real callers should
-  // pass an `env` with a pre-signed transaction OR use `viem`. For the
-  // v1 live-mode demo, throw a clear error pointing at the right approach.
-  throw new Error(
-    "live broadcast requires `viem` or `ethers` for EIP-1559 signing. " +
-      "Install one and replace this stub, OR run in mock mode (omit SBO3L_LIVE_ETH=1). " +
-      `[stub state: from=${fromAddress}, to=${txFields.to}, nonce=${txFields.nonce}]`,
-  );
-}
-
-/** Derive the public address from a private key. */
-function addressFromPrivateKey(_privateKeyHex: string): string {
-  // Stub — full secp256k1 derivation is hundreds of LoC and depends on a
-  // crypto lib (e.g. `@noble/secp256k1`). Returns a placeholder so the
-  // mock-mode path doesn't accidentally call this; live-mode callers
-  // should swap this out with `viem`'s `privateKeyToAccount(...)`.
-  return "0x" + "0".repeat(40);
-}
-
-interface RpcResponse {
-  jsonrpc: "2.0";
-  id: number;
-  result?: unknown;
-  error?: { code: number; message: string };
-}
-
-async function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<unknown> {
-  // Use a deterministic nonce derived from method+params so retries don't
-  // collide with a parallel test run. Not security-critical (just unique).
-  const id = Number(
-    BigInt("0x" + createHmac("sha256", "sbo3l").update(method + JSON.stringify(params)).digest("hex").slice(0, 8)) %
-      10000n,
-  );
-  const r = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+  const viem = await loadViem();
+  const account = viem.privateKeyToAccount(normalisePrivateKey(privateKeyHex));
+  const chain = {
+    id: chainId,
+    name: chainId === SEPOLIA_CHAIN_ID ? "sepolia" : `chain-${chainId}`,
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] }, public: { http: [rpcUrl] } },
+  } as const;
+  const wallet = viem.createWalletClient({
+    account,
+    chain,
+    transport: viem.http(rpcUrl),
   });
-  if (!r.ok) throw new Error(`RPC HTTP ${r.status}`);
-  const body = (await r.json()) as RpcResponse;
-  if (body.error !== undefined) {
-    throw new Error(`RPC error ${body.error.code}: ${body.error.message}`);
+
+  // viem >= 1.x defaults sendTransaction to EIP-1559 (type 2). It pulls
+  // maxFeePerGas / maxPriorityFeePerGas from the chain's fee oracle and
+  // estimates gas. Result is the 0x-prefixed tx hash — the caller then
+  // tracks inclusion via Etherscan or a public client.
+  const hash = await wallet.sendTransaction({
+    to: viem.getAddress(to),
+    data: data as `0x${string}`,
+    value: 0n,
+  });
+  return hash;
+}
+
+interface ViemModule {
+  createWalletClient: (config: {
+    account: unknown;
+    chain: unknown;
+    transport: unknown;
+  }) => {
+    sendTransaction: (args: {
+      to: `0x${string}`;
+      data: `0x${string}`;
+      value: bigint;
+    }) => Promise<`0x${string}`>;
+  };
+  http: (url: string) => unknown;
+  privateKeyToAccount: (key: `0x${string}`) => unknown;
+  getAddress: (a: string) => `0x${string}`;
+}
+
+async function loadViem(): Promise<ViemModule> {
+  try {
+    // Indirect through string variables so tsc doesn't try to statically
+    // resolve `viem` at compile time. The SDK's `viem` peer dep is
+    // intentionally optional: most consumers never enable live mode and
+    // shouldn't need to install it just to typecheck.
+    const viemSpec: string = "viem";
+    const accountsSpec: string = "viem/accounts";
+    const mod = (await import(/* @vite-ignore */ viemSpec)) as Partial<ViemModule>;
+    const accountsMod = (await import(/* @vite-ignore */ accountsSpec)) as Partial<ViemModule>;
+    const merged: Partial<ViemModule> = { ...mod, ...accountsMod };
+    if (
+      merged.createWalletClient === undefined ||
+      merged.http === undefined ||
+      merged.privateKeyToAccount === undefined ||
+      merged.getAddress === undefined
+    ) {
+      throw new Error("viem present but missing expected exports");
+    }
+    return merged as ViemModule;
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      "live swap requires the `viem` peer dependency. " +
+        "Install with `npm i viem` (or `pnpm add viem` / `yarn add viem`). " +
+        `Original load error: ${cause}`,
+    );
   }
-  return body.result;
+}
+
+function normalisePrivateKey(raw: string): `0x${string}` {
+  const trimmed = raw.startsWith("0x") || raw.startsWith("0X") ? raw.slice(2) : raw;
+  if (trimmed.length !== 64 || !HEX_RE.test(trimmed)) {
+    throw new Error("private key must be 32 bytes (64 hex chars), 0x prefix optional");
+  }
+  return ("0x" + trimmed.toLowerCase()) as `0x${string}`;
 }
 
 /** Re-export Sepolia constants so callers don't need a separate import. */
