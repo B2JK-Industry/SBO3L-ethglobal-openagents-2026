@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/vercel-ai",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Vercel AI SDK adapter for SBO3L — wrap an APRP submit as an `ai.tool()` with zod parameters.",
   "license": "MIT",
   "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
@@ -34,7 +34,7 @@
     "zod": "^3.22.0"
   },
   "peerDependencies": {
-    "@sbo3l/sdk": "^1.0.0",
+    "@sbo3l/sdk": "^1.2.0",
     "ai": "^3.0.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {

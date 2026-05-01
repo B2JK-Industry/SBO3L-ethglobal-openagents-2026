@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/langchain",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "LangChain JS Tool wrapping SBO3L — gate every agent payment intent through SBO3L's policy boundary.",
   "license": "MIT",
   "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@sbo3l/sdk": "^1.0.0"
+    "@sbo3l/sdk": "^1.2.0"
   },
   "peerDependenciesMeta": {
     "@sbo3l/sdk": {
