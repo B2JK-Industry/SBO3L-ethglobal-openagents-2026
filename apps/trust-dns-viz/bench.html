@@ -34,10 +34,15 @@
 
       // Bench params: ?nodes=N (default 100), ?renderer=svg|canvas
       // (default canvas above 100, svg otherwise), ?rate=ms-between-events
-      // (default 20).
+      // (default 20). Bad input → silently fall back to defaults
+      // instead of NaN-propagation through the clamp math.
       const params = new URLSearchParams(location.search);
-      const N = Math.max(1, Math.min(2000, Number.parseInt(params.get("nodes") ?? "100", 10)));
-      const rate = Math.max(5, Number.parseInt(params.get("rate") ?? "20", 10));
+      const parseIntDefault = (raw, dflt) => {
+        const n = Number.parseInt(raw, 10);
+        return Number.isFinite(n) ? n : dflt;
+      };
+      const N = Math.max(1, Math.min(2000, parseIntDefault(params.get("nodes"), 100)));
+      const rate = Math.max(5, parseIntDefault(params.get("rate"), 20));
       const explicit = params.get("renderer");
       const useCanvas = explicit === "canvas" || (explicit !== "svg" && N > 100);
 
