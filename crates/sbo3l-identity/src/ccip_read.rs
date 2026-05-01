@@ -218,9 +218,7 @@ pub fn decode_string_result(result_bytes: &[u8]) -> Result<String, CcipError> {
     // ABI: head word = offset (always 0x20 for single-string),
     // followed by length + padded bytes.
     if result_bytes.len() < 64 {
-        return Err(CcipError::AbiDecode(
-            "string result too short".to_string(),
-        ));
+        return Err(CcipError::AbiDecode("string result too short".to_string()));
     }
     let len = read_u64_word(result_bytes, 32)? as usize;
     let start = 64;
@@ -294,7 +292,7 @@ mod tests {
         // tail: length=5, "hello", padded to 32
         let mut buf = vec![0u8; 32];
         buf[31] = 0x20; // offset = 32
-        // length = 5
+                        // length = 5
         let mut len_word = [0u8; 32];
         len_word[31] = 5;
         buf.extend_from_slice(&len_word);
