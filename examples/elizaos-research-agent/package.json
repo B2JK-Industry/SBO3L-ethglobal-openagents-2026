@@ -6,6 +6,10 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "build:dep": "npm --prefix ../../integrations/elizaos install --no-audit --no-fund && npm --prefix ../../integrations/elizaos run build",
+    "preagent": "npm run build:dep",
+    "presmoke": "npm run build:dep",
+    "pretypecheck": "npm run build:dep",
     "agent": "tsx src/agent.ts",
     "smoke": "tsx src/smoke.ts",
     "typecheck": "tsc --noEmit"
