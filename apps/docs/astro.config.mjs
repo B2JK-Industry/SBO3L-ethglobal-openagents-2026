@@ -49,6 +49,8 @@ export default defineConfig({
             { label: "Overview", link: "/sdks" },
             { label: "TypeScript", link: "/sdks/typescript", badge: { text: "soon", variant: "note" } },
             { label: "Python", link: "/sdks/python", badge: { text: "soon", variant: "note" } },
+            { label: "TS reference (auto-gen)", link: "/reference/sdk-typescript" },
+            { label: "Py reference (auto-gen)", link: "/reference/sdk-python" },
           ],
         },
         {

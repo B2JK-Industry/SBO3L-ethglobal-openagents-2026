@@ -1,0 +1,40 @@
+---
+title: Python SDK reference
+description: Auto-generated sphinx HTML for the four sbo3l-* Python packages.
+audience: Python agent developers
+outcome: You'll know which package to install, where its API reference lives, and how the four packages compose.
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Four published packages on PyPI, all auto-documented from their docstrings + type hints via sphinx on every release. Pydantic v2 strict mode throughout; async-first APIs with sync wrappers.
+
+<CardGrid>
+  <Card title="sbo3l-sdk" icon="rocket">
+    Core SDK — httpx wrapper around the SBO3L daemon. Start here.<br />
+    [Reference →](/sdk-ref/python/sbo3l-sdk/)
+  </Card>
+  <Card title="sbo3l-langchain" icon="puzzle">
+    LangChain integration — `SBO3LPolicyTool` + agent middleware.<br />
+    [Reference →](/sdk-ref/python/sbo3l-langchain/)
+  </Card>
+  <Card title="sbo3l-crewai" icon="puzzle">
+    CrewAI integration — guarded crew + tool wrapper.<br />
+    [Reference →](/sdk-ref/python/sbo3l-crewai/)
+  </Card>
+  <Card title="sbo3l-llamaindex" icon="puzzle">
+    LlamaIndex integration — guarded query engine + retriever.<br />
+    [Reference →](/sdk-ref/python/sbo3l-llamaindex/)
+  </Card>
+</CardGrid>
+
+## Versions + provenance
+
+Every reference page shows the package version it was generated from. Re-runs are triggered on every PyPI publish event and committed to `main` by `sbo3l-bot` — the version on screen always matches the latest release.
+
+To regenerate locally: `bash apps/docs/scripts/gen-sdk-py-refs.sh`. See [`scripts/README.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/apps/docs/scripts/README.md).
+
+## See also
+
+- [TypeScript SDK reference](/reference/sdk-typescript) — sister auto-gen for `@sbo3l/*` npm packages.
+- [Quickstart](/quickstart) — minimal integration walkthrough.
