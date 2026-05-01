@@ -10,6 +10,11 @@ runtime authentication, not just for resolving "who claims to be at
 this name." Every claim below has a code reference, a live mainnet
 record, or both.
 
+**Companion essay:** [`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md)
+— the conceptual framing of "trust DNS" as a category, with the
+DNS-to-Trust-DNS analogy, the "Most Creative" argument distilled,
+and the honest scope of what ENS does and doesn't solve.
+
 ## The "trust DNS" claim
 
 DNS resolves *names* to *machines*. SBO3L resolves *names* to *trust

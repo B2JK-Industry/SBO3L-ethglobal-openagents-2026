@@ -175,6 +175,8 @@ The 13 demo gates cover: schema strictness, locked golden APRP `request_hash`, a
 - [`SUBMISSION_NOTES.md`](SUBMISSION_NOTES.md) — judge narrative and partner-prize positioning.
 - [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) — current implementation snapshot.
 - [`FEEDBACK.md`](FEEDBACK.md) — partner-sponsor feedback (KeeperHub, ENS, Uniswap).
+- [`docs/concepts/trust-dns-essay.md`](docs/concepts/trust-dns-essay.md) — "ENS as Trust DNS for Autonomous Agents" (~1500-word essay, T-3-6).
+- [`docs/proof/ens-narrative.md`](docs/proof/ens-narrative.md) — ENS bounty judge narrative with live mainnet receipts.
 - [`AI_USAGE.md`](AI_USAGE.md) — AI-tooling disclosure.
 - [`demo-scripts/demo-video-script.md`](demo-scripts/demo-video-script.md) — 3:30 demo-video script.
 - [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md) — audit-bundle export / verify reference.
