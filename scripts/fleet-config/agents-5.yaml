@@ -13,7 +13,7 @@
 #
 # Daniel runs scripts/register-fleet.sh against this file once Dev 1's
 # T-3-1 broadcast slice lands. Output manifest at
-# docs/proof/ens-fleet-2026-05-01.json.
+# docs/proof/ens-fleet-agents-5-2026-05-01.json.
 
 seed_doc: "sbo3l-ens-fleet-2026-05-01"
 parent: "sbo3lagent.eth"
