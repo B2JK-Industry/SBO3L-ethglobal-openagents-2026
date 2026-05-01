@@ -97,7 +97,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Use explicit `id` axis × explicit `python` axis instead of
+      # `matrix.python` + `include`. With `include` entries that don't set
+      # `python`, GitHub does NOT cross-product against the python axis —
+      # it adds each include as a single combination with python undefined,
+      # which silently drops 8 of the 12 expected combos and leaves
+      # `${{ matrix.python }}` empty (setup-python then either errors or
+      # falls back to system Python). Listing both axes explicitly keeps
+      # all 12 combos visible in the run summary.
       matrix:
+        id: [langchain-py, crewai-py, llamaindex-py, langgraph-py]
         python: ["3.10", "3.11", "3.12"]
         include:
           - id: langchain-py
