@@ -1,0 +1,131 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+const githubPagesProof = "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/";
+---
+<BaseLayout
+  title="Proof — SBO3L"
+  description="Verify a SBO3L Passport capsule in your browser. All 6 strict-mode checks run client-side via WASM."
+  ogTitle="SBO3L — Verify a Passport in your browser"
+>
+  <section class="hero">
+    <h1>Verify a Passport capsule</h1>
+    <p class="lede">
+      Paste or drop a capsule. All 6 strict-mode checks run in your browser
+      via a WASM-compiled <code>sbo3l-core</code>. No data leaves the page —
+      no upload, no API call, no analytics.
+    </p>
+    <p class="status" id="verifier-status">Loading verifier…</p>
+  </section>
+
+  <section class="panel">
+    <h2>Verifier</h2>
+    <textarea
+      id="capsule-input"
+      placeholder='Paste capsule JSON here, or drop a .json file onto this textarea…'
+      rows="10"
+      aria-label="Capsule JSON input"
+    ></textarea>
+    <div class="cta">
+      <button id="verify-btn" type="button" class="btn primary" disabled>Verify</button>
+      <button id="clear-btn" type="button" class="btn ghost">Clear</button>
+      <a class="btn ghost" href="/wasm/sample-capsule.json" download>Download sample capsule</a>
+    </div>
+    <div id="verify-result" class="verify-result" aria-live="polite"></div>
+  </section>
+
+  <section class="panel">
+    <h2>What gets checked</h2>
+    <ol>
+      <li>APRP envelope schema validity (<code>sbo3l.aprp.v1</code>)</li>
+      <li>JCS-canonical request hash matches embedded <code>request_hash</code></li>
+      <li>Ed25519 signature on the policy receipt verifies against embedded <code>agent_pubkey</code></li>
+      <li>Audit segment hash chain consistent (each <code>prev_event_hash</code> matches)</li>
+      <li>Embedded <code>policy_snapshot</code> deterministically yields the recorded decision</li>
+      <li>Capsule consistency rules (e.g. <code>decision=deny</code> ⇒ no <code>execution_ref</code>)</li>
+    </ol>
+    <p>
+      All 6 checks run in &lt; 200 ms on commodity hardware. Source:
+      <a href={`${githubRepoUrl}/blob/main/crates/sbo3l-core/src/passport.rs`}><code>crates/sbo3l-core/src/passport.rs</code></a>.
+    </p>
+  </section>
+
+  <section class="panel" id="fallback-block" hidden>
+    <h2>WASM verifier not yet available</h2>
+    <p>
+      The compiled WASM module hasn't shipped yet (issue
+      <a href={`${githubRepoUrl}/issues/101`}>#101</a> — Dev 1 slice).
+      Until then, verify capsules with the CLI verifier (<code>passport verify --strict --path &lt;capsule.json&gt;</code>),
+      or use the static proof page at
+      <a href={githubPagesProof}>{githubPagesProof}</a>.
+    </p>
+  </section>
+</BaseLayout>
+
+<script>
+  import { isVerifierAvailable, verifyCapsule, renderResult } from "~/scripts/verify-capsule";
+
+  const status = document.getElementById("verifier-status") as HTMLParagraphElement | null;
+  const fallback = document.getElementById("fallback-block") as HTMLElement | null;
+  const input = document.getElementById("capsule-input") as HTMLTextAreaElement | null;
+  const verifyBtn = document.getElementById("verify-btn") as HTMLButtonElement | null;
+  const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement | null;
+  const result = document.getElementById("verify-result") as HTMLElement | null;
+  if (!status || !input || !verifyBtn || !clearBtn || !result || !fallback) {
+    throw new Error("/proof: required DOM nodes missing");
+  }
+
+  void (async (): Promise<void> => {
+    const available = await isVerifierAvailable();
+    if (available) {
+      status.textContent = "Verifier ready. All checks run locally in your browser.";
+      verifyBtn.disabled = false;
+    } else {
+      status.textContent = "WASM verifier not yet available — see fallback below.";
+      fallback.hidden = false;
+      verifyBtn.disabled = true;
+    }
+  })();
+
+  verifyBtn.addEventListener("click", async () => {
+    result.textContent = "Verifying…";
+    const r = await verifyCapsule(input.value);
+    if (!r) { result.textContent = "Verifier unavailable."; return; }
+    renderResult(r, result);
+  });
+
+  clearBtn.addEventListener("click", () => { input.value = ""; result.textContent = ""; });
+
+  input.addEventListener("dragover", (e) => e.preventDefault());
+  input.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (file) input.value = await file.text();
+  });
+</script>
+
+<style>
+  .hero { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
+  .hero h1 { font-size: var(--fs-4); font-weight: 700; margin-bottom: 0.7em; }
+  .hero .lede { font-size: var(--fs-2); color: var(--muted); max-width: 700px; margin-bottom: 1em; }
+  .hero .status {
+    color: var(--muted); font-family: var(--font-mono); font-size: 0.9em;
+    border-left: 3px solid var(--accent); padding-left: 0.8em;
+  }
+
+  textarea#capsule-input {
+    width: 100%; background: var(--code-bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: var(--r-md);
+    font-family: var(--font-mono); font-size: 0.85em; padding: 1em;
+    margin-bottom: 1em; resize: vertical;
+  }
+  .cta { display: flex; gap: 0.7em; flex-wrap: wrap; margin-bottom: 1.5em; }
+
+  .verify-result { background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 1em; min-height: 2em; color: var(--muted); }
+  .verify-result :global(.verify-summary) { color: var(--fg); font-weight: 700; margin-bottom: 0.6em; }
+  .verify-result :global(ul.verify-checks) { list-style: none; padding-left: 0; }
+  .verify-result :global(li.pass) { color: var(--accent); }
+  .verify-result :global(li.fail) { color: #ff6b6b; }
+</style>
