@@ -107,7 +107,7 @@ ships two manifests under `sbo3lagent.eth`:
   every agent's Ed25519 pubkey byte-for-byte from the public seed
   doc `sbo3l-ens-fleet-2026-05-01` via SHA-256.
 
-- **`docs/proof/ens-fleet-60-2026-05-01.json`** — sixty deterministic
+- **`docs/proof/ens-fleet-agents-60-2026-05-01.json`** — sixty deterministic
   agents, six capability classes of ten each, ENS-AGENT-A1
   amplifier. The trust-DNS visualization at
   `apps/trust-dns-viz/bench.html?source=mainnet-fleet` ingests
@@ -209,7 +209,7 @@ who kept a receipt.
 | `sbo3lagent.eth` resolves the canonical 5 records | `cast text sbo3lagent.eth sbo3l:policy_hash --rpc-url https://ethereum-rpc.publicnode.com`  |
 | The owner of `sbo3lagent.eth` is Daniel's wallet | https://app.ens.domains/sbo3lagent.eth                                                       |
 | Five named-role agents under the apex             | `./scripts/resolve-fleet.sh docs/proof/ens-fleet-2026-05-01.json` (post-broadcast)            |
-| Sixty-agent constellation                         | `./scripts/resolve-fleet.sh docs/proof/ens-fleet-60-2026-05-01.json` (post-broadcast)         |
+| Sixty-agent constellation                         | `./scripts/resolve-fleet.sh docs/proof/ens-fleet-agents-60-2026-05-01.json` (post-broadcast)         |
 | Cross-agent verification ships                    | `cargo test -p sbo3l-identity --lib cross_agent::` (13 tests, including the pair-swap test)  |
 | CCIP-Read gateway is real                         | https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json                                       |
 
@@ -279,7 +279,7 @@ re-derive every pubkey via
 
 #### 60-agent fleet (ENS-AGENT-A1 amplifier)
 
-Source of truth: `docs/proof/ens-fleet-60-2026-05-01.json`. 60 deterministic
+Source of truth: `docs/proof/ens-fleet-agents-60-2026-05-01.json`. 60 deterministic
 agents in 6 capability classes, registered post-broadcast. Manifest
 shipped with all pubkeys; tx hashes filled in same path as above.
 
@@ -368,7 +368,7 @@ cast call 0xF29100983E058B709F3D539b0c765937B804AC15 \
   `crates/sbo3l-identity/contracts/OffchainResolver.sol`
 - Manifests:
   `docs/proof/ens-fleet-2026-05-01.json`,
-  `docs/proof/ens-fleet-60-2026-05-01.json`
+  `docs/proof/ens-fleet-agents-60-2026-05-01.json`
 
 ## Honest scope statement
 

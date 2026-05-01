@@ -174,6 +174,63 @@ without re-reading this doc.
 | Subname exists but viem can't resolve | OffchainResolver pointer not flipped | Subnames inherit the parent's resolver; until step 4 of T-4-1's deploy runbook lands, only direct PublicResolver `text(...)` calls work. |
 | Pubkey mismatch with another operator | Wrong `seed_doc` or `label` | Re-run `derive-fleet-keys.py --print-secrets` against the canonical YAML; pubkeys are SHA-256 deterministic. |
 
+## T-3-4 — 60-agent ENS-AGENT-A1 amplifier
+
+Same infra, scaled to 60 agents in 6 capability classes:
+
+| Range            | Class         | Capabilities                  |
+|------------------|---------------|-------------------------------|
+| `agent-001..010` | research      | `x402-purchase`               |
+| `agent-011..020` | trading       | `uniswap-swap, x402-purchase` |
+| `agent-021..030` | swap          | `uniswap-swap`                |
+| `agent-031..040` | audit         | `audit-export, audit-verify`  |
+| `agent-041..050` | coordinator   | `delegate, attest`            |
+| `agent-051..060` | oracle        | `price-feed, attest`          |
+
+```bash
+# Derive the 60 pubkeys (committed at scripts/fleet-config/agents-60.pubkeys.json):
+python3 scripts/derive-fleet-keys.py \
+  --config scripts/fleet-config/agents-60.yaml \
+  --output-pubkeys scripts/fleet-config/agents-60.pubkeys.json
+
+# Broadcast — same script, different YAML:
+./scripts/register-fleet.sh scripts/fleet-config/agents-60.yaml
+
+# Resolve — <30s for 60 agents against PublicNode:
+./scripts/resolve-fleet.sh docs/proof/ens-fleet-agents-60-2026-05-01.json
+```
+
+**Cost (60 agents):**
+
+| Network  | Total gas      | Approx cost            |
+|----------|----------------|------------------------|
+| Sepolia  | ~0.7 SEP-ETH   | ~$2.40 (free testnet)  |
+| Mainnet  | ~0.7 ETH @ 50 gwei | ~$3 600 (Daniel approves) |
+
+### Trust-DNS viz hand-off
+
+The 60-agent fleet is the headliner of the trust-DNS visualization
+narrative. To wire `apps/trust-dns-viz/bench.html?source=mainnet-fleet`
+into the manifest, Dev 3 (the viz owner) needs to:
+
+1. Fetch `docs/proof/ens-fleet-60-events.json` (a viz-friendly
+   conversion of the manifest into an array of `agent.discovered`
+   events, committed alongside the manifest).
+2. In `apps/trust-dns-viz/src/source.ts`, add a `mainnetFleetSource()`
+   branch alongside the existing `realWebSocketSource` /
+   `mockSource`. It should fetch the events.json (relative URL or
+   GitHub Pages URL), iterate, and dispatch each as a synthetic
+   `agent.discovered` event with light pacing (e.g. 50ms apart so
+   the constellation animates in over ~3s).
+3. In `apps/trust-dns-viz/src/main.ts`, route `?source=mainnet-fleet`
+   to the new branch.
+
+The events JSON file matches the existing `VizEvent` discriminator
+shape (`kind: "agent.discovered"`) — no parser change needed in the
+viz's events.ts. **The conversion itself is in this PR**
+(`docs/proof/ens-fleet-60-events.json`); only the Vite-side fetch
+wiring is Dev 3's work.
+
 ## See also
 
 - `crates/sbo3l-identity/src/durin.rs` — calldata builders.
