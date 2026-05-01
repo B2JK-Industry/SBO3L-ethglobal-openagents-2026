@@ -1,0 +1,253 @@
+---
+// PassportVerifier — in-browser SBO3L Passport capsule verifier (#101).
+//
+// Loads the WASM verifier built by `scripts/build-wasm-verifier.sh`
+// (output at /wasm/sbo3l_core.js + /wasm/sbo3l_core_bg.wasm) lazily
+// on first click; the wasm module is cached after first load so
+// subsequent verifications are sync. The wasm bundle is not on the
+// FCP path — `import("/wasm/sbo3l_core.js")` only fires when the user
+// clicks Verify.
+//
+// Calls `verify_capsule_strict_json(capsuleJsonString)` and renders
+// the 6-check report with PASSED / SKIPPED / FAILED pills + the
+// per-check detail string on hover.
+
+interface Props {
+  /// Optional initial capsule JSON pre-filled into the textarea (used
+  /// by /proof-test.astro to auto-run against a known-good fixture).
+  initialCapsule?: string;
+  /// When true, fire the verify action on mount. Used by /proof-test.
+  autorun?: boolean;
+  /// CSS id to expose for the smoke-test page to query the result.
+  reportId?: string;
+}
+
+const {
+  initialCapsule = "",
+  autorun = false,
+  reportId = "passport-verifier-report",
+} = Astro.props;
+---
+
+<section class="verifier" data-autorun={autorun ? "1" : "0"}>
+  <h2>Verify a SBO3L Passport capsule</h2>
+  <p class="lede">
+    Paste a capsule JSON and click Verify. The verifier runs entirely
+    in your browser via the <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/crates/sbo3l-core">sbo3l-core</a>
+    Rust crate compiled to WebAssembly — no daemon, no network call.
+    v2 capsules with embedded <code>policy_snapshot</code> and
+    <code>audit_segment</code> verify all 6 cryptographic checks
+    self-contained; v1 capsules pass the structural and request-hash
+    checks and honestly report the others as <em>SKIPPED</em>.
+  </p>
+
+  <label for="capsule-input" class="lbl">Capsule JSON</label>
+  <textarea
+    id="capsule-input"
+    spellcheck="false"
+    placeholder='{"schema":"sbo3l.passport_capsule.v2", ...}'
+    rows="10">{initialCapsule}</textarea>
+
+  <div class="actions">
+    <button id="verify-btn" type="button">Verify</button>
+    <span id="verifier-status" class="status">idle</span>
+  </div>
+
+  <output id={reportId} class="report" data-state="idle"></output>
+</section>
+
+<style>
+  .verifier {
+    max-width: var(--max);
+    margin: 2em auto;
+    padding: 1.5em;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .verifier h2 { margin-top: 0; }
+  .lede { color: var(--muted); margin-bottom: 1.2em; }
+  .lbl { display: block; font-weight: 600; margin-bottom: 0.4em; }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    padding: 0.6em;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft, #f9fafb);
+    resize: vertical;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    margin: 1em 0;
+  }
+  button {
+    padding: 0.5em 1.2em;
+    font-size: 1em;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent, #1f6feb);
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: progress; }
+  .status { color: var(--muted); font-size: 0.9em; font-family: ui-monospace, monospace; }
+  .report {
+    display: block;
+    margin-top: 1em;
+    padding: 0;
+    min-height: 1.5em;
+  }
+  .report[data-state="idle"] { display: none; }
+  .report ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.4em;
+  }
+  .report li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.8em;
+    align-items: baseline;
+    padding: 0.5em 0.8em;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft, #f9fafb);
+  }
+  .pill {
+    display: inline-block;
+    padding: 0.1em 0.6em;
+    border-radius: 999px;
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .pill.passed { background: #d1f4dd; color: #056635; }
+  .pill.skipped { background: #fff4ce; color: #6b5300; }
+  .pill.failed { background: #ffd6d6; color: #8b0000; }
+  .label { font-family: ui-monospace, monospace; font-size: 0.9em; }
+  .detail { color: var(--muted); font-size: 0.8em; max-width: 60ch; }
+  .summary {
+    margin-top: 0.8em;
+    padding: 0.5em 0.8em;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .summary.fully-ok { background: #d1f4dd; color: #056635; }
+  .summary.with-skips { background: #fff4ce; color: #6b5300; }
+  .summary.failed { background: #ffd6d6; color: #8b0000; }
+  .err {
+    color: #8b0000;
+    background: #ffd6d6;
+    padding: 0.6em 0.8em;
+    border-radius: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85em;
+    white-space: pre-wrap;
+  }
+</style>
+
+<script is:inline define:vars={{ reportId }}>
+  // Lazy WASM module init — kicked off on first verify click. The
+  // module is cached for subsequent calls so re-verifications are
+  // synchronous after the first load.
+  let wasmReady = null;
+  async function loadWasm() {
+    if (wasmReady) return wasmReady;
+    wasmReady = (async () => {
+      const mod = await import("/wasm/sbo3l_core.js");
+      await mod.default();
+      return mod;
+    })();
+    return wasmReady;
+  }
+
+  function pill(outcome) {
+    const cls =
+      outcome === "PASSED"
+        ? "passed"
+        : outcome === "FAILED"
+        ? "failed"
+        : "skipped";
+    return `<span class="pill ${cls}">${outcome}</span>`;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c)
+    );
+  }
+
+  function renderReport(report) {
+    const out = document.getElementById(reportId);
+    out.dataset.state = "ready";
+    const items = report.checks.map((c) => {
+      const detail = c.detail
+        ? `<span class="detail">${escapeHtml(c.detail)}</span>`
+        : "<span></span>";
+      return `<li><span class="label">${escapeHtml(c.label)}</span>${detail}${pill(c.outcome)}</li>`;
+    });
+    let summary, summaryClass;
+    if (report.ok) {
+      summary = "PASSED — all 6 cryptographic checks succeeded";
+      summaryClass = "fully-ok";
+    } else if (!report.any_failed) {
+      summary = "PASSED with skips — capsule needs aux input for full crypto coverage";
+      summaryClass = "with-skips";
+    } else {
+      summary = "FAILED — at least one cryptographic check rejected the capsule";
+      summaryClass = "failed";
+    }
+    out.innerHTML =
+      `<ul>${items.join("")}</ul>` +
+      `<div class="summary ${summaryClass}">${summary}</div>`;
+  }
+
+  function renderError(msg) {
+    const out = document.getElementById(reportId);
+    out.dataset.state = "error";
+    out.innerHTML = `<div class="err">${escapeHtml(msg)}</div>`;
+  }
+
+  async function verify() {
+    const status = document.getElementById("verifier-status");
+    const btn = document.getElementById("verify-btn");
+    const input = document.getElementById("capsule-input");
+    const json = input.value.trim();
+    if (!json) {
+      renderError("Paste a capsule JSON first.");
+      return;
+    }
+    btn.disabled = true;
+    status.textContent = "loading wasm…";
+    try {
+      const mod = await loadWasm();
+      status.textContent = `verifying (sbo3l-core v${mod.sbo3l_core_version()})…`;
+      const report = mod.verify_capsule_strict_json(json);
+      renderReport(report);
+      status.textContent = report.ok ? "ok" : "see report";
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      renderError(msg);
+      status.textContent = "error";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById("verify-btn").addEventListener("click", () => {
+    void verify();
+  });
+
+  // /proof-test.astro sets data-autorun="1" on the section so the
+  // smoke-test page exercises the full verify path on mount without
+  // user interaction.
+  if (document.querySelector(".verifier")?.dataset.autorun === "1") {
+    void verify();
+  }
+</script>
