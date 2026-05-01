@@ -14,10 +14,16 @@
 //! to the offline fixture for determinism; a real-resolver implementation can
 //! be added without touching call sites.
 
+pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
 
+pub use durin::{
+    build_dry_run as build_durin_dry_run, multicall_calldata, register_calldata, DurinDryRun,
+    DurinDryRunSetTextEntry, DurinError, DURIN_DRY_RUN_SCHEMA, MAX_RECORD_VALUE_BYTES,
+    MULTICALL_SELECTOR, REGISTER_SELECTOR,
+};
 pub use ens::{EnsRecords, EnsResolver, OfflineEnsResolver, ResolveError};
 pub use ens_anchor::{
     build_envelope, namehash, set_text_calldata, AnchorEnvelope, AnchorError, AnchorMode,
