@@ -17,6 +17,8 @@ pub const DECISION_TOKEN_SCHEMA_JSON: &str =
 pub const AUDIT_EVENT_SCHEMA_JSON: &str = include_str!("../../../schemas/audit_event_v1.json");
 pub const PASSPORT_CAPSULE_SCHEMA_JSON: &str =
     include_str!("../../../schemas/sbo3l.passport_capsule.v1.json");
+pub const PASSPORT_CAPSULE_V2_SCHEMA_JSON: &str =
+    include_str!("../../../schemas/sbo3l.passport_capsule.v2.json");
 
 pub const APRP_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/aprp/v1.json";
 pub const POLICY_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/policy/v1.json";
@@ -25,6 +27,8 @@ pub const POLICY_RECEIPT_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/policy-rec
 pub const DECISION_TOKEN_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/decision-token/v1.json";
 pub const AUDIT_EVENT_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/audit-event/v1.json";
 pub const PASSPORT_CAPSULE_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/passport-capsule/v1.json";
+pub const PASSPORT_CAPSULE_V2_SCHEMA_ID: &str =
+    "https://schemas.sbo3l.dev/passport-capsule/v2.json";
 
 fn parse(schema: &str) -> Value {
     serde_json::from_str(schema).expect("invariant: embedded schema parses")
@@ -75,6 +79,11 @@ fn passport_capsule_schema() -> &'static JSONSchema {
     CELL.get_or_init(|| build_with_refs(parse(PASSPORT_CAPSULE_SCHEMA_JSON), &[]))
 }
 
+fn passport_capsule_v2_schema() -> &'static JSONSchema {
+    static CELL: OnceLock<JSONSchema> = OnceLock::new();
+    CELL.get_or_init(|| build_with_refs(parse(PASSPORT_CAPSULE_V2_SCHEMA_JSON), &[]))
+}
+
 pub fn validate_aprp(value: &Value) -> std::result::Result<(), SchemaError> {
     validate(aprp_schema(), value)
 }
@@ -95,13 +104,25 @@ pub fn validate_audit_event(value: &Value) -> std::result::Result<(), SchemaErro
     validate(audit_event_schema(), value)
 }
 
-/// Validate a `sbo3l.passport_capsule.v1` JSON document against the
-/// embedded schema. This is *purely structural* (shape, required fields,
-/// hex/UUID-ish patterns, `additionalProperties: false`). Cross-field
-/// truthfulness invariants (deny→no execution, live→evidence, hash
-/// internal-consistency) live in `crate::passport::verify_capsule`.
+/// Validate a passport capsule JSON document against the embedded
+/// schema. Dispatches on the `schema` field — `sbo3l.passport_capsule.v1`
+/// goes to the v1 schema; `sbo3l.passport_capsule.v2` goes to the v2
+/// schema (additive: same shape plus optional `policy.policy_snapshot`
+/// and `audit.audit_segment`). Any other value (or missing field) routes
+/// to v1 for backwards compat with callers that pre-date the v2 bump;
+/// the v1 schema itself enforces `schema: const "sbo3l.passport_capsule.v1"`
+/// so a malformed marker still surfaces as a schema error there.
+///
+/// This is *purely structural* (shape, required fields, hex/UUID-ish
+/// patterns, `additionalProperties: false`). Cross-field truthfulness
+/// invariants (deny→no execution, live→evidence, hash internal-
+/// consistency) live in `crate::passport::verify_capsule`.
 pub fn validate_passport_capsule(value: &Value) -> std::result::Result<(), SchemaError> {
-    validate(passport_capsule_schema(), value)
+    let version = value.get("schema").and_then(|v| v.as_str()).unwrap_or("");
+    match version {
+        "sbo3l.passport_capsule.v2" => validate(passport_capsule_v2_schema(), value),
+        _ => validate(passport_capsule_schema(), value),
+    }
 }
 
 fn validate(schema: &JSONSchema, value: &Value) -> std::result::Result<(), SchemaError> {
