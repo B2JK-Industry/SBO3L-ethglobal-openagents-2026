@@ -1,0 +1,57 @@
+name: Lighthouse + a11y
+
+on:
+  pull_request:
+    paths:
+      - "apps/marketing/**"
+      - "apps/docs/**"
+      - "apps/hosted-app/**"
+      - "scripts/lighthouse-ci.mjs"
+      - "scripts/a11y-audit.mjs"
+      - ".github/workflows/lighthouse.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Lighthouse
+        run: npm install --no-save lighthouse@^12 chrome-launcher@^1
+      - name: Run Lighthouse CI
+        run: node scripts/lighthouse-ci.mjs
+        continue-on-error: true
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: docs/submission/lighthouse-reports/
+
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Playwright + axe
+        run: |
+          npm install --no-save playwright@^1.48 @axe-core/playwright@^4.10
+          npx playwright install --with-deps chromium
+      - name: Run axe-core audit
+        run: node scripts/a11y-audit.mjs
+        continue-on-error: true
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-reports
+          path: docs/submission/a11y-reports/
