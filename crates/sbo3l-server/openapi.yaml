@@ -23,20 +23,32 @@ tags:
   - name: audit
   - name: events
   - name: health
+  - name: policy
 paths:
-  /health:
+  /v1/healthz:
     get:
       tags: [health]
-      summary: Liveness probe
-      operationId: health
+      summary: Liveness + readiness probe (Phase 2 path; replaces /health from Phase 1)
+      description: |
+        Plain HTTP GET — no auth required. Returns daemon liveness
+        (process up) plus readiness (DB reachable, signer reachable).
+        Renamed from `/health` in Dev 1's #149 to match the
+        `/v1/<resource>` convention used elsewhere in the daemon HTTP
+        surface.
+      operationId: healthz
       responses:
         "200":
-          description: Daemon alive
+          description: Daemon alive + ready
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
+              schema: { $ref: "#/components/schemas/HealthResponse" }
               example: { status: "ok", version: "1.0.1", db: "ok" }
+        "503":
+          description: Daemon alive but not ready (DB or signer unavailable)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+              example: { status: "degraded", version: "1.0.1", db: "error" }
   /v1/payment-requests:
     post:
       tags: [payment-requests]
@@ -114,6 +126,57 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PassportCapsule" }
         "404": { description: request_hash not found in local audit }
+  /v1/policy/check:
+    post:
+      tags: [policy]
+      summary: Dry-run a policy decision without writing to the audit chain
+      description: |
+        Same input shape as `POST /v1/payment-requests` but the daemon
+        runs only the schema + nonce + policy + budget-projection
+        stages and returns the would-be decision. **No audit event
+        is appended; no budget is committed; no PolicyReceipt is
+        signed.** Idempotent and side-effect-free.
+
+        Use case: agent-side preflight before committing to a real
+        request, or a CI gate that walks a fixture corpus checking
+        policy outcomes don't drift between releases.
+      operationId: checkPolicy
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AprpEnvelope" }
+      responses:
+        "200":
+          description: Projected decision (no side effects)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [decision, policy_snapshot_hash, would_commit]
+                properties:
+                  decision: { type: string, enum: [allow, deny] }
+                  deny_code: { type: string, nullable: true }
+                  policy_snapshot_hash: { type: string }
+                  would_commit:
+                    type: object
+                    description: Per-scope budget projection had this been a real request
+                    properties:
+                      per_agent: { type: string }
+                      per_vendor: { type: string }
+                      global: { type: string }
+              example:
+                decision: allow
+                deny_code: null
+                policy_snapshot_hash: "0xe044f1..."
+                would_commit:
+                  per_agent: "0.42 + 0.05 / 1.00"
+                  per_vendor: "0.10 + 0.05 / 0.50"
+                  global: "4.83 + 0.05 / 50.00"
+        "400": { $ref: "#/components/responses/SchemaError" }
+        "401": { $ref: "#/components/responses/AuthError" }
   /v1/events:
     get:
       tags: [events]
@@ -124,7 +187,8 @@ paths:
         the trust-dns visualization at `sbo3l-trust-dns-viz.vercel.app`.
 
         Client must send the `Upgrade: websocket` headers; this endpoint
-        returns 426 to plain GET requests.
+        returns 426 to plain GET requests. Connection URL scheme is
+        `ws://` for plain HTTP and `wss://` for TLS-terminated edges.
       responses:
         "101": { description: Switching protocols (WebSocket upgraded) }
         "426": { description: Upgrade required }
