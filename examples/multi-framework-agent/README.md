@@ -6,6 +6,37 @@ A single workflow walks LangChain → CrewAI → AutoGen, each gating its paymen
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    O["🎯 orchestrator (Python)<br/>one-shot driver"]
+    P["📐 plan service<br/>LangChain · :8001<br/>sbo3l-langchain"]
+    E["⚙️ execute service<br/>CrewAI · :8002<br/>sbo3l-crewai"]
+    C["✅ confirm service<br/>AutoGen · :8003<br/>@sbo3l/autogen"]
+    S(("🔐 SBO3L daemon<br/>:8730<br/>policy gate<br/>+ hash-chained<br/>audit log"))
+
+    O -->|"POST /plan"| P
+    P -->|"submit APRP"| S
+    S -->|"allow + receipt<br/>evt-A"| P
+    P -->|"next_action APRP"| E
+    E -->|"submit APRP"| S
+    S -->|"allow + receipt<br/>evt-B"| E
+    E -->|"next_action APRP"| C
+    C -->|"submit APRP"| S
+    S -->|"allow + receipt<br/>evt-C"| C
+
+    classDef daemon fill:#1a4d2e,stroke:#4ade80,stroke-width:3px,color:#fff
+    classDef service fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#fff
+    classDef driver fill:#4a3a1e,stroke:#fbbf24,stroke-width:2px,color:#fff
+    class S daemon
+    class P,E,C service
+    class O driver
+```
+
+> **The hash chain is what carries the trust:** `evt-A.hash → evt-B.prev_hash`, `evt-B.hash → evt-C.prev_hash`. Flip a single byte anywhere in the chain and `sbo3l passport verify --strict` rejects. *One* signed log spans *three* framework boundaries.
+
+<details>
+<summary>ASCII version (for terminals without mermaid)</summary>
+
 ```
                          ┌──────────────────────────────┐
                          │      orchestrator (Python)    │
@@ -41,6 +72,8 @@ A single workflow walks LangChain → CrewAI → AutoGen, each gating its paymen
                 ALL three live on the SAME hash-chained audit
                 log inside the shared sbo3l-server container.
 ```
+
+</details>
 
 ## Boot
 
