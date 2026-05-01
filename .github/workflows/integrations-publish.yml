@@ -73,6 +73,20 @@ jobs:
         with:
           node-version: "20"
 
+      # Integrations under sdks/typescript/integrations/ depend on @sbo3l/sdk
+      # via `file:../..` and resolve types from the SDK's `dist/` folder.
+      # `npm install` in the integration directory will NOT trigger a build
+      # in the SDK workspace, so typecheck would fail with "Cannot find
+      # module '@sbo3l/sdk'". Build the SDK first, unconditionally — it's
+      # cheap (<10s) and the downstream integrations under
+      # `integrations/<n>/` simply ignore the prebuilt dist/ when they
+      # resolve `@sbo3l/sdk` from the npm registry.
+      - name: Build root SBO3L TS SDK (provides dist/ for file:../.. peers)
+        working-directory: sdks/typescript
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
       - name: Install
         working-directory: ${{ matrix.dir }}
         run: npm install --no-audit --no-fund
