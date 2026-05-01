@@ -1,0 +1,78 @@
+---
+title: agent register
+description: Register a new agent with the daemon — generates an Ed25519 keypair, optionally publishes ENS records.
+audience: agent runtime developers, ops
+outcome: You'll know how to bootstrap an agent identity and where its keys live.
+prereqs:
+  - signing model read
+---
+
+```bash
+sbo3l agent register --agent-id <ID> [--ens <NAME>] [OPTIONS]
+```
+
+Registers a new agent and provisions its identity material on the daemon side. The agent itself never sees the private key.
+
+## Flags
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--agent-id <STRING>` | required | logical identifier; must be unique per daemon |
+| `--ens <NAME>` | none | optionally publish `sbo3l:*` text records under this ENS name |
+| `--signer <kind>` | `in-memory` | one of `in-memory`, `file`, `kms-aws`, `kms-gcp`, `vault` |
+| `--key-path <PATH>` | none | required when `--signer file`; path to chmod-600 secret |
+| `--kms-key-id <ID>` | none | required when `--signer kms-*` |
+| `--dry-run` | off | print plan, exit `rc=3` without state changes |
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | OK — agent registered, pubkey emitted on stdout |
+| `1` | IO error — daemon unreachable, ENS resolver unavailable, file path unwritable |
+| `2` | semantic — agent_id already registered, ENS name controlled by another address |
+| `3` | nothing-to-do — `--dry-run` succeeded |
+
+## Examples
+
+### Local dev (in-memory signer)
+
+```bash
+sbo3l agent register --agent-id research-01
+# stdout: agent_id=research-01 pubkey=ed25519:9aF3...
+# (signer in-memory; lost on daemon restart)
+```
+
+### Production (KMS-backed signer + ENS publish)
+
+```bash
+sbo3l agent register \
+  --agent-id research-01 \
+  --signer kms-aws \
+  --kms-key-id arn:aws:kms:eu-west-1:123:key/abcd \
+  --ens research-01.sbo3lagent.eth
+# Publishes:
+#   sbo3l:pubkey   = ed25519:9aF3...
+#   sbo3l:endpoint = http://127.0.0.1:8730/v1
+#   sbo3l:policy_hash = e044f1...
+#   sbo3l:audit_root  = 0x000000...
+#   sbo3l:proof_uri   = https://sbo3l-marketing.vercel.app/proof
+```
+
+### Dry-run — print plan, don't execute
+
+```bash
+sbo3l agent register --agent-id research-01 --ens research-01.sbo3lagent.eth --dry-run
+# rc=3, prints the plan (keys to generate, records to write) without state changes
+```
+
+## Pitfalls
+
+- **`--signer in-memory` loses signatures on restart.** Audit chain becomes unverifiable for events signed before the restart. Use `file` or `kms-*` for anything beyond ephemeral dev.
+- **ENS publish requires gas.** SBO3L does not hold a wallet; ENS records are written by the operator's wallet (out-of-band). The CLI emits the records as a transaction-payload that the operator submits.
+- **`--agent-id` is permanent in the audit chain.** Renaming requires a fresh agent registration and a chain checkpoint.
+
+## See also
+
+- [`agent verify-ens`](/cli/agent-verify-ens) — confirm published records match daemon state.
+- [Signing model](/concepts/signing) — where the private key actually lives.
