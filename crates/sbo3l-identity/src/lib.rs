@@ -14,10 +14,17 @@
 //! to the offline fixture for determinism; a real-resolver implementation can
 //! be added without touching call sites.
 
+pub mod cross_agent;
 pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
+
+pub use cross_agent::{
+    build_challenge, sign_challenge, verify_challenge, CrossAgentChallenge, CrossAgentError,
+    CrossAgentReject, CrossAgentTrust, PubkeyResolver, SignedChallenge, CHALLENGE_SCHEMA,
+    FRESHNESS_WINDOW_MS, PUBKEY_RECORD_KEY, TRUST_SCHEMA,
+};
 
 pub use durin::{
     build_dry_run as build_durin_dry_run, multicall_calldata, register_calldata, DurinDryRun,
