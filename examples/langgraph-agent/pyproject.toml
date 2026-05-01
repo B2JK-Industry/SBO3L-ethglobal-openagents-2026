@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sbo3l-example-langgraph-agent"
-version = "0.1.0"
+version = "1.0.0"
 description = "Minimal 3-node LangGraph: plan → policy_guard → execute. Demonstrates SBO3L gating in a stateful graph."
 readme = "README.md"
 requires-python = ">=3.10"

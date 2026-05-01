@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sbo3l-langgraph"
-version = "0.1.0"
+version = "1.0.0"
 description = "LangGraph adapter for SBO3L — drop a PolicyGuardNode between your plan and execute nodes to gate every action through SBO3L's policy boundary."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "sbo3l-sdk>=0.1.0,<1",
+    "sbo3l-sdk>=1.0.0,<2",
 ]
 
 [project.optional-dependencies]
