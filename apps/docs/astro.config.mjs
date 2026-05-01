@@ -40,7 +40,7 @@ export default defineConfig({
             { label: "Audit replay", link: "/concepts/audit-replay" },
             { label: "Policy decision", link: "/concepts/policy" },
             { label: "Multi-scope budget", link: "/concepts/budget" },
-            { label: "Trust DNS", link: "/concepts/trust-dns", badge: { text: "soon", variant: "note" } },
+            { label: "Trust DNS", link: "/concepts/trust-dns" },
           ],
         },
         {
