@@ -49,6 +49,11 @@ dev = [
     "mypy>=1.10,<2",
     "build>=1.2,<2",
 ]
+# Optional extra for live-mode Uniswap swaps (sbo3l_sdk.uniswap.swap with
+# SBO3L_LIVE_ETH=1). Mock-mode usage doesn't need it.
+web3 = [
+    "web3>=6,<8",
+]
 
 [project.urls]
 Homepage = "https://sbo3l.dev"

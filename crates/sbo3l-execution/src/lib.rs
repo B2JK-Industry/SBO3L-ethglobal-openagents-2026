@@ -20,8 +20,13 @@
 
 pub mod uniswap;
 pub mod uniswap_live;
+pub mod uniswap_trading;
 
 pub use sbo3l_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor};
+pub use uniswap_trading::{
+    encode_exact_input_single, hex_encode, parse_address, sepolia_etherscan_tx_url, AddressError,
+    SwapParams, EXACT_INPUT_SINGLE_SELECTOR, SEPOLIA_SWAP_ROUTER_02, SEPOLIA_USDC,
+};
 pub use sbo3l_keeperhub_adapter::{build_envelope, KeeperHubExecutor, KeeperHubMode};
 pub use uniswap::{
     evaluate_swap, SwapCheck, SwapPolicy, SwapPolicyOutcome, SwapQuote, SwapToken, UniswapExecutor,
