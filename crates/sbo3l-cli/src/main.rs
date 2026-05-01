@@ -7,6 +7,7 @@ use sbo3l_core::audit_bundle::{self, AuditBundle};
 use sbo3l_core::receipt::PolicyReceipt;
 use sbo3l_core::{schema, SchemaError};
 
+mod agent;
 mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
@@ -116,6 +117,76 @@ enum Command {
     Passport {
         #[command(subcommand)]
         op: PassportCmd,
+    },
+    /// Agent ENS lifecycle (T-3-1).
+    ///
+    /// Currently ships `register` for issuing a Durin subname under
+    /// a parent (default `sbo3lagent.eth` mainnet) plus a
+    /// `multicall(setText × N)` to set every `sbo3l:*` text record
+    /// in one tx. T-3-1 main PR ships the `--dry-run` path; broadcast
+    /// is gated and lands in a follow-up that wires
+    /// `sbo3l_core::signers::eth::EthSigner`.
+    ///
+    /// See `docs/cli/agent.md`.
+    Agent {
+        #[command(subcommand)]
+        op: AgentCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AgentCmd {
+    /// Issue an ENS subname `<name>.<parent>` and pre-pack a
+    /// `multicall(setText × N)` to set every `sbo3l:*` record.
+    ///
+    /// Default `--parent sbo3lagent.eth` (mainnet). Default
+    /// `--network sepolia`; mainnet requires `SBO3L_ALLOW_MAINNET_TX=1`
+    /// and an explicit `--network mainnet`.
+    Register {
+        /// Single DNS label (no `.`). E.g. `research-agent`.
+        #[arg(long)]
+        name: String,
+
+        /// Parent ENS name. Default `sbo3lagent.eth`.
+        #[arg(long, default_value = agent::DEFAULT_PARENT)]
+        parent: String,
+
+        /// `mainnet` or `sepolia`. Default `sepolia`.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+
+        /// JSON object mapping `sbo3l:<key>` → value. Non-`sbo3l:*`
+        /// keys are refused.
+        #[arg(long)]
+        records: String,
+
+        /// On-chain owner of the subname after issuance. EIP-55 hex
+        /// with `0x` prefix. Required in this build; defaults to the
+        /// signer address once the EthSigner factory wires up.
+        #[arg(long)]
+        owner: Option<String>,
+
+        /// Override the resolver address. Default = the network's
+        /// canonical PublicResolver.
+        #[arg(long)]
+        resolver: Option<String>,
+
+        /// **Not implemented in this build.** Stub returns a clear
+        /// error. Future broadcast path requires `--rpc-url` and
+        /// `--private-key-env-var`.
+        #[arg(long, default_value_t = false)]
+        broadcast: bool,
+
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        #[arg(long)]
+        private_key_env_var: Option<String>,
+
+        /// Write the dry-run envelope to `<path>` as JSON in addition
+        /// to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
 }
 
@@ -665,6 +736,32 @@ fn main() -> ExitCode {
         Command::Passport {
             op: PassportCmd::Explain { path, json },
         } => passport::cmd_explain(&path, json),
+        Command::Agent {
+            op:
+                AgentCmd::Register {
+                    name,
+                    parent,
+                    network,
+                    records,
+                    owner,
+                    resolver,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
+                    out,
+                },
+        } => agent::cmd_agent_register(agent::AgentRegisterArgs {
+            name,
+            parent,
+            network,
+            records_json: records,
+            owner,
+            resolver,
+            broadcast,
+            rpc_url,
+            private_key_env_var,
+            out,
+        }),
     }
 }
 
