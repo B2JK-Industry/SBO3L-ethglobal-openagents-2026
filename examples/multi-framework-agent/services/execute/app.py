@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import FastAPI
@@ -18,6 +20,7 @@ from sbo3l_sdk import SBO3LClientSync
 
 ENDPOINT = os.environ.get("SBO3L_ENDPOINT", "http://sbo3l-server:8730")
 KH_WORKFLOW_ID = "m4t4cnpmhv8qquce3bv3c"
+ALLOWED_RECIPIENT_BASE = "0x1111111111111111111111111111111111111111"
 
 app = FastAPI(title="sbo3l-multi-execute")
 
@@ -50,19 +53,20 @@ def execute(body: dict[str, Any]) -> dict[str, Any]:
     next_action = {
         "agent_id": "research-agent-01",
         "task_id": "multi-fw-confirm-1",
-        "intent": "pay_agent_service",
+        "intent": "purchase_api_call",
         "amount": {"value": "0.01", "currency": "USD"},
         "token": "USDC",
         "destination": {
             "type": "x402_endpoint",
             "url": "https://api.example.com/v1/confirm",
             "method": "POST",
+            "expected_recipient": ALLOWED_RECIPIENT_BASE,
         },
         "payment_protocol": "x402",
         "chain": "base",
         "provider_url": "https://api.example.com",
-        "expiry": "2026-05-01T10:31:00Z",
-        "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGP",
+        "expiry": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        "nonce": str(uuid.uuid4()),
         "risk_class": "low",
     }
     return {
