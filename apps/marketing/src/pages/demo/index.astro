@@ -1,0 +1,66 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+const steps = [
+  { n: 1, title: "Meet the agents", time: "20s", href: "/demo/1-meet-the-agents", desc: "Five agents discovering each other via ENS in real time." },
+  { n: 2, title: "Watch a decision", time: "25s", href: "/demo/2-watch-a-decision", desc: "Replay a recorded session — APRP envelope to signed receipt." },
+  { n: 3, title: "Verify yourself",  time: "30s", href: "/demo/3-verify-yourself",  desc: "Paste a Passport capsule. All 6 strict checks run in your browser via WASM." },
+  { n: 4, title: "Explore the graph", time: "open", href: "/demo/4-explore-the-trust-graph", desc: "Filter the trust topology — who attests for whom, where the deny edges are." },
+];
+---
+<BaseLayout
+  title="SBO3L — Demo walkthrough"
+  description="Four-step click-through: meet the agents, watch a decision, verify yourself, explore the trust graph."
+  ogTitle="SBO3L — 90-second demo"
+>
+  <section class="hero">
+    <h1>Four steps. Two minutes. No daemon.</h1>
+    <p class="lede">
+      Each step is a self-contained page. Click through in order or jump to whichever interests you. Mobile-friendly; no dependencies, no signups, no daemon required.
+    </p>
+  </section>
+
+  <section class="steps">
+    {steps.map((s) => (
+      <a class="step" href={s.href}>
+        <span class="num">{s.n}</span>
+        <div class="body">
+          <div class="title">{s.title} <span class="time">~{s.time}</span></div>
+          <p class="desc">{s.desc}</p>
+        </div>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    ))}
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
+  .hero h1 { font-size: var(--fs-4); font-weight: 700; margin-bottom: 0.5em; }
+  .hero .lede { font-size: var(--fs-2); color: var(--muted); max-width: 700px; }
+
+  .steps { max-width: var(--max); margin: 1em auto 4em; padding: 0 1.5em; display: grid; gap: 0.8em; }
+  .step {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.2em;
+    align-items: center;
+    padding: 1.2em 1.4em;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--code-bg);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.15s;
+  }
+  .step:hover { border-color: var(--accent); text-decoration: none; }
+  .step .num { font-size: 1.6em; font-weight: 700; color: var(--accent); width: 1.2em; text-align: center; }
+  .step .title { font-weight: 600; margin-bottom: 0.3em; }
+  .step .time { color: var(--muted); font-weight: 400; font-size: 0.85em; margin-left: 0.5em; }
+  .step .desc { color: var(--muted); font-size: 0.95em; margin: 0; }
+  .step .arrow { color: var(--muted); font-size: 1.4em; }
+  @media (max-width: 640px) {
+    .step { grid-template-columns: auto 1fr; }
+    .step .arrow { display: none; }
+  }
+</style>
