@@ -11,6 +11,12 @@ import {
   KH_WORKFLOW_ID,
 } from "./tools.js";
 
+// Fresh nonce + expiry per run — daemon's protocol.nonce_replay rejects
+// duplicate (nonce, agent_id) tuples, so a static nonce only works once.
+function freshNonce(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `nonce-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 const APRP = {
   agent_id: "research-agent-01",
   task_id: "demo-autogen-smoke-1",
@@ -25,8 +31,8 @@ const APRP = {
   payment_protocol: "x402",
   chain: "base",
   provider_url: "https://api.example.com",
-  expiry: "2026-05-01T10:31:00Z",
-  nonce: "01HTAWX5K3R8YV9NQB7C6P2DGM",
+  expiry: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+  nonce: freshNonce(),
   risk_class: "low",
 };
 
