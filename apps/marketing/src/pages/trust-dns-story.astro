@@ -1,0 +1,44 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+---
+<BaseLayout
+  title="Trust DNS — SBO3L"
+  description="An interactive zine telling the story of how autonomous agents discover and verify each other via ENS."
+  ogTitle="SBO3L — Trust DNS"
+>
+  <section class="story-shell">
+    <h1>Trust DNS</h1>
+    <p class="lede">
+      An interactive zine telling the story of how autonomous agents discover
+      and verify each other via ENS — the trust DNS of the agent economy.
+    </p>
+    <p class="status">
+      <strong>Coming soon.</strong> This page is the shell for the zine
+      tracked under <a href={`${githubRepoUrl}/blob/main/docs/win-backlog/10-first-tier-amplifiers.md#ens-mc-a1`}>ENS-MC-A1</a>.
+      Artist coordination + 8-12 page visual narrative + scroll-driven
+      transitions land in a Phase 3 amplifier PR.
+    </p>
+    <p>
+      Until then, read the
+      <a href={`${githubRepoUrl}/blob/main/docs/win-backlog/06-phase-2.md#t-3-6`}>Trust DNS essay</a>
+      (T-3-6, 1500 words) once it ships at <code>docs.sbo3l.dev/concepts/trust-dns</code>.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .story-shell { max-width: var(--max); margin: 5em auto; padding: 0 1.5em; }
+  .story-shell h1 { font-size: var(--fs-4); font-weight: 700; margin-bottom: 0.5em; }
+  .story-shell .lede { font-size: var(--fs-2); color: var(--muted); margin-bottom: 1.5em; }
+  .story-shell .status {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1em 1.2em;
+    color: var(--muted);
+    margin-bottom: 1em;
+  }
+  .story-shell .status strong { color: var(--accent); }
+</style>
