@@ -1,0 +1,165 @@
+name: ccip-gateway
+
+# Vercel deploy for `apps/ccip-gateway/` (the SBO3L CCIP-Read gateway,
+# T-4-1 deploy target). Deploys to https://sbo3l-ccip.vercel.app on
+# push to main; preview deploys on PR.
+#
+# Required GitHub repo secrets:
+#   VERCEL_TOKEN      — Vercel API token (Account → Settings → Tokens)
+#   VERCEL_ORG_ID     — `vercel link` output, in apps/ccip-gateway/.vercel/project.json
+#   VERCEL_PROJECT_ID — same source as above
+#   GATEWAY_PRIVATE_KEY — secp256k1 hex (set in Vercel project env, NOT
+#                        in GitHub secrets — this workflow does not need
+#                        the key, only Vercel runtime does. Listed here
+#                        as a reminder during initial project setup.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/ccip-gateway/**"
+      - ".github/workflows/ccip-gateway.yml"
+  pull_request:
+    paths:
+      - "apps/ccip-gateway/**"
+      - ".github/workflows/ccip-gateway.yml"
+
+permissions:
+  contents: read
+  deployments: write       # so the workflow can post a deployment status
+  pull-requests: write     # so preview-deploy comments can land on PRs
+
+concurrency:
+  # Serialize per-branch so two pushes don't race the same Vercel project.
+  group: ccip-gateway-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  typecheck:
+    name: Typecheck (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/ccip-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/ccip-gateway/package-lock.json
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          # The route uses GATEWAY_PRIVATE_KEY at runtime, but the build
+          # itself doesn't need it (Next App Router). Provide a dummy
+          # value so any startup-time validation doesn't fail in CI.
+          GATEWAY_PRIVATE_KEY: 0x0000000000000000000000000000000000000000000000000000000000000001
+
+  deploy-preview:
+    name: Vercel preview deploy
+    if: github.event_name == 'pull_request'
+    needs: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ccip-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings (preview)
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build (preview)
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy (preview)
+        id: deploy
+        run: |
+          set -euo pipefail
+          URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "preview_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Preview: $URL"
+
+      - name: Comment preview URL on PR
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
+        with:
+          script: |
+            const url = process.env.PREVIEW_URL || "(deploy failed; see job logs)";
+            const body = [
+              "**ccip-gateway preview deploy**",
+              "",
+              `Preview URL: ${url}`,
+              "",
+              "Smoke test:",
+              "```bash",
+              `curl -sS ${url}/api/0x0000000000000000000000000000000000000000/0x00.json | jq`,
+              "```",
+              "(Stub returns 501 until T-4-1 main PR ships the record-source impl.)",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+  deploy-production:
+    name: Vercel production deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ccip-gateway-production
+      url: https://sbo3l-ccip.vercel.app
+    defaults:
+      run:
+        working-directory: apps/ccip-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build (production)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy (production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
