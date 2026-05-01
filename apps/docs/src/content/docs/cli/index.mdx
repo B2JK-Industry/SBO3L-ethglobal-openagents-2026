@@ -1,0 +1,18 @@
+---
+title: CLI reference
+description: Command-line interface reference for the sbo3l binary.
+audience: operators, integration testers
+outcome: You'll know which subcommand to run and what its exit codes mean.
+---
+
+## Coming soon
+
+Per-subcommand reference lands in CTI-3-3 main, ported from `docs/cli/`:
+
+- `sbo3l passport run` — emit a Passport capsule from a daemon decision.
+- `sbo3l passport verify` — verify a capsule (structural / strict modes).
+- `sbo3l audit export` — export the local audit chain.
+- `sbo3l audit verify` — verify the local audit chain integrity.
+- `sbo3l server` — run the daemon.
+
+Exit-code contract: `0` = ok, `1` = IO error, `2` = semantic / verification failure, `3` = nothing-to-do.
