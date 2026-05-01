@@ -75,13 +75,13 @@
 **What:**
 Implement Durin per-agent subname issuance. CLI:
 ```bash
-sbo3l agent register --name research-agent --parent sbo3l.eth --records '{"sbo3l:agent_id":"research-agent-01",...}'
+sbo3l agent register --name research-agent --parent sbo3lagent.eth --records '{"sbo3l:agent_id":"research-agent-01",...}'
 ```
 
-Issues `research-agent.sbo3l.eth` via Durin contract on Sepolia (free testnet) or mainnet. Sets full record set in one tx (multicall).
+Issues `research-agent.sbo3lagent.eth` via Durin contract on Sepolia (free testnet) or mainnet. Sets full record set in one tx (multicall).
 
 **Acceptance criteria:**
-- [ ] `sbo3l agent register --name foo --parent sbo3l.eth --records ...` issues subname on Sepolia
+- [ ] `sbo3l agent register --name foo --parent sbo3lagent.eth --records ...` issues subname on Sepolia
 - [ ] Multicall sets all 7 sbo3l:* records in one tx (gas-efficient)
 - [ ] Dry-run flag `--dry-run` shows tx data without sending
 - [ ] Records readable via `LiveEnsResolver` after issuance
@@ -92,7 +92,7 @@ Issues `research-agent.sbo3l.eth` via Durin contract on Sepolia (free testnet) o
 # 1. Dry run
 cargo run -p sbo3l-cli -- agent register \
   --name test-agent \
-  --parent sbo3l.eth \
+  --parent sbo3lagent.eth \
   --network sepolia \
   --records '{"sbo3l:agent_id":"test-agent-01","sbo3l:endpoint":"http://127.0.0.1:8730/v1"}' \
   --dry-run
@@ -102,21 +102,21 @@ cargo run -p sbo3l-cli -- agent register \
 SBO3L_SEPOLIA_PRIVATE_KEY=$(cat /tmp/sepolia-key) \
 cargo run -p sbo3l-cli -- agent register \
   --name test-agent \
-  --parent sbo3l.eth \
+  --parent sbo3lagent.eth \
   --network sepolia \
   --records '{"sbo3l:agent_id":"test-agent-01"}'
 # expect: prints tx hash, exit 0
 
 # 3. Verify resolution
 SBO3L_ENS_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com \
-SBO3L_ENS_NAME=test-agent.sbo3l.eth \
+SBO3L_ENS_NAME=test-agent.sbo3lagent.eth \
 cargo run -p sbo3l-identity --example ens_live_smoke
 # expect: returns sbo3l:agent_id = "test-agent-01"
 ```
 
 **[D] Daniel review:**
 - [ ] Daniel funds Sepolia wallet (~0.5 ETH = ~$150)
-- [ ] Daniel registers `sbo3l.eth` apex on Sepolia (parent for subnames)
+- [ ] Daniel registers `sbo3lagent.eth` apex on Sepolia (parent for subnames)
 - [ ] Gas costs documented in ticket
 
 ---
@@ -134,7 +134,7 @@ cargo run -p sbo3l-identity --example ens_live_smoke
 **What:**
 Pure ENS-records-only lookup CLI: `sbo3l passport resolve <ens-name> [--rpc-url <url>] [--check-policy <hash>]`. Output:
 ```
-agent identity:    research-agent-01 (ens: research-agent.sbo3l.eth)
+agent identity:    research-agent-01 (ens: research-agent.sbo3lagent.eth)
 policy hash:       e044f13c5acb… ✓ matches expected
 endpoint:          http://127.0.0.1:8730/v1
 audit root:        0x0000…0000
@@ -177,18 +177,18 @@ cargo test --test test_passport_resolve
 
 **What:**
 Register 5 named agents on Sepolia:
-- `research-agent.sbo3l.eth`
-- `trading-agent.sbo3l.eth`
-- `swap-agent.sbo3l.eth`
-- `audit-agent.sbo3l.eth`
-- `coordinator-agent.sbo3l.eth`
+- `research-agent.sbo3lagent.eth`
+- `trading-agent.sbo3lagent.eth`
+- `swap-agent.sbo3lagent.eth`
+- `audit-agent.sbo3lagent.eth`
+- `coordinator-agent.sbo3lagent.eth`
 
 Each gets full sbo3l:* record set: `agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`, `capability` (NEW), `reputation` (NEW, starts at `100/100`).
 
 **Acceptance criteria:**
 - [ ] 5 agents registered + indexed on Sepolia
 - [ ] 7 records per agent
-- [ ] `cargo run -p sbo3l-cli -- passport resolve <name>.sbo3l.eth` returns all 7 records
+- [ ] `cargo run -p sbo3l-cli -- passport resolve <name>.sbo3lagent.eth` returns all 7 records
 - [ ] `demo-fixtures/sepolia-agent-fleet.json` lists all 5 + records (for offline reproduction)
 - [ ] Total cost < 0.1 ETH on Sepolia (free testnet)
 
@@ -196,7 +196,7 @@ Each gets full sbo3l:* record set: `agent_id`, `endpoint`, `policy_hash`, `audit
 ```bash
 for name in research-agent trading-agent swap-agent audit-agent coordinator-agent; do
   SBO3L_ENS_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com \
-  cargo run -p sbo3l-cli -- passport resolve ${name}.sbo3l.eth
+  cargo run -p sbo3l-cli -- passport resolve ${name}.sbo3lagent.eth
   echo "expected 7 records for ${name}"
 done
 ```
@@ -230,9 +230,9 @@ Schema:
 {
   "type": "sbo3l.cross_agent_attestation.v1",
   "from_agent_id": "research-agent-01",
-  "from_ens": "research-agent.sbo3l.eth",
+  "from_ens": "research-agent.sbo3lagent.eth",
   "to_agent_id": "trading-agent-01",
-  "to_ens": "trading-agent.sbo3l.eth",
+  "to_ens": "trading-agent.sbo3lagent.eth",
   "delegation_intent": "delegate_swap",
   "target_policy_hash": "abc123...",
   "expires_at": "2026-05-15T10:00:00Z",
@@ -246,7 +246,7 @@ Schema:
 
 **Acceptance criteria:**
 - [ ] Schema published, validates
-- [ ] CLI `sbo3l cross-agent attest --from research-agent.sbo3l.eth --to trading-agent.sbo3l.eth --intent delegate_swap` works against real Sepolia
+- [ ] CLI `sbo3l cross-agent attest --from research-agent.sbo3lagent.eth --to trading-agent.sbo3lagent.eth --intent delegate_swap` works against real Sepolia
 - [ ] Attestation flows through APRP → policy receipt → audit chain
 - [ ] Tampered attestation rejected with `cross_agent.attestation_invalid`
 - [ ] Expired attestation rejected with `cross_agent.attestation_expired`
@@ -256,8 +256,8 @@ Schema:
 ```bash
 # Attest
 ATT=$(cargo run -p sbo3l-cli -- cross-agent attest \
-  --from research-agent.sbo3l.eth \
-  --to trading-agent.sbo3l.eth \
+  --from research-agent.sbo3lagent.eth \
+  --to trading-agent.sbo3lagent.eth \
   --intent delegate_swap \
   --signer-key /tmp/research-agent-key.pem \
   --expires-in 1h)
@@ -381,7 +381,7 @@ Implement ENSIP-25 (CCIP-Read) for off-chain sbo3l:* records. Agent has minimal 
 **Acceptance criteria:**
 - [ ] CCIP-Read gateway running at `ccip.sbo3l.dev` (or similar)
 - [ ] Compatible with `ethers.js` + `viem` resolver flow (judges can resolve via standard tooling)
-- [ ] Test: `viem.getEnsText({name: 'research-agent.sbo3l.eth', key: 'sbo3l:reputation'})` returns expected
+- [ ] Test: `viem.getEnsText({name: 'research-agent.sbo3lagent.eth', key: 'sbo3l:reputation'})` returns expected
 - [ ] Doc explains the resolver setup
 
 **QA Test Plan:**
@@ -393,7 +393,7 @@ node -e "
 import { createPublicClient, http } from 'viem';
 import { mainnet } from 'viem/chains';
 const c = createPublicClient({ chain: mainnet, transport: http('https://ethereum-rpc.publicnode.com') });
-const r = await c.getEnsText({ name: 'research-agent.sbo3l.eth', key: 'sbo3l:reputation' });
+const r = await c.getEnsText({ name: 'research-agent.sbo3lagent.eth', key: 'sbo3l:reputation' });
 console.log(r);
 "
 # expect: numeric reputation

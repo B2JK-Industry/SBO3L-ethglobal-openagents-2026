@@ -340,7 +340,7 @@ Formal ENSIP submission proposing standardization of `sbo3l:` namespace for agen
 
 ### ENS AI Agents — push 30% → 80%
 
-#### [ENS-AGENT-A1] Mainnet `sbo3l.eth` apex + 50+ production subname agents
+#### [ENS-AGENT-A1] Mainnet `sbo3lagent.eth` apex + 50+ production subname agents
 
 **Owner:** Daniel (wallet) + ⛓️ Ivan | **Effort:** 40h + ~$200 mainnet | **Depends:** T-3-1 (Durin issuance flow)
 
@@ -349,13 +349,13 @@ Formal ENSIP submission proposing standardization of `sbo3l:` namespace for agen
 - `demo-fixtures/mainnet-agent-fleet.json`
 
 **What:**
-- Daniel registers `sbo3l.eth` apex on mainnet (~$30-200 depending on rarity)
-- Issue 50 named agent subnames via Durin: `agent-001.sbo3l.eth` through `agent-050.sbo3l.eth`
+- Daniel registers `sbo3lagent.eth` apex on mainnet (~$30-200 depending on rarity)
+- Issue 50 named agent subnames via Durin: `agent-001.sbo3lagent.eth` through `agent-050.sbo3lagent.eth`
 - Each gets full sbo3l:* record set
-- 10 named "specialist" agents: `research.sbo3l.eth`, `trading.sbo3l.eth`, ..., (10 categories)
+- 10 named "specialist" agents: `research.sbo3lagent.eth`, `trading.sbo3lagent.eth`, ..., (10 categories)
 
 **Acceptance criteria:**
-- [ ] `sbo3l.eth` owned on mainnet
+- [ ] `sbo3lagent.eth` owned on mainnet
 - [ ] 50 generic + 10 specialist subnames registered
 - [ ] All 60 agents resolve via `LiveEnsResolver` with full record set
 - [ ] Total mainnet cost ≤ $200 (using cheap mainnet windows + batched txs)
@@ -565,7 +565,7 @@ gh pr view <ensip-pr-url> --json state | jq -r .state  # "OPEN" or "MERGED"
 ```bash
 # ENS-AGENT-A1: 60 mainnet agents
 SBO3L_ENS_RPC_URL=https://ethereum-rpc.publicnode.com \
-  cargo run -p sbo3l-cli -- passport resolve agent-001.sbo3l.eth | grep -q "policy hash:"
+  cargo run -p sbo3l-cli -- passport resolve agent-001.sbo3lagent.eth | grep -q "policy hash:"
 
 # Confirm 60 total
 COUNT=$(jq '.agents | length' demo-fixtures/mainnet-agent-fleet.json)
@@ -608,7 +608,7 @@ gh pr view <uniswap-pr-url> --json state | jq -r .state  # "OPEN" or "MERGED"
 
 | Item | Cost |
 |---|---|
-| `sbo3l.eth` mainnet apex | ~$30-200 |
+| `sbo3lagent.eth` mainnet apex | ~$30-200 |
 | 60 subname mainnet registrations (batched) | ~$50 |
 | ERC-8004 mainnet registrations | ~$50 |
 | Uniswap mainnet swap (small safe amount + gas) | ~$50-100 |
