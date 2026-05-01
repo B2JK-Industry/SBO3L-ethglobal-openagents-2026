@@ -120,6 +120,16 @@ pub enum CapsuleVerifyError {
     )]
     CheckpointEventHashMismatch { outer: String, checkpoint: String },
 
+    /// `audit.audit_segment` (v2 self-contained verification slot)
+    /// exceeds the 1 MiB cap. The cap is an anti-DoS guard: a verifier
+    /// loading an attacker-supplied capsule should never have to allocate
+    /// arbitrary memory just to walk the chain.
+    #[error(
+        "capsule.audit_segment_too_large: capsule.audit.audit_segment is {bytes} bytes \
+         (cap is {cap_bytes} bytes / 1 MiB); verifier refuses to deserialise"
+    )]
+    AuditSegmentTooLarge { bytes: usize, cap_bytes: usize },
+
     /// Catch-all for malformed but technically schema-valid capsules
     /// where a required nested string is the wrong shape after schema
     /// validation passed (e.g. an enum value snuck through). Should be
@@ -142,10 +152,20 @@ impl CapsuleVerifyError {
             Self::AgentIdMismatch { .. } => "capsule.agent_id_mismatch",
             Self::AuditEventIdMismatch { .. } => "capsule.audit_event_id_mismatch",
             Self::CheckpointEventHashMismatch { .. } => "capsule.checkpoint_event_hash_mismatch",
+            Self::AuditSegmentTooLarge { .. } => "capsule.audit_segment_too_large",
             Self::Malformed { .. } => "capsule.malformed",
         }
     }
 }
+
+/// Maximum byte size of `audit.audit_segment` when serialised to JSON.
+/// 1 MiB (1024 * 1024). Anti-DoS guard against a capsule that bloats
+/// the verifier's memory footprint with a multi-MB chain segment. The
+/// production-shaped audit chain is genesis-through-decision-event so
+/// the legitimate size grows as O(N) in the chain length up to the
+/// capsule's own decision; 1 MiB easily covers ten-thousand-event
+/// chains.
+pub const AUDIT_SEGMENT_BYTE_CAP: usize = 1024 * 1024;
 
 /// Run schema validation **and** the cross-field truthfulness invariants
 /// against `value`. Returns `Ok(())` only if every check passes. The
@@ -465,6 +485,17 @@ impl StrictVerifyReport {
 /// [`StrictVerifyReport`] — never a single boolean. The caller decides
 /// what counts as a passing run via `is_ok()` (no failures) or
 /// `is_fully_ok()` (no failures + no skips).
+///
+/// **F-6 self-contained mode.** When the capsule embeds
+/// `policy.policy_snapshot` and / or `audit.audit_segment`, those
+/// embedded fields are preferred over the corresponding `opts.*`
+/// auxiliaries. A v2 capsule that embeds both runs all 6 checks with
+/// `opts: Default::default()` — no `--policy`, no `--audit-bundle`, no
+/// `--receipt-pubkey` (the embedded bundle's
+/// `verification_keys.receipt_signer_pubkey_hex` IS the receipt pubkey).
+/// CLI callers that explicitly pass an aux input override the embedded
+/// field — the precedence is `opts.* if Some else embedded if present
+/// else Skipped(missing_input)`.
 pub fn verify_capsule_strict(value: &Value, opts: &StrictVerifyOpts) -> StrictVerifyReport {
     // Step 1: structural verify. If this fails, the capsule is
     // self-inconsistent — running crypto on it produces misleading
@@ -489,12 +520,98 @@ pub fn verify_capsule_strict(value: &Value, opts: &StrictVerifyOpts) -> StrictVe
         };
     }
 
-    // Schema has passed; the unwraps below are safe and labelled if not.
+    // F-6 precedence policy (Codex P1 fix on PR #118):
+    //
+    //   1. opts.audit_bundle / opts.policy_json / opts.receipt_pubkey_hex —
+    //      caller-supplied. ALWAYS authoritative when Some. Embedded
+    //      audit_segment / policy_snapshot are NOT decoded in this case;
+    //      a malformed or oversized embedded slot must NOT cause a
+    //      caller-supplied valid bundle to fail.
+    //   2. Else (no caller input), try the v2 embedded field.
+    //   3. Else, the corresponding strict check Skips with reason
+    //      "missing aux input".
+    //
+    // The pre-fix behaviour eagerly decoded `audit.audit_segment` first
+    // and bailed on decode/size errors before consulting opts.audit_bundle —
+    // so a caller that explicitly passed `--audit-bundle <good>` would
+    // see chain-level checks FAIL when the embedded slot was bad. The
+    // fix is "if opts.* is Some, skip embedded decode entirely".
+    let embedded_policy = value.pointer("/policy/policy_snapshot");
+    let policy_for_check = opts
+        .policy_json
+        .or_else(|| embedded_policy.filter(|v| !v.is_null()));
+
     let request_hash_recompute = check_request_hash_recompute(value);
-    let policy_hash_recompute = check_policy_hash_recompute(value, opts.policy_json);
-    let receipt_signature = check_receipt_signature(value, opts.receipt_pubkey_hex);
-    let audit_chain = check_audit_chain(opts.audit_bundle);
-    let audit_event_link = check_audit_event_link(value, opts.audit_bundle);
+    let policy_hash_recompute = check_policy_hash_recompute(value, policy_for_check);
+
+    if let Some(caller_bundle) = opts.audit_bundle {
+        // Caller-supplied bundle wins outright. Embedded segment is
+        // ignored — a tampered or oversized embedded slot does NOT
+        // affect a strict run that supplied a valid bundle.
+        let receipt_pubkey_owned: Option<String> = match opts.receipt_pubkey_hex {
+            Some(s) => Some(s.to_string()),
+            None => Some(
+                caller_bundle
+                    .verification_keys
+                    .receipt_signer_pubkey_hex
+                    .clone(),
+            ),
+        };
+        let receipt_pubkey_for_check = receipt_pubkey_owned.as_deref();
+        let receipt_signature = check_receipt_signature(value, receipt_pubkey_for_check);
+        let audit_chain = check_audit_chain(Some(caller_bundle));
+        let audit_event_link = check_audit_event_link(value, Some(caller_bundle));
+        return StrictVerifyReport {
+            structural,
+            request_hash_recompute,
+            policy_hash_recompute,
+            receipt_signature,
+            audit_chain,
+            audit_event_link,
+        };
+    }
+
+    // No caller-supplied bundle — try the v2 embedded segment.
+    let embedded_segment_raw = value
+        .pointer("/audit/audit_segment")
+        .filter(|v| !v.is_null());
+    let embedded_segment = match decode_embedded_segment(embedded_segment_raw) {
+        Ok(maybe) => maybe,
+        Err(e) => {
+            // Capsule self-described a self-contained verifier path,
+            // but the segment is malformed (or > 1 MiB). Fail the
+            // chain-level checks loudly — this is the verifier doing
+            // its job. The caller can recover by passing
+            // `--audit-bundle <path>` (which would skip this branch
+            // entirely per the precedence policy above).
+            let fail = CheckOutcome::Failed(format!(
+                "audit_segment invalid: {e}; provide --audit-bundle <path> to override"
+            ));
+            return StrictVerifyReport {
+                structural,
+                request_hash_recompute,
+                policy_hash_recompute,
+                receipt_signature: fail.clone(),
+                audit_chain: fail.clone(),
+                audit_event_link: fail,
+            };
+        }
+    };
+
+    // Receipt pubkey precedence: caller-supplied wins; embedded bundle's
+    // verification_keys.receipt_signer_pubkey_hex is the v2 fallback.
+    let receipt_pubkey_owned: Option<String> = match opts.receipt_pubkey_hex {
+        Some(s) => Some(s.to_string()),
+        None => embedded_segment
+            .as_ref()
+            .map(|b| b.verification_keys.receipt_signer_pubkey_hex.clone()),
+    };
+    let receipt_pubkey_for_check = receipt_pubkey_owned.as_deref();
+    let bundle_for_check: Option<&AuditBundle> = embedded_segment.as_ref();
+
+    let receipt_signature = check_receipt_signature(value, receipt_pubkey_for_check);
+    let audit_chain = check_audit_chain(bundle_for_check);
+    let audit_event_link = check_audit_event_link(value, bundle_for_check);
 
     StrictVerifyReport {
         structural,
@@ -504,6 +621,58 @@ pub fn verify_capsule_strict(value: &Value, opts: &StrictVerifyOpts) -> StrictVe
         audit_chain,
         audit_event_link,
     }
+}
+
+/// Deserialise an embedded `audit.audit_segment` value into an
+/// [`AuditBundle`] iff it's present, fits under [`AUDIT_SEGMENT_BYTE_CAP`],
+/// and parses as a valid `sbo3l.audit_bundle.v1`. Returns `Ok(None)`
+/// when the field is absent (callers fall back to opts.audit_bundle).
+fn decode_embedded_segment(
+    embedded: Option<&Value>,
+) -> std::result::Result<Option<AuditBundle>, CapsuleVerifyError> {
+    let Some(value) = embedded else {
+        return Ok(None);
+    };
+    // Serialise to bytes ONLY for the size check. We then `from_value`
+    // on the original `Value` so we don't pay a second round-trip.
+    let serialised = serde_json::to_vec(value).map_err(|e| CapsuleVerifyError::Malformed {
+        detail: format!("audit_segment serialise: {e}"),
+    })?;
+    if serialised.len() > AUDIT_SEGMENT_BYTE_CAP {
+        return Err(CapsuleVerifyError::AuditSegmentTooLarge {
+            bytes: serialised.len(),
+            cap_bytes: AUDIT_SEGMENT_BYTE_CAP,
+        });
+    }
+    let bundle: AuditBundle =
+        serde_json::from_value(value.clone()).map_err(|e| CapsuleVerifyError::Malformed {
+            detail: format!("audit_segment is not a valid sbo3l.audit_bundle.v1: {e}"),
+        })?;
+    Ok(Some(bundle))
+}
+
+/// Stable substring printed by `passport explain` for v2 capsules whose
+/// `policy_snapshot` AND `audit_segment` are both populated. F-6 AC pin.
+pub const VERIFIER_MODE_SELF_CONTAINED: &str = "verifier-mode: self-contained";
+
+/// `passport explain` companion: stable substring when at least one
+/// embedded field is missing. The caller would then need `--policy`,
+/// `--audit-bundle`, or `--receipt-pubkey` to run the full crypto
+/// matrix.
+pub const VERIFIER_MODE_AUX_REQUIRED: &str = "verifier-mode: aux-required";
+
+/// True iff the capsule embeds BOTH `policy.policy_snapshot` AND
+/// `audit.audit_segment` (non-null). Used by `passport explain` to
+/// pick between the two `verifier-mode:` strings, and by integration
+/// tests that pin the F-6 self-contained AC.
+pub fn capsule_is_self_contained(capsule: &Value) -> bool {
+    let policy_present = capsule
+        .pointer("/policy/policy_snapshot")
+        .is_some_and(|v| !v.is_null());
+    let segment_present = capsule
+        .pointer("/audit/audit_segment")
+        .is_some_and(|v| !v.is_null());
+    policy_present && segment_present
 }
 
 fn check_request_hash_recompute(capsule: &Value) -> CheckOutcome {
@@ -1254,6 +1423,66 @@ mod tests {
             report.audit_event_link.is_failed(),
             "audit_event_link must fail when capsule.audit.audit_event_id is not in the bundle's chain"
         );
+    }
+
+    /// F-6 Codex P1 regression: when the caller supplies a valid
+    /// `--audit-bundle` (and pubkey), a malformed or oversized
+    /// **embedded** `audit.audit_segment` must NOT cause the chain-level
+    /// strict checks to fail. Pre-fix the verifier eagerly decoded the
+    /// embedded segment first and bailed on decode/size errors before
+    /// considering the caller-supplied bundle — so `--audit-bundle
+    /// <good>` + `audit.audit_segment = <garbled>` would FAIL. Post-fix
+    /// the precedence is "opts.audit_bundle wins outright; embedded
+    /// segment is only consulted when no caller bundle is provided".
+    #[test]
+    fn aux_bundle_overrides_malformed_embedded_segment() {
+        let (mut capsule, receipt_signer, _audit_signer, bundle, policy) = strict_fixture();
+        // Bump the fixture's schema id to v2 so the v2-only embedded
+        // `audit_segment` slot is schema-allowed (v1 schema rejects
+        // unknown fields). The fixture itself ships a structurally
+        // valid v1 shell that's a strict superset of v2's required
+        // fields, so toggling the schema id is enough.
+        capsule["schema"] = serde_json::Value::String("sbo3l.passport_capsule.v2".into());
+        // Garble the embedded audit_segment so its own decode would
+        // fail (non-bundle-shaped object trips serde_json::from_value
+        // in decode_embedded_segment).
+        capsule["audit"]["audit_segment"] = serde_json::json!({
+            "this_is_not": "a valid sbo3l.audit_bundle.v1",
+            "garbage": [1, 2, 3]
+        });
+        let pk = receipt_signer.verifying_key_hex();
+        let opts = StrictVerifyOpts {
+            receipt_pubkey_hex: Some(&pk),
+            audit_bundle: Some(&bundle), // caller-supplied valid bundle
+            policy_json: Some(&policy),
+        };
+        let report = verify_capsule_strict(&capsule, &opts);
+        assert!(
+            report.is_fully_ok(),
+            "caller-supplied --audit-bundle must override garbled embedded segment; \
+             report = {report:?}"
+        );
+        assert!(report.audit_chain.is_passed());
+        assert!(report.audit_event_link.is_passed());
+        assert!(report.receipt_signature.is_passed());
+    }
+
+    /// Companion to the regression above: confirm that when NO caller
+    /// bundle is supplied, the same garbled embedded segment surfaces
+    /// as Failed (not silently skipped). Pins the "caller-supplied
+    /// wins, else embedded is authoritative" precedence — both sides
+    /// of the branch are tested.
+    #[test]
+    fn embedded_malformed_segment_fails_when_no_aux_bundle_supplied() {
+        let (mut capsule, _receipt_signer, _audit_signer, _bundle, _policy) = strict_fixture();
+        capsule["schema"] = serde_json::Value::String("sbo3l.passport_capsule.v2".into());
+        capsule["audit"]["audit_segment"] = serde_json::json!({
+            "this_is_not": "a valid sbo3l.audit_bundle.v1"
+        });
+        let report = verify_capsule_strict(&capsule, &StrictVerifyOpts::default());
+        assert!(report.audit_chain.is_failed());
+        assert!(report.audit_event_link.is_failed());
+        assert!(report.receipt_signature.is_failed());
     }
 
     /// Bonus — minimal (no aux inputs). Runs only the structural pass
