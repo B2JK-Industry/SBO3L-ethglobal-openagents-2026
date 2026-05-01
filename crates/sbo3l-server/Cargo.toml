@@ -40,3 +40,14 @@ http-body-util = "0.1"
 tempfile = { workspace = true }
 ed25519-dalek = { workspace = true }
 base64 = "0.22"
+
+# F-5: passthrough features for sbo3l-core's KMS backends so a
+# `cargo test -p sbo3l-server --features aws_kms` route compiles the
+# AWS backend in the consumer crate's test_signers.rs without forcing
+# every workspace test to pull a multi-MB SDK dependency tree.
+[features]
+default = []
+aws_kms = ["sbo3l-core/aws_kms"]
+gcp_kms = ["sbo3l-core/gcp_kms"]
+phala_tee = ["sbo3l-core/phala_tee"]
+eth_signer = ["sbo3l-core/eth_signer"]

@@ -276,8 +276,17 @@ SERVER_LOG="$TMPDIR_PSM/idempotency-server.log"
 # mock runs every request unauthenticated, so we engage the dev bypass
 # explicitly. The stderr "⚠ UNAUTHENTICATED MODE — DEV ONLY ⚠" banner is
 # expected and part of the production-shaped surface for a local mock.
+#
+# F-5 (PR following the auto-merge of #102) added a signer-backend
+# lockout: the daemon refuses to start unless the operator either
+# configures a real KMS backend or affirmatively engages the dev signer
+# via SBO3L_DEV_ONLY_SIGNER=1 (which prints a `⚠ DEV ONLY SIGNER ⚠`
+# banner). The production-shaped mock is locally signed for
+# reproducibility, so we engage the dev signer flag — same shape as the
+# auth bypass.
 SBO3L_DB="$IDEM_DB" SBO3L_LISTEN="127.0.0.1:${IDEM_PORT}" \
   SBO3L_ALLOW_UNAUTHENTICATED=1 \
+  SBO3L_DEV_ONLY_SIGNER=1 \
   ./target/debug/sbo3l-server >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 trap 'kill "${SERVER_PID:-0}" 2>/dev/null || true; rm -rf "$TMPDIR_PSM"' EXIT

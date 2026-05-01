@@ -1,6 +1,7 @@
 use std::io::IsTerminal;
 use std::net::SocketAddr;
 
+use sbo3l_core::signers::{signer_from_env, SignerError};
 use sbo3l_policy::Policy;
 use sbo3l_server::{reference_policy, router, AppState, AuthConfig};
 use sbo3l_storage::Storage;
@@ -9,7 +10,9 @@ const DEFAULT_LISTEN: &str = "127.0.0.1:8730";
 const ENV_LISTEN: &str = "SBO3L_LISTEN";
 const ENV_ALLOW_UNSAFE_PUBLIC_BIND: &str = "SBO3L_ALLOW_UNSAFE_PUBLIC_BIND";
 const ENV_POLICY: &str = "SBO3L_POLICY";
+const ENV_SIGNER_BACKEND: &str = "SBO3L_SIGNER_BACKEND";
 const UNSAFE_BIND_EXIT_CODE: i32 = 2;
+const SIGNER_LOCKOUT_EXIT_CODE: i32 = 2;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -48,6 +51,23 @@ async fn main() -> anyhow::Result<()> {
     } else {
         Storage::open(storage_path.clone())?
     };
+
+    // F-5: signer factory gate. Validates the configured signer
+    // backend at startup so the daemon never enters serving with a
+    // misconfigured KMS / dev-mode lockout. We discard the returned
+    // boxes — AppState still holds concrete `DevSigner` for back-compat
+    // with the audit/receipt sign code paths; the gate's job is to
+    // refuse startup when the operator forgot to set the production
+    // mode flags. KMS-routed signing lands in a follow-up that
+    // refactors AppState to hold `Box<dyn Signer>`.
+    if let Err(e) = signer_from_env("audit") {
+        print_signer_error(&e);
+        std::process::exit(SIGNER_LOCKOUT_EXIT_CODE);
+    }
+    if let Err(e) = signer_from_env("receipt") {
+        print_signer_error(&e);
+        std::process::exit(SIGNER_LOCKOUT_EXIT_CODE);
+    }
 
     let auth = AuthConfig::from_env();
     if auth.allow_unauthenticated {
@@ -104,6 +124,22 @@ fn stderr_red() -> (&'static str, &'static str) {
     } else {
         ("", "")
     }
+}
+
+/// F-5 startup diagnostic. The exact substrings printed here are part
+/// of the QA contract:
+/// - `"DEV signer requires SBO3L_DEV_ONLY_SIGNER=1"` — grepped for the
+///   dev-without-flag refusal.
+/// - `"backend '<name>' was not compiled in"` — grepped to confirm
+///   feature-flag gating.
+fn print_signer_error(err: &SignerError) {
+    let (on, off) = stderr_red();
+    eprintln!("{on}ERROR: refusing to start; signer backend rejected:{off}");
+    eprintln!("{on}  {err}{off}");
+    eprintln!(
+        "{on}  Set {ENV_SIGNER_BACKEND}=dev SBO3L_DEV_ONLY_SIGNER=1 for development, \
+         or configure a production backend (aws_kms / gcp_kms / phala_tee).{off}"
+    );
 }
 
 #[cfg(test)]
