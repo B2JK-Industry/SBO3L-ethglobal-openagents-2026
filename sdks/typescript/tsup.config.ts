@@ -6,6 +6,7 @@ export default defineConfig({
     passport: "src/passport.ts",
     auth: "src/auth.ts",
     types: "src/types.ts",
+    "cross-agent": "src/cross-agent.ts",
   },
   format: ["esm", "cjs"],
   dts: true,
