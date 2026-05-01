@@ -34,6 +34,7 @@ use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
 use crate::passport::{verify_capsule, verify_capsule_strict, StrictVerifyOpts};
+use crate::wasm_types::{WasmStrictCheck, WasmStrictReport};
 
 /// Structural verify entry point. JS calls
 /// `verify_capsule_json(capsuleJsonString)`. Resolves to `null` on
@@ -76,7 +77,7 @@ pub fn verify_capsule_strict_json_js(capsule_json: &str) -> Result<JsValue, JsVa
     use crate::passport::{CheckOutcome, StrictVerifyReport};
     let labels = StrictVerifyReport::labels();
     let outcomes: Vec<&CheckOutcome> = report.iter().collect();
-    let checks: Vec<Value> = labels
+    let checks: Vec<WasmStrictCheck> = labels
         .iter()
         .zip(outcomes.iter())
         .map(|(label, outcome)| {
@@ -85,23 +86,26 @@ pub fn verify_capsule_strict_json_js(capsule_json: &str) -> Result<JsValue, JsVa
                 CheckOutcome::Skipped(d) => ("SKIPPED", Some(d.clone())),
                 CheckOutcome::Failed(d) => ("FAILED", Some(d.clone())),
             };
-            let mut obj = serde_json::Map::new();
-            obj.insert("label".into(), Value::String((*label).to_string()));
-            obj.insert("outcome".into(), Value::String(status.to_string()));
-            if let Some(d) = detail {
-                obj.insert("detail".into(), Value::String(d));
+            WasmStrictCheck {
+                label: *label,
+                outcome: status,
+                detail,
             }
-            Value::Object(obj)
         })
         .collect();
     let any_failed = outcomes.iter().any(|o| o.is_failed());
     let any_skipped = outcomes.iter().any(|o| o.is_skipped());
-    let mut root = serde_json::Map::new();
-    root.insert("ok".into(), Value::Bool(report.is_fully_ok()));
-    root.insert("any_failed".into(), Value::Bool(any_failed));
-    root.insert("any_skipped".into(), Value::Bool(any_skipped));
-    root.insert("checks".into(), Value::Array(checks));
-    serde_wasm_bindgen::to_value(&Value::Object(root))
+    let payload = WasmStrictReport {
+        ok: report.is_fully_ok(),
+        any_failed,
+        any_skipped,
+        checks,
+    };
+    // Serialise the typed struct (NOT a `serde_json::Value::Object`)
+    // so `serde_wasm_bindgen` produces a plain JS object — JS callers
+    // get `report.checks[0].outcome` directly, no `Map.get(...)`
+    // routing.
+    serde_wasm_bindgen::to_value(&payload)
         .map_err(|e| JsValue::from_str(&format!("serialize_report: {e}")))
 }
 
