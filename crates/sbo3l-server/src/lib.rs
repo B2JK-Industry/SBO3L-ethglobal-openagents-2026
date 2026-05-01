@@ -34,6 +34,9 @@ use sbo3l_storage::Storage;
 pub mod auth;
 pub use auth::AuthConfig;
 
+#[cfg(feature = "ws_events")]
+pub mod ws_events;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
@@ -53,6 +56,13 @@ pub struct AppInner {
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
     pub auth: AuthConfig,
+    /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
+    /// only with `--features ws_events`. The publish path inside
+    /// `create_payment_request` checks `is_some()` and emits when
+    /// the bus is wired; existing daemon runs (without the feature)
+    /// see no behaviour change.
+    #[cfg(feature = "ws_events")]
+    pub ws_events: Option<std::sync::Arc<ws_events::WsEventsBus>>,
 }
 
 impl AppState {
@@ -119,15 +129,19 @@ impl AppState {
             audit_signer,
             receipt_signer,
             auth,
+            #[cfg(feature = "ws_events")]
+            ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
         }))
     }
 }
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
+    let r = Router::new()
         .route("/v1/health", get(health))
-        .route("/v1/payment-requests", post(create_payment_request))
-        .with_state(state)
+        .route("/v1/payment-requests", post(create_payment_request));
+    #[cfg(feature = "ws_events")]
+    let r = r.route("/v1/events", get(ws_events::ws_events_handler));
+    r.with_state(state)
 }
 
 async fn health() -> &'static str {
@@ -643,6 +657,29 @@ async fn run_pipeline(
                 })?
         }
     };
+
+    // T-3-5 backend: fan out the request outcome to the trust-dns viz
+    // event bus. No-op when no subscribers are connected (broadcast
+    // channel returns SendError quietly). Compiled out entirely
+    // without `--features ws_events`.
+    #[cfg(feature = "ws_events")]
+    if let Some(bus) = inner.ws_events.as_ref() {
+        let viz_decision = match receipt_decision {
+            ReceiptDecision::Allow => ws_events::DecisionKind::Allow,
+            ReceiptDecision::Deny => ws_events::DecisionKind::Deny,
+            // requires_human is rejected upstream; defensive default.
+            ReceiptDecision::RequiresHuman => ws_events::DecisionKind::Deny,
+        };
+        ws_events::publish_pipeline_run(
+            bus,
+            &aprp.agent_id,
+            None, // ENS name lookup is upstream of this handler.
+            viz_decision,
+            final_deny_code.clone(),
+            signed_event.event.seq,
+            &signed_event.event_hash,
+        );
+    }
 
     let receipt = UnsignedReceipt {
         agent_id: aprp.agent_id.clone(),
