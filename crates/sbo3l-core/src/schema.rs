@@ -7,18 +7,23 @@ use serde_json::Value;
 
 use crate::error::SchemaError;
 
-pub const APRP_SCHEMA_JSON: &str = include_str!("../../../schemas/aprp_v1.json");
-pub const POLICY_SCHEMA_JSON: &str = include_str!("../../../schemas/policy_v1.json");
-pub const X402_SCHEMA_JSON: &str = include_str!("../../../schemas/x402_v1.json");
-pub const POLICY_RECEIPT_SCHEMA_JSON: &str =
-    include_str!("../../../schemas/policy_receipt_v1.json");
-pub const DECISION_TOKEN_SCHEMA_JSON: &str =
-    include_str!("../../../schemas/decision_token_v1.json");
-pub const AUDIT_EVENT_SCHEMA_JSON: &str = include_str!("../../../schemas/audit_event_v1.json");
+// F-11: schemas vendored into the crate (`crates/sbo3l-core/schemas/`)
+// so `cargo publish` can package them. The workspace-root `schemas/`
+// directory remains the canonical authoring location; CI's
+// `python3 scripts/validate_schemas.py` enforces byte-for-byte
+// equality between the workspace copy and each vendored copy
+// (sync check). When you edit a workspace schema, also re-copy it
+// into every `crates/<name>/schemas/` directory that vendors it.
+pub const APRP_SCHEMA_JSON: &str = include_str!("../schemas/aprp_v1.json");
+pub const POLICY_SCHEMA_JSON: &str = include_str!("../schemas/policy_v1.json");
+pub const X402_SCHEMA_JSON: &str = include_str!("../schemas/x402_v1.json");
+pub const POLICY_RECEIPT_SCHEMA_JSON: &str = include_str!("../schemas/policy_receipt_v1.json");
+pub const DECISION_TOKEN_SCHEMA_JSON: &str = include_str!("../schemas/decision_token_v1.json");
+pub const AUDIT_EVENT_SCHEMA_JSON: &str = include_str!("../schemas/audit_event_v1.json");
 pub const PASSPORT_CAPSULE_SCHEMA_JSON: &str =
-    include_str!("../../../schemas/sbo3l.passport_capsule.v1.json");
+    include_str!("../schemas/sbo3l.passport_capsule.v1.json");
 pub const PASSPORT_CAPSULE_V2_SCHEMA_JSON: &str =
-    include_str!("../../../schemas/sbo3l.passport_capsule.v2.json");
+    include_str!("../schemas/sbo3l.passport_capsule.v2.json");
 
 pub const APRP_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/aprp/v1.json";
 pub const POLICY_SCHEMA_ID: &str = "https://schemas.sbo3l.dev/policy/v1.json";

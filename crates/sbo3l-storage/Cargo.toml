@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L storage: SQLite persistence and audit hash chain."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L storage: SQLite persistence + hash-chained audit log."
+keywords = ["sbo3l", "audit", "sqlite", "policy", "storage"]
+categories = ["database", "cryptography"]
 
 [dependencies]
 sbo3l-core = { workspace = true }

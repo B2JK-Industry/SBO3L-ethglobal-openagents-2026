@@ -1,0 +1,46 @@
+{
+  "name": "@sbo3l/autogen",
+  "version": "0.1.0",
+  "description": "Microsoft AutoGen function adapter wrapping SBO3L — gate every agent payment intent through SBO3L's policy boundary.",
+  "license": "MIT",
+  "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
+  "homepage": "https://sbo3l.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git",
+    "directory": "integrations/autogen"
+  },
+  "keywords": ["sbo3l", "autogen", "agent", "policy", "tool"],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@sbo3l/sdk": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@sbo3l/sdk": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "publishConfig": { "access": "public" }
+}
