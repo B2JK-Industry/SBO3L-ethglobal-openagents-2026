@@ -76,7 +76,7 @@ pub fn cmd_agent_register(args: AgentRegisterArgs) -> ExitCode {
     }
 
     if args.broadcast {
-        return broadcast_not_implemented(&args, network);
+        return broadcast_dispatch(args, network);
     }
 
     let resolver_owned;
@@ -145,6 +145,16 @@ pub fn cmd_agent_register(args: AgentRegisterArgs) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Public-in-crate accessor used by `agent_broadcast.rs` (under
+/// `--features eth_broadcast`) so the broadcast path consumes the
+/// same parser that the dry-run path validates with. Compiled out
+/// without the feature — clippy's dead-code lint refuses an
+/// always-defined private wrapper that no default build calls.
+#[cfg(feature = "eth_broadcast")]
+pub(crate) fn parse_records_pub(s: &str) -> Result<Vec<(String, String)>, ExitCode> {
+    parse_records(s)
+}
+
 fn parse_records(s: &str) -> Result<Vec<(String, String)>, ExitCode> {
     let v: Value = match serde_json::from_str(s) {
         Ok(v) => v,
@@ -197,18 +207,45 @@ fn shape_of(v: &Value) -> &'static str {
     }
 }
 
-fn broadcast_not_implemented(args: &AgentRegisterArgs, network: EnsNetwork) -> ExitCode {
+/// `--broadcast` dispatch — selects between the live `eth_broadcast`
+/// implementation (compiled with `--features eth_broadcast`) and the
+/// honest "rebuild with the feature" stub. The exit code 3 contract
+/// from the dry-run-only build is preserved for the stub branch.
+fn broadcast_dispatch(args: AgentRegisterArgs, network: EnsNetwork) -> ExitCode {
+    #[cfg(feature = "eth_broadcast")]
+    {
+        // Spin up a private tokio runtime — `cmd_agent_register` is
+        // sync; alloy's provider is async. We don't need to take a
+        // dep on `#[tokio::main]` in main.rs for this single path.
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                eprintln!("sbo3l agent register --broadcast: tokio runtime init failed: {e}");
+                return ExitCode::from(1);
+            }
+        };
+        rt.block_on(crate::agent_broadcast::cmd_broadcast(args, network))
+    }
+    #[cfg(not(feature = "eth_broadcast"))]
+    {
+        broadcast_not_available(&args, network)
+    }
+}
+
+#[cfg(not(feature = "eth_broadcast"))]
+fn broadcast_not_available(args: &AgentRegisterArgs, network: EnsNetwork) -> ExitCode {
     eprintln!(
-        "sbo3l agent register: --broadcast is documented in T-3-1 but \
-         NOT implemented in this build. The dry-run output (drop --broadcast) \
-         is the complete envelope; pipe its calldata to `cast send` against \
-         the registrar / resolver, or wait for the broadcast follow-up that \
-         wires sbo3l_core::signers::eth::EthSigner."
+        "sbo3l agent register: --broadcast was accepted but this build \
+         was compiled without `--features eth_broadcast`. The dry-run \
+         output (drop --broadcast) is the complete envelope; pipe its \
+         calldata to `cast send`, or rebuild with \
+         `cargo install sbo3l-cli --features eth_broadcast` (pulls the \
+         alloy stack)."
     );
     if args.rpc_url.is_some() || args.private_key_env_var.is_some() {
         eprintln!(
             "  --rpc-url / --private-key-env-var were accepted but ignored \
-             (broadcast not implemented)."
+             (broadcast feature not enabled in this build)."
         );
     }
     if let EnsNetwork::Mainnet = network {
