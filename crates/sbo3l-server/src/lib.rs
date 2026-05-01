@@ -681,10 +681,8 @@ async fn run_pipeline(
 /// Embedded reference policy for development/demo. Production callers should
 /// load from `/etc/sbo3l/policies/...`.
 pub fn reference_policy() -> Policy {
-    Policy::parse_json(include_str!(
-        "../../../test-corpus/policy/reference_low_risk.json"
-    ))
-    .expect("invariant: bundled reference policy parses")
+    Policy::parse_json(include_str!("../policies/reference_low_risk.json"))
+        .expect("invariant: bundled reference policy parses")
 }
 
 #[cfg(test)]
