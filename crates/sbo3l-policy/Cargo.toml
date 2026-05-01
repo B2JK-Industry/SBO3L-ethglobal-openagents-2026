@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L policy: YAML/JSON policy parsing and rule evaluation."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L policy engine: YAML/JSON policy parsing + rule evaluation + persistent budget tracking."
+keywords = ["sbo3l", "policy", "agent", "rules", "yaml"]
+categories = ["config", "parser-implementations"]
 
 [dependencies]
 sbo3l-core = { workspace = true }
