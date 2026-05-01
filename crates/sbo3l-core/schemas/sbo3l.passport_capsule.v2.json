@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sbo3l.dev/passport-capsule/v2.json",
+  "title": "SBO3L Passport Capsule v2 (self-contained)",
+  "description": "Additive on v1: the capsule MAY embed two new fields — `policy.policy_snapshot` (the canonical policy JSON whose JCS+SHA-256 must equal `policy.policy_hash`) and `audit.audit_segment` (the bundle-shaped audit-chain segment, mirroring `sbo3l.audit_bundle.v1`). When BOTH embedded fields are present a v2 capsule is fully self-contained: `passport verify --strict` runs all 6 cryptographic checks WITHOUT auxiliary inputs (no `--policy`, no `--audit-bundle`, no `--receipt-pubkey`). Both embedded fields are OPTIONAL — a v2 capsule that omits them is structurally valid but no more verifiable than v1. v1 capsules continue to verify under their own schema. See `docs/product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md` for the v1 ↔ v2 compatibility table.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at",
+    "agent",
+    "request",
+    "policy",
+    "decision",
+    "execution",
+    "audit",
+    "verification"
+  ],
+  "properties": {
+    "schema": {
+      "description": "Stable schema identifier so future capsule versions route to the right parser.",
+      "const": "sbo3l.passport_capsule.v2"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "resolver"],
+      "properties": {
+        "agent_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+        "ens_name": { "type": ["string", "null"] },
+        "resolver": { "type": "string", "enum": ["offline-fixture", "live-ens"] },
+        "records": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aprp", "request_hash"],
+      "properties": {
+        "aprp": { "type": "object" },
+        "request_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "idempotency_key": { "type": ["string", "null"] },
+        "nonce": { "type": ["string", "null"] }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_hash", "policy_version", "source"],
+      "properties": {
+        "policy_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "policy_version": { "type": "integer", "minimum": 1 },
+        "activated_at": { "type": ["string", "null"], "format": "date-time" },
+        "source": { "type": "string", "minLength": 1 },
+        "policy_snapshot": {
+          "description": "OPTIONAL. The canonical policy JSON whose JCS+SHA-256 hash MUST equal `policy.policy_hash`. When present, `passport verify --strict` runs the policy_hash_recompute check WITHOUT requiring `--policy <path>`. The policy schema's existing `additionalProperties: false` prevents this slot from leaking signing keys (the policy schema rejects any unknown field; signing keys live outside the policy entirely). Required policy fields and shape are governed by `schemas/policy_v1.json`; this slot just carries that policy verbatim.",
+          "type": ["object", "null"]
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "receipt", "receipt_signature"],
+      "properties": {
+        "result": { "type": "string", "enum": ["allow", "deny"] },
+        "matched_rule": { "type": ["string", "null"] },
+        "deny_code": { "type": ["string", "null"] },
+        "receipt": { "type": "object" },
+        "receipt_signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executor", "mode", "status"],
+      "properties": {
+        "executor": { "type": "string", "enum": ["keeperhub", "uniswap", "none"] },
+        "mode": { "type": "string", "enum": ["mock", "live"] },
+        "execution_ref": { "type": ["string", "null"] },
+        "status": {
+          "type": "string",
+          "enum": ["submitted", "succeeded", "denied", "not_called"]
+        },
+        "sponsor_payload_hash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "live_evidence": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "transport": { "type": "string", "minLength": 1 },
+                "response_ref": { "type": "string", "minLength": 1 },
+                "block_ref": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        },
+        "executor_evidence": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "object", "minProperties": 1, "additionalProperties": true }
+          ]
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audit_event_id", "event_hash", "prev_event_hash"],
+      "properties": {
+        "audit_event_id": { "type": "string", "minLength": 1 },
+        "prev_event_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "event_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bundle_ref": { "type": ["string", "null"] },
+        "checkpoint": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema",
+                "sequence",
+                "latest_event_hash",
+                "chain_digest",
+                "mock_anchor",
+                "mock_anchor_ref"
+              ],
+              "properties": {
+                "schema": { "const": "sbo3l.audit_checkpoint.v1" },
+                "sequence": { "type": "integer", "minimum": 1 },
+                "latest_event_id": { "type": ["string", "null"] },
+                "latest_event_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "chain_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "mock_anchor": { "const": true },
+                "mock_anchor_ref": { "type": "string", "pattern": "^local-mock-anchor-[0-9a-f]{16}$" },
+                "created_at": { "type": ["string", "null"], "format": "date-time" }
+              }
+            }
+          ]
+        },
+        "audit_segment": {
+          "description": "OPTIONAL. The full `sbo3l.audit_bundle.v1` artefact for this capsule's audit event — receipt, signed audit event, audit_chain_segment, verification_keys, summary. When present, `passport verify --strict` runs receipt_signature, audit_chain, and audit_event_link checks WITHOUT requiring `--audit-bundle <path>` or `--receipt-pubkey <hex>` (the bundle's `verification_keys.receipt_signer_pubkey_hex` IS the receipt pubkey). Schema-level invariants of the bundle (deny_unknown_fields, hash patterns) are enforced by the bundle's own deserialization in the verifier; this slot is a permissive object so the schema doesn't duplicate the bundle's shape. The verifier additionally rejects any audit_segment whose JSON exceeds 1 MiB to avoid one-capsule denial-of-service against verifier memory.",
+          "type": ["object", "null"]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["doctor_status", "offline_verifiable", "live_claims"],
+      "properties": {
+        "doctor_status": {
+          "type": "string",
+          "enum": ["ok", "warn", "skip", "fail", "not_run"]
+        },
+        "offline_verifiable": { "type": "boolean" },
+        "live_claims": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

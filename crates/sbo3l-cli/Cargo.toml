@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L CLI: validate, decide, sign, verify-audit, demo helpers."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L CLI binary: validate, decide, sign, audit, passport run/verify/explain, doctor."
+keywords = ["sbo3l", "cli", "agent", "policy", "audit"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "sbo3l"
