@@ -3,44 +3,138 @@ interface Props {
   size?: "compact" | "large";
 }
 const { size = "compact" } = Astro.props;
+
+// 5 prominent agents + 60 fleet dots — the constellation v2 ships in
+// ENS-AGENT-A1. Positions are deterministic so the layout doesn't
+// flicker between server-render and hydration. Generated as a
+// pseudo-grid + jitter for an organic feel without needing a force
+// layout in this static context.
+const NAMED_AGENTS = [
+  { id: "research-01", x: 95,  y: 110 },
+  { id: "trader-02",   x: 85,  y: 220 },
+  { id: "auditor-03",  x: 155, y: 175 },
+  { id: "indexer-04",  x: 105, y: 320 },
+  { id: "router-05",   x: 215, y: 280 },
+];
+
+const FLEET = Array.from({ length: 60 }, (_, i) => {
+  // 6 columns × 10 rows over (60..330) × (60..540) box; deterministic offset
+  const col = i % 6;
+  const row = Math.floor(i / 6);
+  const x = 60 + col * 50 + ((row * 13) % 19);
+  const y = 60 + row * 48 + ((col * 11) % 17);
+  return { x, y, key: i };
+});
 ---
 <svg
-  viewBox="0 0 800 360"
+  viewBox="0 0 1000 600"
   class={`arch-diagram ${size}`}
   role="img"
-  aria-label="SBO3L architecture sequence: agent posts APRP, SBO3L decides + signs + audits, routes to sponsor only on allow"
+  aria-label="SBO3L Phase 2 architecture — agent constellation posts APRP envelopes to the SBO3L daemon, which signs, audits, publishes ENS records via CCIP-Read, and routes guarded execution to Uniswap Universal Router"
 >
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+    <marker id="arrow-v2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+    </marker>
+    <marker id="arrow-v2-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
     </marker>
   </defs>
 
-  <rect x="20" y="40" width="160" height="280" rx="10" stroke="currentColor" fill="none" stroke-width="2" />
-  <text x="100" y="65" text-anchor="middle" font-weight="700">Agent</text>
-  <text x="100" y="85" text-anchor="middle" font-size="12" opacity="0.7">(no signing key)</text>
+  <!-- Agent constellation (5 named + 60 fleet) -->
+  <g class="constellation">
+    <rect x="40" y="40" width="320" height="520" rx="12" stroke="currentColor" fill="none" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4" />
+    <text x="200" y="30" text-anchor="middle" font-weight="700">Agent constellation</text>
+    <text x="200" y="588" text-anchor="middle" font-size="11" opacity="0.7">5 named + 60 fleet · sbo3lagent.eth subnames</text>
+    {FLEET.map((p) => (
+      <circle cx={p.x} cy={p.y} r="3.5" fill="var(--accent)" opacity="0.35" />
+    ))}
+    {NAMED_AGENTS.map((a) => (
+      <g>
+        <circle cx={a.x} cy={a.y} r="14" fill="var(--code-bg)" stroke="var(--accent)" stroke-width="2" />
+        <text x={a.x} y={a.y + 28} text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">{a.id}</text>
+      </g>
+    ))}
+  </g>
 
-  <rect x="320" y="40" width="160" height="280" rx="10" stroke="currentColor" fill="none" stroke-width="2" />
-  <text x="400" y="65" text-anchor="middle" font-weight="700">SBO3L</text>
-  <text x="400" y="85" text-anchor="middle" font-size="11" opacity="0.7">schema · policy · budget</text>
-  <text x="400" y="100" text-anchor="middle" font-size="11" opacity="0.7">audit · sign</text>
+  <!-- SBO3L daemon (center, the trust boundary) -->
+  <g class="daemon">
+    <rect x="420" y="100" width="240" height="400" rx="12" stroke="var(--accent)" fill="none" stroke-width="2.5" />
+    <text x="540" y="130" text-anchor="middle" font-weight="700" font-size="15">SBO3L daemon</text>
+    <text x="540" y="155" text-anchor="middle" font-size="11" opacity="0.8">schema · policy · budget</text>
+    <text x="540" y="172" text-anchor="middle" font-size="11" opacity="0.8">audit · sign · route</text>
 
-  <rect x="620" y="40" width="160" height="280" rx="10" stroke="currentColor" fill="none" stroke-width="2" />
-  <text x="700" y="65" text-anchor="middle" font-weight="700">Sponsor</text>
-  <text x="700" y="85" text-anchor="middle" font-size="12" opacity="0.7">KH · Uniswap · ENS</text>
+    <line x1="450" y1="195" x2="630" y2="195" stroke="currentColor" stroke-width="0.5" opacity="0.3" />
 
-  <line x1="180" y1="160" x2="320" y2="160" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)" />
-  <text x="250" y="150" text-anchor="middle" font-size="11">APRP intent</text>
+    <text x="540" y="225" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">deny_unknown_fields</text>
+    <text x="540" y="245" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">JCS-canonical hash</text>
+    <text x="540" y="265" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">nonce-replay gate</text>
+    <text x="540" y="285" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">deterministic policy</text>
+    <text x="540" y="305" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">multi-scope budget</text>
+    <text x="540" y="325" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">hash-chain audit</text>
+    <text x="540" y="345" text-anchor="middle" font-size="10" opacity="0.7" font-family="ui-monospace, monospace">Ed25519 receipt</text>
 
-  <line x1="480" y1="200" x2="620" y2="200" stroke="currentColor" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrow)" />
-  <text x="550" y="190" text-anchor="middle" font-size="11">if allow</text>
+    <line x1="450" y1="370" x2="630" y2="370" stroke="currentColor" stroke-width="0.5" opacity="0.3" />
+    <text x="540" y="395" text-anchor="middle" font-size="11" font-weight="600">Passport capsule v2</text>
+    <text x="540" y="415" text-anchor="middle" font-size="10" opacity="0.7">embedded snapshot + segment</text>
+    <text x="540" y="445" text-anchor="middle" font-size="10" opacity="0.6" font-family="ui-monospace, monospace">offline-verifiable</text>
+    <text x="540" y="475" text-anchor="middle" font-size="10" font-style="italic" opacity="0.85">"agent never holds the signing key"</text>
+  </g>
 
-  <line x1="320" y1="240" x2="180" y2="240" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)" />
-  <text x="250" y="230" text-anchor="middle" font-size="11">signed receipt</text>
+  <!-- ENS apex (right top) -->
+  <g class="ens">
+    <rect x="780" y="60" width="180" height="120" rx="10" stroke="currentColor" fill="none" stroke-width="1.5" />
+    <text x="870" y="90" text-anchor="middle" font-weight="700">ENS apex</text>
+    <text x="870" y="112" text-anchor="middle" font-size="11" font-family="ui-monospace, monospace" opacity="0.8">sbo3lagent.eth</text>
+    <text x="870" y="135" text-anchor="middle" font-size="9" opacity="0.6">sbo3l:pubkey</text>
+    <text x="870" y="148" text-anchor="middle" font-size="9" opacity="0.6">sbo3l:endpoint</text>
+    <text x="870" y="161" text-anchor="middle" font-size="9" opacity="0.6">sbo3l:audit_root + …</text>
+  </g>
+
+  <!-- CCIP gateway -->
+  <g class="ccip">
+    <rect x="780" y="220" width="180" height="100" rx="10" stroke="currentColor" fill="none" stroke-width="1.5" />
+    <text x="870" y="248" text-anchor="middle" font-weight="700">CCIP gateway</text>
+    <text x="870" y="270" text-anchor="middle" font-size="10" opacity="0.7">ENSIP-25 · off-chain</text>
+    <text x="870" y="288" text-anchor="middle" font-size="10" opacity="0.7">text-record signer</text>
+    <text x="870" y="306" text-anchor="middle" font-size="9" font-family="ui-monospace, monospace" opacity="0.55">sbo3l-ccip.vercel.app</text>
+  </g>
+
+  <!-- Uniswap Universal Router with policy guards -->
+  <g class="uniswap">
+    <rect x="780" y="360" width="180" height="180" rx="10" stroke="currentColor" fill="none" stroke-width="1.5" />
+    <text x="870" y="388" text-anchor="middle" font-weight="700">Uniswap UR</text>
+    <text x="870" y="410" text-anchor="middle" font-size="10" opacity="0.7">Universal Router</text>
+    <text x="870" y="430" text-anchor="middle" font-size="9" font-family="ui-monospace, monospace" opacity="0.55">+ per-step policy gate</text>
+    <line x1="800" y1="448" x2="940" y2="448" stroke="currentColor" stroke-width="0.5" opacity="0.3" />
+    <text x="870" y="470" text-anchor="middle" font-size="10" opacity="0.7">guarded execute()</text>
+    <text x="870" y="490" text-anchor="middle" font-size="9" opacity="0.55">deny → tx never broadcast</text>
+    <text x="870" y="520" text-anchor="middle" font-size="9" font-family="ui-monospace, monospace" opacity="0.55">T-5-2 · #171</text>
+  </g>
+
+  <!-- Arrows -->
+  <line x1="360" y1="280" x2="420" y2="280" stroke="currentColor" stroke-width="1.8" marker-end="url(#arrow-v2)" />
+  <text x="390" y="270" text-anchor="middle" font-size="10">APRP intent</text>
+
+  <line x1="660" y1="160" x2="780" y2="120" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrow-v2)" />
+  <text x="715" y="135" text-anchor="middle" font-size="10">publish records</text>
+
+  <line x1="660" y1="270" x2="780" y2="270" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrow-v2)" />
+  <text x="720" y="260" text-anchor="middle" font-size="10">off-chain records</text>
+
+  <line x1="660" y1="430" x2="780" y2="430" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrow-v2-accent)" />
+  <text x="720" y="420" text-anchor="middle" font-size="10" fill="var(--accent)">if allow → guarded</text>
+
+  <line x1="420" y1="320" x2="360" y2="320" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrow-v2)" />
+  <text x="390" y="338" text-anchor="middle" font-size="10">signed receipt</text>
 </svg>
 
 <style>
-  .arch-diagram { width: 100%; height: auto; color: var(--fg); margin: 1em 0; }
+  .arch-diagram { width: 100%; height: auto; color: var(--fg); margin: 1em 0; content-visibility: auto; contain-intrinsic-size: 1000px 600px; }
   .arch-diagram.large { max-width: 100%; margin: 2em 0; }
   .arch-diagram.compact { max-width: var(--max); }
+  .arch-diagram text { fill: currentColor; }
+  .arch-diagram .constellation text { fill: currentColor; }
+  .arch-diagram .daemon text { fill: currentColor; }
+  .arch-diagram .ens text, .arch-diagram .ccip text, .arch-diagram .uniswap text { fill: currentColor; }
 </style>
