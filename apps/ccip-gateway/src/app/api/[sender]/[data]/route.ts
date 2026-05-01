@@ -1,33 +1,33 @@
 /**
  * SBO3L CCIP-Read gateway endpoint (ENSIP-25 / EIP-3668).
  *
- * URL shape per the spec:
- *
  *     GET /api/{sender}/{data}.json
  *
- * - {sender} = 0x-prefixed 40-hex-char OffchainResolver contract
- *              address (lowercased).
- * - {data}   = 0x-prefixed ABI-encoded calldata of the original
- *              query (e.g. text(node, key), addr(node)).
+ * - `{sender}` is the OffchainResolver's address (0x-prefixed,
+ *   40 hex chars; case-insensitive — the resolver lower-cases on the
+ *   way out).
+ * - `{data}` is the original `text(node, key)` or `addr(node)`
+ *   calldata, hex-encoded with a `.json` suffix.
  *
- * Response (200) per the convention:
+ * Returns:
  *
- *     {
- *       "data": "0x...",   // ABI-encoded (bytes value, uint64 expires, bytes signature)
- *       "ttl":  60         // gateway hint for clients/proxies
- *     }
+ *     {"data":"0x...","ttl":60}
  *
- * STATUS: pre-scaffold stub. Returns 501 Not Implemented until the
- * T-4-1 main PR ships the record source + signing logic. The route's
- * shape, error envelope, and CORS headers are pinned now so deployers
- * can wire the OffchainResolver against the eventual production URL
- * without surprises.
- *
- * Design doc: docs/design/T-4-1-ccip-read-prep.md
- * Ticket:     T-4-1 in docs/win-backlog/06-phase-2.md
+ * `data` is the ABI-encoded `(bytes value, uint64 expires, bytes signature)`
+ * tuple the OffchainResolver's callback verifies on-chain. Signing
+ * happens in `lib/sign.ts` with `GATEWAY_PRIVATE_KEY` (Vercel env).
  */
 
 import { NextResponse } from "next/server";
+import type { Hex } from "viem";
+
+import { decodeResolverCall } from "../../../../lib/ens.js";
+import { lookupByNode } from "../../../../lib/records.js";
+import {
+  encodeEmptyStringResult,
+  encodeStringResult,
+  signGatewayResponse,
+} from "../../../../lib/sign.js";
 
 interface RouteParams {
   params: Promise<{ sender: string; data: string }>;
@@ -37,40 +37,92 @@ const HEX_ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const HEX_DATA_RE = /^0x[0-9a-fA-F]+\.json$/;
 
 export async function GET(_req: Request, { params }: RouteParams) {
-  const { sender, data } = await params;
+  const { sender: rawSender, data: rawData } = await params;
 
-  if (!HEX_ADDR_RE.test(sender)) {
+  if (!HEX_ADDR_RE.test(rawSender)) {
     return NextResponse.json(
-      { error: "bad_request", reason: "sender must be 0x-prefixed 40-hex-char address" },
+      {
+        error: "bad_request",
+        reason: "sender must be 0x-prefixed 40-hex-char address",
+      },
+      { status: 400 },
+    );
+  }
+  if (!HEX_DATA_RE.test(rawData)) {
+    return NextResponse.json(
+      {
+        error: "bad_request",
+        reason:
+          "data must be 0x-prefixed ABI-encoded calldata with .json suffix",
+      },
       { status: 400 },
     );
   }
 
-  if (!HEX_DATA_RE.test(data)) {
+  const sender = rawSender.toLowerCase() as Hex;
+  // Strip `.json` suffix and normalise to lowercase.
+  const callData = (rawData.slice(0, -".json".length).toLowerCase()) as Hex;
+
+  const decoded = decodeResolverCall(callData);
+  if (!decoded) {
     return NextResponse.json(
-      { error: "bad_request", reason: "data must be 0x-prefixed ABI-encoded calldata with .json suffix" },
+      {
+        error: "unsupported_function",
+        reason:
+          "gateway only handles `text(bytes32,string)` and `addr(bytes32)` for now",
+      },
       { status: 400 },
     );
   }
 
-  // T-4-1 main PR fills in:
-  //   1. Decode the calldata to extract (node, key) for text()
-  //      or node for addr().
-  //   2. Look up the value in the record source (static JSON in
-  //      apps/ccip-gateway/data/records.json initially).
-  //   3. ABI-encode (value, expires, signature) where signature is
-  //      EthSigner over keccak256(value || expires || extraData)
-  //      using GATEWAY_PRIVATE_KEY (Vercel env).
-  //   4. Return { data: "0x...", ttl: 60 }.
+  const agent = lookupByNode(decoded.node);
+  if (!agent) {
+    // PublicResolver convention: unknown record returns empty string,
+    // not a revert. We honour that — sign an empty result so the
+    // caller's resolver callback can decode it cleanly.
+    try {
+      const signed = await signGatewayResponse({
+        resolver: sender,
+        callData,
+        result: encodeEmptyStringResult(),
+      });
+      return NextResponse.json(signed, { status: 200 });
+    } catch (err) {
+      return signingFailure(err);
+    }
+  }
+
+  let resultBytes: Hex;
+  if (decoded.kind === "text") {
+    const value = agent.records[decoded.key] ?? "";
+    resultBytes = encodeStringResult(value);
+  } else {
+    // addr(node) — for now, return zero address. Agents don't have
+    // their own EVM addresses bound at the resolver level in T-4-1;
+    // T-4-2 ERC-8004 entry carries the address.
+    resultBytes = encodeStringResult("");
+  }
+
+  try {
+    const signed = await signGatewayResponse({
+      resolver: sender,
+      callData,
+      result: resultBytes,
+    });
+    return NextResponse.json(signed, { status: 200 });
+  } catch (err) {
+    return signingFailure(err);
+  }
+}
+
+function signingFailure(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
   return NextResponse.json(
     {
-      error: "not_implemented",
-      reason:
-        "CCIP-Read gateway is pre-scaffold. T-4-1 main PR will land the record lookup + signing logic.",
-      design_doc:
-        "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/design/T-4-1-ccip-read-prep.md",
+      error: "signing_failed",
+      reason: message,
     },
-    { status: 501 },
+    { status: 500 },
   );
 }
 

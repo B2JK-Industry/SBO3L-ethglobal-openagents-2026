@@ -14,11 +14,17 @@
 //! to the offline fixture for determinism; a real-resolver implementation can
 //! be added without touching call sites.
 
+pub mod ccip_read;
 pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
 
+pub use ccip_read::{
+    decode_gateway_data, decode_gateway_response_body, decode_string_result,
+    parse_offchain_lookup_revert, CcipError, GatewayBody, GatewayResponse, OffchainLookup,
+    OFFCHAIN_LOOKUP_SELECTOR,
+};
 pub use durin::{
     build_dry_run as build_durin_dry_run, multicall_calldata, register_calldata, DurinDryRun,
     DurinDryRunSetTextEntry, DurinError, DURIN_DRY_RUN_SCHEMA, MAX_RECORD_VALUE_BYTES,
