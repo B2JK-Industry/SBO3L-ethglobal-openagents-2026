@@ -20,3 +20,16 @@ chrono = { workspace = true }
 rust_decimal = { workspace = true }
 ulid = { workspace = true }
 jsonschema = { workspace = true }
+
+# F-5: KMS backends are feature-gated. Each feature compiles a stub
+# module today; the actual SDK dependency is pulled in by a follow-up
+# nightly task once Daniel provisions a test key. Until then, daemon
+# builds with `--features aws_kms` (etc.) compile cleanly without
+# multi-MB SDK dependency trees, and the factory routes to a backend
+# whose `sign_hex` returns "not yet implemented".
+[features]
+default = []
+aws_kms = []
+gcp_kms = []
+phala_tee = []
+eth_signer = []

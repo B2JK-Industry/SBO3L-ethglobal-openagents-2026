@@ -12,6 +12,7 @@ pub mod passport;
 pub mod receipt;
 pub mod schema;
 pub mod signer;
+pub mod signers;
 
 pub use error::{CoreError, Result, SchemaError};
 

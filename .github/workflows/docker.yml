@@ -70,6 +70,7 @@ jobs:
           docker run -d --rm --name sbo3l-test \
             -p 18730:8730 \
             -e SBO3L_ALLOW_UNAUTHENTICATED=1 \
+            -e SBO3L_DEV_ONLY_SIGNER=1 \
             sbo3l/server:test
           # wait for /v1/payment-requests to come up; tolerate slow start
           for i in $(seq 1 30); do

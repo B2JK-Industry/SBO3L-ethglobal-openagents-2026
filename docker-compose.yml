@@ -47,6 +47,10 @@ services:
       # Default-deny is the daemon's safe default; flip on the dev bypass
       # for local docker-compose use. Override per-environment in prod.
       SBO3L_ALLOW_UNAUTHENTICATED: "1"
+      # F-5 dev signer flag — AppState uses DevSigner today; explicit flag
+      # prevents false-security where a non-dev backend label could mask
+      # public-dev-key signing.
+      SBO3L_DEV_ONLY_SIGNER: "1"
       # Embedded migrations + image-default SBO3L_DB path are sufficient.
       # Override SBO3L_DB to ":memory:" if you don't want a host volume.
     healthcheck:

@@ -40,10 +40,30 @@ Behaviour matrix:
 
 The 50-concurrent stress is in `cargo test --test test_idempotency_race`. Pre-F-3 the lookup-then-INSERT race let multiple writers run the pipeline; F-3's atomic claim caps that at exactly one pipeline run per `Idempotency-Key`.
 
+## Signer backends (F-5, KMS abstraction)
+
+The signing surface is a [`Signer`] trait in [`crates/sbo3l-core/src/signers/mod.rs`](crates/sbo3l-core/src/signers/mod.rs) with four backends selectable via the `SBO3L_SIGNER_BACKEND` env var:
+
+| Value | Feature flag | Status |
+|---|---|---|
+| `dev` (default) | always on | Production-mode-locked dev signer. Refuses to construct unless `SBO3L_DEV_ONLY_SIGNER=1` is set; on construction prints a `⚠ DEV ONLY SIGNER ⚠` stderr banner. The seeds are public constants in this repo — anyone can forge a signature that passes `verify_hex` against this backend. |
+| `aws_kms` | `aws_kms` | AWS KMS Ed25519 signer. **Compile-only stub today**; SDK wiring lands in a follow-up nightly task once Daniel provisions a KMS test key. Calls return `SignerError::Kms(...)` until then. |
+| `gcp_kms` | `gcp_kms` | Google Cloud KMS Ed25519 signer. Same status as AWS. |
+| `phala_tee` | `phala_tee` | **Phase 3 placeholder**, NOT a real TEE today. Locks the trait shape so the rest of the codebase can plumb through `Box<dyn Signer>` without churn when the real TEE wiring lands. |
+
+The daemon's startup path validates the configured backend at boot via `signer_from_env("audit")` + `signer_from_env("receipt")`; any error (DevOnlyLockout, BackendNotCompiled, MissingEnv, UnknownBackend) prints a stderr diagnostic and exits with code 2.
+
+Sibling secp256k1 trait [`EthSigner`] in [`crates/sbo3l-core/src/signers/eth.rs`](crates/sbo3l-core/src/signers/eth.rs) is a feature-flagged stub for Dev 4's EVM transaction signing (Durin subname issuance). Deliberately **not** merged with [`Signer`] because the curves and wire formats differ (Ed25519 64-byte vs secp256k1 65-byte `r||s||v`). Both can be backed by the same KMS with different key shapes.
+
+All four Ed25519 backends produce **identical wire format**: 64-byte signatures verifiable via `crate::signer::verify_hex` against the 32-byte verifying key the backend reports. A receipt signed by `AwsKmsSigner` is byte-equivalent to one signed by `DevSignerLockedDown` — offline verifiers don't need to know which backend produced it. The dev-signer interop test pins this via `cargo test --test test_signers`; the AWS / GCP equivalents land with the live SDK wiring.
+
 ## Known limitations (scope-cut for submission)
 
-### Production signer wiring
-`sbo3l-server` constructs `AppState::new()` directly today, which uses the deterministic public dev seed. `AppState::new()` is documented `⚠ DEV ONLY ⚠`. Production path: `AppState::with_signers(...)` injects a real KMS-backed `SignerBackend`; daemon refuses startup if `SBO3L_SIGNER_BACKEND` is unset. Mock-KMS persistence (PSM-A1.9, V005) is the production-shaped lifecycle preview, not the production signer. Tracked.
+### Live KMS integration tests
+The AWS and GCP KMS backends ship as compile-only stubs in this build. Live integration tests against real KMS test keys are gated behind the `aws_kms` / `gcp_kms` features and the nightly CI matrix; they don't run on the hot per-PR path. Tracked: Daniel provisions test keys (one-time, ~30 min each), the SDK wiring follows in a per-cloud PR.
+
+### Phala TEE (Phase 3)
+The `phala_tee` backend is a placeholder, NOT a real TEE today. Real wiring requires a Phase 3 ticket that pulls the `dstack` runtime, sets up remote attestation, and validates the enclave measurement before trusting a signature. Tracked.
 
 ### Passport verifier scope
 `sbo3l passport verify` defaults to a **structural-only** pass for backwards compat (schema + cross-field invariants — see the doc-comment at [`crates/sbo3l-cli/src/passport.rs`](crates/sbo3l-cli/src/passport.rs) line 11). The default mode does **not** verify Ed25519 signatures, audit-chain hash linkage, or recompute the canonical APRP / policy hashes. The capsule's `verification.offline_verifiable` field reflects the structural result, not a full crypto re-verify.
