@@ -1,17 +1,73 @@
+import Link from "next/link";
+import { DaemonStatusBanner } from "@/components/DaemonStatusBanner";
+import { listAudit, DaemonError, type AuditEvent } from "@/lib/sbo3l-client";
 import { mockAuditEvents } from "@/lib/mock-data";
 
-export default function AuditPage() {
-  const events = mockAuditEvents; // CTI-3-4 main slice 2: paginated, filterable, daemon-backed
+interface NormalizedEvent {
+  eventId: string;
+  tsUnixMs: number;
+  eventType: AuditEvent["event_type"];
+  agentId: string;
+  decision?: "allow" | "deny";
+  denyCode?: string;
+  requestHashPrefix: string;
+}
+
+function normalize(e: AuditEvent): NormalizedEvent {
+  return {
+    eventId: e.event_id,
+    tsUnixMs: e.ts_unix_ms,
+    eventType: e.event_type,
+    agentId: e.agent_id,
+    decision: e.decision,
+    denyCode: e.deny_code,
+    requestHashPrefix: e.request_hash.slice(0, 10) + "..",
+  };
+}
+
+interface PageProps {
+  searchParams: Promise<{ cursor?: string; limit?: string }>;
+}
+
+export default async function AuditPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const limit = Number.parseInt(params.limit ?? "50", 10);
+  let events: NormalizedEvent[];
+  let nextCursor: string | null = null;
+  let chainLength: number | null = null;
+
+  try {
+    const page = await listAudit({ cursor: params.cursor, limit });
+    events = page.events.map(normalize);
+    nextCursor = page.next_cursor;
+    chainLength = page.chain_length;
+  } catch (err) {
+    if (!(err instanceof DaemonError)) throw err;
+    events = mockAuditEvents.map((m) => ({
+      eventId: m.eventId,
+      tsUnixMs: m.tsUnixMs,
+      eventType: m.eventType,
+      agentId: m.agentId,
+      decision: m.decision,
+      denyCode: m.denyCode,
+      requestHashPrefix: m.requestHashPrefix,
+    }));
+  }
 
   return (
     <main>
+      <DaemonStatusBanner />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5em" }}>
         <h1>Audit log</h1>
-        <button title="Run strict-hash verifier against the local chain">Verify (strict)</button>
+        {chainLength !== null && (
+          <span style={{ color: "var(--muted)", fontSize: "0.9em" }}>
+            chain length: <strong style={{ color: "var(--fg)" }}>{chainLength}</strong>
+          </span>
+        )}
       </header>
       <p style={{ color: "var(--muted)", marginBottom: "2em" }}>
-        Hash-chained, Ed25519-signed event log. Strict-hash verifier runs all 6 capsule checks (see{" "}
-        <a href="https://sbo3l-docs.vercel.app/concepts/audit-log">/concepts/audit-log</a>).
+        Hash-chained, Ed25519-signed event log. See{" "}
+        <a href="https://sbo3l-docs.vercel.app/concepts/audit-log">/concepts/audit-log</a>.
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.92em" }}>
         <thead>
@@ -51,9 +107,11 @@ export default function AuditPage() {
           ))}
         </tbody>
       </table>
-      <p style={{ color: "var(--muted)", marginTop: "2em", fontSize: "0.9em" }}>
-        Mock data. Real strict-hash verifier integration lands in CTI-3-4 main slice 2.
-      </p>
+      {nextCursor && (
+        <nav style={{ marginTop: "1.5em" }}>
+          <Link href={{ pathname: "/audit", query: { cursor: nextCursor, limit } }}>Next page →</Link>
+        </nav>
+      )}
     </main>
   );
 }
