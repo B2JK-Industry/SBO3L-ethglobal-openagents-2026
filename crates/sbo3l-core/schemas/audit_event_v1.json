@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sbo3l.dev/audit-event/v1.json",
+  "title": "SBO3L Signed Audit Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event",
+    "event_hash",
+    "signature"
+  ],
+  "properties": {
+    "event": {
+      "$ref": "#/$defs/event"
+    },
+    "event_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "signature": {
+      "$ref": "#/$defs/signature"
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "seq",
+        "id",
+        "ts",
+        "type",
+        "actor",
+        "subject_id",
+        "payload_hash",
+        "metadata",
+        "prev_event_hash"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^evt-[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "agent_created",
+            "agent_revoked",
+            "agent_paused",
+            "agent_resumed",
+            "policy_changed",
+            "policy_revoked",
+            "key_created",
+            "key_rotated",
+            "key_revoked",
+            "request_received",
+            "request_rejected",
+            "schema_validation_failed",
+            "auth_failed",
+            "x402_verified",
+            "x402_verification_failed",
+            "policy_decided",
+            "budget_reserved",
+            "budget_committed",
+            "budget_released",
+            "budget_reset",
+            "simulated",
+            "simulation_failed",
+            "human_approval_needed",
+            "human_approved",
+            "human_rejected",
+            "human_approval_expired",
+            "decision_signed",
+            "tx_signed",
+            "tx_broadcast",
+            "settlement_complete",
+            "settlement_failed",
+            "emergency_freeze",
+            "emergency_resume",
+            "provider_revoked",
+            "recipient_blacklisted",
+            "attestation_generated",
+            "attestation_drift",
+            "hw_killswitch_triggered",
+            "incident_report_created",
+            "audit_export",
+            "audit_anchor_published",
+            "config_loaded",
+            "runtime_started",
+            "runtime_shutdown"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "payload_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "policy_version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "policy_hash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hash"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attestation_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "prev_event_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "key_id",
+        "signature_hex"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "ed25519"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128
+        },
+        "signature_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{128}$"
+        }
+      }
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

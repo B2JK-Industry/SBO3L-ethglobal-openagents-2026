@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sbo3l.dev/policy-receipt/v1.json",
+  "title": "SBO3L Policy Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_type",
+    "version",
+    "agent_id",
+    "decision",
+    "request_hash",
+    "policy_hash",
+    "audit_event_id",
+    "issued_at",
+    "signature"
+  ],
+  "properties": {
+    "receipt_type": {
+      "const": "sbo3l.policy_receipt.v1"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "requires_human"
+      ]
+    },
+    "deny_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z]+\\.[a-z0-9_]+$",
+      "default": null
+    },
+    "request_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "policy_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "policy_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "default": null
+    },
+    "audit_event_id": {
+      "type": "string",
+      "pattern": "^evt-[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "execution_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256,
+      "default": null
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "default": null
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "key_id",
+        "signature_hex"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "ed25519"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128
+        },
+        "signature_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{128}$"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
