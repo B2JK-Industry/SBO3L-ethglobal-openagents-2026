@@ -1,0 +1,41 @@
+@import "@sbo3l/design-tokens/css";
+
+/*
+ * Map Starlight's theme variables onto SBO3L brand tokens so the docs
+ * site looks identical to marketing without each component knowing
+ * about both systems.
+ *
+ * Starlight prefers --sl-color-* prefixed variables. We override them
+ * once here; Starlight's components pick up the values automatically.
+ */
+:root {
+  --sl-color-accent:        var(--accent);
+  --sl-color-accent-low:    var(--code-bg);
+  --sl-color-accent-high:   var(--accent);
+  --sl-color-bg:            var(--bg);
+  --sl-color-bg-nav:        var(--bg);
+  --sl-color-bg-sidebar:    var(--bg);
+  --sl-color-bg-inline-code: var(--code-bg);
+  --sl-color-bg-accent:     var(--accent);
+  --sl-color-text:          var(--fg);
+  --sl-color-text-accent:   var(--accent);
+  --sl-color-text-invert:   var(--bg);
+  --sl-color-hairline:      var(--border);
+  --sl-color-hairline-light: var(--border);
+  --sl-font: var(--font-sans);
+  --sl-font-mono: var(--font-mono);
+}
+
+/* Audience+outcome banner — rendered at the top of every doc page by
+ * the AudienceBadge override component (lands in CTI-3-3 main). The
+ * styles are shipped now so the override drops in cleanly. */
+.audience-outcome-banner {
+  border-left: 3px solid var(--accent);
+  padding: 0.7em 1em;
+  margin: 1em 0 1.5em;
+  background: var(--code-bg);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  color: var(--muted);
+  font-size: 0.95em;
+}
+.audience-outcome-banner strong { color: var(--fg); }

@@ -1,0 +1,40 @@
+---
+title: SBO3L Documentation
+description: Documentation for the SBO3L agent trust layer.
+audience: agent developers, compliance teams, sponsor engineers, auditors
+outcome: You'll find the right entry point for your role and goal.
+template: splash
+hero:
+  tagline: Don't give your agent a wallet. Give it a mandate.
+  actions:
+    - text: Quickstart (5 min)
+      link: /quickstart
+      icon: right-arrow
+      variant: primary
+    - text: Repo
+      link: https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+      icon: external
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+<CardGrid>
+  <Card title="Agent developer" icon="rocket">
+    Stop holding keys, stop hand-rolling policy. Get a signed audit trail for free. Start at the [quickstart](/quickstart) — daemon up + curl + signed receipt in < 5 minutes.
+  </Card>
+  <Card title="Compliance / security" icon="approve-check">
+    Cryptographically verifiable proof every agent action was authorised, with offline re-derivation. Read [audit log](/concepts/audit-log) and [capsule v2](/concepts/capsule).
+  </Card>
+  <Card title="Sponsor team" icon="puzzle">
+    Receive a signed APRP envelope upstream of execution. Replay-safe, policy-checked, audit-linked. Read [sponsor adapters](/concepts/sponsor-adapters).
+  </Card>
+  <Card title="Auditor / judge" icon="document">
+    Download one JSON file, run one verifier command, reconstruct what was authorised. Read [APRP wire format](/concepts/aprp).
+  </Card>
+</CardGrid>
+
+## What is SBO3L
+
+SBO3L is the cryptographically verifiable trust layer for autonomous AI agents. Every action your agent takes — pay, swap, store, compute, coordinate — passes through SBO3L's policy boundary first: schema validation, deterministic policy decision, multi-scope budgeting, Ed25519-signed receipts, hash-chained audit log, sponsor adapter routing.
+
+Output: a self-contained Passport capsule anyone can verify offline against the agent's published Ed25519 pubkey alone — no daemon, no network, no RPC.
