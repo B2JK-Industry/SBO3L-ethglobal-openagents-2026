@@ -14,6 +14,8 @@ then construct an APRP. `policy_guard` is `sbo3l_langgraph.PolicyGuardNode`.
 from __future__ import annotations
 
 import json
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any, TypedDict
 
 import httpx
@@ -48,7 +50,10 @@ def _data_fetch(url: str) -> dict[str, Any]:
 def _aprp_build(provider_url: str, value: str) -> dict[str, Any]:
     """Construct an APRP body from provider URL + amount.
 
-    Hardcoded fields (agent_id, nonce, etc.) keep the demo deterministic in CI.
+    `nonce` and `expiry` are fresh per call — the daemon's
+    protocol.nonce_replay guard rejects duplicate (nonce, agent_id) tuples,
+    so a static nonce only succeeds the first time. agent_id / task_id /
+    chain stay deterministic so CI assertions can pin them.
     """
 
     return {
@@ -65,8 +70,8 @@ def _aprp_build(provider_url: str, value: str) -> dict[str, Any]:
         "payment_protocol": "x402",
         "chain": "base",
         "provider_url": provider_url.rsplit("/", 1)[0] if "/" in provider_url else provider_url,
-        "expiry": "2026-05-01T10:31:00Z",
-        "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGM",
+        "expiry": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        "nonce": str(uuid.uuid4()),
         "risk_class": "low",
     }
 
