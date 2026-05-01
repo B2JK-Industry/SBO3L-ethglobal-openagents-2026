@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L identity: ENS agent identity resolution."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L identity: ENS-backed agent identity resolution (offline fixture + live RPC)."
+keywords = ["sbo3l", "ens", "identity", "agent", "ethereum"]
+categories = ["api-bindings"]
 
 [dependencies]
 sbo3l-core = { workspace = true }
