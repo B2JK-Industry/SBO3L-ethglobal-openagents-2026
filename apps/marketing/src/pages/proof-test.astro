@@ -1,0 +1,75 @@
+---
+// Smoke-test page for the WASM verifier (#101 closure). Mounts
+// PassportVerifier with `autorun=true` and the v2 golden fixture
+// pre-filled — every page load exercises the full
+// fetch-wasm → instantiate → verify flow against a known-good
+// capsule. The expected outcome is 6 PASSED checks; if the page
+// shows anything else, the wasm pipeline regressed.
+//
+// Not linked from the main nav — discoverable via /proof-test for
+// CI smoke + manual operator checks. Production traffic uses /proof
+// (the user-facing page) instead.
+
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import PassportVerifier from "~/components/PassportVerifier.astro";
+import fs from "node:fs";
+import path from "node:path";
+
+// Load the canonical v2 golden fixture at build time so the
+// verifier auto-runs against it on page mount. The fixture is the
+// same one F-6's test plan exercises.
+const fixturePath = path.resolve(
+  process.cwd(),
+  "../../test-corpus/passport/v2_golden_001_minimal.json"
+);
+const goldenCapsule = fs.readFileSync(fixturePath, "utf8");
+---
+<BaseLayout
+  title="SBO3L — WASM verifier smoke test"
+  description="Auto-runs the WASM passport verifier against test-corpus/passport/v2_golden_001_minimal.json. Expected outcome: 6 PASSED."
+>
+  <section class="hero">
+    <h1>WASM verifier smoke test</h1>
+    <p class="lede">
+      This page auto-runs the WebAssembly verifier against
+      <code>test-corpus/passport/v2_golden_001_minimal.json</code> on
+      load. Expected outcome: <strong>6 PASSED checks</strong> with
+      the green summary. Anything else means the WASM pipeline
+      regressed or the bundled fixture drifted from the verifier's
+      expectations.
+    </p>
+    <p class="lede">
+      Operators: bookmark this URL. CI: visit it post-deploy and
+      assert <code>document.querySelector('output[data-state=ready]')</code>
+      contains "PASSED — all 6".
+    </p>
+  </section>
+
+  <PassportVerifier
+    initialCapsule={goldenCapsule}
+    autorun={true}
+    reportId="passport-verifier-smoke"
+  />
+
+  <section class="docs">
+    <h2>Why a separate page</h2>
+    <p>
+      <a href="/proof">/proof</a> is the user-facing surface — empty
+      textarea, "Verify" button, no auto-run. <code>/proof-test</code>
+      loads identical code paths but auto-fires the verifier so a
+      single page-load proves the wasm bundle, the JS glue, the JSON
+      schema, the policy snapshot, the audit segment, and the
+      Ed25519 signature path all line up. If this page is green, the
+      user-facing verifier is healthy.
+    </p>
+  </section>
+
+  <style>
+    .hero { max-width: var(--max); margin: 2em auto 1em; padding: 0 1.5em; }
+    .hero h1 { margin: 0 0 0.4em; }
+    .lede { color: var(--muted); margin: 0 0 0.8em; }
+    .docs { max-width: var(--max); margin: 2em auto; padding: 0 1.5em; color: var(--muted); }
+    .docs h2 { color: var(--ink); margin-bottom: 0.4em; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+  </style>
+</BaseLayout>
