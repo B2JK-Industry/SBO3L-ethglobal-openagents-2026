@@ -1,131 +1,69 @@
 ---
 import BaseLayout from "~/layouts/BaseLayout.astro";
+import PassportVerifier from "~/components/PassportVerifier.astro";
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
-const githubPagesProof = "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/";
 ---
 <BaseLayout
-  title="Proof — SBO3L"
-  description="Verify a SBO3L Passport capsule in your browser. All 6 strict-mode checks run client-side via WASM."
-  ogTitle="SBO3L — Verify a Passport in your browser"
+  title="SBO3L — Verify a Passport capsule in your browser"
+  description="In-browser SBO3L Passport verifier. Paste a capsule JSON and run all 6 cryptographic checks via WebAssembly — no daemon, no network."
 >
   <section class="hero">
     <h1>Verify a Passport capsule</h1>
     <p class="lede">
-      Paste or drop a capsule. All 6 strict-mode checks run in your browser
-      via a WASM-compiled <code>sbo3l-core</code>. No data leaves the page —
-      no upload, no API call, no analytics.
+      Every SBO3L decision is wrapped in a Passport capsule — a
+      self-contained, offline-verifiable proof artifact. This page
+      runs the same Rust verifier the CLI ships, compiled to
+      WebAssembly. You don't trust this server; you trust the bytes
+      of <code>sbo3l_core_bg.wasm</code> we serve, and you can verify
+      that bytes match the published <a href="https://crates.io/crates/sbo3l-core">sbo3l-core</a>
+      crate yourself.
     </p>
-    <p class="status" id="verifier-status">Loading verifier…</p>
   </section>
 
-  <section class="panel">
-    <h2>Verifier</h2>
-    <textarea
-      id="capsule-input"
-      placeholder='Paste capsule JSON here, or drop a .json file onto this textarea…'
-      rows="10"
-      aria-label="Capsule JSON input"
-    ></textarea>
-    <div class="cta">
-      <button id="verify-btn" type="button" class="btn primary" disabled>Verify</button>
-      <button id="clear-btn" type="button" class="btn ghost">Clear</button>
-      <a class="btn ghost" href="/wasm/sample-capsule.json" download>Download sample capsule</a>
-    </div>
-    <div id="verify-result" class="verify-result" aria-live="polite"></div>
-  </section>
+  <PassportVerifier />
 
-  <section class="panel">
+  <section class="docs">
     <h2>What gets checked</h2>
+    <p>
+      A v2 self-contained capsule embeds <code>policy.policy_snapshot</code>
+      and <code>audit.audit_segment</code>; the verifier runs all 6 checks
+      with no aux input:
+    </p>
     <ol>
-      <li>APRP envelope schema validity (<code>sbo3l.aprp.v1</code>)</li>
-      <li>JCS-canonical request hash matches embedded <code>request_hash</code></li>
-      <li>Ed25519 signature on the policy receipt verifies against embedded <code>agent_pubkey</code></li>
-      <li>Audit segment hash chain consistent (each <code>prev_event_hash</code> matches)</li>
-      <li>Embedded <code>policy_snapshot</code> deterministically yields the recorded decision</li>
-      <li>Capsule consistency rules (e.g. <code>decision=deny</code> ⇒ no <code>execution_ref</code>)</li>
+      <li><strong>structural</strong> — schema + cross-field invariants (deny ⇒ no execution, live mode ⇒ evidence, hash agreement, etc.)</li>
+      <li><strong>request_hash_recompute</strong> — JCS+SHA-256 of the embedded APRP equals the claimed <code>request_hash</code></li>
+      <li><strong>policy_hash_recompute</strong> — JCS+SHA-256 of the embedded policy equals the claimed <code>policy_hash</code></li>
+      <li><strong>receipt_signature</strong> — Ed25519 signature on the embedded receipt verifies against the embedded receipt-signer pubkey</li>
+      <li><strong>audit_chain</strong> — the embedded audit-bundle's chain segment verifies (signatures + prev-hash linkage)</li>
+      <li><strong>audit_event_link</strong> — the bundle's <code>summary.audit_event_id</code> matches the capsule's <code>audit.audit_event_id</code> and is present in the chain segment</li>
     </ol>
     <p>
-      All 6 checks run in &lt; 200 ms on commodity hardware. Source:
-      <a href={`${githubRepoUrl}/blob/main/crates/sbo3l-core/src/passport.rs`}><code>crates/sbo3l-core/src/passport.rs</code></a>.
+      v1 capsules pass the structural and request-hash checks; the
+      remaining four show as <em>SKIPPED</em> because the capsule
+      doesn't carry the embedded crypto material. That's an honest
+      report — never a fake-OK.
     </p>
-  </section>
-
-  <section class="panel" id="fallback-block" hidden>
-    <h2>WASM verifier not yet available</h2>
     <p>
-      The compiled WASM module hasn't shipped yet (issue
-      <a href={`${githubRepoUrl}/issues/101`}>#101</a> — Dev 1 slice).
-      Until then, verify capsules with the CLI verifier (<code>passport verify --strict --path &lt;capsule.json&gt;</code>),
-      or use the static proof page at
-      <a href={githubPagesProof}>{githubPagesProof}</a>.
+      Source: <a href={`${githubRepoUrl}/blob/main/crates/sbo3l-core/src/passport.rs`}>crates/sbo3l-core/src/passport.rs</a>
+      (<a href={`${githubRepoUrl}/blob/main/crates/sbo3l-core/src/wasm.rs`}>wasm.rs</a> for the JS bridge,
+      <a href={`${githubRepoUrl}/blob/main/scripts/build-wasm-verifier.sh`}>scripts/build-wasm-verifier.sh</a> for the build pipeline).
     </p>
   </section>
-</BaseLayout>
 
-<script>
-  import { isVerifierAvailable, verifyCapsule, renderResult } from "~/scripts/verify-capsule";
-
-  const status = document.getElementById("verifier-status") as HTMLParagraphElement | null;
-  const fallback = document.getElementById("fallback-block") as HTMLElement | null;
-  const input = document.getElementById("capsule-input") as HTMLTextAreaElement | null;
-  const verifyBtn = document.getElementById("verify-btn") as HTMLButtonElement | null;
-  const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement | null;
-  const result = document.getElementById("verify-result") as HTMLElement | null;
-  if (!status || !input || !verifyBtn || !clearBtn || !result || !fallback) {
-    throw new Error("/proof: required DOM nodes missing");
-  }
-
-  void (async (): Promise<void> => {
-    const available = await isVerifierAvailable();
-    if (available) {
-      status.textContent = "Verifier ready. All checks run locally in your browser.";
-      verifyBtn.disabled = false;
-    } else {
-      status.textContent = "WASM verifier not yet available — see fallback below.";
-      fallback.hidden = false;
-      verifyBtn.disabled = true;
+  <style>
+    .hero { max-width: var(--max); margin: 2em auto 1em; padding: 0 1.5em; }
+    .hero h1 { margin: 0 0 0.4em; }
+    .lede { color: var(--muted); margin: 0; }
+    .docs {
+      max-width: var(--max);
+      margin: 2em auto;
+      padding: 0 1.5em;
+      color: var(--muted);
     }
-  })();
-
-  verifyBtn.addEventListener("click", async () => {
-    result.textContent = "Verifying…";
-    const r = await verifyCapsule(input.value);
-    if (!r) { result.textContent = "Verifier unavailable."; return; }
-    renderResult(r, result);
-  });
-
-  clearBtn.addEventListener("click", () => { input.value = ""; result.textContent = ""; });
-
-  input.addEventListener("dragover", (e) => e.preventDefault());
-  input.addEventListener("drop", async (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer?.files?.[0];
-    if (file) input.value = await file.text();
-  });
-</script>
-
-<style>
-  .hero { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
-  .hero h1 { font-size: var(--fs-4); font-weight: 700; margin-bottom: 0.7em; }
-  .hero .lede { font-size: var(--fs-2); color: var(--muted); max-width: 700px; margin-bottom: 1em; }
-  .hero .status {
-    color: var(--muted); font-family: var(--font-mono); font-size: 0.9em;
-    border-left: 3px solid var(--accent); padding-left: 0.8em;
-  }
-
-  textarea#capsule-input {
-    width: 100%; background: var(--code-bg); color: var(--fg);
-    border: 1px solid var(--border); border-radius: var(--r-md);
-    font-family: var(--font-mono); font-size: 0.85em; padding: 1em;
-    margin-bottom: 1em; resize: vertical;
-  }
-  .cta { display: flex; gap: 0.7em; flex-wrap: wrap; margin-bottom: 1.5em; }
-
-  .verify-result { background: var(--code-bg); border: 1px solid var(--border);
-    border-radius: var(--r-md); padding: 1em; min-height: 2em; color: var(--muted); }
-  .verify-result :global(.verify-summary) { color: var(--fg); font-weight: 700; margin-bottom: 0.6em; }
-  .verify-result :global(ul.verify-checks) { list-style: none; padding-left: 0; }
-  .verify-result :global(li.pass) { color: var(--accent); }
-  .verify-result :global(li.fail) { color: #ff6b6b; }
-</style>
+    .docs h2 { color: var(--ink); margin-bottom: 0.4em; }
+    .docs ol { padding-left: 1.4em; }
+    .docs ol li { margin-bottom: 0.4em; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+  </style>
+</BaseLayout>
