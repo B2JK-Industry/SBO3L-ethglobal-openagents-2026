@@ -53,13 +53,26 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // F-5: signer factory gate. Validates the configured signer
-    // backend at startup so the daemon never enters serving with a
-    // misconfigured KMS / dev-mode lockout. We discard the returned
-    // boxes — AppState still holds concrete `DevSigner` for back-compat
-    // with the audit/receipt sign code paths; the gate's job is to
-    // refuse startup when the operator forgot to set the production
-    // mode flags. KMS-routed signing lands in a follow-up that
-    // refactors AppState to hold `Box<dyn Signer>`.
+    // backend at startup. Today AppState holds a concrete `DevSigner`
+    // for the actual audit/receipt signing — the trait abstraction
+    // ships in this PR but the AppState refactor to `Box<dyn Signer>`
+    // lands in a follow-up. To avoid the false-security gap Codex P1
+    // flagged on PR #104 (a deployment with `SBO3L_SIGNER_BACKEND=
+    // aws_kms` would START successfully yet sign with public dev seeds)
+    // we EXPLICITLY REFUSE to start unless the configured backend is
+    // `dev`. Once the AppState refactor lands, this guard relaxes.
+    let configured_backend =
+        std::env::var(ENV_SIGNER_BACKEND).unwrap_or_else(|_| "dev".to_string());
+    if configured_backend != "dev" {
+        eprintln!(
+            "ERROR: {ENV_SIGNER_BACKEND}={configured_backend} is not yet wired into AppState."
+        );
+        eprintln!("  F-5 ships the Signer trait + backends; the AppState refactor that routes");
+        eprintln!("  audit/receipt signing through the trait lands in a follow-up. Until then,");
+        eprintln!("  only `dev` backend is functionally usable — refusing startup to avoid");
+        eprintln!("  false security (signatures from public dev keys under a non-dev label).");
+        std::process::exit(SIGNER_LOCKOUT_EXIT_CODE);
+    }
     if let Err(e) = signer_from_env("audit") {
         print_signer_error(&e);
         std::process::exit(SIGNER_LOCKOUT_EXIT_CODE);
