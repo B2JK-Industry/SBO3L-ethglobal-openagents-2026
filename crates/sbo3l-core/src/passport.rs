@@ -1437,6 +1437,12 @@ mod tests {
     #[test]
     fn aux_bundle_overrides_malformed_embedded_segment() {
         let (mut capsule, receipt_signer, _audit_signer, bundle, policy) = strict_fixture();
+        // Bump the fixture's schema id to v2 so the v2-only embedded
+        // `audit_segment` slot is schema-allowed (v1 schema rejects
+        // unknown fields). The fixture itself ships a structurally
+        // valid v1 shell that's a strict superset of v2's required
+        // fields, so toggling the schema id is enough.
+        capsule["schema"] = serde_json::Value::String("sbo3l.passport_capsule.v2".into());
         // Garble the embedded audit_segment so its own decode would
         // fail (non-bundle-shaped object trips serde_json::from_value
         // in decode_embedded_segment).
@@ -1469,6 +1475,7 @@ mod tests {
     #[test]
     fn embedded_malformed_segment_fails_when_no_aux_bundle_supplied() {
         let (mut capsule, _receipt_signer, _audit_signer, _bundle, _policy) = strict_fixture();
+        capsule["schema"] = serde_json::Value::String("sbo3l.passport_capsule.v2".into());
         capsule["audit"]["audit_segment"] = serde_json::json!({
             "this_is_not": "a valid sbo3l.audit_bundle.v1"
         });

@@ -543,7 +543,7 @@ pub struct RunArgs {
     pub out_path: PathBuf,
     /// F-6: which capsule schema version the run emits. Defaults to
     /// [`SchemaVersionChoice::V2`] which embeds `policy.policy_snapshot`
-    /// + `audit.audit_segment` for self-contained verification.
+    /// and `audit.audit_segment` for self-contained verification.
     /// `--schema-version v1` forces the legacy shape.
     pub schema_version: SchemaVersionChoice,
 }
@@ -1203,12 +1203,12 @@ fn build_policy_snapshot_for_v2(
 
 /// F-6: build the `sbo3l.audit_bundle.v1`-shaped audit segment the v2
 /// capsule embeds at `audit.audit_segment`. The bundle carries the
-/// receipt + the signed audit event + the chain prefix + the receipt /
-/// audit signer public keys, so a strict verifier can check signatures
-/// + chain linkage WITHOUT being given any of those auxiliaries
-/// separately. Wire format is identical to `audit export-bundle` — the
-/// existing `audit_bundle::verify` codec handles it without a v2-aware
-/// branch.
+/// receipt, the signed audit event, the chain prefix, and the
+/// receipt / audit signer public keys, so a strict verifier can
+/// check signatures and chain linkage WITHOUT being given any of
+/// those auxiliaries separately. Wire format is identical to
+/// `audit export-bundle` — the existing `audit_bundle::verify`
+/// codec handles it without a v2-aware branch.
 fn build_audit_segment_for_v2(
     db_path: &Path,
     response: &PaymentRequestResponse,
