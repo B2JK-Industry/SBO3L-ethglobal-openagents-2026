@@ -1,37 +1,17 @@
 import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
+import { authConfig } from "@/auth.config";
+import type { Role } from "@/lib/roles";
 
-// NextAuth v5 (Auth.js) configuration.
-//
-// Single GitHub provider — agent developer audience already lives there;
-// they don't need yet another account. Sessions are JWT-backed (no DB)
-// for prep; main PR adds a DB adapter once Postgres lands in Grace's
-// Fly.io deploy.
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [GitHub],
-  pages: {
-    signIn: "/login",
-  },
-  callbacks: {
-    async jwt({ token, profile }) {
-      if (profile?.login) {
-        token.githubLogin = profile.login;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (typeof token.githubLogin === "string") {
-        session.user.githubLogin = token.githubLogin;
-      }
-      return session;
-    },
-  },
-});
+// NextAuth v5 (Auth.js) runtime export. Provider list + callbacks live
+// in auth.config.ts so they can be imported from middleware (Edge
+// runtime) without dragging in the full NextAuth instance.
+export const { handlers, signIn, signOut, auth } = NextAuth(authConfig);
 
 declare module "next-auth" {
   interface Session {
     user: {
       githubLogin?: string;
+      role?: Role;
     } & NonNullable<unknown>;
   }
 }
@@ -39,5 +19,6 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     githubLogin?: string;
+    role?: Role;
   }
 }

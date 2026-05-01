@@ -45,13 +45,22 @@ export default async function DashboardPage() {
           <button type="submit" className="ghost">Sign out</button>
         </form>
       </header>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5em" }}>Hi, @{handle}.</p>
+      <p style={{ color: "var(--muted)", marginBottom: "1.5em" }}>
+        Hi, @{handle}.{" "}
+        <span style={{ marginLeft: "0.6em", fontSize: "0.85em", padding: "0.15em 0.6em", borderRadius: "var(--r-sm)", background: "var(--code-bg)", border: "1px solid var(--border)" }}>
+          role: <code>{session?.user?.role ?? "viewer"}</code>
+        </span>
+      </p>
 
       <nav style={{ display: "flex", gap: "1em", marginBottom: "2em", flexWrap: "wrap" }}>
         <Link href="/agents">Agents</Link>
         <Link href="/audit">Audit log</Link>
         <Link href="/capsules">Capsule library</Link>
         <Link href="/trust-dns">Trust DNS</Link>
+        {(session?.user?.role === "admin" || session?.user?.role === "operator") && (
+          <Link href="/policy/edit">Edit policy</Link>
+        )}
+        {session?.user?.role === "admin" && <Link href="/admin/flags">Feature flags</Link>}
       </nav>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1em" }}>
