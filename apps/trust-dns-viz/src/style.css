@@ -1,0 +1,51 @@
+@import "@sbo3l/design-tokens/css";
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#chrome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7em 1.2em;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.95em;
+}
+
+#chrome.embed { display: none; }
+
+.brand { color: var(--fg); font-weight: 700; text-decoration: none; }
+
+#status {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+#status::before {
+  content: "●";
+  margin-right: 0.4em;
+  color: var(--muted);
+}
+
+#status.connected::before { color: var(--accent); }
+#status.disconnected::before { color: #ff6b6b; }
+
+main { width: 100vw; height: calc(100vh - 3em); }
+#chrome.embed + main { height: 100vh; }
+#viz { width: 100%; height: 100%; display: block; }
+
+.node circle { fill: var(--code-bg); stroke: var(--accent); stroke-width: 2; }
+.node.allow circle { fill: var(--accent); }
+.node.deny circle { fill: #ff6b6b; }
+.node text { fill: var(--fg); font-size: 11px; font-family: var(--font-mono); user-select: none; }
+
+.edge { stroke: var(--border); stroke-width: 1.5; fill: none; }
+.edge.signed { stroke: var(--accent); }

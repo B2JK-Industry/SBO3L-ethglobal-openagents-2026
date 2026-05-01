@@ -1,0 +1,31 @@
+{
+  "name": "@sbo3l/trust-dns-viz",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Real-time agent trust visualization (force-directed graph) for SBO3L. Vite + d3-force, deploys standalone and embeds in sbo3l-app via iframe.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/design-tokens": "file:../../packages/design-tokens",
+    "d3-drag": "^3.0.0",
+    "d3-force": "^3.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-zoom": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/d3-drag": "^3.0.7",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-zoom": "^3.0.8",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}
