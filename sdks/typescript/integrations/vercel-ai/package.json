@@ -1,0 +1,52 @@
+{
+  "name": "@sbo3l/vercel-ai",
+  "version": "1.0.0",
+  "description": "Vercel AI SDK adapter for SBO3L — wrap an APRP submit as an `ai.tool()` with zod parameters.",
+  "license": "MIT",
+  "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
+  "homepage": "https://sbo3l.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git",
+    "directory": "sdks/typescript/integrations/vercel-ai"
+  },
+  "keywords": ["sbo3l", "vercel-ai", "ai-sdk", "agent", "policy", "tool", "next.js"],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "peerDependencies": {
+    "@sbo3l/sdk": "^1.0.0",
+    "ai": "^3.0.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": { "optional": false }
+  },
+  "devDependencies": {
+    "@sbo3l/sdk": "file:../..",
+    "@types/node": "^20.11.5",
+    "ai": "^3.4.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "publishConfig": { "access": "public" }
+}

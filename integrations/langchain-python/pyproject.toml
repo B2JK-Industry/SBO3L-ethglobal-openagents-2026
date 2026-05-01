@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sbo3l-langchain"
-version = "0.1.0"
+version = "1.0.0"
 description = "LangChain Python tool wrapping SBO3L — gate every agent payment intent through SBO3L's policy boundary."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-sdk = ["sbo3l-sdk>=0.1.0,<1"]
+sdk = ["sbo3l-sdk>=1.0.0,<2"]
 langchain = ["langchain-core>=0.2,<1"]
 dev = [
     "pytest>=8.0,<9",

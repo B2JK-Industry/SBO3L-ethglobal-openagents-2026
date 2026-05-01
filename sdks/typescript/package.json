@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Official TypeScript SDK for SBO3L — the cryptographically verifiable trust layer for autonomous AI agents.",
   "license": "MIT",
   "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
