@@ -36,6 +36,7 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(test)]
 use tiny_keccak::{Hasher, Keccak};
 
 use crate::ens_anchor::{namehash, AnchorError, EnsNetwork};
@@ -255,6 +256,7 @@ fn u256_be(n: u64) -> [u8; 32] {
     out
 }
 
+#[cfg(test)]
 fn keccak256(data: &[u8]) -> [u8; 32] {
     let mut h = Keccak::v256();
     h.update(data);
