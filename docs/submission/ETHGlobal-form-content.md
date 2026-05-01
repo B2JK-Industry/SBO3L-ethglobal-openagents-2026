@@ -40,9 +40,13 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 > Every action that flows through SBO3L's `KeeperHubExecutor` is gated by an APRP policy decision before any KeeperHub workflow webhook is called. Allowed actions arrive at KH with a signed `sbo3l_*` envelope (request_hash, policy_hash, receipt_signature, audit_event_id, optional passport_uri) — five optional fields KH can echo back to make every execution row cryptographically linked to the upstream authorisation.
 >
-> SBO3L ships a standalone `sbo3l-keeperhub-adapter` crate on crates.io implementing IP-1..IP-5 from the integration paths doc. The adapter has both `local_mock()` (CI-safe default) and `live_from_env()` (real `wfb_…` token + workflow id) constructors. Live submissions to KeeperHub were exercised end-to-end as part of the demo gate — execution id `kh-<ULID>` is captured into the Passport capsule for offline verification.
+> SBO3L ships a standalone `sbo3l-keeperhub-adapter` crate on crates.io implementing IP-1..IP-5 from the integration paths doc. The adapter has both `local_mock()` (CI-safe default) and `live_from_env()` (real `wfb_…` token + workflow id) constructors. Live submissions to KeeperHub were exercised end-to-end on submission day against workflow `m4t4cnpmhv8qquce3bv3c`; the IP-1 envelope POST returned a real `executionId` of the form `kh-172o77rxov7mhwvpssc3x` (KH-format, *not* a ULID — that's KeeperHub's own identifier scheme), captured into the Passport capsule's `execution.live_evidence` for offline verification.
 
-**Live integration evidence:** [`demo-scripts/sponsors/keeperhub-real-execution.sh`](../../demo-scripts/sponsors/keeperhub-real-execution.sh) + [`crates/sbo3l-keeperhub-adapter/`](../../crates/sbo3l-keeperhub-adapter/)
+**Live integration evidence:**
+- Webhook URL: `https://app.keeperhub.com/api/workflows/m4t4cnpmhv8qquce3bv3c/webhook`
+- Live arm: [`crates/sbo3l-keeperhub-adapter/`](../../../crates/sbo3l-keeperhub-adapter/) — `submit_live_to`
+- Demo gate: [`demo-scripts/sponsors/keeperhub-real-execution.sh`](../../../demo-scripts/sponsors/keeperhub-real-execution.sh)
+- Real execution captured: `kh-172o77rxov7mhwvpssc3x` (re-run sweep produces a fresh one)
 
 **5+ specific KH improvement issues filed:** _populate from `FEEDBACK.md` after T-2-1 lands_
 
@@ -54,18 +58,21 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **How does your project use ENS?**
 
-> SBO3L turns ENS into *the agent trust DNS*. Every named agent gets a subname under `sbo3lagent.eth` (mainnet apex) with seven `sbo3l:*` text records: `agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`, `capability` (new in Phase 2), `reputation` (new in Phase 2, computed from the audit chain).
+> SBO3L turns ENS into *the agent trust DNS*. Every named agent gets a subname under `sbo3lagent.eth` (mainnet apex Daniel owns) with `sbo3l:*` text records. v1.0.1 ships **5 records on chain** (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`); Phase 2 adds two more (`capability`, `reputation`) for the full 7-record profile. Subname registration uses **direct ENS Registry `setSubnodeRecord`** (Daniel is the parent owner) + PublicResolver `setText` per record — no third-party registrar abstraction needed (we evaluated Durin and dropped it 2026-05-01: direct registry is fewer moving parts, more verifiable on Etherscan, and zero new contracts to deploy).
 >
 > An agent resolves another agent by ENS name and gets back a complete trust profile — *without trusting any single party*. Cross-agent attestations are signed Ed25519 envelopes that pin the recipient's expected `policy_hash` and an `expires_at`; the receiving SBO3L instance verifies the chain (sender's pubkey → recipient's published policy → recipient's actual decision) before allowing the delegated action.
 >
-> Five named agents on Sepolia (`research-agent`, `trading-agent`, `swap-agent`, `audit-agent`, `coordinator-agent`) discover each other in real time in the [trust-DNS visualization](https://app.sbo3l.dev/trust-dns). The visualization is the demo video centerpiece.
+> Five+ named agents on Sepolia (`research-agent`, `trading-agent`, `swap-agent`, `audit-agent`, `coordinator-agent`) discover each other in real time in the [trust-DNS visualization](https://app.sbo3l.dev/trust-dns). The visualization is the demo video centerpiece.
 
 **Live ENS evidence:**
-- Mainnet `sbo3lagent.eth` with 7 sbo3l:* records (resolve via any ENS gateway)
-- Sepolia subname issuance via Durin (PR #116 dry-run, full live in T-3-1 main)
-- Cross-agent attestation protocol (T-3-4)
-- Trust-DNS viz (T-3-5)
-- 1500-word "Trust DNS" essay at https://docs.sbo3l.dev/trust-dns (T-3-6)
+- Mainnet `sbo3lagent.eth` with 5 `sbo3l:*` records on chain. `policy_hash = e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf` — matches the offline fixture byte-for-byte (no drift)
+- ENS Registry constant: `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` (mainnet + Sepolia, deterministic deployment)
+- Mainnet PublicResolver: `0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63`
+- Sepolia subname issuance via direct ENS Registry (`sbo3l agent register --network sepolia`; PR #116 dry-run merged; broadcast slice in flight)
+- ENSIP-25 CCIP-Read gateway live at https://ccip.sbo3l.dev (T-4-1 ✅; PR #124 + #121 + uptime probe)
+- Cross-agent attestation protocol (T-3-4 — first-tier amplifier 60-agent fleet PR #141)
+- Trust-DNS viz (T-3-5 — canvas renderer PR #164 for ≥100 agents)
+- 1500-word "Trust DNS" essay at https://docs.sbo3l.dev/trust-dns (T-3-6 — pending)
 
 ## Sponsor track field — ENS AI Agents
 
@@ -81,7 +88,10 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **Live Uniswap evidence:**
 - `crates/sbo3l-execution/src/uniswap.rs` — `live_from_env()` + Sepolia QuoterV2 quote
-- `examples/uniswap-agent/` (T-5-6) — TS + Py demo
+- Sepolia QuoterV2: `0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`
+- Sepolia route: WETH → USDC `0x1c7D4B19…` (used in submission-day verification at HEAD `0707079`)
+- Quote evidence captured: `quote_source: uniswap-v3-quoter-sepolia-…` plus real `sqrt_price_x96_after` and a freshness timestamp embedded in the capsule
+- `examples/uniswap-agent/` (T-5-6) — TS + Py demo (gated on T-5-5 swap landing; Dev 2 in flight on PR #165 for T-5-1 swap construction)
 - Real Sepolia tx hash captured into capsule (`demo-scripts/artifacts/uniswap-real-swap-capsule.json` after T-5-5)
 
 ## Sponsor track field — 0G Track A (Storage)
@@ -100,10 +110,10 @@ _populate after T-8-* (multi-node SBO3L with AXL)_
 
 | Surface | State |
 |---|---|
-| KeeperHub | Live `wfb_…` token executes real workflows; `kh-<ULID>` captured |
-| ENS apex `sbo3lagent.eth` | Mainnet, 7 sbo3l:* records on chain |
-| ENS subnames | Sepolia, issued via Durin |
-| Uniswap | Sepolia QuoterV2 quotes live; real swap (T-5-5) Sepolia |
+| KeeperHub | Live `wfb_…` token executes real workflows against `m4t4cnpmhv8qquce3bv3c`; `kh-172o77rxov7mhwvpssc3x` shape executionId captured |
+| ENS apex `sbo3lagent.eth` | **Mainnet, 5 `sbo3l:*` records on chain today** (Phase 2 adds 2 more for 7 total) |
+| ENS subnames | Sepolia, issued via direct ENS Registry `setSubnodeRecord` (Daniel parent-owner; Durin path evaluated and dropped 2026-05-01) |
+| Uniswap | Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) quotes live; real swap (T-5-5) Sepolia |
 | 0G | Testnet (faucet flaky; see notes in `docs/0g-…`) |
 | Gensyn AXL | Testnet |
 
