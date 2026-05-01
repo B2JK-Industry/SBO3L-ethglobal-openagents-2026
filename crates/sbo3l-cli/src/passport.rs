@@ -23,8 +23,9 @@ use std::process::ExitCode;
 
 use sbo3l_core::audit_bundle::AuditBundle;
 use sbo3l_core::passport::{
-    verify_capsule, verify_capsule_strict, CapsuleVerifyError, CheckOutcome, StrictVerifyOpts,
-    StrictVerifyReport,
+    capsule_is_self_contained, verify_capsule, verify_capsule_strict, CapsuleVerifyError,
+    CheckOutcome, StrictVerifyOpts, StrictVerifyReport, VERIFIER_MODE_AUX_REQUIRED,
+    VERIFIER_MODE_SELF_CONTAINED,
 };
 use sbo3l_core::schema::validate_passport_capsule;
 use sbo3l_execution::keeperhub::KeeperHubExecutor;
@@ -362,8 +363,19 @@ fn build_explanation(value: &Value) -> Value {
         .map(|a| a.len())
         .unwrap_or(0);
 
+    let schema_id = value
+        .pointer("/schema")
+        .and_then(|v| v.as_str())
+        .unwrap_or("sbo3l.passport_capsule.v1");
+    let verifier_mode = if capsule_is_self_contained(value) {
+        VERIFIER_MODE_SELF_CONTAINED
+    } else {
+        VERIFIER_MODE_AUX_REQUIRED
+    };
+
     json!({
-        "schema": "sbo3l.passport_capsule.v1",
+        "schema": schema_id,
+        "verifier_mode": verifier_mode,
         "agent": {
             "agent_id": agent_id,
             "ens_name": ens_name,
@@ -468,7 +480,13 @@ fn print_explanation_text(s: &Value) {
     } else {
         format!(" ({ens_name})")
     };
+    let verifier_mode = s
+        .pointer("/verifier_mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or(VERIFIER_MODE_AUX_REQUIRED);
+
     println!("SBO3L Passport — capsule explanation");
+    println!("  {verifier_mode}");
     println!("  agent:        {agent_id}{ens_part}, resolver={resolver}");
     println!("  policy:       v{policy_version}, hash={policy_prefix}…");
     if result == "deny" {
