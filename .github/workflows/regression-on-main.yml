@@ -1,0 +1,194 @@
+name: Regression on main
+
+# Post-merge canonical sweep — runs the full SBO3L regression suite each time
+# main moves and posts a single comment back on the PR that triggered the
+# merge. Catches regressions that slipped through per-PR CI and gives Heidi
+# (QA + Release) a permanent timeline of main health.
+#
+# The per-PR `CI` workflow already runs cargo fmt/clippy/test on every push;
+# this workflow extends that with the demo-script + production-shaped runner
+# checks, which only make sense post-merge against the integrated tree.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: regression-on-main
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    name: Full regression sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      summary: ${{ steps.report.outputs.summary }}
+      status: ${{ steps.report.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-regression-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-regression-
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python validators
+        run: pip install "jsonschema[format]>=4.21" "openapi-spec-validator>=0.7" "referencing>=0.35"
+
+      - name: Install jq + curl (for demo scripts)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq curl
+
+      - name: cargo fmt --check
+        id: fmt
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        id: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        id: cargo_test
+        run: |
+          set -o pipefail
+          cargo test --workspace --all-targets 2>&1 | tee /tmp/cargo-test.log
+          PASSED=$(awk '/^test result: ok\./ {p+=$4} END {print p+0}' /tmp/cargo-test.log)
+          FAILED=$(awk '/^test result: ok\./ {f+=$6} END {print f+0}' /tmp/cargo-test.log)
+          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+
+      - name: Python — demo-fixtures
+        id: fixtures
+        run: python3 demo-fixtures/test_fixtures.py
+
+      - name: Python — trust-badge regression
+        id: trust_badge
+        run: python3 trust-badge/test_build.py
+
+      - name: Python — operator-console regression
+        id: operator_console
+        run: |
+          python3 operator-console/build.py \
+            --input operator-console/fixtures/operator-summary.json \
+            --evidence operator-console/fixtures/operator-evidence.json
+          python3 operator-console/test_build.py
+
+      - name: Demo gates — run-openagents-final.sh
+        id: demo_gates
+        run: |
+          set -o pipefail
+          bash demo-scripts/run-openagents-final.sh 2>&1 | tee /tmp/demo-gates.log
+          GATE_HEADERS=$(grep -cE $'^\e\\[1m[0-9]+\\.' /tmp/demo-gates.log || echo 0)
+          BANNER=$(grep -c "Demo complete" /tmp/demo-gates.log || echo 0)
+          echo "gates=$GATE_HEADERS" >> "$GITHUB_OUTPUT"
+          echo "banner=$BANNER" >> "$GITHUB_OUTPUT"
+
+      - name: Production-shaped runner
+        id: prod_shaped
+        run: |
+          set -o pipefail
+          bash demo-scripts/run-production-shaped-mock.sh 2>&1 | tee /tmp/prod-shaped.log
+          TALLY=$(grep -oE 'Tally: [0-9]+ real, [0-9]+ mock, [0-9]+ skipped' /tmp/prod-shaped.log | head -1)
+          echo "tally=$TALLY" >> "$GITHUB_OUTPUT"
+
+      - name: Build comment summary
+        id: report
+        if: always()
+        env:
+          STATUS_FMT: ${{ steps.fmt.conclusion }}
+          STATUS_CLIPPY: ${{ steps.clippy.conclusion }}
+          STATUS_TEST: ${{ steps.cargo_test.conclusion }}
+          PASSED: ${{ steps.cargo_test.outputs.passed }}
+          FAILED: ${{ steps.cargo_test.outputs.failed }}
+          STATUS_FIXTURES: ${{ steps.fixtures.conclusion }}
+          STATUS_TRUST_BADGE: ${{ steps.trust_badge.conclusion }}
+          STATUS_OP_CONSOLE: ${{ steps.operator_console.conclusion }}
+          STATUS_DEMO: ${{ steps.demo_gates.conclusion }}
+          GATES: ${{ steps.demo_gates.outputs.gates }}
+          STATUS_PROD: ${{ steps.prod_shaped.conclusion }}
+          TALLY: ${{ steps.prod_shaped.outputs.tally }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          icon() { case "$1" in success) echo "✅" ;; failure) echo "❌" ;; skipped|cancelled) echo "⏭" ;; *) echo "❓" ;; esac; }
+          STATUS=success
+          for s in "$STATUS_FMT" "$STATUS_CLIPPY" "$STATUS_TEST" "$STATUS_FIXTURES" "$STATUS_TRUST_BADGE" "$STATUS_OP_CONSOLE" "$STATUS_DEMO" "$STATUS_PROD"; do
+            [ "$s" != "success" ] && STATUS=failure
+          done
+          {
+            echo "🧪 Heidi regression on main @ \`${SHA:0:7}\`"
+            echo
+            echo "$(icon "$STATUS_FMT") cargo fmt --check"
+            echo "$(icon "$STATUS_CLIPPY") cargo clippy -D warnings"
+            echo "$(icon "$STATUS_TEST") cargo test : ${PASSED:-?}/${PASSED:-?} (failed=${FAILED:-?})"
+            echo "$(icon "$STATUS_FIXTURES") demo-fixtures"
+            echo "$(icon "$STATUS_TRUST_BADGE") trust-badge"
+            echo "$(icon "$STATUS_OP_CONSOLE") operator-console"
+            echo "$(icon "$STATUS_DEMO") demo gates : ${GATES:-?}/13 sections"
+            echo "$(icon "$STATUS_PROD") production-shaped : ${TALLY:-not-detected}"
+            echo
+            if [ "$STATUS" = "success" ]; then
+              echo "**No regressions.**"
+            else
+              echo "**Regression detected.** Full log: $RUN_URL"
+            fi
+          } > /tmp/comment.md
+          {
+            echo 'summary<<COMMENT_EOF'
+            cat /tmp/comment.md
+            echo 'COMMENT_EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          cat /tmp/comment.md
+
+  post-comment:
+    name: Post comment on merging PR
+    needs: regression
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Find PR for commit
+        id: find_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+                 --jq '.[0].number // empty')
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR (if found)
+        if: steps.find_pr.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.find_pr.outputs.pr }}
+          BODY: ${{ needs.regression.outputs.summary }}
+        run: gh pr comment "$PR" --repo "${{ github.repository }}" --body "$BODY"
+
+      - name: Fail the run if regression detected
+        if: needs.regression.outputs.status != 'success'
+        run: |
+          echo "::error::Regression detected on main — see PR comment for the failure surface."
+          exit 1

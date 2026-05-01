@@ -20,6 +20,7 @@
 
 pub mod uniswap;
 pub mod uniswap_live;
+pub mod uniswap_router;
 pub mod uniswap_trading;
 
 pub use sbo3l_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor};
@@ -32,6 +33,10 @@ pub use uniswap_live::{
     quote_exact_input_single, JsonRpcTransport, LiveConfig, QuoteResult, ReqwestTransport,
     RpcError, QUOTE_EXACT_INPUT_SINGLE_SELECTOR, SEPOLIA_CHAIN_ID, SEPOLIA_QUOTER_V2_ADDRESS,
     SEPOLIA_WETH,
+};
+pub use uniswap_router::{
+    CommandVerdict, EvaluatedCommand, MulticallOutcome, PolicyGate, UniversalRouterCommand,
+    UniversalRouterExecutor, UNIVERSAL_ROUTER_MAINNET_V2, UNIVERSAL_ROUTER_SEPOLIA_V2,
 };
 pub use uniswap_trading::{
     encode_exact_input_single, hex_encode, parse_address, sepolia_etherscan_tx_url, AddressError,
