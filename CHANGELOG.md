@@ -4,6 +4,31 @@ All notable changes to SBO3L are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-05-01
+
+**Phase 2 ENS integration patch.** Re-publishes all 9 crates at 1.0.1 to
+include T-3-1 Durin agent registration support. The initial v1.0.0
+publish chain caught `sbo3l-cli` referencing `sbo3l_identity::durin`,
+a module added by PR #116 which landed on main between identity@1.0.0
+and cli@1.0.0 publish steps.
+
+### Added
+- `sbo3l-identity::durin` module — calldata builders for Durin
+  `register(bytes32, string, address, address)` and PublicResolver
+  `multicall(bytes[])`. Selectors recompute-pinned by unit tests
+  (`0x4b7d0927` register, `0xac9650d8` multicall).
+- `sbo3l agent register` CLI subcommand (dry-run path) — prints
+  Durin registration calldata for a given agent name + parent ENS.
+- `crates/sbo3l-server/policies/reference_low_risk.json` — vendored
+  reference policy (was at workspace-root `test-corpus/`, broke cargo
+  publish; #135 vendored it).
+
+### Fixed
+- v1.0.0 cargo publish chain was incomplete (8 of 9 crates landed,
+  cli failed). v1.0.1 re-publishes all 9 cleanly.
+
+[1.0.1]: https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases/tag/v1.0.1
+
 ## [1.0.0] — 2026-05-01
 
 **Phase 1 closeout.** First stable release of the SBO3L agent trust layer.
