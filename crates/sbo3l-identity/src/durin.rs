@@ -481,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    fn multicall_envelope_decodes_back_to_original_setText() {
+    fn multicall_envelope_decodes_back_to_original_set_text() {
         // Build a multicall with two setText payloads, then assert the
         // first payload appears verbatim inside the multicall bytes.
         let node = [0xab; 32];

@@ -295,9 +295,8 @@ mod tests {
             name: "research-agent".to_string(),
             parent: DEFAULT_PARENT.to_string(),
             network: "sepolia".to_string(),
-            records_json:
-                r#"{"sbo3l:agent_id":"research-agent-01","sbo3l:endpoint":"http://x"}"#
-                    .to_string(),
+            records_json: r#"{"sbo3l:agent_id":"research-agent-01","sbo3l:endpoint":"http://x"}"#
+                .to_string(),
             owner: Some("0xdc7EFA00000000000000000000000000000000d2".to_string()),
             resolver: None,
             broadcast: false,
