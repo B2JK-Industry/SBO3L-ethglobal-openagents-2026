@@ -302,10 +302,7 @@ mod tests {
         };
         let outcome = evaluate(&cfg(), &base_quote(), &intent);
         assert_eq!(outcome, MevGuardOutcome::DeniedQuoteMismatch);
-        assert_eq!(
-            outcome.deny_code(),
-            Some("policy.deny_mev_quote_mismatch")
-        );
+        assert_eq!(outcome.deny_code(), Some("policy.deny_mev_quote_mismatch"));
     }
 
     #[test]
@@ -342,7 +339,10 @@ mod tests {
         let err = MevGuardConfig::try_new(5_000, []).unwrap_err();
         assert!(matches!(err, MevGuardConfigError::SlippageTooHigh(5_000)));
         let err = MevGuardConfig::try_new(20_000, []).unwrap_err();
-        assert!(matches!(err, MevGuardConfigError::SlippageOutOfRange(20_000)));
+        assert!(matches!(
+            err,
+            MevGuardConfigError::SlippageOutOfRange(20_000)
+        ));
     }
 
     #[test]
