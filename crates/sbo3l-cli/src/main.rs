@@ -10,6 +10,7 @@ use sbo3l_core::{schema, SchemaError};
 mod agent;
 #[cfg(feature = "eth_broadcast")]
 mod agent_broadcast;
+mod agent_reputation;
 mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
@@ -196,6 +197,41 @@ enum AgentCmd {
 
         /// Write the dry-run envelope to `<path>` as JSON in addition
         /// to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+
+    /// Compute and publish an agent's reputation score (T-4-6).
+    ///
+    /// Reads audit events from `--events <file.json>` (a JSON array
+    /// of {decision, executor_confirmed, age_secs} objects), computes
+    /// the v2 weighted score (sbo3l_policy::reputation::compute_reputation_v2),
+    /// and emits a setText envelope publishing the score to the agent's
+    /// `sbo3l:reputation_score` ENS text record.
+    ///
+    /// **Dry-run only in this build.** Broadcast wires through F-5
+    /// EthSigner once that lands.
+    ReputationPublish {
+        /// FQDN of the agent (e.g. `research-agent.sbo3lagent.eth`).
+        #[arg(long)]
+        fqdn: String,
+
+        /// Path to a JSON file: array of `ReputationEventInput`
+        /// (`{decision, executor_confirmed, age_secs}`).
+        #[arg(long)]
+        events: PathBuf,
+
+        /// `mainnet` or `sepolia`. Default `mainnet` since the
+        /// canonical reputation publishes are on `sbo3lagent.eth`.
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Override the resolver address. Default = the network's
+        /// canonical PublicResolver.
+        #[arg(long)]
+        resolver: Option<String>,
+
+        /// Write the envelope JSON to `<path>` in addition to printing.
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -801,6 +837,24 @@ fn main() -> ExitCode {
             private_key_env_var,
             out,
         }),
+        Command::Agent {
+            op:
+                AgentCmd::ReputationPublish {
+                    fqdn,
+                    events,
+                    network,
+                    resolver,
+                    out,
+                },
+        } => agent_reputation::cmd_agent_reputation_publish(
+            agent_reputation::ReputationPublishArgs {
+                fqdn,
+                events,
+                network,
+                resolver,
+                out,
+            },
+        ),
     }
 }
 
