@@ -45,6 +45,30 @@ ulid = { workspace = true }
 tempfile = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+# T-3-1 broadcast: optional alloy stack for `sbo3l agent register --broadcast`.
+# Feature-gated so default `cargo build -p sbo3l-cli` stays fast — alloy
+# pulls ~150 transitive crates. Operators wanting broadcast build with
+# `--features eth_broadcast`. The dry-run path is unaffected.
+alloy = { version = "0.6", default-features = false, features = [
+    "consensus",
+    "network",
+    "providers",
+    "provider-http",
+    "rpc-types-eth",
+    "signer-local",
+    "signers",
+    "transport-http",
+    "reqwest-rustls-tls",
+], optional = true }
+
+[features]
+default = []
+# Enables `sbo3l agent register --broadcast` to actually sign + send
+# the setSubnodeRecord + multicall(setText) txs over JSON-RPC. Without
+# this feature the broadcast flag still parses but errors out with a
+# clear "rebuild with --features eth_broadcast" message — matches the
+# pre-1.0.1 dry-run-only behaviour exactly.
+eth_broadcast = ["dep:alloy"]
 
 [dev-dependencies]
 rusqlite = { workspace = true }

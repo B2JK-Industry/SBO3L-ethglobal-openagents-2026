@@ -8,6 +8,8 @@ use sbo3l_core::receipt::PolicyReceipt;
 use sbo3l_core::{schema, SchemaError};
 
 mod agent;
+#[cfg(feature = "eth_broadcast")]
+mod agent_broadcast;
 mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
