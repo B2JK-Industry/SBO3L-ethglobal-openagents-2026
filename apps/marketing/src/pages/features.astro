@@ -13,7 +13,7 @@ const pillars = [
       "JCS-canonical SHA-256 request hash",
       "serde(deny_unknown_fields)",
     ],
-    ref: "crates/sbo3l-server/src/aprp.rs",
+    ref: "crates/sbo3l-core/src/aprp.rs",
   },
   {
     title: "Hash-chained Ed25519 audit",
@@ -23,7 +23,7 @@ const pillars = [
       "Strict verifier: linkage + signatures + content hashes",
       "Tamper-evident by construction, no oracle required",
     ],
-    ref: "crates/sbo3l-storage/src/audit.rs",
+    ref: "crates/sbo3l-core/src/audit.rs",
   },
   {
     title: "Self-contained Passport capsule",
@@ -43,7 +43,7 @@ const pillars = [
       "Mock = CI-safe default; live = production switch",
       "Per-sponsor evidence schema in execution.executor_evidence",
     ],
-    ref: "crates/sbo3l-execution/src/adapter.rs",
+    ref: "crates/sbo3l-core/src/execution.rs",
   },
   {
     title: "ENS as agent trust DNS",
@@ -53,7 +53,7 @@ const pillars = [
       "Phase 2: ENSIP-25 CCIP-Read for off-chain records",
       "Cross-agent verification via signed attestations",
     ],
-    ref: "docs/spec/ens-text-records.md",
+    ref: "crates/sbo3l-identity/src/ens.rs",
   },
   {
     title: "No-key agent boundary",
