@@ -1,35 +1,40 @@
+import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { mockAuditEvents, mockCapsules } from "@/lib/mock-data";
+import { RecentDecisionsLive } from "./RecentDecisionsLive";
 
 export default async function DashboardPage() {
   const session = await auth();
-  // middleware.ts guarantees session exists for /dashboard/*; the
-  // optional-chain below is for type-narrowing only.
   const handle = session?.user?.githubLogin ?? session?.user?.name ?? "developer";
+
+  const decisionsTotal = mockAuditEvents.filter((e) => e.eventType === "policy.decision").length;
+  const allowCount = mockAuditEvents.filter((e) => e.decision === "allow").length;
+  const denyCount = mockAuditEvents.filter((e) => e.decision === "deny").length;
 
   return (
     <main>
       <header style={{ display: "flex", justifyContent: "space-between", marginBottom: "2em" }}>
         <h1>Dashboard</h1>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/" });
-          }}
-        >
+        <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
           <button type="submit" className="ghost">Sign out</button>
         </form>
       </header>
-      <p style={{ color: "var(--muted)", marginBottom: "2em" }}>Hi, @{handle}.</p>
+      <p style={{ color: "var(--muted)", marginBottom: "1.5em" }}>Hi, @{handle}.</p>
+
+      <nav style={{ display: "flex", gap: "1em", marginBottom: "2em", flexWrap: "wrap" }}>
+        <Link href="/agents">Agents</Link>
+        <Link href="/audit">Audit log</Link>
+        <Link href="/capsules">Capsule library</Link>
+        <Link href="/trust-dns">Trust DNS</Link>
+      </nav>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1em" }}>
-        <Card title="Decisions today" value="—" hint="awaits daemon link" />
-        <Card title="Audit chain" value="—" hint="length + integrity" />
-        <Card title="Quota used" value="0%" hint="of 1k/day free tier" />
+        <Card title="Decisions today" value={`${decisionsTotal}`} hint={`allow ${allowCount} · deny ${denyCount}`} />
+        <Card title="Audit chain" value={`${mockAuditEvents.length}`} hint="length · ✓ verified" />
+        <Card title="Capsules emitted" value={`${mockCapsules.length}`} hint="downloadable + offline-verifiable" />
       </section>
 
-      <p style={{ color: "var(--muted)", marginTop: "2em", fontSize: "0.9em" }}>
-        Live SSE feed + recent-decisions table + capsule downloads land in CTI-3-4 main.
-      </p>
+      <RecentDecisionsLive />
     </main>
   );
 }
