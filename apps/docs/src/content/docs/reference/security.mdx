@@ -1,0 +1,63 @@
+---
+title: Security notes
+description: Production deployment limits, threat model, and KMS guidance.
+audience: security teams, ops, integrators considering production deploy
+outcome: You'll know what SBO3L protects against, what it does not, and which production hardening steps are non-negotiable.
+prereqs:
+  - signing model read
+---
+
+This is the canonical port of `SECURITY_NOTES.md`. Read it before deploying SBO3L outside a single-developer laptop.
+
+## Threat model — what SBO3L protects against
+
+| Threat | Mitigation |
+|---|---|
+| Agent emits an unsigned action | Agent has no key (no-key boundary, demo gate 12) |
+| Agent emits a stale request | APRP `expiry` + nonce-replay gate |
+| Operator tampers with audit | Strict-hash verifier rejects (chain + signatures) |
+| Capsule consumer trusts capsule without verification | Strict verifier embedded in `/proof` (browser WASM) |
+| Sponsor adapter executes when policy denied | Adapter is called only after `decision: allow` |
+| Replay of recorded request | Idempotency-Key + nonce-replay |
+
+## Threat model — what SBO3L does NOT protect against
+
+Stated in identity anti-claims; restated here for ops:
+
+- **Compromised KMS / signer host.** If an attacker controls the signing key, they can produce valid receipts. SBO3L assumes the signer is trustworthy; mitigations (KMS, HSM) are operator-side.
+- **Compromised agent runtime.** SBO3L authorises actions the agent claims it wants. If the agent is taken over, the attacker's requests are authorised under that agent's policy.
+- **Network confidentiality.** SBO3L's `/v1/*` endpoints carry payloads in plaintext over HTTP. Use TLS (terminate at a reverse proxy or use the daemon's `--tls-cert` flag).
+- **Time consensus.** Timestamps are best-effort wall-clock; SBO3L does not implement roughtime.
+- **Sybil resistance for cross-agent attestations.** A single operator can spin up arbitrary agents. ENS-based identity (T-3-4) makes attribution clear but does not prevent Sybil at the agent layer.
+
+## Required production hardening
+
+1. **TLS everywhere.** Bind only to loopback (default) or expose via TLS-terminating proxy. The public-bind safety gate (PR #88) refuses non-loopback binds without `SBO3L_ALLOW_UNSAFE_PUBLIC_BIND=1`.
+2. **KMS-backed signer.** Default `in-memory` signer is for dev only. Use `kms-aws`, `kms-gcp`, or `vault` per [agent register CLI](/cli/agent-register). The KMS key never leaves the KMS.
+3. **Auth on every request.** F-1 auth middleware (PR #91) is on by default; do not set `SBO3L_ALLOW_UNAUTHENTICATED=1` outside dev.
+4. **Backup the audit DB.** Daily snapshot of `~/.sbo3l/audit.db` to encrypted off-host storage. Test restore weekly.
+5. **Rate limit at the edge.** `protocol.rate_limited` exists but per-token; an edge proxy (Caddy, Nginx, Envoy) catches abuse before it hits the daemon.
+6. **Least-privilege OS user.** Run the daemon as a dedicated non-root user with read-write only to `~/.sbo3l/`.
+
+## Secrets handling
+
+- Never commit `.env` or any file matching `*.key`, `*.secret`, `*.pem` — pre-commit hook blocks this.
+- Real secrets only in env / GitHub Secrets / cloud KMS.
+- Doc examples use placeholder tokens like `wfb_REPLACE_WITH_YOUR_TOKEN`.
+- API responses are redacted in test logs; Heidi grep-checks per-PR.
+
+## Incident response
+
+If a key is suspected compromised:
+
+1. Rotate the signing key (KMS provides one-call rotation).
+2. Trigger a chain checkpoint (`sbo3l audit checkpoint`).
+3. Re-publish ENS records via `sbo3l agent register` (existing `--ens` flag handles updates).
+4. Audit-replay the last N decisions to confirm none used the rotated key after the rotation timestamp.
+5. File a SEV-1 in the coordination channel; Heidi cuts a regression test from the reproducer.
+
+## See also
+
+- [Signing model](/concepts/signing) — where the key lives.
+- [`agent register` CLI](/cli/agent-register) — `--signer` modes.
+- [Error codes](/reference/errors) — `auth.*`, `audit.tamper_detected`, `signer.kms_unavailable`.
