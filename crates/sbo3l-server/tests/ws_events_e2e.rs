@@ -95,15 +95,18 @@ async fn five_requests_loop_end_to_end_ws_subscriber_sees_every_frame() {
         );
     }
 
-    // Collect frames until we see >= 5 decisions or hit the budget.
-    // Don't filter early — the order property is asserted across all
-    // frame kinds, since a `decision.made` for request N must precede
-    // an `audit.checkpoint` for the same request, which must precede
-    // any frame for request N+1.
+    // Collect frames until we have BOTH the 5 decisions AND the 5
+    // audit.checkpoints (or hit the budget). Codex P1 finding on
+    // #176: the previous loop exited as soon as 5 decisions had
+    // arrived, which could miss a trailing 5th `audit.checkpoint`
+    // and silently mask a publish-path ordering bug. Waiting for
+    // both counts to reach 5 means a regression that drops the
+    // last checkpoint will time out + fail loudly here.
     let collect = async {
         let mut all: Vec<Value> = Vec::new();
         let mut decisions_seen = 0usize;
-        while decisions_seen < 5 {
+        let mut checkpoints_seen = 0usize;
+        while decisions_seen < 5 || checkpoints_seen < 5 {
             let frame = ws.next().await.expect("frame").expect("frame ok");
             let payload = match frame {
                 Message::Text(t) => t,
@@ -111,8 +114,10 @@ async fn five_requests_loop_end_to_end_ws_subscriber_sees_every_frame() {
                 _ => continue,
             };
             let v: Value = serde_json::from_str(&payload).expect("JSON frame");
-            if v["kind"] == "decision.made" {
-                decisions_seen += 1;
+            match v["kind"].as_str() {
+                Some("decision.made") => decisions_seen += 1,
+                Some("audit.checkpoint") => checkpoints_seen += 1,
+                _ => {}
             }
             all.push(v);
         }
@@ -120,7 +125,7 @@ async fn five_requests_loop_end_to_end_ws_subscriber_sees_every_frame() {
     };
     let frames = tokio::time::timeout(Duration::from_secs(15), collect)
         .await
-        .expect("5 decisions must arrive within 15s");
+        .expect("5 decisions + 5 checkpoints must arrive within 15s");
 
     // Tally — expect 1 agent.discovered, 5 decision.made, 5
     // audit.checkpoint. Total frames = 11.
@@ -144,31 +149,47 @@ async fn five_requests_loop_end_to_end_ws_subscriber_sees_every_frame() {
         n_decisions, 5,
         "expected 5 decision.made frames; got {n_decisions}"
     );
-    // checkpoints may arrive after our 5-decision cutoff if the
-    // last-decision-then-last-checkpoint pair straddles our break.
-    // Accept >= 4 with a clear message.
-    assert!(
-        n_checkpoints >= 4,
-        "expected >= 4 audit.checkpoint frames in the early window; got {n_checkpoints}"
+    assert_eq!(
+        n_checkpoints, 5,
+        "expected 5 audit.checkpoint frames (one per decision); got {n_checkpoints}"
     );
 
-    // Order property: every decision.made frame's index in `frames`
-    // is strictly less than the next decision.made frame's index.
-    // (Trivially true if there are 5 distinct frames; the explicit
-    // assertion catches a pathological reordering bug.)
-    let decision_indices: Vec<usize> = frames
+    // Order property: real publish-order proof. Codex P1 finding on
+    // #176 — the previous "decision frames in monotonic frame-index
+    // order" assertion was tautological (indices increase by
+    // construction of `frames.iter().enumerate().filter(...)`).
+    //
+    // The non-tautological proof: every audit.checkpoint frame
+    // carries `chain_length`, which the daemon increments
+    // atomically on each audit-event append. If the publish path
+    // were to emit checkpoint #2 before checkpoint #3 across a
+    // race, this assertion would catch it. The chain_length values
+    // a single subscriber sees over one connection MUST be
+    // monotonically increasing — that's the publish-order contract
+    // T-3-5 promises.
+    let chain_lengths: Vec<u64> = frames
         .iter()
-        .enumerate()
-        .filter(|(_, v)| v["kind"] == "decision.made")
-        .map(|(i, _)| i)
+        .filter(|v| v["kind"] == "audit.checkpoint")
+        .map(|v| {
+            v["chain_length"]
+                .as_u64()
+                .expect("audit.checkpoint must carry chain_length as u64")
+        })
         .collect();
-    let mut prev: i64 = -1;
-    for &idx in &decision_indices {
+    assert_eq!(
+        chain_lengths.len(),
+        5,
+        "must observe 5 chain_length values across the 5 checkpoints"
+    );
+    let mut prev_chain: u64 = 0;
+    for (i, &cl) in chain_lengths.iter().enumerate() {
         assert!(
-            (idx as i64) > prev,
-            "decision frames out of order at index {idx} (prev {prev})"
+            cl > prev_chain,
+            "audit.checkpoint frames out of publish order at i={i}: \
+             chain_length={cl} did not exceed previous {prev_chain}. \
+             Full sequence: {chain_lengths:?}"
         );
-        prev = idx as i64;
+        prev_chain = cl;
     }
 
     // Per-frame contract checks against the golden APRP. Every
