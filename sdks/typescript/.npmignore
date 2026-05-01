@@ -1,0 +1,13 @@
+src/
+test/
+node_modules/
+coverage/
+.eslintrc.cjs
+.prettierrc
+.gitignore
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+*.tsbuildinfo
+.DS_Store
+.env*
