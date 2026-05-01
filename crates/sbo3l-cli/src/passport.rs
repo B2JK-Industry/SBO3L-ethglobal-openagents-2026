@@ -23,8 +23,9 @@ use std::process::ExitCode;
 
 use sbo3l_core::audit_bundle::AuditBundle;
 use sbo3l_core::passport::{
-    verify_capsule, verify_capsule_strict, CapsuleVerifyError, CheckOutcome, StrictVerifyOpts,
-    StrictVerifyReport,
+    capsule_is_self_contained, verify_capsule, verify_capsule_strict, CapsuleVerifyError,
+    CheckOutcome, StrictVerifyOpts, StrictVerifyReport, VERIFIER_MODE_AUX_REQUIRED,
+    VERIFIER_MODE_SELF_CONTAINED,
 };
 use sbo3l_core::schema::validate_passport_capsule;
 use sbo3l_execution::keeperhub::KeeperHubExecutor;
@@ -362,8 +363,19 @@ fn build_explanation(value: &Value) -> Value {
         .map(|a| a.len())
         .unwrap_or(0);
 
+    let schema_id = value
+        .pointer("/schema")
+        .and_then(|v| v.as_str())
+        .unwrap_or("sbo3l.passport_capsule.v1");
+    let verifier_mode = if capsule_is_self_contained(value) {
+        VERIFIER_MODE_SELF_CONTAINED
+    } else {
+        VERIFIER_MODE_AUX_REQUIRED
+    };
+
     json!({
-        "schema": "sbo3l.passport_capsule.v1",
+        "schema": schema_id,
+        "verifier_mode": verifier_mode,
         "agent": {
             "agent_id": agent_id,
             "ens_name": ens_name,
@@ -468,7 +480,13 @@ fn print_explanation_text(s: &Value) {
     } else {
         format!(" ({ens_name})")
     };
+    let verifier_mode = s
+        .pointer("/verifier_mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or(VERIFIER_MODE_AUX_REQUIRED);
+
     println!("SBO3L Passport — capsule explanation");
+    println!("  {verifier_mode}");
     println!("  agent:        {agent_id}{ens_part}, resolver={resolver}");
     println!("  policy:       v{policy_version}, hash={policy_prefix}…");
     if result == "deny" {
@@ -523,6 +541,30 @@ pub struct RunArgs {
     pub executor: ExecutorChoice,
     pub mode: ModeChoice,
     pub out_path: PathBuf,
+    /// F-6: which capsule schema version the run emits. Defaults to
+    /// [`SchemaVersionChoice::V2`] which embeds `policy.policy_snapshot`
+    /// and `audit.audit_segment` for self-contained verification.
+    /// `--schema-version v1` forces the legacy shape.
+    pub schema_version: SchemaVersionChoice,
+}
+
+/// F-6: capsule schema version selector for `passport run`. v2 (default)
+/// produces a self-contained capsule that `passport verify --strict`
+/// can verify end-to-end without auxiliary inputs. v1 emits the
+/// pre-F-6 shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SchemaVersionChoice {
+    V1,
+    V2,
+}
+
+impl SchemaVersionChoice {
+    pub fn schema_id(self) -> &'static str {
+        match self {
+            Self::V1 => "sbo3l.passport_capsule.v1",
+            Self::V2 => "sbo3l.passport_capsule.v2",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -858,6 +900,33 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
             }
         };
 
+    // 8b. F-6: when emitting v2, build the embedded fields the strict
+    // verifier reads. `policy_snapshot` is the canonical Policy JSON
+    // (already JCS-canonical-equivalent via Policy::serde — same wire
+    // shape `policy_hash` is computed from). `audit_segment` is the
+    // `sbo3l.audit_bundle.v1` artefact, exported via the same DB-backed
+    // path the standalone `audit export-bundle` CLI uses.
+    let (policy_snapshot, audit_segment) = if matches!(args.schema_version, SchemaVersionChoice::V2)
+    {
+        let snapshot = match build_policy_snapshot_for_v2(&args.db_path, &active_policy) {
+            Ok(v) => Some(v),
+            Err(msg) => {
+                eprintln!("sbo3l passport run: policy snapshot: {msg}");
+                return ExitCode::from(1);
+            }
+        };
+        let segment = match build_audit_segment_for_v2(&args.db_path, &response, &active_policy) {
+            Ok(v) => Some(v),
+            Err(msg) => {
+                eprintln!("sbo3l passport run: audit segment: {msg}");
+                return ExitCode::from(1);
+            }
+        };
+        (snapshot, segment)
+    } else {
+        (None, None)
+    };
+
     // 9. Compose the capsule.
     let capsule = build_capsule(BuildCapsuleArgs {
         aprp: aprp_value,
@@ -871,6 +940,9 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
         execution_block: exec_block,
         audit_block,
         checkpoint_payload,
+        schema_version: args.schema_version,
+        policy_snapshot,
+        audit_segment,
     });
 
     // 10. Self-verify against the schema BEFORE writing. We never
@@ -1102,6 +1174,78 @@ fn build_audit_and_checkpoint_blocks(
     Ok((audit_block, checkpoint_payload))
 }
 
+/// F-6: build the canonical policy snapshot the v2 capsule embeds at
+/// `policy.policy_snapshot`. The snapshot is the JSON serialization of
+/// the active `Policy` struct — same wire shape `policy_hash` is
+/// computed over via `Policy::canonical_hash`. The verifier's
+/// `policy_hash_recompute` check JCS+SHA-256s this and asserts equality
+/// with `policy.policy_hash`, with no aux input required.
+fn build_policy_snapshot_for_v2(
+    db_path: &Path,
+    active: &sbo3l_storage::ActivePolicyRecord,
+) -> Result<Value, String> {
+    let storage =
+        Storage::open(db_path).map_err(|e| format!("reopen db for policy snapshot: {e}"))?;
+    let row = storage
+        .policy_get_version(active.version)
+        .map_err(|e| format!("policy_get_version({}): {e}", active.version))?
+        .ok_or_else(|| {
+            format!(
+                "policy version {} not found in DB after activation — concurrent rewrite?",
+                active.version
+            )
+        })?;
+    let policy = Policy::parse_json(&row.policy_json)
+        .map_err(|e| format!("policy snapshot parse for version {}: {e}", active.version))?;
+    serde_json::to_value(&policy)
+        .map_err(|e| format!("re-serialize policy snapshot for v2 embed: {e}"))
+}
+
+/// F-6: build the `sbo3l.audit_bundle.v1`-shaped audit segment the v2
+/// capsule embeds at `audit.audit_segment`. The bundle carries the
+/// receipt, the signed audit event, the chain prefix, and the
+/// receipt / audit signer public keys, so a strict verifier can
+/// check signatures and chain linkage WITHOUT being given any of
+/// those auxiliaries separately. Wire format is identical to
+/// `audit export-bundle` — the existing `audit_bundle::verify`
+/// codec handles it without a v2-aware branch.
+fn build_audit_segment_for_v2(
+    db_path: &Path,
+    response: &PaymentRequestResponse,
+    _active: &sbo3l_storage::ActivePolicyRecord,
+) -> Result<Value, String> {
+    use sbo3l_core::audit_bundle;
+    use sbo3l_core::signer::DevSigner;
+
+    let storage =
+        Storage::open(db_path).map_err(|e| format!("reopen db for audit segment: {e}"))?;
+    let chain = storage
+        .audit_chain_prefix_through(&response.audit_event_id)
+        .map_err(|e| format!("audit_chain_prefix_through: {e}"))?;
+
+    // Dev signer pubkeys. The daemon's `AppState::new` uses these
+    // deterministic seeds today (see `crates/sbo3l-server/src/lib.rs`
+    // `AppState::new`); F-5's KMS abstraction lands the trait but
+    // hasn't yet rerouted AppState, so the seeds match what actually
+    // signed the receipt + audit chain we just read out of the DB.
+    // A future commit that flips AppState to `Box<dyn Signer>` will
+    // also surface the verifying keys via `Signer::verifying_key_hex`,
+    // and this helper will pick them up from there instead of the
+    // hard-coded seeds.
+    let audit_signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+    let receipt_signer = DevSigner::from_seed("decision-signer-v1", [7u8; 32]);
+
+    let bundle = audit_bundle::build(
+        response.receipt.clone(),
+        chain,
+        receipt_signer.verifying_key_hex(),
+        audit_signer.verifying_key_hex(),
+        chrono::Utc::now(),
+    )
+    .map_err(|e| format!("audit_bundle::build for v2 embed: {e}"))?;
+    serde_json::to_value(&bundle).map_err(|e| format!("serialise v2 audit segment bundle: {e}"))
+}
+
 struct BuildCapsuleArgs {
     aprp: Value,
     ens_records: Map<String, Value>,
@@ -1114,6 +1258,17 @@ struct BuildCapsuleArgs {
     execution_block: Map<String, Value>,
     audit_block: Map<String, Value>,
     checkpoint_payload: Map<String, Value>,
+    /// F-6: target schema version. v2 embeds `policy.policy_snapshot`
+    /// + `audit.audit_segment`; v1 omits both.
+    schema_version: SchemaVersionChoice,
+    /// F-6: when `schema_version == V2`, this is the canonical policy
+    /// JSON (already JCS-canonical-equivalent via Policy::serde) the
+    /// builder embeds at `policy.policy_snapshot`. None for v1.
+    policy_snapshot: Option<Value>,
+    /// F-6: when `schema_version == V2`, this is the
+    /// `sbo3l.audit_bundle.v1`-shaped segment the builder embeds at
+    /// `audit.audit_segment`. None for v1.
+    audit_segment: Option<Value>,
 }
 
 fn build_capsule(args: BuildCapsuleArgs) -> Value {
@@ -1180,6 +1335,15 @@ fn build_capsule(args: BuildCapsuleArgs) -> Value {
         "source".into(),
         Value::String(args.active_policy.source.clone()),
     );
+    // F-6: embed the canonical policy snapshot iff we're building v2.
+    // The verifier's `policy_hash_recompute` check JCS+SHA-256s this
+    // and asserts equality with `policy.policy_hash` — same wire format
+    // production receipts pin against, no aux input required.
+    if matches!(args.schema_version, SchemaVersionChoice::V2) {
+        if let Some(snapshot) = args.policy_snapshot.clone() {
+            policy_block.insert("policy_snapshot".into(), snapshot);
+        }
+    }
 
     // `requires_human` is rejected up in `cmd_run` (Codex P1 on PR #44)
     // before this function runs — the capsule schema's
@@ -1218,6 +1382,15 @@ fn build_capsule(args: BuildCapsuleArgs) -> Value {
 
     let mut audit_block = args.audit_block;
     audit_block.insert("checkpoint".into(), Value::Object(args.checkpoint_payload));
+    // F-6: embed the audit-bundle-shaped chain segment iff v2 + caller
+    // supplied one. The verifier's `audit_chain` and `audit_event_link`
+    // checks deserialise this directly via `audit_bundle::verify`, so
+    // strict mode runs without `--audit-bundle <path>`.
+    if matches!(args.schema_version, SchemaVersionChoice::V2) {
+        if let Some(segment) = args.audit_segment.clone() {
+            audit_block.insert("audit_segment".into(), segment);
+        }
+    }
 
     let _ = args.executor_label; // captured into execution_block already
     let _ = args.mode_label;
@@ -1229,7 +1402,7 @@ fn build_capsule(args: BuildCapsuleArgs) -> Value {
     });
 
     json!({
-        "schema": "sbo3l.passport_capsule.v1",
+        "schema": args.schema_version.schema_id(),
         "generated_at": chrono::Utc::now().to_rfc3339(),
         "agent": agent_block,
         "request": Value::Object(request_block),

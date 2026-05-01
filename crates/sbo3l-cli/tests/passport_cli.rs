@@ -407,7 +407,8 @@ fn run_atomic_write_no_partial_capsule_on_validation_failure() {
     assert!(r.status.success());
     let raw = std::fs::read_to_string(&out).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&raw).expect("complete JSON");
-    assert_eq!(parsed["schema"], "sbo3l.passport_capsule.v1");
+    // F-6: passport run --schema-version defaults to v2.
+    assert_eq!(parsed["schema"], "sbo3l.passport_capsule.v2");
     let leftovers: Vec<_> = std::fs::read_dir(tmp.path())
         .unwrap()
         .filter_map(|e| e.ok())
@@ -550,7 +551,9 @@ fn explain_json_mode_includes_required_keys() {
         String::from_utf8_lossy(&e.stderr)
     );
     let v: serde_json::Value = serde_json::from_slice(&e.stdout).expect("valid JSON");
-    assert_eq!(v["schema"], "sbo3l.passport_capsule.v1");
+    // F-6: passport run --schema-version defaults to v2; explain
+    // surfaces the actual schema id from the capsule.
+    assert_eq!(v["schema"], "sbo3l.passport_capsule.v2");
     for key in &[
         "agent",
         "policy",
