@@ -48,7 +48,13 @@ export function mountGraph(svg: SVGSVGElement): Graph {
   const height = svg.clientHeight || 600;
 
   const nodes: Node[] = [];
+  const nodeIndex = new Map<string, Node>();
   const edges: Edge[] = [];
+  // Edges whose source or target ID hasn't been observed yet are
+  // buffered here. Drained on every agent.discovered event. Without
+  // this guard d3-force's link initializer throws on missing IDs when
+  // events arrive out of order or after a mid-stream WS reconnect.
+  const pendingEdges: Edge[] = [];
 
   const linkLayer = sel.append("g").attr("class", "edges");
   const nodeLayer = sel.append("g").attr("class", "nodes");
@@ -133,7 +139,7 @@ export function mountGraph(svg: SVGSVGElement): Graph {
   }
 
   function pulse(id: string, decision: "allow" | "deny", denyCode?: string): void {
-    const node = nodes.find((x) => x.id === id);
+    const node = nodeIndex.get(id);
     if (!node) return;
     node.decision = decision;
     if (denyCode) node.denyCode = denyCode;
@@ -146,30 +152,52 @@ export function mountGraph(svg: SVGSVGElement): Graph {
     }
   }
 
+  function drainPendingEdges(): void {
+    if (pendingEdges.length === 0) return;
+    const stillPending: Edge[] = [];
+    for (const edge of pendingEdges) {
+      if (nodeIndex.has(nodeId(edge.source)) && nodeIndex.has(nodeId(edge.target))) {
+        edges.push(edge);
+      } else {
+        stillPending.push(edge);
+      }
+    }
+    pendingEdges.length = 0;
+    pendingEdges.push(...stillPending);
+  }
+
   return {
     apply(e: VizEvent) {
       if (e.kind === "agent.discovered") {
-        if (!nodes.some((x) => x.id === e.agent_id)) {
-          nodes.push({
+        if (!nodeIndex.has(e.agent_id)) {
+          const node: Node = {
             id: e.agent_id,
             label: e.ens_name.split(".")[0] ?? e.agent_id,
             ensName: e.ens_name,
             pubkey: e.pubkey_b58,
-          });
+          };
+          nodes.push(node);
+          nodeIndex.set(e.agent_id, node);
           checkCanvasThreshold();
+          drainPendingEdges();
         }
       } else if (e.kind === "attestation.signed") {
-        edges.push({
+        const edge: Edge = {
           source: e.from,
           target: e.to,
           signed: true,
           attestationId: e.attestation_id,
           signedAtMs: e.ts_ms,
-        });
+        };
+        if (nodeIndex.has(e.from) && nodeIndex.has(e.to)) {
+          edges.push(edge);
+        } else {
+          pendingEdges.push(edge);
+        }
       } else if (e.kind === "decision.made") {
         pulse(e.agent_id, e.decision, e.deny_code);
       } else if (e.kind === "audit.checkpoint") {
-        const node = nodes.find((x) => x.id === e.agent_id);
+        const node = nodeIndex.get(e.agent_id);
         if (node) node.chainLength = e.chain_length;
       }
       sim.nodes(nodes);
