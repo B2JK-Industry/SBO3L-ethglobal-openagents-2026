@@ -9,7 +9,7 @@
 ```bash
 cargo install sbo3l-cli --version 1.0.1
 
-# Resolve the mainnet apex — 7 sbo3l:* records returned
+# Resolve the mainnet apex — 5 sbo3l:* records on chain today (Phase 2 target: 7)
 sbo3l passport resolve sbo3lagent.eth
 
 # Resolve a Sepolia subname (after T-3-3 fleet lands)
@@ -19,17 +19,30 @@ sbo3l passport resolve research-agent.sbo3lagent.eth
 
 ## What we put on chain
 
-| Record | Meaning |
-|---|---|
-| `sbo3l:agent_id` | Stable agent identifier |
-| `sbo3l:endpoint` | HTTPS endpoint for the SBO3L daemon serving this agent |
-| `sbo3l:policy_hash` | Canonical hash of the agent's active policy snapshot |
-| `sbo3l:audit_root` | Latest audit-chain head (rolled forward via checkpoints) |
-| `sbo3l:proof_uri` | Stable URL where the latest Passport capsule for this agent lives |
-| `sbo3l:capability` | Comma-separated capability tags (`x402-purchase`, `uniswap-swap`, `delegation-target`) |
-| `sbo3l:reputation` | `<score>/100` computed from the audit chain (4-criteria scoring) |
+| Record | On chain at v1.0.1 | Meaning |
+|---|---|---|
+| `sbo3l:agent_id` | ✅ | Stable agent identifier |
+| `sbo3l:endpoint` | ✅ | HTTPS endpoint for the SBO3L daemon serving this agent |
+| `sbo3l:policy_hash` | ✅ | Canonical hash of the agent's active policy snapshot |
+| `sbo3l:audit_root` | ✅ | Latest audit-chain head (rolled forward via checkpoints) |
+| `sbo3l:proof_uri` | ✅ | Stable URL where the latest Passport capsule for this agent lives |
+| `sbo3l:capability` | Phase 2 | Comma-separated capability tags (`x402-purchase`, `uniswap-swap`, `delegation-target`) |
+| `sbo3l:reputation` | Phase 2 | `<score>/100` computed from the audit chain (4-criteria scoring) |
 
-Reading these seven records gives you a complete trust profile for an agent — *without trusting any single party*.
+Reading these records gives you a complete trust profile for an agent — *without trusting any single party*. Mainnet `sbo3lagent.eth` resolves a `policy_hash` (`e044f13c5acb…`) that **byte-matches** the offline fixture used in CI — no drift between published identity and shipped behaviour.
+
+## How subnames are issued — direct ENS Registry (not Durin)
+
+Daniel owns `sbo3lagent.eth` mainnet apex, so subname registration is a single transaction directly to the canonical ENS Registry (`0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e`, deterministic deployment on mainnet + Sepolia):
+
+```
+ENS Registry.setSubnodeRecord(parentNode, label, owner, resolver, ttl)   # one call
+PublicResolver.setText(subnameNode, "sbo3l:agent_id", value)             # × 5 (per record)
+```
+
+We evaluated Durin and dropped it on 2026-05-01 — direct ENS Registry has fewer moving parts, no third-party registrar contract to deploy, and is more verifiable on Etherscan ("owner of `sbo3lagent.eth`" is a single on-chain fact).
+
+PublicResolver: `0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63` (mainnet).
 
 ## Cross-agent verification
 
