@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-langchain"
+version = "0.1.0"
+description = "LangChain Python tool wrapping SBO3L — gate every agent payment intent through SBO3L's policy boundary."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+keywords = ["sbo3l", "langchain", "agent", "policy", "tool", "ai-agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.6,<3",
+]
+
+[project.optional-dependencies]
+sdk = ["sbo3l-sdk>=0.1.0,<1"]
+langchain = ["langchain-core>=0.2,<1"]
+dev = [
+    "pytest>=8.0,<9",
+    "ruff>=0.4,<1",
+    "mypy>=1.10,<2",
+    "pydantic>=2.6,<3",
+]
+
+[project.urls]
+Homepage = "https://sbo3l.dev"
+Repository = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_langchain"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "W", "UP", "N", "C90", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+# Preserve semantic ordering of __all__.
+"sbo3l_langchain/__init__.py" = ["RUF022"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+plugins = ["pydantic.mypy"]

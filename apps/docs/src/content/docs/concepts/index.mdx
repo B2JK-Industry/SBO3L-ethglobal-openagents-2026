@@ -1,0 +1,18 @@
+---
+title: Concepts
+description: Conceptual guides covering the load-bearing primitives of SBO3L.
+audience: agent platform engineers, sponsor adapter authors
+outcome: You'll understand the primitives that compose into the SBO3L trust boundary.
+---
+
+## Coming soon
+
+Per-concept guides land in CTI-3-3 main:
+
+- **APRP wire format** — payment-shaped envelope with deny-unknown-fields.
+- **Hash-chained audit log** — Ed25519 + `prev_event_hash`.
+- **Self-contained Passport capsule v2** — embeds policy snapshot + audit segment.
+- **Deterministic policy decision** — pure function over `(APRP, policy_snapshot)`.
+- **Multi-scope budget** — daily / weekly / per-vendor commits.
+- **Sponsor adapter trait** — `GuardedExecutor` with mock + live peers.
+- **Trust DNS** — ENS as the agent identity layer (T-3-6).
