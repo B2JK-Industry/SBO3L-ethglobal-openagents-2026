@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L CLI: validate, decide, sign, verify-audit, demo helpers."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L CLI binary: validate, decide, sign, audit, passport run/verify/explain, doctor."
+keywords = ["sbo3l", "cli", "agent", "policy", "audit"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "sbo3l"
@@ -20,7 +25,7 @@ sbo3l-storage = { workspace = true }
 # pattern). Pulling sbo3l-server / -identity / -execution + the
 # axum/tower/http stack here matches what research-agent's Cargo.toml
 # already does — no new transitives in the workspace.
-sbo3l-server = { path = "../sbo3l-server" }
+sbo3l-server = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }
 serde = { workspace = true }
