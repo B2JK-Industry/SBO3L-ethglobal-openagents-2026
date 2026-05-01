@@ -272,22 +272,28 @@ mod tests {
 
     #[test]
     fn parse_address_rejects_short() {
-        assert!(matches!(parse_address("0x123"), Err(AddressError::BadLength(3))));
+        assert!(matches!(
+            parse_address("0x123"),
+            Err(AddressError::BadLength(3))
+        ));
     }
 
     #[test]
     fn parse_address_rejects_non_hex() {
         // 40-char input with 'g' at position 0 of payload → caught as non-hex.
         let bad = format!("0x{}", "g".repeat(40));
-        assert!(matches!(parse_address(&bad), Err(AddressError::NonHex('g'))));
+        assert!(matches!(
+            parse_address(&bad),
+            Err(AddressError::NonHex('g'))
+        ));
     }
 
     #[test]
     fn calldata_layout_total_length() {
         let params = SwapParams::sepolia_weth_for_usdc(
             [0xAA; 20],
-            10_000_000_000_000_000,    // 0.01 WETH
-            1_000_000,                 // 1 USDC slippage floor
+            10_000_000_000_000_000, // 0.01 WETH
+            1_000_000,              // 1 USDC slippage floor
         )
         .unwrap();
         let calldata = encode_exact_input_single(&params);
@@ -328,7 +334,8 @@ mod tests {
     fn calldata_amount_in_at_word_5() {
         let recipient = [0xDD; 20];
         // 0.01 WETH = 1e16 wei
-        let params = SwapParams::sepolia_weth_for_usdc(recipient, 10_000_000_000_000_000, 1).unwrap();
+        let params =
+            SwapParams::sepolia_weth_for_usdc(recipient, 10_000_000_000_000_000, 1).unwrap();
         let calldata = encode_exact_input_single(&params);
         // Word 5 starts at offset 4 + 32*4 = 132.
         let amount_word = &calldata[132..164];
