@@ -906,27 +906,26 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
     // shape `policy_hash` is computed from). `audit_segment` is the
     // `sbo3l.audit_bundle.v1` artefact, exported via the same DB-backed
     // path the standalone `audit export-bundle` CLI uses.
-    let (policy_snapshot, audit_segment) =
-        if matches!(args.schema_version, SchemaVersionChoice::V2) {
-            let snapshot = match build_policy_snapshot_for_v2(&args.db_path, &active_policy) {
-                Ok(v) => Some(v),
-                Err(msg) => {
-                    eprintln!("sbo3l passport run: policy snapshot: {msg}");
-                    return ExitCode::from(1);
-                }
-            };
-            let segment = match build_audit_segment_for_v2(&args.db_path, &response, &active_policy)
-            {
-                Ok(v) => Some(v),
-                Err(msg) => {
-                    eprintln!("sbo3l passport run: audit segment: {msg}");
-                    return ExitCode::from(1);
-                }
-            };
-            (snapshot, segment)
-        } else {
-            (None, None)
+    let (policy_snapshot, audit_segment) = if matches!(args.schema_version, SchemaVersionChoice::V2)
+    {
+        let snapshot = match build_policy_snapshot_for_v2(&args.db_path, &active_policy) {
+            Ok(v) => Some(v),
+            Err(msg) => {
+                eprintln!("sbo3l passport run: policy snapshot: {msg}");
+                return ExitCode::from(1);
+            }
         };
+        let segment = match build_audit_segment_for_v2(&args.db_path, &response, &active_policy) {
+            Ok(v) => Some(v),
+            Err(msg) => {
+                eprintln!("sbo3l passport run: audit segment: {msg}");
+                return ExitCode::from(1);
+            }
+        };
+        (snapshot, segment)
+    } else {
+        (None, None)
+    };
 
     // 9. Compose the capsule.
     let capsule = build_capsule(BuildCapsuleArgs {
@@ -1185,7 +1184,8 @@ fn build_policy_snapshot_for_v2(
     db_path: &Path,
     active: &sbo3l_storage::ActivePolicyRecord,
 ) -> Result<Value, String> {
-    let storage = Storage::open(db_path).map_err(|e| format!("reopen db for policy snapshot: {e}"))?;
+    let storage =
+        Storage::open(db_path).map_err(|e| format!("reopen db for policy snapshot: {e}"))?;
     let row = storage
         .policy_get_version(active.version)
         .map_err(|e| format!("policy_get_version({}): {e}", active.version))?
@@ -1195,12 +1195,8 @@ fn build_policy_snapshot_for_v2(
                 active.version
             )
         })?;
-    let policy = Policy::parse_json(&row.policy_json).map_err(|e| {
-        format!(
-            "policy snapshot parse for version {}: {e}",
-            active.version
-        )
-    })?;
+    let policy = Policy::parse_json(&row.policy_json)
+        .map_err(|e| format!("policy snapshot parse for version {}: {e}", active.version))?;
     serde_json::to_value(&policy)
         .map_err(|e| format!("re-serialize policy snapshot for v2 embed: {e}"))
 }
@@ -1221,7 +1217,8 @@ fn build_audit_segment_for_v2(
     use sbo3l_core::audit_bundle;
     use sbo3l_core::signer::DevSigner;
 
-    let storage = Storage::open(db_path).map_err(|e| format!("reopen db for audit segment: {e}"))?;
+    let storage =
+        Storage::open(db_path).map_err(|e| format!("reopen db for audit segment: {e}"))?;
     let chain = storage
         .audit_chain_prefix_through(&response.audit_event_id)
         .map_err(|e| format!("audit_chain_prefix_through: {e}"))?;
@@ -1246,8 +1243,7 @@ fn build_audit_segment_for_v2(
         chrono::Utc::now(),
     )
     .map_err(|e| format!("audit_bundle::build for v2 embed: {e}"))?;
-    serde_json::to_value(&bundle)
-        .map_err(|e| format!("serialise v2 audit segment bundle: {e}"))
+    serde_json::to_value(&bundle).map_err(|e| format!("serialise v2 audit segment bundle: {e}"))
 }
 
 struct BuildCapsuleArgs {
