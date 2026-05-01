@@ -31,9 +31,9 @@ export default defineConfig({
           label: "Concepts",
           items: [
             { label: "Overview", link: "/concepts" },
-            { label: "APRP wire format", link: "/concepts/aprp", badge: { text: "soon", variant: "note" } },
-            { label: "Audit log", link: "/concepts/audit-log", badge: { text: "soon", variant: "note" } },
-            { label: "Capsule v2", link: "/concepts/capsule", badge: { text: "soon", variant: "note" } },
+            { label: "APRP wire format", link: "/concepts/aprp" },
+            { label: "Audit log", link: "/concepts/audit-log" },
+            { label: "Capsule v2", link: "/concepts/capsule" },
             { label: "Policy decision", link: "/concepts/policy", badge: { text: "soon", variant: "note" } },
             { label: "Multi-scope budget", link: "/concepts/budget", badge: { text: "soon", variant: "note" } },
             { label: "Sponsor adapters", link: "/concepts/sponsor-adapters", badge: { text: "soon", variant: "note" } },
@@ -48,7 +48,13 @@ export default defineConfig({
             { label: "Python", link: "/sdks/python", badge: { text: "soon", variant: "note" } },
           ],
         },
-        { label: "CLI reference", link: "/cli" },
+        {
+          label: "CLI reference",
+          items: [
+            { label: "Overview", link: "/cli" },
+            { label: "passport verify", link: "/cli/passport-verify" },
+          ],
+        },
         { label: "API reference", link: "/api" },
         { label: "Examples", link: "/examples" },
         { label: "Integrations", link: "/integrations" },

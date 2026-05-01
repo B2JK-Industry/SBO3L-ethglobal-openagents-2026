@@ -1,0 +1,73 @@
+---
+title: APRP wire format
+description: Payment-shaped envelope schema with deny-unknown-fields end-to-end.
+audience: agent platform engineers, integration testers
+outcome: You'll know how to construct a valid APRP envelope, what the deterministic hash covers, and which adversarial inputs SBO3L rejects fail-closed.
+prereqs:
+  - quickstart completed
+---
+
+APRP is the **wire format** every agent action passes through before SBO3L makes a policy decision. It is intentionally narrow: payment-shaped, schema-strict, and deterministically hashable.
+
+## Schema
+
+```json
+{
+  "agent_id":   "research-agent-01",
+  "intent":     "swap",
+  "amount":     "0.05",
+  "asset":      "ETH",
+  "chain":      "sepolia",
+  "expiry":     "2026-12-31T23:59:59Z",
+  "risk_class": "low",
+  "nonce":      "01HZRG..."
+}
+```
+
+| Field | Type | Constraint |
+|---|---|---|
+| `agent_id` | string | non-empty, registered with the daemon |
+| `intent` | enum | one of `pay`, `swap`, `store`, `compute`, `coordinate` |
+| `amount` | string | decimal string, no scientific notation |
+| `asset` | string | symbol only; address resolution lives elsewhere |
+| `chain` | enum | one of `mainnet`, `sepolia`, `goerli`, `polygon`, `arbitrum`, `optimism` |
+| `expiry` | RFC 3339 timestamp | server rejects requests past expiry |
+| `risk_class` | enum | one of `low`, `medium`, `high` — drives policy gating |
+| `nonce` | ULID | uniqueness enforced by the nonce-replay gate |
+
+**Deny unknown fields.** The Rust deserializer is `serde(deny_unknown_fields)` end-to-end. Any field outside the schema returns `HTTP 400 schema.unknown_field` before any policy logic runs.
+
+## Request hash
+
+SBO3L canonicalises the envelope with [JCS (RFC 8785)](https://www.rfc-editor.org/rfc/rfc8785) and SHA-256s the result. The 32-byte digest is the `request_hash` that:
+
+- Travels in every audit event.
+- Is signed by the policy receipt.
+- Is embedded in the Passport capsule.
+
+JCS guarantees that two byte-different but JSON-equivalent envelopes hash to the same digest — different key order, different whitespace, different number representations all canonicalise. Without JCS, the audit log would be sensitive to client-side serialisation.
+
+## Adversarial inputs SBO3L rejects fail-closed
+
+| Input | Status | Domain code |
+|---|---|---|
+| Empty body | `HTTP 400` | `schema.missing_field` |
+| Unknown field | `HTTP 400` | `schema.unknown_field` |
+| Reused nonce | `HTTP 409` | `protocol.nonce_replay` |
+| Same `Idempotency-Key`, different body | `HTTP 409` | `protocol.idempotency_conflict` |
+| Oversized payload (~100 KB) | `HTTP 400` | rejected before pipeline |
+| Prompt-injection request | `HTTP 200 + decision=deny` | `policy.deny_unknown_provider` |
+
+Each row is exercised by the production-shaped runner (`bash demo-scripts/run-production-shaped-mock.sh`). 8/8 adversarial inputs fail-closed — see the marketing site evidence panel for live numbers.
+
+## Why "payment-shaped"
+
+A general-purpose tool-call wrapper would be more flexible but harder to audit. APRP is deliberately narrow: every field maps to a question a compliance reviewer can answer. *Who* is acting (`agent_id`), *what* are they doing (`intent` + `amount` + `asset`), *where* (`chain`), *until when* (`expiry`), *under what risk policy* (`risk_class`), *uniquely keyed how* (`nonce`).
+
+If your use case doesn't fit this shape, SBO3L is the wrong tool. See the [identity anti-claims](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/win-backlog/01-identity.md#anti-claims-things-sbo3l-explicitly-is-not).
+
+## See also
+
+- [Audit log](/concepts/audit-log) — how request hashes link into the hash chain.
+- [Self-contained capsule v2](/concepts/capsule) — how the request hash is later re-derived offline.
+- [Policy decision](/concepts/policy) — soon.
