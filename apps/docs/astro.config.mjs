@@ -55,7 +55,11 @@ export default defineConfig({
           label: "CLI reference",
           items: [
             { label: "Overview", link: "/cli" },
+            { label: "passport run", link: "/cli/passport-run" },
             { label: "passport verify", link: "/cli/passport-verify" },
+            { label: "audit export-bundle", link: "/cli/audit-export-bundle" },
+            { label: "agent register", link: "/cli/agent-register" },
+            { label: "agent verify-ens", link: "/cli/agent-verify-ens" },
           ],
         },
         { label: "API reference", link: "/api" },
