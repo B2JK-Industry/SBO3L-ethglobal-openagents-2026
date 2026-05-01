@@ -5,7 +5,7 @@
 # manifest. <5s end-to-end against PublicNode (no API key needed).
 #
 # Usage:
-#   ./scripts/resolve-fleet.sh docs/proof/ens-fleet-2026-05-01.json
+#   ./scripts/resolve-fleet.sh docs/proof/ens-fleet-agents-5-2026-05-01.json
 #
 # Env (optional):
 #   SBO3L_RESOLVE_RPC_URL  — JSON-RPC endpoint to resolve against.

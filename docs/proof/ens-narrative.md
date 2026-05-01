@@ -101,7 +101,7 @@ SBO3L agents need ZERO out-of-band setup to authenticate each other.**
 The protocol is one thing; the constellation is another. Phase 2
 ships two manifests under `sbo3lagent.eth`:
 
-- **`docs/proof/ens-fleet-2026-05-01.json`** — five named-role agents
+- **`docs/proof/ens-fleet-agents-5-2026-05-01.json`** — five named-role agents
   (`research`, `trading`, `swap`, `audit`, `coordinator`) each
   carrying the canonical seven `sbo3l:*` records. Reviewers re-derive
   every agent's Ed25519 pubkey byte-for-byte from the public seed
@@ -208,7 +208,7 @@ who kept a receipt.
 |--------------------------------------------------|----------------------------------------------------------------------------------------------|
 | `sbo3lagent.eth` resolves the canonical 5 records | `cast text sbo3lagent.eth sbo3l:policy_hash --rpc-url https://ethereum-rpc.publicnode.com`  |
 | The owner of `sbo3lagent.eth` is Daniel's wallet | https://app.ens.domains/sbo3lagent.eth                                                       |
-| Five named-role agents under the apex             | `./scripts/resolve-fleet.sh docs/proof/ens-fleet-2026-05-01.json` (post-broadcast)            |
+| Five named-role agents under the apex             | `./scripts/resolve-fleet.sh docs/proof/ens-fleet-agents-5-2026-05-01.json` (post-broadcast)            |
 | Sixty-agent constellation                         | `./scripts/resolve-fleet.sh docs/proof/ens-fleet-agents-60-2026-05-01.json` (post-broadcast)         |
 | Cross-agent verification ships                    | `cargo test -p sbo3l-identity --lib cross_agent::` (13 tests, including the pair-swap test)  |
 | CCIP-Read gateway is real                         | https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json                                       |
@@ -273,7 +273,7 @@ Status as of `<RUNTIME>`: tx hashes filled in by
 | `audit-agent.sbo3lagent.eth`              | TBD (post-broadcast)                | TBD       |
 | `coordinator-agent.sbo3lagent.eth`        | TBD (post-broadcast)                | TBD       |
 
-Source of truth: `docs/proof/ens-fleet-2026-05-01.json`. Reviewers
+Source of truth: `docs/proof/ens-fleet-agents-5-2026-05-01.json`. Reviewers
 re-derive every pubkey via
 `python3 scripts/derive-fleet-keys.py --config scripts/fleet-config/agents-5.yaml`.
 
@@ -367,7 +367,7 @@ cast call 0xF29100983E058B709F3D539b0c765937B804AC15 \
 - OffchainResolver Solidity:
   `crates/sbo3l-identity/contracts/OffchainResolver.sol`
 - Manifests:
-  `docs/proof/ens-fleet-2026-05-01.json`,
+  `docs/proof/ens-fleet-agents-5-2026-05-01.json`,
   `docs/proof/ens-fleet-agents-60-2026-05-01.json`
 
 ## Honest scope statement

@@ -177,6 +177,15 @@ enum AgentCmd {
         #[arg(long, default_value_t = false)]
         broadcast: bool,
 
+        /// Explicitly request dry-run (no broadcast). Dry-run is
+        /// already the default, but passing `--dry-run` surfaces
+        /// intent — automation scripts pass it as defense-in-depth so
+        /// a future flip of the CLI default to broadcast won't
+        /// silently turn an envelope-build invocation into a real tx.
+        /// Mutually exclusive with `--broadcast`.
+        #[arg(long, default_value_t = false, conflicts_with = "broadcast")]
+        dry_run: bool,
+
         #[arg(long)]
         rpc_url: Option<String>,
 
@@ -766,6 +775,14 @@ fn main() -> ExitCode {
                     owner,
                     resolver,
                     broadcast,
+                    // `--dry-run` is acknowledged but doesn't change
+                    // behaviour: dry-run is the default, broadcast
+                    // is opt-in via `--broadcast`. Clap's
+                    // conflicts_with already enforces the mutex; we
+                    // accept the flag here so scripts that pass it
+                    // for defense-in-depth aren't rejected as
+                    // "unknown argument".
+                    dry_run: _,
                     rpc_url,
                     private_key_env_var,
                     out,
