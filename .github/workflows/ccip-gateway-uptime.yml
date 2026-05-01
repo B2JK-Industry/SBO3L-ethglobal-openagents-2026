@@ -1,0 +1,60 @@
+name: ccip-gateway uptime
+
+# Lightweight uptime probe. Runs every 30 min against
+# https://sbo3l-ccip.vercel.app and posts a `::warning::` annotation
+# (caught by Heidi's daily regression sweep) if anything is wrong.
+#
+# This is NOT alerting / paging — it's a low-cost public-facing
+# health signal. Real production alerting would route through a
+# proper monitoring service; for the hackathon submission window
+# this gets us "is the gateway up at submission time?" coverage.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: HTTP probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: GET landing page
+        run: |
+          set -euo pipefail
+          STATUS=$(curl -sS -o /tmp/landing.html -w "%{http_code}" \
+                  https://sbo3l-ccip.vercel.app/)
+          echo "landing http=$STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::ccip-gateway landing returned $STATUS"
+            head -50 /tmp/landing.html || true
+            exit 1
+          fi
+
+      - name: GET API stub (expect 501 not_implemented)
+        run: |
+          set -euo pipefail
+          # The current pre-T-4-1 implementation returns 501; once T-4-1
+          # ships, this should switch to either 200 (valid record) or 404
+          # (unknown sender/record). When that happens, this step needs
+          # updating; the failure here on transition is intentional —
+          # the workflow flips green only after this assertion is
+          # corrected.
+          BODY=$(curl -sS -o /tmp/api.json -w "%{http_code}" \
+                  https://sbo3l-ccip.vercel.app/api/0x0000000000000000000000000000000000000000/0x00.json)
+          STATUS=$BODY
+          echo "api http=$STATUS"
+          if [ "$STATUS" = "501" ]; then
+            grep -q "not_implemented" /tmp/api.json
+            exit 0
+          fi
+          # Once T-4-1 ships, switch the assertion above to:
+          # if [ "$STATUS" = "404" ]; then exit 0; fi
+          echo "::warning::api returned unexpected status $STATUS"
+          cat /tmp/api.json
+          exit 1

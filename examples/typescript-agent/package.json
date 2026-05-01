@@ -1,0 +1,23 @@
+{
+  "name": "@sbo3l/example-typescript-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal SBO3L research agent — submits an APRP, prints the decision, verifies the capsule.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/sdk": "file:../../sdks/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
