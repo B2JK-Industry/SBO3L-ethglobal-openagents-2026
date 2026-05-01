@@ -139,8 +139,8 @@ impl MevGuardOutcome {
 /// address denies as `recipient_off_allowlist` even if its slippage is
 /// otherwise within tolerance.
 pub fn evaluate(config: &MevGuardConfig, quote: &Quote, intent: &SwapIntent) -> MevGuardOutcome {
-    if quote.token_in.to_ascii_lowercase() != intent.token_in.to_ascii_lowercase()
-        || quote.token_out.to_ascii_lowercase() != intent.token_out.to_ascii_lowercase()
+    if !quote.token_in.eq_ignore_ascii_case(&intent.token_in)
+        || !quote.token_out.eq_ignore_ascii_case(&intent.token_out)
         || quote.amount_in != intent.amount_in
     {
         return MevGuardOutcome::DeniedQuoteMismatch;
