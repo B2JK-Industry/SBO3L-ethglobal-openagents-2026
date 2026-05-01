@@ -209,10 +209,7 @@ pub fn publish_pipeline_run(
 /// `GET /v1/events` — upgrade to WebSocket and forward every published
 /// [`VizEvent`] as a JSON text frame. The handler is mounted by
 /// `router()` only when the `ws_events` feature is enabled.
-pub async fn ws_events_handler(
-    State(state): State<AppState>,
-    ws: WebSocketUpgrade,
-) -> Response {
+pub async fn ws_events_handler(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
     let bus = state.0.ws_events.clone();
     ws.on_upgrade(move |socket| async move {
         if let Some(bus) = bus {
@@ -289,7 +286,10 @@ mod tests {
         assert_eq!(json["kind"], "decision.made");
         assert_eq!(json["agent_id"], "research-agent-01");
         assert_eq!(json["decision"], "allow");
-        assert!(json.get("deny_code").is_none(), "deny_code omitted when None");
+        assert!(
+            json.get("deny_code").is_none(),
+            "deny_code omitted when None"
+        );
         assert_eq!(json["ts_ms"], 1_714_606_800_000_i64);
     }
 
@@ -335,7 +335,9 @@ mod tests {
             deny_code: None,
             ts_ms: 42,
         });
-        let got = rx.try_recv().expect("subscriber must receive after publish");
+        let got = rx
+            .try_recv()
+            .expect("subscriber must receive after publish");
         let json = serde_json::to_value(&got).unwrap();
         assert_eq!(json["ts_ms"], 42);
     }

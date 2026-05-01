@@ -82,8 +82,7 @@ async fn three_requests_yield_three_decision_frames_in_order() {
     let collect = async {
         let mut decisions: Vec<Value> = Vec::new();
         while decisions.len() < 3 {
-            let frame = ws.next().await.expect("frame")
-                .expect("frame ok");
+            let frame = ws.next().await.expect("frame").expect("frame ok");
             let payload = match frame {
                 Message::Text(t) => t,
                 Message::Close(_) => break,
@@ -100,7 +99,11 @@ async fn three_requests_yield_three_decision_frames_in_order() {
         .await
         .expect("3 decision.made frames must arrive within 10s");
 
-    assert!(decisions.len() >= 3, "expected >= 3 decision frames, got {}", decisions.len());
+    assert!(
+        decisions.len() >= 3,
+        "expected >= 3 decision frames, got {}",
+        decisions.len()
+    );
     for d in &decisions[..3] {
         assert_eq!(d["kind"], "decision.made");
         assert_eq!(d["agent_id"], "research-agent-01");

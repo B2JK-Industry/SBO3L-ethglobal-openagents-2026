@@ -141,8 +141,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/payment-requests", post(create_payment_request));
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
-    r
-        .with_state(state)
+    r.with_state(state)
 }
 
 async fn health() -> &'static str {
