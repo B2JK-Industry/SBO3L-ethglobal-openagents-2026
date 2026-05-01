@@ -1,0 +1,86 @@
+name: Live integration
+
+# Live-chain smoke tests gated on repo secrets. These DO NOT run
+# against feature branches by default — they're scheduled (daily) and
+# manually triggerable. The job is a clean no-op if the gating
+# secret is unset, so a fresh fork can run this workflow without
+# spurious failures.
+#
+# Required repo secrets (set in Settings → Secrets and variables →
+# Actions → New repository secret):
+#
+#   SBO3L_ERC8004_ADDR     0x-prefixed 40-hex registry address. Per
+#                          T-4-2 Q-T42-1 fallback, either Daniel's
+#                          pinned canonical or our Sepolia reference
+#                          deploy. Unset = job exits early with skip
+#                          message.
+#
+#   SBO3L_SEPOLIA_RPC_URL  Sepolia JSON-RPC endpoint (Alchemy / Infura
+#                          / PublicNode). Memory note
+#                          alchemy_rpc_endpoints.md has Daniel's
+#                          canonical Alchemy URL; treat the URL as
+#                          secret-class even though Alchemy keys are
+#                          quasi-public.
+
+on:
+  schedule:
+    # 06:00 UTC daily. Matches Heidi's daily regression sweep window.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "crates/sbo3l-identity/tests/erc8004_live.rs"
+      - "crates/sbo3l-identity/src/erc8004.rs"
+      - ".github/workflows/live-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  erc8004:
+    name: ERC-8004 live calldata + eth_call
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Gate on the registry address secret — unset means we don't
+    # know where to point the test, so skip cleanly.
+    env:
+      SBO3L_ERC8004_ADDR: ${{ secrets.SBO3L_ERC8004_ADDR }}
+      SBO3L_SEPOLIA_RPC_URL: ${{ secrets.SBO3L_SEPOLIA_RPC_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if SBO3L_ERC8004_ADDR is unset
+        id: gate
+        run: |
+          if [ -z "${SBO3L_ERC8004_ADDR:-}" ]; then
+            echo "::notice::SBO3L_ERC8004_ADDR repo secret is unset — skipping cleanly. Set it in repo Settings once the registry address is pinned per Q-T42-1."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "${SBO3L_SEPOLIA_RPC_URL:-}" ]; then
+            echo "::error::SBO3L_ERC8004_ADDR is set but SBO3L_SEPOLIA_RPC_URL is not — both are required."
+            exit 1
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        if: steps.gate.outputs.skip != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-live
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo test --include-ignored
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          cargo test -p sbo3l-identity --test erc8004_live -- --include-ignored --nocapture
