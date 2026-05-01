@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sbo3l.dev/aprp/v1.json",
+  "title": "SBO3L Agent Payment Request Protocol v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agent_id",
+    "task_id",
+    "intent",
+    "amount",
+    "token",
+    "destination",
+    "payment_protocol",
+    "chain",
+    "provider_url",
+    "expiry",
+    "nonce",
+    "risk_class"
+  ],
+  "properties": {
+    "agent_id": {
+      "$ref": "#/$defs/agent_id"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "purchase_api_call",
+        "purchase_dataset",
+        "pay_compute_job",
+        "pay_agent_service",
+        "tip"
+      ]
+    },
+    "amount": {
+      "$ref": "#/$defs/money"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 16,
+      "pattern": "^[A-Z0-9]{2,16}$"
+    },
+    "destination": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/destination_x402_endpoint"
+        },
+        {
+          "$ref": "#/$defs/destination_eoa"
+        },
+        {
+          "$ref": "#/$defs/destination_smart_account"
+        },
+        {
+          "$ref": "#/$defs/destination_erc20_transfer"
+        }
+      ]
+    },
+    "payment_protocol": {
+      "type": "string",
+      "enum": [
+        "x402",
+        "l402",
+        "erc20_transfer",
+        "smart_account_session"
+      ]
+    },
+    "chain": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 32,
+      "pattern": "^[a-z0-9][a-z0-9_-]{1,31}$"
+    },
+    "provider_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048
+    },
+    "x402_payload": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.sbo3l.dev/x402/v1.json"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "expiry": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nonce": {
+      "$ref": "#/$defs/ulid"
+    },
+    "expected_result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expected_result"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    }
+  },
+  "$defs": {
+    "agent_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$",
+      "description": "Stable human-readable agent slug. The internal database may also store a ULID agent_uid."
+    },
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "currency"
+      ],
+      "properties": {
+        "value": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$"
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "USD"
+          ]
+        }
+      }
+    },
+    "address": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{40}$"
+    },
+    "destination_x402_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "url",
+        "method"
+      ],
+      "properties": {
+        "type": {
+          "const": "x402_endpoint"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "expected_recipient": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/address"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      }
+    },
+    "destination_eoa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "address"
+      ],
+      "properties": {
+        "type": {
+          "const": "eoa"
+        },
+        "address": {
+          "$ref": "#/$defs/address"
+        }
+      }
+    },
+    "destination_smart_account": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "address"
+      ],
+      "properties": {
+        "type": {
+          "const": "smart_account"
+        },
+        "address": {
+          "$ref": "#/$defs/address"
+        }
+      }
+    },
+    "destination_erc20_transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "token_address",
+        "recipient"
+      ],
+      "properties": {
+        "type": {
+          "const": "erc20_transfer"
+        },
+        "token_address": {
+          "$ref": "#/$defs/address"
+        },
+        "recipient": {
+          "$ref": "#/$defs/address"
+        }
+      }
+    },
+    "expected_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "json",
+            "file",
+            "receipt",
+            "none"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "content_type": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    }
+  }
+}

@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L execution: sponsor execution adapters (KeeperHub, Uniswap)."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L execution: sponsor adapters (KeeperHub, Uniswap) wrapping the GuardedExecutor trait."
+keywords = ["sbo3l", "agent", "execution", "keeperhub", "uniswap"]
+categories = ["api-bindings"]
 
 [dependencies]
 sbo3l-core = { workspace = true }
