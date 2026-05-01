@@ -1,0 +1,257 @@
+openapi: 3.1.0
+info:
+  title: SBO3L Daemon HTTP API
+  version: "1.0.1"
+  description: |
+    Cryptographically verifiable trust layer for autonomous AI agents.
+
+    Every action passes through schema validation, JCS-canonical request
+    hashing, nonce-replay gate, deterministic policy decision, multi-scope
+    budget commit, hash-chained audit append, and Ed25519-signed receipt.
+
+    Source: https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8080
+    description: Local daemon (default bind)
+  - url: https://daemon.sbo3l.example
+    description: Operator-hosted daemon (TLS termination at edge)
+tags:
+  - name: payment-requests
+  - name: passport
+  - name: audit
+  - name: events
+  - name: health
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      operationId: health
+      responses:
+        "200":
+          description: Daemon alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example: { status: "ok", version: "1.0.1", db: "ok" }
+  /v1/payment-requests:
+    post:
+      tags: [payment-requests]
+      summary: Submit an APRP envelope for policy decision
+      operationId: postPaymentRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AprpEnvelope" }
+            example:
+              agent_id: research-agent-01
+              intent: swap
+              amount: "0.05"
+              asset: ETH
+              chain: sepolia
+              expiry: "2026-12-31T23:59:59Z"
+              risk_class: low
+              nonce: 01HZRGABCDEFGHJKMNPQRSTV
+      responses:
+        "200":
+          description: Decision rendered (allow or deny)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentRequestResponse" }
+        "400": { $ref: "#/components/responses/SchemaError" }
+        "401": { $ref: "#/components/responses/AuthError" }
+        "409": { $ref: "#/components/responses/ConflictError" }
+        "413": { description: Payload too large (>100 KB) }
+  /v1/audit:
+    get:
+      tags: [audit]
+      summary: List audit events with cursor pagination
+      operationId: listAudit
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: agent_pubkey
+          schema: { type: string }
+          description: Filter to one agent's events
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: One page of events
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPage" }
+  /v1/passport/run:
+    post:
+      tags: [passport]
+      summary: Emit a self-contained Passport capsule for a recorded decision
+      operationId: runPassport
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_hash]
+              properties:
+                request_hash: { type: string, description: "0x-prefixed SHA-256" }
+      responses:
+        "200":
+          description: Capsule emitted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PassportCapsule" }
+        "404": { description: request_hash not found in local audit }
+  /v1/events:
+    get:
+      tags: [events]
+      summary: WebSocket upgrade — real-time decision + attestation feed
+      description: |
+        WebSocket endpoint emitting `VizEvent` payloads (agent.discovered,
+        attestation.signed, decision.made, audit.checkpoint). Consumed by
+        the trust-dns visualization at `sbo3l-trust-dns-viz.vercel.app`.
+
+        Client must send the `Upgrade: websocket` headers; this endpoint
+        returns 426 to plain GET requests.
+      responses:
+        "101": { description: Switching protocols (WebSocket upgraded) }
+        "426": { description: Upgrade required }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+      description: Stable per retry; same key + different body returns 409.
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, version, db]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        version: { type: string }
+        db: { type: string, enum: [ok, error] }
+    AprpEnvelope:
+      type: object
+      additionalProperties: false
+      required: [agent_id, intent, amount, asset, chain, expiry, risk_class, nonce]
+      properties:
+        agent_id: { type: string, minLength: 1 }
+        intent: { type: string, enum: [pay, swap, store, compute, coordinate] }
+        amount: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?$" }
+        asset: { type: string }
+        chain: { type: string, enum: [mainnet, sepolia, goerli, polygon, arbitrum, optimism] }
+        expiry: { type: string, format: date-time }
+        risk_class: { type: string, enum: [low, medium, high] }
+        nonce: { type: string, description: "ULID; uniqueness enforced server-side" }
+    PolicyReceipt:
+      type: object
+      additionalProperties: false
+      required: [agent_id, request_hash, decision, policy_snapshot_hash, signature]
+      properties:
+        agent_id: { type: string }
+        request_hash: { type: string }
+        decision: { type: string, enum: [allow, deny] }
+        deny_code: { type: string, nullable: true }
+        policy_snapshot_hash: { type: string }
+        signature: { type: string, description: "ed25519:..." }
+    PaymentRequestResponse:
+      type: object
+      additionalProperties: false
+      required: [decision, policy_receipt]
+      properties:
+        decision: { type: string, enum: [allow, deny] }
+        policy_receipt: { $ref: "#/components/schemas/PolicyReceipt" }
+        execution_ref: { type: string, nullable: true }
+        executor_evidence: { type: object, nullable: true }
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, ts_unix_ms, event_type, agent_id, agent_pubkey, request_hash, prev_event_hash]
+      properties:
+        event_id: { type: string }
+        ts_unix_ms: { type: integer, format: int64 }
+        event_type: { type: string, enum: [policy.decision, audit.checkpoint] }
+        agent_id: { type: string }
+        agent_pubkey: { type: string }
+        decision: { type: string, enum: [allow, deny], nullable: true }
+        deny_code: { type: string, nullable: true }
+        request_hash: { type: string }
+        prev_event_hash: { type: string }
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required: [events, next_cursor, chain_length, chain_root]
+      properties:
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEvent" }
+        next_cursor: { type: string, nullable: true }
+        chain_length: { type: integer }
+        chain_root: { type: string }
+    PassportCapsule:
+      type: object
+      additionalProperties: false
+      required: [version, capsule_id, agent_id, request_hash, policy_receipt, size_bytes, emitted_at]
+      properties:
+        version: { type: string, enum: ["sbo3l.passport_capsule.v2"] }
+        capsule_id: { type: string }
+        agent_id: { type: string }
+        request_hash: { type: string }
+        policy_receipt: { $ref: "#/components/schemas/PolicyReceipt" }
+        size_bytes: { type: integer }
+        emitted_at: { type: string, format: date-time }
+    DomainError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: { type: string, example: "schema.unknown_field" }
+        message: { type: string }
+        detail: { type: object, additionalProperties: true }
+  responses:
+    SchemaError:
+      description: Schema validation failure (deny_unknown_fields)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DomainError" }
+          examples:
+            unknown_field:
+              value: { code: "schema.unknown_field", message: "field 'foo' not in APRP schema" }
+            missing_field:
+              value: { code: "schema.missing_field", message: "required field 'agent_id' missing" }
+    AuthError:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DomainError" }
+          example: { code: "auth.required", message: "missing Authorization header" }
+    ConflictError:
+      description: Idempotency conflict or nonce replay
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DomainError" }
+          examples:
+            nonce_replay:
+              value: { code: "protocol.nonce_replay", message: "APRP nonce already seen" }
+            idempotency_conflict:
+              value: { code: "protocol.idempotency_conflict", message: "Idempotency-Key reused with different body" }
