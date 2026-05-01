@@ -25,7 +25,7 @@ sbo3l-storage = { workspace = true }
 # pattern). Pulling sbo3l-server / -identity / -execution + the
 # axum/tower/http stack here matches what research-agent's Cargo.toml
 # already does — no new transitives in the workspace.
-sbo3l-server = { path = "../sbo3l-server" }
+sbo3l-server = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }
 serde = { workspace = true }
