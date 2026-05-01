@@ -144,3 +144,13 @@ upstream:
 
 - The agent-identity → policy-hash → audit-root pattern via ENS text records felt natural; partners that resolve ENS metadata should consider standardising the `sbo3l:*` keys.
 - Sponsor adapters benefit from a clean separation between "decide" (policy) and "execute" (sponsor). This is the architectural angle SBO3L wants to validate.
+
+## Concrete pain points hit during live integration
+
+The five highest-friction items encountered during the live SBO3L ↔ partner wiring, distilled from the per-partner sections above. Each is filed as a GitHub issue against the upstream partner repo so the discussion can carry on past the hackathon submission window.
+
+- **KeeperHub — undocumented submission/result schema.** No public JSON schema for the action submission/result envelope; the hackathon adapter mocks execution. See *KeeperHub → What was unclear at build time* above.
+- **KeeperHub — `executionId` lookup undocumented.** No documented GET path or MCP tool for post-submit status / run-log retrieval. See *KeeperHub → Suggested improvements*.
+- **KeeperHub — token-prefix naming (`kh_*` vs `wfb_*`).** The split between native API tokens and workflow-webhook tokens isn't surfaced in the public docs; cost real wiring time. See *KeeperHub → What was unclear at build time*.
+- **ENS — ENSIP-25 CCIP-Read off-chain extension.** The reference implementation lacks an end-to-end "registrar + resolver + gateway + capsule" worked example for AI-agent identities; we ended up reading the spec + ENS Labs OffchainResolver source to wire it correctly. See *ENS* section.
+- **Uniswap — quote evidence capsule attribution.** The Sepolia QuoterV2 returns the quote tuple but no server-issued `quote_id`, so we mint our own `mock-` prefixed id on the demo path. See *Uniswap → Friction we hit while wiring the P6.1 quote-evidence capsule*.
