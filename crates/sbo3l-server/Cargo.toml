@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L daemon: HTTP API for payment-request decisions."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L HTTP daemon: POST /v1/payment-requests pipeline (auth, idempotency, policy, budget, audit, signed receipt)."
+keywords = ["sbo3l", "agent", "server", "policy", "http"]
+categories = ["web-programming::http-server", "command-line-utilities"]
 
 [lib]
 name = "sbo3l_server"
