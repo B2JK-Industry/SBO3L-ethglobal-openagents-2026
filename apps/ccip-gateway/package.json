@@ -1,0 +1,28 @@
+{
+  "name": "@sbo3l/ccip-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SBO3L CCIP-Read gateway (ENSIP-25 / EIP-3668). Returns sbo3l:* off-chain ENS text records signed by GATEWAY_PRIVATE_KEY for verification by the OffchainResolver. Deploys to sbo3l-ccip.vercel.app.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

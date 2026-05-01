@@ -34,7 +34,7 @@ export function namehash(domain: string): `0x${string}` {
     const buf = new Uint8Array(64);
     buf.set(node, 0);
     buf.set(toBytes(labelHash), 32);
-    node = toBytes(keccak256(buf));
+    node = new Uint8Array(toBytes(keccak256(buf)));
   }
   return ("0x" +
     Array.from(node)

@@ -22,10 +22,10 @@ import {
   encodeAbiParameters,
   encodePacked,
   keccak256,
-  privateKeyToAccount,
   toBytes,
   type Hex,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 
 const DEFAULT_TTL_SECONDS = 60;
 

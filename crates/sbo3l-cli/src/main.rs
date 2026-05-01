@@ -207,6 +207,15 @@ enum PassportCmd {
         /// (tempfile + rename); never leaves a half-written file.
         #[arg(long)]
         out: PathBuf,
+        /// F-6: capsule schema version. `v2` (default) embeds
+        /// `policy.policy_snapshot` + `audit.audit_segment` so a
+        /// downstream `passport verify --strict` runs all 6
+        /// cryptographic checks WITHOUT auxiliary inputs. `v1` emits
+        /// the legacy shape (no embedded fields; strict mode requires
+        /// `--policy`, `--audit-bundle`, `--receipt-pubkey` to cover
+        /// the same ground).
+        #[arg(long = "schema-version", value_enum, default_value_t = SchemaVersionArg::V2)]
+        schema_version: SchemaVersionArg,
     },
     /// Verify a capsule and print a concise human (or `--json`)
     /// summary suitable for judges and operators.
@@ -236,6 +245,12 @@ enum ExecutorChoiceArg {
 enum ModeChoiceArg {
     Mock,
     Live,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum SchemaVersionArg {
+    V1,
+    V2,
 }
 
 #[derive(Subcommand, Debug)]
@@ -642,6 +657,7 @@ fn main() -> ExitCode {
                     executor,
                     mode,
                     out,
+                    schema_version,
                 },
         } => passport::cmd_run(passport::RunArgs {
             aprp_path: aprp,
@@ -661,6 +677,10 @@ fn main() -> ExitCode {
                 ModeChoiceArg::Live => passport::ModeChoice::Live,
             },
             out_path: out,
+            schema_version: match schema_version {
+                SchemaVersionArg::V1 => passport::SchemaVersionChoice::V1,
+                SchemaVersionArg::V2 => passport::SchemaVersionChoice::V2,
+            },
         }),
         Command::Passport {
             op: PassportCmd::Explain { path, json },
