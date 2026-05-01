@@ -57,6 +57,22 @@ Sibling secp256k1 trait [`EthSigner`] in [`crates/sbo3l-core/src/signers/eth.rs`
 
 All four Ed25519 backends produce **identical wire format**: 64-byte signatures verifiable via `crate::signer::verify_hex` against the 32-byte verifying key the backend reports. A receipt signed by `AwsKmsSigner` is byte-equivalent to one signed by `DevSignerLockedDown` — offline verifiers don't need to know which backend produced it. The dev-signer interop test pins this via `cargo test --test test_signers`; the AWS / GCP equivalents land with the live SDK wiring.
 
+
+## Passport capsule v2 (F-6, self-contained verification)
+
+Capsule schema [`sbo3l.passport_capsule.v2`](schemas/sbo3l.passport_capsule.v2.json) is **additive on v1**: same shape plus two optional embedded fields. When both are present, `passport verify --strict` runs all 6 cryptographic checks WITHOUT auxiliary inputs — no `--policy`, no `--audit-bundle`, no `--receipt-pubkey`.
+
+| Embedded field | Replaces aux input | Strict checks unblocked |
+|---|---|---|
+| `policy.policy_snapshot` (canonical Policy JSON) | `--policy <path>` | `policy_hash_recompute` |
+| `audit.audit_segment` (`sbo3l.audit_bundle.v1`) | `--audit-bundle <path>` + `--receipt-pubkey <hex>` | `receipt_signature`, `audit_chain`, `audit_event_link` |
+
+`audit_segment` is capped at 1 MiB (anti-DoS) — a capsule that exceeds the cap is rejected with `capsule.audit_segment_too_large` before any chain walk.
+
+`passport run` emits v2 by default; `--schema-version v1` forces the legacy shape. `passport explain` prints `verifier-mode: self-contained` for v2 capsules with both embedded fields, `verifier-mode: aux-required` otherwise. v1 capsules continue to verify under their own schema (no regression).
+
+Test fixtures: 5 golden v2 (`v2_golden_001..005`) + 4 tampered v2 covering the v2-specific rejection paths (`v2_tampered_001..004`).
+
 ## Known limitations (scope-cut for submission)
 
 ### Live KMS integration tests
