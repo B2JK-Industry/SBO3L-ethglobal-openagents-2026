@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@sbo3l/design-tokens": "file:../../packages/design-tokens",
+    "monaco-editor": "^0.52.0",
     "next": "^15.0.0",
     "next-auth": "5.0.0-beta.20",
     "react": "^19.0.0",
