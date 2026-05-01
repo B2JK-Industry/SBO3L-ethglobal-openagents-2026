@@ -22,4 +22,6 @@ Astro copies `public/` verbatim into `dist/` at build time. The WASM module is t
 
 ## Cache headers
 
-`vercel.json` includes `*.wasm` in the immutable-cache list. WASM is content-hashed by Astro, so cache invalidation is automatic.
+`*.wasm` is intentionally **excluded** from the immutable-cache rule in `vercel.json`. The wasm-pack output is served at stable filenames (`sbo3l_core_bg.wasm`), not fingerprinted URLs, so a long-lived `immutable` cache would let browsers run stale verifier logic after a deploy. Default short cache is correct here until we content-hash the filename.
+
+Follow-up: fingerprint the wasm output (e.g. `sbo3l_core_bg.<contenthash>.wasm`) and emit an import-map JSON the loader reads. Once that lands, the wasm extension can re-join the immutable list. Tracked alongside #101.
