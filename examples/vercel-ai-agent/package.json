@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/example-vercel-ai-agent",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Minimal Next.js Route Handler agent using Vercel AI SDK + @sbo3l/vercel-ai. Demonstrates payment-intent gating in a streaming-text agent.",
   "license": "MIT",
