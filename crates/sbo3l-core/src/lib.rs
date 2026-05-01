@@ -14,6 +14,9 @@ pub mod schema;
 pub mod signer;
 pub mod signers;
 
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
+
 pub use error::{CoreError, Result, SchemaError};
 
 pub const SCHEMA_VERSION: u32 = 1;

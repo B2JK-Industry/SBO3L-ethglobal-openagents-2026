@@ -7,6 +7,18 @@ authors.workspace = true
 repository.workspace = true
 description = "SBO3L core: protocol types, request hashing, error model, signed receipts."
 
+[lib]
+# wasm-pack consumes the cdylib output for the #110 marketing-site
+# verifier; the rlib is kept so workspace consumers (sbo3l-policy,
+# sbo3l-server, sbo3l-cli, etc.) link unchanged. Native builds never
+# produce the cdylib.
+crate-type = ["cdylib", "rlib"]
+
+# wasm-pack bundled wasm-opt rejects rustc's bulk-memory ops; disable
+# the post-processing step. Size hit ~10-20% (acceptable hackathon-scope).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -28,6 +40,11 @@ jsonschema = { workspace = true }
 # BCryptGenRandom on Windows). Per `rand`'s wasm32 docs.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
+# wasm-pack JS bridge for the #110 marketing-site verifier. Keeping
+# wasm-bindgen as a wasm-only dep means native sbo3l-core builds
+# don't pull a JS-binding crate they never use.
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
 
 # F-5: KMS backends are feature-gated. Each feature compiles a stub
 # module today; the actual SDK dependency is pulled in by a follow-up
