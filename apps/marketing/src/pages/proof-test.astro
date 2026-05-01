@@ -12,17 +12,14 @@
 
 import BaseLayout from "~/layouts/BaseLayout.astro";
 import PassportVerifier from "~/components/PassportVerifier.astro";
-import fs from "node:fs";
-import path from "node:path";
 
-// Load the canonical v2 golden fixture at build time so the
-// verifier auto-runs against it on page mount. The fixture is the
-// same one F-6's test plan exercises.
-const fixturePath = path.resolve(
-  process.cwd(),
-  "../../test-corpus/passport/v2_golden_001_minimal.json"
-);
-const goldenCapsule = fs.readFileSync(fixturePath, "utf8");
+// Load the canonical v2 golden fixture at build time. Vendored into
+// apps/marketing/src/fixtures/ so Vercel's monorepo build (root dir =
+// apps/marketing) can read it — process.cwd() relative reads to
+// ../../test-corpus/ fail in Vercel's checkout where only the root-dir
+// subtree is present. Re-vendor on capsule schema bumps.
+import goldenCapsuleData from "../fixtures/v2_golden_001_minimal.json";
+const goldenCapsule = JSON.stringify(goldenCapsuleData);
 ---
 <BaseLayout
   title="SBO3L — WASM verifier smoke test"
