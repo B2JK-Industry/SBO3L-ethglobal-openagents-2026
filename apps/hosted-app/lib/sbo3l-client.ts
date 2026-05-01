@@ -75,11 +75,22 @@ async function fetchDaemon<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function isDaemonAlive(): Promise<boolean> {
+  // Liveness is "responded with 2xx" — not "responded with valid JSON".
+  // Dev 1's /v1/healthz returns either a JSON envelope OR a plain "ok"
+  // text body depending on build flags; both indicate alive. Anything
+  // 5xx or transport-level (network, abort, DNS) is dead.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    await fetchDaemon<{ status: string }>("/health");
-    return true;
+    const res = await fetch(`${DAEMON_URL}/v1/healthz`, {
+      signal: ctrl.signal,
+      cache: "no-store",
+    });
+    return res.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

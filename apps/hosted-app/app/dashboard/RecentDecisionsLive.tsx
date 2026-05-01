@@ -30,7 +30,22 @@ export function RecentDecisionsLive({ wsUrl }: Props): JSX.Element {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    // The same WebSocket can fire `error` followed by `close` on a
+    // single failure; without a guard, both handlers spawned a fresh
+    // mock interval and the previous one leaked. Track via a ref so
+    // multiple handler firings collapse to one mock instance.
+    let mockStarted = false;
+
     const startMock = (): void => {
+      // Clear any stale interval before starting (defensive — a clean
+      // stopMock/startMock pair would never hit this, but the guard
+      // makes the code robust to mid-stream reconnect storms).
+      if (mockIntervalRef.current !== null) {
+        window.clearInterval(mockIntervalRef.current);
+        mockIntervalRef.current = null;
+      }
+      if (mockStarted) return;
+      mockStarted = true;
       setState("demo");
       const tick = (): void => {
         const i = Math.floor(Math.random() * AGENTS.length);
@@ -53,6 +68,7 @@ export function RecentDecisionsLive({ wsUrl }: Props): JSX.Element {
         window.clearInterval(mockIntervalRef.current);
         mockIntervalRef.current = null;
       }
+      mockStarted = false;
     };
 
     try {
@@ -89,12 +105,11 @@ export function RecentDecisionsLive({ wsUrl }: Props): JSX.Element {
           /* ignore malformed payload */
         }
       });
-      ws.addEventListener("error", () => {
-        if (state !== "demo") startMock();
-      });
-      ws.addEventListener("close", () => {
-        if (state !== "demo") startMock();
-      });
+      // `error` and `close` both fire on a failed connection; startMock
+      // is idempotent now (mockStarted flag), so calling from either
+      // handler is safe.
+      ws.addEventListener("error", () => startMock());
+      ws.addEventListener("close", () => startMock());
     } catch {
       startMock();
     }
