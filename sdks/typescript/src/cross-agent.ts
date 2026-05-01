@@ -154,8 +154,11 @@ export async function signChallenge(
   }
   const bytes = jcsBytes(challenge);
   const sig = await ed25519.signAsync(bytes, secretSeed);
+  // Deep-clone the challenge in the return so later caller-side mutations
+  // of the original object can't desync the bytes the signature covers
+  // (codex P2 from PR #182).
   return {
-    challenge,
+    challenge: JSON.parse(JSON.stringify(challenge)),
     signature_hex: "0x" + bytesToHex(sig),
   };
 }
@@ -187,8 +190,22 @@ export async function verifyChallenge(
     );
   }
 
-  // Resolve peer pubkey via ENS.
-  const pubkeyHex = await resolver(signed.challenge.agent_fqdn);
+  // Resolve peer pubkey via ENS. Wrap in try/catch — if the resolver
+  // throws (e.g. UnknownName: agent_fqdn not in ENS at all), treat it
+  // as a clean rejection receipt rather than letting the Promise
+  // bubble up to the caller (codex P1 from PR #182, parallels Rust
+  // PubkeyLookup::UnknownPeer mapping in cross_agent.rs).
+  let pubkeyHex: string | null;
+  try {
+    pubkeyHex = await resolver(signed.challenge.agent_fqdn);
+  } catch (_e) {
+    return reject(
+      signed,
+      "",
+      verifiedAtMs,
+      REJECTION_REASONS.unknownPeer,
+    );
+  }
   if (pubkeyHex === null || pubkeyHex === "") {
     return reject(
       signed,
