@@ -146,6 +146,14 @@ pub fn evaluate(config: &MevGuardConfig, quote: &Quote, intent: &SwapIntent) -> 
         return MevGuardOutcome::DeniedQuoteMismatch;
     }
 
+    // Zero-quote is a malformed/attacker-controlled signal: with
+    // expected_amount_out == 0, the slippage gate degenerates to
+    // `amount_out_min >= 0` which is always true for unsigned types.
+    // Treat as a quote mismatch — never silently bypass slippage.
+    if quote.expected_amount_out == 0 {
+        return MevGuardOutcome::DeniedQuoteMismatch;
+    }
+
     let recipient_lc = intent.recipient.to_ascii_lowercase();
     if !config
         .recipient_allowlist
@@ -303,6 +311,24 @@ mod tests {
         let outcome = evaluate(&cfg(), &base_quote(), &intent);
         assert_eq!(outcome, MevGuardOutcome::DeniedQuoteMismatch);
         assert_eq!(outcome.deny_code(), Some("policy.deny_mev_quote_mismatch"));
+    }
+
+    #[test]
+    fn zero_quote_does_not_bypass_slippage() {
+        // Codex P1: expected_amount_out == 0 makes `amount_out_min >= 0`
+        // always true (unsigned), silently allowing any swap regardless
+        // of slippage config. Treat as quote mismatch.
+        let mut quote = base_quote();
+        quote.expected_amount_out = 0;
+        let intent = SwapIntent {
+            token_in: WETH.to_string(),
+            token_out: USDC.to_string(),
+            amount_in: 1_000_000_000_000_000_000,
+            amount_out_min: 0,
+            recipient: RECIPIENT.to_string(),
+        };
+        let outcome = evaluate(&cfg(), &quote, &intent);
+        assert_eq!(outcome, MevGuardOutcome::DeniedQuoteMismatch);
     }
 
     #[test]
