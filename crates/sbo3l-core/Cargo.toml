@@ -21,6 +21,14 @@ rust_decimal = { workspace = true }
 ulid = { workspace = true }
 jsonschema = { workspace = true }
 
+# wasm32 verifier slice (`scripts/build-wasm-verifier.sh`): pin
+# `getrandom = { version = "0.3", features = ["wasm_js"] }` for the
+# wasm target so OsRng has a JS-side entropy source. Native targets
+# don't need it (the default backend is /dev/urandom on Unix and
+# BCryptGenRandom on Windows). Per `rand`'s wasm32 docs.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
 # F-5: KMS backends are feature-gated. Each feature compiles a stub
 # module today; the actual SDK dependency is pulled in by a follow-up
 # nightly task once Daniel provisions a test key. Until then, daemon
