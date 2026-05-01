@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/schemas/sbo3l.ens_fleet_manifest.v1.json",
+  "title": "SBO3L ENS Fleet Manifest v1",
+  "description": "Manifest of an SBO3L agent fleet issued under sbo3lagent.eth via Durin (T-3-3 fleet-of-5 / T-3-4 60-agent ENS-AGENT-A1 amplifier). Records the canonical inputs (seed_doc, parent, network), per-agent identity (FQDN, pubkey, capabilities), and the broadcast outputs (tx hashes, Etherscan links). Reviewers re-derive every pubkey byte-for-byte from `seed_doc` + `agents[].label`; broadcast outputs are auditable on-chain.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at_utc",
+    "network",
+    "parent",
+    "seed_doc",
+    "agents",
+    "totals"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "sbo3l.ens_fleet_manifest.v1"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp the manifest skeleton was created (before the broadcast loop)."
+    },
+    "network": {
+      "type": "string",
+      "enum": ["sepolia", "mainnet"]
+    },
+    "parent": {
+      "type": "string",
+      "description": "ENS parent name (e.g. `sbo3lagent.eth`). Subnames are issued at <agent.label>.<parent>."
+    },
+    "seed_doc": {
+      "type": "string",
+      "description": "Public seed string used to derive each agent's Ed25519 keypair. Anyone holding this manifest re-derives every pubkey via SHA-256(seed_doc + ':' + label)."
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "fqdn",
+          "agent_id",
+          "endpoint",
+          "policy_url",
+          "capabilities",
+          "pubkey_ed25519",
+          "register_tx_hash",
+          "multicall_tx_hash",
+          "etherscan",
+          "status",
+          "error"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Single DNS label (no `.`). Forms the leftmost element of the FQDN."
+          },
+          "fqdn": {
+            "type": "string",
+            "description": "Fully-qualified ENS name (`<label>.<parent>`)."
+          },
+          "agent_id": {
+            "type": "string",
+            "description": "Stable identifier for the agent. Written into the `sbo3l:agent_id` text record."
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri"
+          },
+          "policy_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Sponsor capability tags (e.g. `x402-purchase`, `uniswap-swap`, `audit-export`)."
+          },
+          "pubkey_ed25519": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "32-byte Ed25519 public key, hex-encoded (no `0x`). Deterministic from seed_doc + label."
+          },
+          "register_tx_hash": {
+            "anyOf": [
+              { "type": "null" },
+              { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }
+            ],
+            "description": "Tx hash of the Durin `register(...)` call. Null until the broadcast loop runs."
+          },
+          "multicall_tx_hash": {
+            "anyOf": [
+              { "type": "null" },
+              { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }
+            ],
+            "description": "Tx hash of the PublicResolver `multicall(setText × N)` call. Null until the broadcast loop runs."
+          },
+          "etherscan": {
+            "anyOf": [
+              { "type": "null" },
+              { "type": "string", "format": "uri" }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "dry_run_failed",
+              "register_failed",
+              "partial_register_only",
+              "success"
+            ]
+          },
+          "error": {
+            "anyOf": [
+              { "type": "null" },
+              { "type": "string" }
+            ]
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_count", "succeeded", "failed", "gas_used_total"],
+      "properties": {
+        "agent_count": { "type": "integer", "minimum": 1 },
+        "succeeded": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "gas_used_total": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "description": "Sum of gas used across all successful broadcasts. Null until the broadcast loop runs (cast send doesn't surface gas without an extra `cast receipt` round-trip)."
+        }
+      }
+    }
+  }
+}
