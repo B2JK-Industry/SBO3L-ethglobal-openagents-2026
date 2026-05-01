@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-example-python-agent"
+version = "0.1.0"
+description = "Minimal SBO3L research agent — submits an APRP, prints the decision."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "sbo3l-sdk @ file://${PROJECT_ROOT}/../../sdks/python",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_example"]
