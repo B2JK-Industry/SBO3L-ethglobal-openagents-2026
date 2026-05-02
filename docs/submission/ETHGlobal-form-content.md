@@ -163,5 +163,5 @@ Honest disclosure: anything labelled mock in the demo output is mock. The capsul
 - [ ] All Etherscan tx hashes captured
 - [ ] All KH issue URLs filled in
 - [ ] FEEDBACK.md last commit ≤ 24h ago (proves freshness)
-- [ ] `cargo install sbo3l-cli --version 1.0.1` works on a fresh `mktemp -d` env (Heidi pre-verifies)
+- [ ] `cargo install sbo3l-cli --version 1.2.0` works on a fresh `mktemp -d` env (Heidi pre-verifies)
 - [ ] https://sbo3l.dev/proof loads + verifies a tampered capsule as failed

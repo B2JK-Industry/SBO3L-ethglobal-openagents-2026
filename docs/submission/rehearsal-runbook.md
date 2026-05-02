@@ -52,7 +52,7 @@ Per [`docs/submission/demo-video-script.md`](demo-video-script.md):
   3. `https://app.sbo3l.dev/trust-dns` (or fallback Vercel preview)
   4. `https://app.ens.domains/sbo3lagent.eth`
   5. `https://etherscan.io/address/0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63` (PublicResolver, mainnet)
-  6. https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases/tag/v1.0.1
+  6. https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases/tag/v1.2.0
 - Terminal panes: 2 splits — left pane runs the live demo, right pane shows the audit chain rendered via `tail -f` on `~/.sbo3l/audit.log` (or the operator console)
 - Capsule for tamper demo: pre-generated at `/tmp/capsule-tamper-demo.json` via `bash demo-scripts/run-openagents-final.sh && cp demo-scripts/artifacts/passport-allow.json /tmp/capsule-tamper-demo.json`. Don't tamper before recording — show the green-check pass first, then byte-flip live on camera.
 

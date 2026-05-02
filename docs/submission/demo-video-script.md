@@ -91,7 +91,7 @@ The verifier scene at 1:45–2:15. That's the load-bearing scene; the rest is se
 
 ## Outro fact-check (every number is falsifiable)
 
-- **9 crates** — `cargo search sbo3l-` returns 9 results at 1.0.1
+- **9 crates** — `cargo search sbo3l-` returns 9 results at 1.2.0
 - **8 framework integrations** — npm `@sbo3l/{sdk,langchain,autogen,elizaos,vercel-ai,design-tokens}` + PyPI `sbo3l-{sdk,langchain,crewai,llamaindex,langgraph}`. Counted as integrations: LangChain TS, LangChain Py, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph = 8.
 - **60 agents** — refers to T-3-4 first-tier amplifier (PR #141 — 60-agent fleet config)
 - **1 mandate** — wordplay on the tagline (lowercase noun, brand uppercase = SBO3L)

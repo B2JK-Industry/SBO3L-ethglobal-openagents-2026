@@ -33,7 +33,7 @@ Policy rules express MEV-safety primitives directly: `slippage_bps` ≤ `policy.
 
 ## Live verification
 
-- **Sepolia QuoterV2 live quote:** `cargo install sbo3l-cli --version 1.0.1 && SBO3L_UNISWAP_RPC_URL=… sbo3l passport run swap-aprp.json --executor uniswap --mode live --quote-only --out /tmp/capsule.json && sbo3l passport verify --strict --path /tmp/capsule.json` → PASSED with quote evidence in capsule
+- **Sepolia QuoterV2 live quote:** `cargo install sbo3l-cli --version 1.2.0 && SBO3L_UNISWAP_RPC_URL=… sbo3l passport run swap-aprp.json --executor uniswap --mode live --quote-only --out /tmp/capsule.json && sbo3l passport verify --strict --path /tmp/capsule.json` → PASSED with quote evidence in capsule
 - **Real Sepolia swap with `tx_hash` in capsule** (T-5-5, gated on T-5-1 #165) — capsule's `execution.live_evidence.tx_hash` is the canonical proof; Etherscan link will be captured into `demo-scripts/artifacts/uniswap-real-swap-capsule.json` (artifact dir is gitignored — file appears at run time after `bash demo-scripts/sponsors/uniswap-real-swap.sh` against funded wallet)
 - **Examples:** `examples/uniswap-agent-{ts,py}/` (T-5-6, [PR #166](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/166)) — TS + Py demo
 - **Same capsule re-verified in browser:** drag into https://sbo3l.dev/proof — WASM verifier runs offline checks; tampering with `tx_hash` → `capsule.live_evidence_mismatch`

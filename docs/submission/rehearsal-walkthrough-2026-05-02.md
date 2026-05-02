@@ -36,12 +36,12 @@
 **Action:**
 - 🚦 Push #235 through (it's auto-merge armed, BLOCKED on CI cycling). Once landed, `summary.txt` will show the canonical 5/5 PASS evidence + `docs/proof/chaos-suite-results-v1.2.0.md` is the human-readable proof doc.
 
-### Step 3 — `cargo install sbo3l-cli --version 1.0.1` (~3 min on warm cache)
+### Step 3 — `cargo install sbo3l-cli --version 1.2.0` (~3 min on warm cache)
 
 **Result:** still works; installs 1.0.1.
 
 **Friction:**
-- 🚨 **Version is stale.** The runbook hardcodes `--version 1.0.1`. Today (2026-05-02 11:00 CEST) the canonical install is `--version 1.2.0` — all 9 crates published at 1.2.0 ~30 min ago.
+- 🚨 **Version is stale.** The runbook hardcodes `--version 1.2.0`. Today (2026-05-02 11:00 CEST) the canonical install is `--version 1.2.0` — all 9 crates published at 1.2.0 ~30 min ago.
 - A judge following this runbook gets the **previous release**, not the current one. Functionally OK (1.0.1 still works) but presentation-wise wrong.
 
 **Action:**
@@ -81,7 +81,7 @@ Sections present in the runbook. No friction.
 
 ## Runbook corrections to apply (in this PR)
 
-1. Bump `cargo install sbo3l-cli --version 1.0.1` → `--version 1.2.0` (3 occurrences likely)
+1. Bump `cargo install sbo3l-cli --version 1.2.0` → `--version 1.2.0` (3 occurrences likely)
 2. Bump expected rehearsal-audit count from `36 PASS / 15 WARN / 0 FAIL` → `59 PASS / 15 WARN / 7 FAIL (6 of 7 FAILs are audit-script URL-extraction bugs, not submission gaps)`
 3. Add note: "if `summary.txt` shows 3/5 PASS, you're reading round-4 stale data — see `docs/proof/chaos-suite-results-v1.2.0.md` for the canonical 5/5 PASS"
 

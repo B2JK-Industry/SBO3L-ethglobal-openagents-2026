@@ -32,7 +32,7 @@ ENSIP-25 / EIP-3668 off-chain resolution. SBO3L's gateway at https://ccip.sbo3l.
 
 T-4-2 — agents register their `agent_id` + canonical pubkey in the ERC-8004 Identity Registry on mainnet, anchoring the ENS subname to a global identity. Calldata builders + dry-run path land in the upcoming PR (#125 + #132).
 
-### Cross-agent reputation (T-4-3 ✅ shipped at v1.0.1)
+### Cross-agent reputation (T-4-3 ✅ shipped at v1.2.0)
 
 `sbo3l:reputation` text record computed from the audit chain via 4-criteria scoring (success rate, deny rate, recency, consensus-with-peers). The reputation is dynamic — the live record reflects the agent's current state, not an init-time snapshot. CCIP-Read makes this practical without per-update gas.
 
