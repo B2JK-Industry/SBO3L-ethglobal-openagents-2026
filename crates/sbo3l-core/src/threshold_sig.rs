@@ -176,8 +176,7 @@ pub fn run_dkg_in_memory(
         // crate signature requires `R: RngCore + CryptoRng` by value but
         // OsRng-by-value moves; the borrow shape is intentional.
         #[allow(clippy::needless_borrows_for_generic_args)]
-        let (secret, package) =
-            frost::keys::dkg::part1(id, member_count, threshold, &mut rng)?;
+        let (secret, package) = frost::keys::dkg::part1(id, member_count, threshold, &mut rng)?;
         round1_secrets.insert(id, secret);
         round1_packages_by_id.insert(id, package);
     }
