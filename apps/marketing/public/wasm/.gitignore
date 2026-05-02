@@ -1,1 +1,13 @@
+# Default: ignore everything in this directory
 *
+# Whitelist WASM build artifacts produced by scripts/build-wasm-verifier.sh
+# These are committed binary artifacts so Vercel deploy can serve them
+# without requiring Rust toolchain in build pipeline.
+!.gitignore
+!.gitkeep
+!README.md
+!sbo3l_core.js
+!sbo3l_core.d.ts
+!sbo3l_core_bg.wasm
+!sbo3l_core_bg.wasm.d.ts
+!package.json
