@@ -16,12 +16,14 @@
 
 pub mod ccip_read;
 pub mod contracts;
+pub mod cross_chain;
 pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
 pub mod erc8004;
 pub mod reputation_publisher;
+pub mod token_gate;
 pub mod universal;
 
 pub use ccip_read::{
@@ -33,6 +35,11 @@ pub use contracts::{
     addr_eq, all_pins, is_placeholder, resolver_for, universal_resolver_for, ContractPin, Network,
     ENS_REGISTRY, ERC8004_SEPOLIA_PLACEHOLDER, OFFCHAIN_RESOLVER_SEPOLIA, PLACEHOLDER_ZERO,
     PUBLIC_RESOLVER_MAINNET, PUBLIC_RESOLVER_SEPOLIA,
+pub use cross_chain::{
+    build_set_attestation_calldata, commit_report, compute_eip712_digest, from_text_record,
+    sign_attestation, to_text_record, verify_attestation, verify_attestation_with_context,
+    verify_consistency, ConsistencyReport, CrossChainAttestation, CrossChainError, KnownChain,
+    ATTESTATION_TEXT_KEY, DOMAIN_ANCHOR_CHAIN_ID, DOMAIN_NAME, DOMAIN_VERSION, PUBKEY_TEXT_KEY,
 };
 pub use durin::{
     build_dry_run as build_durin_dry_run, multicall_calldata, register_calldata, DurinDryRun,
@@ -56,6 +63,11 @@ pub use erc8004::{
 pub use reputation_publisher::{
     build_publish_envelope, PublishMode, ReputationEventInput, ReputationPublishEnvelope,
     ReputationPublishParams, REPUTATION_ENVELOPE_SCHEMA_ID, REPUTATION_TEXT_KEY,
+};
+pub use token_gate::{
+    risk_class_high, risk_class_low, risk_class_medium, AllOfGates, AnyOfGates, Erc1155Gate,
+    Erc721Gate, GateError, GateResult, RiskClass, TokenGate, ERC1155_BALANCE_OF_SELECTOR,
+    ERC721_BALANCE_OF_SELECTOR, ERC721_OWNER_OF_SELECTOR,
 };
 pub use universal::{
     dns_encode, is_offchain_lookup_revert, UniversalError, UniversalResolver,

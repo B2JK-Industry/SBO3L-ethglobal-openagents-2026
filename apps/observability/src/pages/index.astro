@@ -1,0 +1,27 @@
+---
+import Base from "../layouts/Base.astro";
+import { Dashboard } from "../components/Dashboard.tsx";
+
+// `?endpoint=...` is read on the client; SSR ships the mock view first
+// so first paint is fast even when the daemon is slow / unreachable.
+---
+
+<Base title="SBO3L observability">
+  <header class="page-header">
+    <div>
+      <h1>SBO3L observability</h1>
+      <div class="subtitle">
+        4 panels over <code>/v1/admin/metrics</code> · default mock data, set
+        <code>?endpoint=&lt;url&gt;</code> for live
+      </div>
+    </div>
+    <div class="subtitle">
+      <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/apps/observability/DEPLOY.md">
+        DEPLOY.md
+      </a>
+    </div>
+  </header>
+  <div class="container">
+    <Dashboard client:load />
+  </div>
+</Base>

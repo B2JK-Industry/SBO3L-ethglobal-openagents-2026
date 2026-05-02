@@ -6,6 +6,7 @@ export default defineConfig({
     passport: "src/passport.ts",
     auth: "src/auth.ts",
     types: "src/types.ts",
+    uniswap: "src/uniswap/index.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

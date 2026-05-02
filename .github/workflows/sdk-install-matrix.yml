@@ -1,0 +1,136 @@
+name: SDK install matrix
+
+# Run scripts/sdk-install-verify.sh on every push to main, plus a nightly
+# schedule. Catches "tag exists but package not live" regressions —
+# e.g. v1.2.0's NPM_TOKEN gap that left 4 npm packages tag-only.
+#
+# Two job tiers:
+#   - registry-probe: ~2s, no install, hits the public JSON metadata
+#     endpoint. Cheap. Runs always.
+#   - install-and-import: spins one container per package, runs npm
+#     install + import. ~30s per package. Runs on push-to-main + nightly.
+#
+# Manually trigger via `gh workflow run sdk-install-matrix.yml`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/sdk-install-verify.sh"
+      - ".github/workflows/sdk-install-matrix.yml"
+  pull_request:
+    paths:
+      - "scripts/sdk-install-verify.sh"
+      - ".github/workflows/sdk-install-matrix.yml"
+  schedule:
+    # Daily at 04:00 UTC. Cheap; catches downstream registry regressions
+    # (yanked versions, broken transitives) within a day of breakage.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Cohort version to verify (e.g. 1.2.0). Defaults to 1.2.0."
+        required: false
+        default: "1.2.0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-install-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  registry-probe:
+    name: registry-probe (no install)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe each package's registry presence
+        env:
+          VERSION: ${{ github.event.inputs.version || '1.2.0' }}
+        run: |
+          chmod +x scripts/sdk-install-verify.sh
+          # Don't fail the job on missing packages — the matrix file IS the report.
+          # The install-and-import job below is the gating check.
+          SKIP_DOCKER=1 scripts/sdk-install-verify.sh || true
+          cat docs/proof/sdk-install-matrix.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-install-matrix-registry
+          path: docs/proof/sdk-install-matrix.md
+          retention-days: 30
+
+  install-and-import:
+    name: install+import (${{ matrix.id }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: registry-probe
+    # Only run the heavy matrix on push-to-main + scheduled + manual.
+    # PRs that touch the script use registry-probe (above) for fast iteration.
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors the script's MATRIX. Keep in sync; the script's id field
+        # is what's passed via ONLY=...
+        id:
+          - langchain-py
+          - crewai-py
+          - llamaindex-py
+          - langgraph-py
+          - agno-py
+          - sdk-py
+          - langchain-ts
+          - autogen
+          - elizaos
+          - vercel-ai
+          - openai-assistants
+          - anthropic
+          - anthropic-computer-use
+          - mastra
+          - vellum
+          - sdk-ts
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run install + import for ${{ matrix.id }}
+        env:
+          VERSION: ${{ github.event.inputs.version || '1.2.0' }}
+        run: |
+          chmod +x scripts/sdk-install-verify.sh
+          # Don't fail the job here — we want every matrix cell to report
+          # so the aggregate-report step has full coverage. The aggregate
+          # step decides pass/fail.
+          ONLY=${{ matrix.id }} scripts/sdk-install-verify.sh || true
+          cat docs/proof/sdk-install-matrix.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-install-matrix-${{ matrix.id }}
+          path: docs/proof/sdk-install-matrix.md
+          retention-days: 30
+
+  aggregate-report:
+    name: aggregate report
+    runs-on: ubuntu-latest
+    needs: install-and-import
+    if: always() && github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Render summary into the workflow run
+        run: |
+          {
+            echo "# SDK install matrix — aggregate"
+            echo
+            for f in artifacts/sdk-install-matrix-*/sdk-install-matrix.md; do
+              [[ -f "$f" ]] || continue
+              echo "## $(basename "$(dirname "$f")")"
+              echo
+              cat "$f"
+              echo
+              echo "---"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

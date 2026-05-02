@@ -1,0 +1,86 @@
+---
+title: passport verify
+description: Verify a Passport capsule structurally or strictly.
+audience: integration testers, auditors, CI authors
+outcome: You'll know which mode to use when, what each exit code means, and how to compose verifier runs in CI.
+prereqs:
+  - capsule concept read
+---
+
+```bash
+sbo3l passport verify [OPTIONS] --path <CAPSULE>
+```
+
+## Modes
+
+| Mode | What it checks | Cost | When to use |
+|---|---|---|---|
+| `--mode structural` (default) | schema + hash linkage | < 10 ms | continuous CI, smoke tests |
+| `--mode strict` | structural + signatures + content hashes + consistency rules | < 200 ms | pre-merge gate, audit, judging |
+
+Strict mode runs all 6 checks documented in [self-contained capsule v2](/concepts/capsule#the-6-strict-mode-checks).
+
+## Flags
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--path <FILE>` | required | path to the capsule JSON |
+| `--mode <structural\|strict>` | `structural` | check depth |
+| `--json` | off | emit JCS-canonical JSON result instead of human text |
+| `--quiet` | off | no stdout unless error |
+| `--verbose` | off | trace-level diagnostics on stderr |
+
+`--json` output is JCS-canonical (sorted keys, no insignificant whitespace) so CI can hash it for golden-file diffs.
+
+## Exit codes
+
+Per Bob's CLI exit-code contract:
+
+| Code | Meaning |
+|---|---|
+| `0` | OK — all checks passed |
+| `1` | IO error — capsule file missing, malformed JSON, can't open |
+| `2` | semantic / verification failure — at least one check failed |
+| `3` | nothing-to-do — empty input, no-op flag combination |
+
+## Examples
+
+### Smoke against a known-good fixture
+
+```bash
+sbo3l passport verify --path tests/fixtures/passport-v2-good.json
+# stdout: capsule OK · 4 structural checks passed
+# rc=0
+```
+
+### Strict mode in CI
+
+```bash
+sbo3l passport verify --strict --json --path capsule.json | tee verify.json
+test "$(jq -r .decision verify.json)" = "ok"
+```
+
+### Adversarial corpus loop
+
+```bash
+for f in tests/fixtures/passport-v2-tampered/*.json; do
+  out=$(sbo3l passport verify --strict --path "$f" 2>&1)
+  rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "FAIL: $f did not reject (rc=$rc)"
+    exit 1
+  fi
+done
+echo "all 9 tampered fixtures rejected with rc=2"
+```
+
+## Pitfalls
+
+- **Strict mode requires the capsule's embedded `agent_pubkey`** to match the original signing key. The capsule is self-contained on this front — there's no separate `--pubkey` flag.
+- **`--json` output is stable** across releases (semver-locked schema). `--verbose` text format is **not** stable; don't grep it from CI.
+- **`rc=3`** can fire if you pass `--mode structural` against a v1 capsule — v1 capsules are refused by v2-aware verifiers; bump them with the CLI's `passport upgrade` subcommand (separate page).
+
+## See also
+
+- [`passport run`](/cli) — emit a capsule from a daemon decision.
+- [Self-contained capsule v2](/concepts/capsule) — what `--strict` actually checks.

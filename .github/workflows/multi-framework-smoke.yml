@@ -1,0 +1,102 @@
+name: Multi-framework smoke
+
+# End-to-end smoke for examples/multi-framework-agent. Builds the 5-container
+# topology (sbo3l-server + plan/execute/confirm services + orchestrator) via
+# docker compose, then runs the orchestrator and asserts that all 3 framework
+# boundaries returned a single hash-chained audit.
+#
+# Why a separate workflow (vs adding a step to docker.yml):
+#   - independent path filter — only re-runs when the demo or its services
+#     change, so unrelated PRs don't pay the build cost
+#   - longer timeout budget (compose up + 4 image builds is heavier than the
+#     single-image build in docker.yml)
+#   - failure isolates to "demo broken" rather than "image broken", which
+#     reads cleaner in branch protection
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "examples/multi-framework-agent/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "sdks/**"
+      - "integrations/**"
+      - ".github/workflows/multi-framework-smoke.yml"
+  pull_request:
+    paths:
+      - "examples/multi-framework-agent/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "sdks/**"
+      - "integrations/**"
+      - ".github/workflows/multi-framework-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-framework-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: docker compose up + orchestrator end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build all images
+        working-directory: examples/multi-framework-agent
+        run: docker compose build --pull
+
+      - name: Boot daemon + 3 framework services
+        working-directory: examples/multi-framework-agent
+        run: docker compose up -d sbo3l-server plan execute confirm
+
+      - name: Wait for sbo3l-server health
+        working-directory: examples/multi-framework-agent
+        # docker compose's `--wait` polls each service's healthcheck and exits
+        # 0 only when all services are `healthy`. The plan/execute/confirm
+        # services depend_on sbo3l-server with condition: service_healthy, so
+        # this is one flag for the whole topology.
+        run: docker compose up -d --wait --wait-timeout 120 sbo3l-server plan execute confirm
+
+      - name: Run orchestrator end-to-end
+        working-directory: examples/multi-framework-agent
+        # `--exit-code-from orchestrator` makes compose propagate the
+        # orchestrator's exit code as the workflow step's exit code, so a
+        # non-zero return from the demo (e.g. an unexpected `deny`) fails CI.
+        run: |
+          docker compose run --rm orchestrator | tee orchestrator-output.txt
+          # Re-assert the 3 framework boundary markers landed in stdout.
+          # If the orchestrator silently skipped a step (a regression we've
+          # seen on stale builds), this line reports the failure mode in CI
+          # logs rather than a generic non-zero exit.
+          for marker in "step 1: plan" "step 2: execute" "step 3: confirm"; do
+            grep -F "$marker" orchestrator-output.txt > /dev/null || {
+              echo "::error::orchestrator output missing marker: $marker"
+              exit 1
+            }
+          done
+
+      - name: Dump container logs on failure
+        if: failure()
+        working-directory: examples/multi-framework-agent
+        run: docker compose logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        working-directory: examples/multi-framework-agent
+        run: docker compose down --remove-orphans -v

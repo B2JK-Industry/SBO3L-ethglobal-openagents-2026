@@ -1,0 +1,179 @@
+---
+// /demo/3 playground — wraps PassportVerifier with sample-loaders, a
+// tamper button, and a small audit-chain visualization. Pure client-
+// side; CSP-clean (no external resources). The actual cryptographic
+// verification still runs in PassportVerifier's WASM module.
+---
+<div class="playground">
+  <div class="quick-row">
+    <p class="quick-label">Try one of these:</p>
+    <button type="button" id="load-good" class="btn ghost">Known-good capsule</button>
+    <button type="button" id="load-bad"  class="btn ghost">Tampered capsule</button>
+    <button type="button" id="tamper"    class="btn ghost" title="Flip a single byte in the current input and watch the verifier reject it">Tamper currently-loaded</button>
+    <p class="hint" id="quick-hint">Drag-drop a capsule JSON onto the verifier below, or click a button above.</p>
+  </div>
+
+  <slot />
+
+  <div class="chain-viz" id="chain-viz" hidden aria-hidden="true">
+    <h3>Audit segment (embedded in this capsule)</h3>
+    <p class="hint">Each circle is a hash-chained event. Edges are <code>prev_event_hash</code> linkages — flip any byte, the strict verifier rejects.</p>
+    <svg id="chain-svg" viewBox="0 0 800 110" role="img" aria-label="Audit chain visualization"></svg>
+    <p class="chain-meta" id="chain-meta"></p>
+  </div>
+</div>
+
+<script>
+  // Sample capsules — small enough to inline; no fetch needed (CSP-clean).
+  const KNOWN_GOOD = JSON.stringify({
+    version: "sbo3l.passport_capsule.v2",
+    capsule_id: "01HZRG-DEMO-GOOD-PLAYGROUND",
+    agent_id: "research-agent-01",
+    agent_pubkey: "ed25519:9aF3demo-pubkey-truncated-for-display",
+    request: {
+      agent_id: "research-agent-01",
+      intent: "swap",
+      amount: "0.05",
+      asset: "ETH",
+      chain: "sepolia",
+      expiry: "2026-12-31T23:59:59Z",
+      risk_class: "low",
+      nonce: "01HZRGABCDEFGHJKMNPQRSTV"
+    },
+    request_hash: "0xe044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+    policy_receipt: {
+      decision: "allow",
+      agent_id: "research-agent-01",
+      request_hash: "0xe044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+      policy_snapshot_hash: "0x4f10ee3b2ad9b7a1c0e8d5f7a02316b8d0c4e9f1a8b3c5d2e7f9a1b3c5d7e9f0",
+      signature: "ed25519:demo-signature-truncated"
+    },
+    audit_segment: [
+      { event_id: "01HZRG-EV-1", ts_unix_ms: 1714564838000, event_type: "policy.decision", prev_event_hash: "0x0000000000000000000000000000000000000000000000000000000000000000", payload_hash: "0x9bc7de1234567890" },
+      { event_id: "01HZRG-EV-2", ts_unix_ms: 1714564838100, event_type: "audit.checkpoint",  prev_event_hash: "0x9bc7de1234567890", payload_hash: "0x4c81fa9876543210" }
+    ],
+    execution_ref: null,
+    executor_evidence: null,
+    emitted_at: "2026-05-01T08:42:41Z"
+  }, null, 2);
+
+  const KNOWN_BAD = (() => {
+    const tampered = JSON.parse(KNOWN_GOOD);
+    // Flip one nibble of request_hash so the strict verifier rejects with capsule.request_hash_mismatch.
+    tampered.request_hash = tampered.request_hash.replace(/^0xe0/, "0xe1");
+    tampered.capsule_id = "01HZRG-DEMO-BAD-PLAYGROUND";
+    return JSON.stringify(tampered, null, 2);
+  })();
+
+  const $ = <T extends HTMLElement>(id: string): T | null => document.getElementById(id) as T | null;
+  const textarea = (): HTMLTextAreaElement | null =>
+    $("capsule-input") ?? document.querySelector<HTMLTextAreaElement>("textarea[aria-label*='capsule' i]");
+
+  const quickHint = $("quick-hint");
+  const setHint = (msg: string): void => { if (quickHint) quickHint.textContent = msg; };
+
+  $("load-good")?.addEventListener("click", () => {
+    const ta = textarea();
+    if (!ta) return setHint("verifier not ready yet — try after the page finishes loading");
+    ta.value = KNOWN_GOOD;
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+    setHint("Loaded a known-good capsule. Click 'Verify' to see all 6 checks pass.");
+    renderChain(KNOWN_GOOD, "good");
+  });
+
+  $("load-bad")?.addEventListener("click", () => {
+    const ta = textarea();
+    if (!ta) return setHint("verifier not ready yet");
+    ta.value = KNOWN_BAD;
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+    setHint("Loaded a tampered capsule (request_hash flipped). Click 'Verify' to see capsule.request_hash_mismatch.");
+    renderChain(KNOWN_BAD, "bad");
+  });
+
+  $("tamper")?.addEventListener("click", () => {
+    const ta = textarea();
+    if (!ta || !ta.value.trim()) return setHint("Load a capsule first, then tamper.");
+    try {
+      const parsed = JSON.parse(ta.value);
+      // Tamper the audit_segment payload_hash if present, else flip a digit in request_hash.
+      if (Array.isArray(parsed.audit_segment) && parsed.audit_segment[0]?.payload_hash) {
+        parsed.audit_segment[0].payload_hash = parsed.audit_segment[0].payload_hash.replace(/(.)$/, (c) => c === "f" ? "0" : "f");
+        setHint("Flipped one nibble of the first audit event's payload_hash. Click 'Verify' to see audit.tamper_detected.");
+      } else if (typeof parsed.request_hash === "string") {
+        parsed.request_hash = parsed.request_hash.replace(/(.)$/, (c) => c === "f" ? "0" : "f");
+        setHint("Flipped one nibble of request_hash. Click 'Verify' to see capsule.request_hash_mismatch.");
+      } else {
+        return setHint("Couldn't find a tamperable field. Load one of the samples first.");
+      }
+      ta.value = JSON.stringify(parsed, null, 2);
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      renderChain(ta.value, "tampered");
+    } catch {
+      setHint("Capsule isn't valid JSON; can't tamper.");
+    }
+  });
+
+  function renderChain(json: string, mood: "good" | "bad" | "tampered"): void {
+    const viz = $("chain-viz");
+    const svg = $("chain-svg") as unknown as SVGSVGElement | null;
+    const meta = $("chain-meta");
+    if (!viz || !svg || !meta) return;
+    let parsed: any;
+    try { parsed = JSON.parse(json); } catch { viz.hidden = true; return; }
+    const events: Array<{ event_id: string; event_type: string }> = parsed.audit_segment ?? [];
+    if (events.length === 0) { viz.hidden = true; return; }
+    viz.hidden = false;
+    viz.setAttribute("aria-hidden", "false");
+
+    const w = 800, h = 110, pad = 30;
+    const step = events.length === 1 ? 0 : (w - pad * 2) / (events.length - 1);
+    const accent = mood === "good" ? "var(--accent)" : "#ff6b6b";
+
+    svg.innerHTML = events.map((e, i) => {
+      const cx = pad + i * step;
+      const next = events[i + 1];
+      const edge = next ? `<line x1="${cx + 20}" y1="55" x2="${pad + (i + 1) * step - 20}" y2="55" stroke="${accent}" stroke-width="2" stroke-dasharray="${mood === "tampered" ? "6,4" : "0"}" />` : "";
+      const label = e.event_type.replace(/^.*\./, "");
+      return `${edge}<g><circle cx="${cx}" cy="55" r="18" fill="var(--code-bg)" stroke="${accent}" stroke-width="2"/><text x="${cx}" y="59" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--fg)">${i + 1}</text><text x="${cx}" y="92" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--muted)">${label}</text></g>`;
+    }).join("");
+
+    meta.textContent = `${events.length} events · root anchored at event 1 · ${mood === "good" ? "all linkages intact" : mood === "bad" ? "request_hash diverges from canonicalised body" : "byte-flipped — strict verifier will reject"}`;
+  }
+
+  // Auto-render the chain whenever the textarea changes (e.g. user
+  // pasted their own capsule).
+  document.addEventListener("input", (ev) => {
+    const ta = ev.target as HTMLTextAreaElement | null;
+    if (!ta || ta.tagName !== "TEXTAREA") return;
+    if (!ta.value.trim()) {
+      const viz = $("chain-viz"); if (viz) viz.hidden = true;
+      return;
+    }
+    renderChain(ta.value, "good");
+  });
+</script>
+
+<style>
+  .playground { display: grid; gap: 1.2em; }
+  .quick-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.6em;
+    padding: 0.9em 1.1em;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r-md);
+    background: var(--code-bg);
+  }
+  .quick-row .quick-label { color: var(--muted); margin: 0; font-size: 0.9em; }
+  .quick-row .hint { width: 100%; color: var(--muted); font-size: 0.82em; margin: 0.2em 0 0; }
+
+  .chain-viz {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1em 1.2em;
+    background: var(--code-bg);
+  }
+  .chain-viz h3 { font-size: 1em; font-weight: 600; margin: 0 0 0.4em; }
+  .chain-viz .hint { color: var(--muted); font-size: 0.85em; margin: 0 0 0.7em; }
+  .chain-viz svg { width: 100%; height: auto; max-height: 130px; }
+  .chain-viz .chain-meta { color: var(--muted); font-size: 0.85em; font-family: var(--font-mono); margin: 0.4em 0 0; }
+</style>

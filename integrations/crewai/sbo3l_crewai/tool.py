@@ -124,7 +124,7 @@ def sbo3l_tool(
                         ),
                     }
                 )
-            r: SBO3LSubmitResult = result
+            r = _coerce_to_dict(result)
         except Exception as e:
             code = getattr(e, "code", None)
             status = getattr(e, "status", None)
@@ -136,7 +136,7 @@ def sbo3l_tool(
                 }
             )
 
-        receipt = r["receipt"] if isinstance(r["receipt"], dict) else {}
+        receipt = r["receipt"] if isinstance(r.get("receipt"), dict) else {}
         return json.dumps(
             {
                 "decision": r["decision"],
@@ -150,3 +150,23 @@ def sbo3l_tool(
         )
 
     return SBO3LToolDescriptor(name=name, description=description, func=_func)
+
+
+def _coerce_to_dict(result: Any) -> dict[str, Any]:
+    """Accept either a TypedDict-style dict or a Pydantic BaseModel.
+
+    `sbo3l_sdk.SBO3LClientSync.submit()` returns the Pydantic
+    `PaymentRequestResponse`; mock clients in tests may return plain dicts
+    matching `SBO3LSubmitResult`. Both are valid wire shapes for this
+    integration; coerce to a dict so the caller's `r["..."]` access works.
+    """
+
+    if isinstance(result, dict):
+        return result
+    # Pydantic v2 BaseModel
+    dump = getattr(result, "model_dump", None)
+    if callable(dump):
+        return dump(mode="json", by_alias=True)  # type: ignore[no-any-return]
+    raise TypeError(
+        f"client.submit returned {type(result).__name__}; expected dict or Pydantic BaseModel"
+    )
