@@ -139,9 +139,10 @@ class PolicyGuardNode:
                 if callable(close):
                     try:
                         close()
-                    except Exception:  # noqa: BLE001 — closing a half-started
-                        # coroutine can raise; we have no recovery and the
-                        # caller already gets a structured deny envelope.
+                    except Exception:
+                        # Closing a half-started coroutine can raise; we have
+                        # no recovery and the caller already gets a structured
+                        # deny envelope.
                         pass
                 return {
                     "deny_reason": {

@@ -121,7 +121,7 @@ def sbo3l_tool(
                 if callable(close):
                     try:
                         close()
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         # Closing a half-started coroutine can raise;
                         # we have no recovery path and the caller already
                         # gets a structured error envelope, so swallow.
