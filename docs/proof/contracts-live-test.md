@@ -23,10 +23,10 @@
 
 | Contract | Address | Bytecode | ERC-165 | Sample state |
 |---|---|---|---|---|
-| AnchorRegistry | `0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac` | 3308 chars | ✅ true | `anchorCount(0x00…) = 0` |
-| SubnameAuction | `0x5dE75E64739A95701367F3Ad592e0b674b22114B` | 8934 chars | ✅ true | `auctionCount = 0`, `MIN_INCREMENT_BPS = 500`, `MIN_DURATION = 3600` |
-| ReputationBond | `0x75072217B43960414047c362198A428f0E9793dA` | 5368 chars | ✅ true | `BOND_AMOUNT = 1e16` (0.01 ETH), `LOCK_PERIOD = 604800` (7d), `slasher = 0x50BA…7e9c`, `insuranceBeneficiary = 0xdc7E…D231`, `insurancePool = 0` |
-| ReputationRegistry | `0x6aA95d8126B6221607245c068483fa5008F36dc2` | 6024 chars | ✅ true | `tenantSigner(0x00…) = 0x0…0` |
+| AnchorRegistry | `0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac` | 3308 hex chars | ✅ true | `anchorCount(bytes32 zero) = 0` |
+| SubnameAuction | `0x5dE75E64739A95701367F3Ad592e0b674b22114B` | 8934 hex chars | ✅ true | `auctionCount = 0`, `MIN_INCREMENT_BPS = 500`, `MIN_DURATION = 3600` |
+| ReputationBond | `0x75072217B43960414047c362198A428f0E9793dA` | 5368 hex chars | ✅ true | `BOND_AMOUNT = 1e16` (0.01 ETH), `LOCK_PERIOD = 604800` (7d), `slasher = 0x50BA…7e9c`, `insuranceBeneficiary = 0xdc7E…D231`, `insurancePool = 0` |
+| ReputationRegistry | `0x6aA95d8126B6221607245c068483fa5008F36dc2` | 6024 hex chars | ✅ true | `tenantSigner(bytes32 zero) = 0x0…0` |
 | OffchainResolver (R9 baseline) | `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` | non-empty | ✅ true | (verified in earlier rounds; see judge walkthrough) |
 
 All five are pinned in
@@ -43,20 +43,25 @@ ADDR=0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac
 
 # 1. Bytecode landed
 cast code "$ADDR" --rpc-url "$RPC" | wc -c
-# → 3308
+# → 3309   (= 3308 hex chars of bytecode + 1 trailing newline)
 
 # 2. ERC-165 self-introspection
 cast call "$ADDR" "supportsInterface(bytes4)(bool)" 0x01ffc9a7 --rpc-url "$RPC"
 # → true
 
-# 3. Sample state read — anchor count for the zero address (clean state)
-cast call "$ADDR" "anchorCount(address)(uint256)" \
-  0x0000000000000000000000000000000000000000 --rpc-url "$RPC"
+# 3. Sample state read — anchor count for an unclaimed tenant (zero key)
+#    Tenant IDs are bytes32, NOT address — caller picks any 32-byte
+#    namespace identifier when claiming. The zero key is a never-claimed
+#    sentinel that always returns 0.
+cast call "$ADDR" "anchorCount(bytes32)(uint256)" \
+  0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --rpc-url "$RPC"
 # → 0
 ```
 
-**Interpretation.** Deploy confirmed; anchor table is empty as
-expected for a fresh contract; ERC-165 wiring intact.
+**Interpretation.** Deploy confirmed; anchor table is empty for
+the zero-tenant (as expected for a never-claimed sentinel);
+ERC-165 wiring intact.
 
 ### SubnameAuction (`0x5dE75E64739A95701367F3Ad592e0b674b22114B`)
 
@@ -64,7 +69,7 @@ expected for a fresh contract; ERC-165 wiring intact.
 ADDR=0x5dE75E64739A95701367F3Ad592e0b674b22114B
 
 cast code "$ADDR" --rpc-url "$RPC" | wc -c
-# → 8934
+# → 8935   (= 8934 hex chars of bytecode + 1 trailing newline)
 
 cast call "$ADDR" "supportsInterface(bytes4)(bool)" 0x01ffc9a7 --rpc-url "$RPC"
 # → true
@@ -89,7 +94,7 @@ build, not a different commit.
 ADDR=0x75072217B43960414047c362198A428f0E9793dA
 
 cast code "$ADDR" --rpc-url "$RPC" | wc -c
-# → 5368
+# → 5369   (= 5368 hex chars of bytecode + 1 trailing newline)
 
 cast call "$ADDR" "supportsInterface(bytes4)(bool)" 0x01ffc9a7 --rpc-url "$RPC"
 # → true
@@ -118,7 +123,7 @@ zero — fills as slashes execute.
 ADDR=0x6aA95d8126B6221607245c068483fa5008F36dc2
 
 cast code "$ADDR" --rpc-url "$RPC" | wc -c
-# → 6024
+# → 6025   (= 6024 hex chars of bytecode + 1 trailing newline)
 
 cast call "$ADDR" "supportsInterface(bytes4)(bool)" 0x01ffc9a7 --rpc-url "$RPC"
 # → true
