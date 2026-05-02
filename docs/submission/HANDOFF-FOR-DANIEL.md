@@ -28,7 +28,7 @@ Mainnet `sbo3lagent.eth` carries 5 records. The `policy_hash` text-record is the
 
 ### 4. **Compliance posture by construction.**
 
-The hash-chained Ed25519-signed audit log is **structurally** what SOC 2 CC7.2, GDPR Art. 30, HIPAA §164.312(b), and PCI-DSS Req 10 ask for. Same artifact, four frameworks. We documented all four ([`docs/compliance/`](compliance/)) — no audit attestation yet (post-hackathon procurement), but the **artifact** is there today.
+The hash-chained Ed25519-signed audit log is **structurally** what SOC 2 CC7.2, GDPR Art. 30, HIPAA §164.312(b), and PCI-DSS Req 10 ask for. Same artifact, four frameworks. We documented all four ([`docs/compliance/`](../compliance/)) — no audit attestation yet (post-hackathon procurement), but the **artifact** is there today.
 
 ### 5. **8 sponsor tracks, real integration on each.**
 
@@ -85,7 +85,7 @@ sbo3l:proof_uri       https://sbo3l-marketing.vercel.app/proof
 
 ### Q: Why ENS, not a token registry?
 
-> ENS is the public, censorship-resistant, human-readable name layer Ethereum already has. We don't need a new registry — we just need one text-record per agent (`sbo3l:policy_hash`) and a single mainnet apex (`sbo3lagent.eth`). The trust DNS analogy in [`docs/proof/trust-dns-essay.md`](../proof/trust-dns-essay.md) explains why this beats every alternative.
+> ENS is the public, censorship-resistant, human-readable name layer Ethereum already has. We don't need a new registry — we just need one text-record per agent (`sbo3l:policy_hash`) and a single mainnet apex (`sbo3lagent.eth`). The trust DNS analogy in [`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md) explains why this beats every alternative.
 
 ### Q: Is the audit chain quantum-resistant?
 

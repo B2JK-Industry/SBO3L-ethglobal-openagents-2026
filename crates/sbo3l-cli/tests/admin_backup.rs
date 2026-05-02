@@ -178,7 +178,12 @@ fn export_jsonl_emits_one_line_per_event() {
     assert!(status.success());
     let body = fs::read_to_string(&out_path).expect("read jsonl");
     let lines: Vec<&str> = body.lines().filter(|l| !l.is_empty()).collect();
-    assert_eq!(lines.len(), 3, "expected 3 jsonl lines, got {}", lines.len());
+    assert_eq!(
+        lines.len(),
+        3,
+        "expected 3 jsonl lines, got {}",
+        lines.len()
+    );
     for line in &lines {
         let v: serde_json::Value = serde_json::from_str(line).expect("each line is JSON");
         assert!(

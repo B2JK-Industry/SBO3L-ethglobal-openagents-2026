@@ -27,11 +27,11 @@
 //!
 //! Run: `cargo bench --bench competitor_comparison`
 
-use casbin::{CoreApi, DefaultModel, Enforcer, MemoryAdapter};
+use casbin::{CoreApi, DefaultModel, Enforcer, MemoryAdapter, MgmtApi};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use regorus::Engine;
 use std::collections::HashSet;
-use tokio::runtime::Runtime;
+use tokio::runtime::Builder as RuntimeBuilder;
 
 const RECIPIENT_PROBE: &str = "0x0000000000000000000000000000000000000010";
 
@@ -107,7 +107,11 @@ m = r.obj == p.obj
 "#;
 
 fn bench_casbin_enforce(c: &mut Criterion) {
-    let rt = Runtime::new().expect("tokio rt");
+    // Current-thread runtime (avoids `rt-multi-thread` feature dep).
+    let rt = RuntimeBuilder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("tokio rt");
     let enforcer = rt.block_on(async {
         let m = DefaultModel::from_str(CASBIN_MODEL_TEXT)
             .await

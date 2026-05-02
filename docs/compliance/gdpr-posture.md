@@ -86,7 +86,7 @@ The customer is the controller and is responsible for their own TIA covering ENS
 
 ## Data Processing Agreement (DPA) — template
 
-A DPA template will live at [`docs/compliance/dpa-template.md`](dpa-template.md) — **not yet drafted** (gap; estimate: 1 week with legal review).
+A DPA template will live at `docs/compliance/dpa-template.md` — **not yet drafted** (gap; estimate: 1 week with legal review).
 
 The template will cover:
 - Subject matter, duration, nature, purpose of processing
