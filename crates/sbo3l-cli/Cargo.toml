@@ -18,7 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 sbo3l-core = { workspace = true }
-sbo3l-policy = { workspace = true }
+sbo3l-policy = { workspace = true, features = ["budget"] }
 sbo3l-storage = { workspace = true }
 # Passport P2.1: `sbo3l passport run` orchestrates the existing
 # `POST /v1/payment-requests` pipeline in-process (research-agent

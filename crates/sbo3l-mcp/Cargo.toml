@@ -21,7 +21,7 @@ path = "src/main.rs"
 # No new logic: validate_aprp / verify_capsule / build / verify in sbo3l-core,
 # AppState + router in sbo3l-server, executor mocks in sbo3l-execution.
 sbo3l-core = { workspace = true }
-sbo3l-policy = { workspace = true }
+sbo3l-policy = { workspace = true, features = ["budget"] }
 sbo3l-storage = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }

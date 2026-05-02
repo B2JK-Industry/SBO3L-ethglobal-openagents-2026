@@ -1,0 +1,50 @@
+[package]
+name = "sbo3l-playground"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L browser playground — wasm-pack bundle exposing decide_aprp_wasm + build_capsule_wasm + verify_capsule_strict for the marketing site /playground page."
+keywords = ["sbo3l", "wasm", "policy", "playground"]
+categories = ["wasm", "web-programming"]
+
+[lib]
+# wasm-pack consumes cdylib; rlib is kept so the workspace's native
+# unit tests can exercise the offline capsule builder directly (no
+# wasm-pack-test round-trip required for the structural / strict
+# verifier coverage).
+crate-type = ["cdylib", "rlib"]
+
+# wasm-pack bundled wasm-opt rejects rustc's bulk-memory ops; disable
+# the post-processing step. Same trade-off the existing /proof
+# verifier bundle made (sbo3l-core's wasm32 build).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[dependencies]
+sbo3l-core = { workspace = true }
+# R17 P1: real `decide_aprp_wasm` calls policy::decide. Pull
+# sbo3l-policy with `default-features = false` so we skip the `budget`
+# feature (which transitively pulls sbo3l-storage's rusqlite native
+# FFI — does NOT build for wasm).
+sbo3l-policy = { workspace = true, default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_json_canonicalizer = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# wasm-pack JS bridge. Pinned to the same versions sbo3l-core uses for
+# the /proof verifier so both bundles share the same wasm-bindgen ABI.
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+# Browser entropy source for any `OsRng`-style code path — sbo3l-core's
+# wasm32 build pins the same. We avoid randomness in the playground
+# (everything is deterministic per inputs), but the dep tree pulls
+# `getrandom` transitively; declare here so feature resolution lines up.
+getrandom = { version = "0.3", features = ["wasm_js"] }

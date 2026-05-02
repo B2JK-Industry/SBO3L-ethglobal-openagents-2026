@@ -16,7 +16,7 @@ categories = ["api-bindings"]
 sbo3l-core = { workspace = true }
 # T-4-6 reputation publisher: depends on policy::reputation::compute_reputation_v2.
 # No cycle (sbo3l-policy depends on sbo3l-core; identity also depends on core).
-sbo3l-policy = { workspace = true }
+sbo3l-policy = { workspace = true, features = ["budget"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 # T-3-4 cross-agent: JCS canonicalisation for the signed-challenge

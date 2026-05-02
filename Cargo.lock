@@ -5643,6 +5643,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sbo3l-playground"
+version = "1.2.0"
+dependencies = [
+ "chrono",
+ "getrandom 0.3.4",
+ "hex",
+ "sbo3l-core",
+ "sbo3l-policy",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "sbo3l-policy"
 version = "1.2.0"
 dependencies = [
