@@ -49,4 +49,18 @@ Algolia DocSearch upgrade (more featureful search across versions, fuzzy matchin
 
 ## CI
 
-A GitHub Actions workflow that runs `npm run build:versioned` on every merge to main + every `v*` tag push is the natural follow-up. Today this script runs locally; deploys are manual until the workflow lands.
+`.github/workflows/build-versioned-docs.yml` runs `npm run build:versioned` on every `v*` tag push and on manual `workflow_dispatch`. Steps:
+
+1. **Detect tag** — from `github.ref` on tag push, or `git describe --tags` on manual dispatch.
+2. **Register tag in versions.json** — `scripts/register-version.mjs <tag>` appends an entry just below `"latest"` (idempotent — no-op if tag already present). Bot-commits back to `main`.
+3. **Build composite dist** — produces `apps/docs/dist/` with apex + every snapshot.
+4. **Upload artifact** — composite dist as a 14-day-retention artifact.
+5. **Deploy to Vercel** (tag push only, gated `environment: docs-prod`) — `npx vercel deploy dist --prebuilt --prod`. Requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_DOCS_PROJECT_ID` secrets. Skips with a clear log line if `VERCEL_TOKEN` is unset.
+
+Cutting a release end-to-end:
+
+```bash
+git tag v1.3.0
+git push --tags
+# CI fires → registers v1.3.0 → builds → deploys → docs.sbo3l.dev/v1.3.0/ live
+```
