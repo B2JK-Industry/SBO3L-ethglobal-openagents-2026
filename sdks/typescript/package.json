@@ -52,6 +52,7 @@
       "types": "./dist/cross-agent.d.ts",
       "import": "./dist/cross-agent.js",
       "require": "./dist/cross-agent.cjs"
+    },
     "./uniswap": {
       "types": "./dist/uniswap.d.ts",
       "import": "./dist/uniswap.js",
