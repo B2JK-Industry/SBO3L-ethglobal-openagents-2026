@@ -42,7 +42,7 @@
 //!   official Circle Sepolia USDC; surfaced as the default `token_out`.
 //! - Selector pinned in tests against `keccak256("exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))")[0..4]`.
 
-use crate::uniswap_live::{SEPOLIA_CHAIN_ID, SEPOLIA_WETH};
+use crate::uniswap_live::SEPOLIA_WETH;
 
 /// Sepolia SwapRouter02 deployment address.
 ///
