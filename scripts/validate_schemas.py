@@ -22,6 +22,7 @@ SCHEMAS = {
     "decision-token": REPO_ROOT / "schemas" / "decision_token_v1.json",
     "audit-event": REPO_ROOT / "schemas" / "audit_event_v1.json",
     "passport-capsule": REPO_ROOT / "schemas" / "sbo3l.passport_capsule.v1.json",
+    "passport-capsule-v2": REPO_ROOT / "schemas" / "sbo3l.passport_capsule.v2.json",
 }
 
 
@@ -180,11 +181,14 @@ def main() -> int:
     # (P2.2 trust-badge / operator-console capsule panels) tries to
     # render it.
     print("\n== runtime artifacts (passport capsules) ==")
+    # Runtime artifacts are versioned via the `schema` field. Pick the right
+    # schema per artifact (v1 vs v2 — daemon currently emits v2 after the
+    # P6.1 executor_evidence schema bump).
     runtime_artifacts = [
-        ("passport-capsule", REPO_ROOT / "demo-scripts/artifacts/passport-allow.json"),
-        ("passport-capsule", REPO_ROOT / "demo-scripts/artifacts/passport-deny.json"),
+        REPO_ROOT / "demo-scripts/artifacts/passport-allow.json",
+        REPO_ROOT / "demo-scripts/artifacts/passport-deny.json",
     ]
-    for schema_key, fixture in runtime_artifacts:
+    for fixture in runtime_artifacts:
         if not fixture.is_file():
             print(
                 f"  skip {fixture.relative_to(REPO_ROOT)} "
@@ -192,10 +196,23 @@ def main() -> int:
                 f"to produce it)"
             )
             continue
+        artifact = _load(fixture)
+        capsule_schema_id = artifact.get("schema", "")
+        if capsule_schema_id == "sbo3l.passport_capsule.v2":
+            schema_key = "passport-capsule-v2"
+        elif capsule_schema_id == "sbo3l.passport_capsule.v1":
+            schema_key = "passport-capsule"
+        else:
+            ok = False
+            print(
+                f"  FAIL {fixture.relative_to(REPO_ROOT)} "
+                f"-> unrecognised schema id: {capsule_schema_id!r}"
+            )
+            continue
         schema = _load(SCHEMAS[schema_key])
         validator = jsonschema.Draft202012Validator(schema, registry=registry)
         try:
-            validator.validate(_load(fixture))
+            validator.validate(artifact)
             print(
                 f"  ok   {fixture.relative_to(REPO_ROOT)} "
                 f"(schema={schema_key}, runtime artifact)"
