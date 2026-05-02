@@ -1,0 +1,337 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+// Reviewer feedback (2026-05-02): companion to /status. Where /status
+// answers "what is live RIGHT NOW", /roadmap answers "what's the
+// honest path from this submission to a production v1?"
+//
+// 3 columns:
+//   1. Hackathon demo (shipped) — every "live" row from /status,
+//      summarised. Don't repeat the whole truth table; point at /status
+//      for the per-surface detail.
+//   2. Production prerequisites — concrete blockers between today and
+//      a paid customer using this in production. Each item has a
+//      "what's blocking" + "who unblocks" line so a future engineer
+//      can pick one up.
+//   3. Future work — items past v1: cross-agent reputation, on-chain
+//      audit anchoring at scale, governance layer, ENSIP draft.
+//      Sized to a paragraph each so the column doesn't feel like
+//      handwaving.
+
+interface RoadmapItem {
+  title: string;
+  blurb: string;
+  blocker?: string;
+  owner?: string;
+}
+
+const shipped: RoadmapItem[] = [
+  {
+    title: "Cryptographic core",
+    blurb: "Ed25519 signing, hash-chained audit log, JCS canonicalisation, strict-mode capsule verifier — all production-shape Rust in the sbo3l-core crate. 881/881 tests green.",
+  },
+  {
+    title: "Daemon HTTP API",
+    blurb: "sbo3l-server binary serves /v1/payment-requests + /v1/healthz + /v1/admin/events. APRP envelope → policy → budget → audit → signed receipt end-to-end on a single binary.",
+  },
+  {
+    title: "WASM verifier",
+    blurb: "Browser-side strict-mode verifier shipped at /proof. 2.4 MB bundle, zero network calls. Anyone can verify a capsule offline against the daemon's published Ed25519 pubkey.",
+  },
+  {
+    title: "Sponsor live integrations",
+    blurb: "Live KeeperHub workflow + Sepolia QuoterV2 + Sepolia AnchorRegistry + Anthropic tool-use receipts. 7 sponsor pages on /submission/<slug>; status truth-table at /status.",
+  },
+  {
+    title: "ERC-8004 IdentityRegistry",
+    blurb: "Deployed to Sepolia at 0x600c10dE…Db37. sbo3l agent register writes through the registry; ERC-8004 events emit on-chain.",
+  },
+  {
+    title: "Postgres multi-tenant backend",
+    blurb: "V020 migration ships per-tenant scoping. apps/sbo3l-playground-api uses Neon Postgres in production. Tier-3 hosted daemon live on Vercel.",
+  },
+  {
+    title: "21-locale i18n + RTL",
+    blurb: "Marketing site translates via t() helper across 21 locales (EN+SK+KO+JA + Latin8 + RTL/CJK9). AR + HE render with dir=rtl via isRtlLocale().",
+  },
+  {
+    title: "Mock playground (Tier 2)",
+    blurb: "Browser-side mock decision engine at /playground. 8 pre-loaded scenarios. Mock capsules use schema sbo3l.playground_mock.v1 + signature MOCK_NOT_SIGNED so they cannot pass strict-mode verification.",
+  },
+  {
+    title: "Hosted playground (Tier 3)",
+    blurb: "Real Vercel-hosted /playground/live with provision-aware healthz banner. Capsules carry a real Ed25519 signature; audit chain is public.",
+  },
+];
+
+const prerequisites: RoadmapItem[] = [
+  {
+    title: "AWS KMS / GCP Cloud KMS signer",
+    blurb: "Crate compiles but sign() is unimplemented!(). Production deploys must rotate signing keys via a managed KMS — embedding the private key in disk or env is unacceptable for any tenant whose capsules carry real money.",
+    blocker: "Need AWS access key + GCP service account from operator; integration tests gated on a CI runner with secret access.",
+    owner: "Backend / infra",
+  },
+  {
+    title: "TLS termination + hardened daemon bind",
+    blurb: "Default sbo3l-server config binds 127.0.0.1 with no TLS. Documented as dev-only. Production needs a reverse proxy (Caddy / nginx / ALB) with cert-manager-issued certs, and the daemon flag-gated to bind that interface only.",
+    blocker: "Deployment runbook + certbot automation. Per-environment domain (api.sbo3l.dev planned).",
+    owner: "Infra",
+  },
+  {
+    title: "Real Uniswap swap broadcast",
+    blurb: "Read-side is live (Sepolia QuoterV2 returns real quotes). Write-side scope-cut for hackathon — no swap actually executes. Production v1 needs the broadcast path with mainnet ETH gas, plus the post-broadcast capsule wiring.",
+    blocker: "Mainnet ETH for gas + nonMartin's review of the broadcast path. Treasury approval for first-tx gas budget.",
+    owner: "Sponsor track lead (Uniswap)",
+  },
+  {
+    title: "Per-IP rate limiting (Tier 3)",
+    blurb: "Tier-3 hosted daemon has no rate limit today; an enthusiastic user can flood the audit chain with low-value capsules. Need a token-bucket via Upstash KV (10 req/min/IP for unauthenticated, higher for tenant-scoped tokens).",
+    blocker: "Spec the rate-limit dimensions (per IP, per tenant, per agent_id) and the deny path. Should the hosted daemon emit a synthetic deny capsule with deny_code=protocol.rate_limited, or 429 + drop?",
+    owner: "Backend",
+  },
+  {
+    title: "Mainnet OffchainResolver for sbo3lagent.eth",
+    blurb: "Currently sbo3lagent.eth points at the PublicResolver with regular text records. To demonstrate the full CCIP-Read flow on mainnet — wildcard subname resolution via the SBO3L gateway — we need to deploy the OR on mainnet and migrate the records.",
+    blocker: "~$10 mainnet ETH gas. Risk: messes up existing live records during migration. Operator-gated.",
+    owner: "Sponsor track lead (ENS)",
+  },
+  {
+    title: "Sepolia OffchainResolver wiring + URL fix",
+    blurb: "Resolver deployed at 0x7c69…8c3 but orphan — no Sepolia subname has it set as resolver. Also: the baked URL template ({sender/{data}.json}) is malformed; the contract needs redeploy or the URL needs a constructor arg correction.",
+    blocker: "Redeploy with the correct URL template. ~0.01 SEP-ETH (we have plenty).",
+    owner: "Sponsor track lead (ENS)",
+  },
+];
+
+const future: RoadmapItem[] = [
+  {
+    title: "Cross-agent reputation",
+    blurb: "Today the policy + audit boundary is per-tenant. The next layer is portable agent reputation: agent A built a 1000-capsule history of clean decisions on tenant X; tenant Y wants to onboard A and trust those capsules without re-running every check. Needs a reputation-score primitive that compounds across tenants without leaking per-tenant policy. Open question: does this live on-chain (token-gated reputation pool) or off-chain (signed reputation receipts the agent carries)?",
+  },
+  {
+    title: "On-chain audit anchoring at scale",
+    blurb: "Today every audit anchor costs ~24K gas on Sepolia per checkpoint. For high-throughput tenants we need either (a) batch anchoring with a Merkle root over N capsules, posted hourly, or (b) anchoring to an L2 with cheaper data costs (Base / Optimism). Either way: an indexer that lets a verifier walk back from a capsule to its on-chain anchor without scraping every block.",
+  },
+  {
+    title: "Governance layer",
+    blurb: "Policy changes are currently a single tenant-admin write to the daemon. For multi-stakeholder tenants (DAOs, protocol treasuries) we need policy proposals — a multi-sig of admins approves, the policy diff is signed by quorum, the audit chain records the policy_hash transition. Distinct from the per-decision human_2fa flow; this is multi-party policy update, not multi-party single-decision approval.",
+  },
+  {
+    title: "ENSIP draft for agent-bound subnames",
+    blurb: "ERC-8004 covers identity discovery; what's missing is a standardised way for an ENS name to declare 'I am bound to a SBO3L policy with this hash, the daemon for me lives at this URL, my capsules verify against this Ed25519 pubkey'. Today we encode that in three custom text records (sbo3l:policy_hash, sbo3l:gateway, sbo3l:verifier). An ENSIP would let any wallet / explorer / agent understand SBO3L-bound names without bespoke code.",
+  },
+  {
+    title: "Mobile native apps (iOS + Android)",
+    blurb: "apps/mobile is an Expo skeleton with biometric-gated approvals + push notifications. Real submission to TestFlight + Play Internal Track is a $124/yr Apple Developer + Play Console gate; Daniel-side runbook in docs/mobile/SUBMIT-TO-STORES.md.",
+  },
+  {
+    title: "Algolia DocSearch index",
+    blurb: "Cmd+K shortcut already wired on the marketing site to bounce to docs (Starlight Pagefind). Once Algolia approves our DocSearch application (1–2 week turnaround), wire DocSearch in apps/docs/. Runbook at docs/dev3/ALGOLIA-DOCSEARCH-SETUP.md.",
+  },
+];
+---
+<BaseLayout
+  title="SBO3L roadmap — hackathon shipped, production prerequisites, future work"
+  description="What is shipped from this hackathon submission, what's blocking a production v1, and what comes after that."
+  ogTitle="SBO3L roadmap"
+>
+  <main class="roadmap">
+    <header>
+      <p class="eyebrow">Roadmap · companion to <a href="/status">/status</a></p>
+      <h1>From hackathon submission to production v1 — and beyond</h1>
+      <p class="lede">
+        <a href="/status">/status</a> answers what is live <em>right now</em>.
+        This page answers what's between today and a production v1, and what
+        comes after that. Each item in the middle column has an explicit
+        "what's blocking" line so a future engineer can pick one up.
+      </p>
+    </header>
+
+    <section class="columns">
+      <article class="col col-shipped">
+        <h2>Hackathon demo <span class="badge live">shipped</span></h2>
+        <p class="col-blurb">
+          Every "live" row from <a href="/status">/status</a>, summarised.
+          Each of these has a real artifact a judge can hit.
+        </p>
+        <ul>
+          {shipped.map((item) => (
+            <li>
+              <strong>{item.title}</strong>
+              <p>{item.blurb}</p>
+            </li>
+          ))}
+        </ul>
+      </article>
+
+      <article class="col col-prereqs">
+        <h2>Production prerequisites <span class="badge prereq">v1 blockers</span></h2>
+        <p class="col-blurb">
+          Concrete items between today and a paying-customer deploy.
+          None are research; all are scoped engineering with clear
+          ownership.
+        </p>
+        <ul>
+          {prerequisites.map((item) => (
+            <li>
+              <strong>{item.title}</strong>
+              <p>{item.blurb}</p>
+              {item.blocker && <p class="meta"><span>Blocking:</span> {item.blocker}</p>}
+              {item.owner && <p class="meta"><span>Owner:</span> {item.owner}</p>}
+            </li>
+          ))}
+        </ul>
+      </article>
+
+      <article class="col col-future">
+        <h2>Future work <span class="badge future">post-v1</span></h2>
+        <p class="col-blurb">
+          Items that need their own design + a separate engineering
+          cycle. Sized to a paragraph each so the column isn't
+          handwaving — each is a real research direction.
+        </p>
+        <ul>
+          {future.map((item) => (
+            <li>
+              <strong>{item.title}</strong>
+              <p>{item.blurb}</p>
+            </li>
+          ))}
+        </ul>
+      </article>
+    </section>
+
+    <section class="footer-note">
+      <h2>Where the gaps come from</h2>
+      <p>
+        Daniel's standing rule (originSession): every "live" claim
+        on this site must be backed by a real artifact a judge can
+        hit. Anything that isn't — whether it's "we'll do this
+        post-hackathon" or "this is a 6-month project" — gets called
+        out explicitly here, on <a href="/status">/status</a>, or in
+        per-component scope-cut reports under
+        <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/docs/dev3">docs/dev3/</a>.
+      </p>
+      <p>
+        If you find a claim elsewhere on this site that contradicts
+        the gaps documented here, please open a GitHub issue against
+        the contradicting surface — these three pages
+        (<a href="/">/</a>, <a href="/status">/status</a>,
+        <a href="/roadmap">/roadmap</a>) are the canonical truth
+        statement.
+      </p>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .roadmap {
+    max-width: var(--max);
+    margin: 3em auto 4em;
+    padding: 0 1.5em;
+  }
+
+  .roadmap header { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 0.85em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 0.4em;
+    font-family: var(--font-mono);
+  }
+  .eyebrow a { color: inherit; }
+  .roadmap h1 {
+    font-size: var(--fs-4);
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0 0 0.5em;
+  }
+  .lede { color: var(--muted); font-size: var(--fs-2); max-width: 760px; }
+  .lede a { color: var(--accent); }
+
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.2em;
+    align-items: start;
+    margin-bottom: 3em;
+  }
+
+  .col {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1.2em 1.3em;
+  }
+  .col-prereqs { border-top: 3px solid #ffce5c; }
+  .col-shipped { border-top: 3px solid var(--accent); }
+  .col-future  { border-top: 3px solid var(--muted); }
+
+  .col h2 {
+    margin: 0 0 0.4em;
+    font-size: 1.15em;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6em;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 0.65em;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2em 0.5em;
+    border-radius: var(--r-sm);
+    font-weight: 600;
+  }
+  .badge.live    { background: rgba(74, 222, 128, 0.15); color: var(--accent); }
+  .badge.prereq  { background: rgba(255, 206, 92, 0.15); color: #ffce5c; }
+  .badge.future  { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+  .col-blurb { color: var(--muted); font-size: 0.88em; margin: 0 0 1em; line-height: 1.5; }
+
+  .col ul { list-style: none; padding: 0; margin: 0; }
+  .col li {
+    padding: 0.7em 0;
+    border-top: 1px solid var(--border);
+  }
+  .col li:first-child { border-top: 0; padding-top: 0; }
+  .col li strong {
+    display: block;
+    color: var(--fg);
+    font-size: 0.95em;
+    margin-bottom: 0.3em;
+  }
+  .col li p {
+    color: var(--muted);
+    font-size: 0.84em;
+    margin: 0 0 0.3em;
+    line-height: 1.55;
+  }
+  .col li p.meta {
+    font-size: 0.78em;
+    font-family: var(--font-mono);
+    color: var(--muted);
+  }
+  .col li p.meta span {
+    color: var(--fg);
+    font-weight: 600;
+    margin-right: 0.4em;
+  }
+
+  .footer-note {
+    border-top: 1px solid var(--border);
+    padding-top: 1.5em;
+    color: var(--muted);
+    max-width: 760px;
+  }
+  .footer-note h2 { font-size: 1em; font-weight: 600; color: var(--fg); margin: 0 0 0.5em; }
+  .footer-note p { line-height: 1.65; margin: 0 0 0.8em; font-size: 0.92em; }
+  .footer-note a { color: var(--accent); }
+
+  @media (max-width: 1100px) {
+    .columns { grid-template-columns: 1fr; }
+  }
+</style>
