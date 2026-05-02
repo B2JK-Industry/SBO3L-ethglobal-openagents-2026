@@ -14,7 +14,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, profile }) {
-      if (profile?.login) {
+      if (profile?.login && typeof profile.login === "string") {
         token.githubLogin = profile.login;
       }
       return token;
@@ -28,15 +28,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 });
 
+// Augment NextAuth's Session.user with our GitHub login claim. Keep base
+// fields (name/email/image) reachable via DefaultSession. NextAuth v5 keeps
+// the `next-auth/jwt` path through @auth/core; pre-installed in the app.
 declare module "next-auth" {
   interface Session {
     user: {
       githubLogin?: string;
-    } & NonNullable<unknown>;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
   }
 }
 
-declare module "next-auth/jwt" {
+declare module "@auth/core/jwt" {
   interface JWT {
     githubLogin?: string;
   }
