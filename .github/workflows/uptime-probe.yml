@@ -1,0 +1,112 @@
+name: Uptime probe
+
+# Runs the live-URL probe every 30 minutes. On failure, opens (or
+# comments on) a tracking issue tagged `monitoring,uptime`.
+#
+# Probe source of truth: scripts/monitoring/check-live-urls.sh
+# Inventory source of truth: docs/submission/live-url-inventory.md
+
+on:
+  schedule:
+    # Every 30 minutes on the dot. GitHub Actions cron is best-effort —
+    # expect 5-15 min jitter; if you need tighter cadence, see
+    # scripts/monitoring/uptime-robot-config.json (1-min interval).
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      summary: ${{ steps.probe.outputs.summary }}
+      status: ${{ steps.probe.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq + curl
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq curl
+
+      - name: Run probe
+        id: probe
+        env:
+          SBO3L_MONITORING_VERBOSE: "0"
+        run: |
+          set +e
+          OUTPUT=$(bash scripts/monitoring/check-live-urls.sh 2>&1)
+          RC=$?
+          set -e
+          {
+            echo 'summary<<PROBE_EOF'
+            printf '%s\n' "$OUTPUT"
+            echo 'PROBE_EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "status=$RC" >> "$GITHUB_OUTPUT"
+          # Echo for the run log
+          printf '%s\n' "$OUTPUT"
+          exit 0   # never fail the step itself; the post-job decides
+
+  alert:
+    needs: probe
+    if: ${{ needs.probe.outputs.status != '0' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Find or create tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BODY: ${{ needs.probe.outputs.summary }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          # Look for an open issue with monitoring + uptime labels.
+          EXISTING=$(gh issue list --repo "$REPO" --label monitoring --label uptime --state open --json number --jq '.[0].number // empty')
+          MSG="🛑 Uptime probe FAILED (run [${{ github.run_id }}]($RUN_URL))
+
+          \`\`\`
+          $BODY
+          \`\`\`
+
+          Probe source of truth: \`scripts/monitoring/check-live-urls.sh\`. Inventory: \`docs/submission/live-url-inventory.md\`. Auto-resolves on next green probe."
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "$MSG"
+            echo "::warning::Commented on existing tracking issue #$EXISTING"
+          else
+            gh issue create --repo "$REPO" \
+              --title "🛑 Uptime probe failed" \
+              --label monitoring --label uptime \
+              --body "$MSG"
+          fi
+
+  resolve:
+    needs: probe
+    if: ${{ needs.probe.outputs.status == '0' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Auto-close tracking issue if open
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          EXISTING=$(gh issue list --repo "$REPO" --label monitoring --label uptime --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "✅ Probe green again — run [${{ github.run_id }}]($RUN_URL). Closing."
+            gh issue close "$EXISTING" --repo "$REPO" --reason completed
+          fi
