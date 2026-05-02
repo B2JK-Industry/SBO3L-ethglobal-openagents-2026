@@ -34,7 +34,7 @@
     "zod": "^3.22.0"
   },
   "peerDependencies": {
-    "@sbo3l/sdk": "^1.0.0",
+    "@sbo3l/sdk": "^1.2.0",
     "ai": "^3.0.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
