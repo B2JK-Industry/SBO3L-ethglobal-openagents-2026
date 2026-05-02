@@ -43,6 +43,22 @@ pub const SEPOLIA_CHAIN_ID: u64 = 11_155_111;
 /// `token_in` when the operator provides no override.
 pub const SEPOLIA_WETH: &str = "0xfff9976782d46cc05630d1f6ebab18b2324d6b14";
 
+/// Mainnet QuoterV2 deployment address. Source:
+/// developers.uniswap.org/contracts/v3/reference/deployments/ethereum-deployments
+///
+/// Used by `sbo3l uniswap swap --network mainnet` (Task D) to
+/// price-quote `--amount-in` against the live mainnet pool before
+/// computing `amountOutMinimum` from the slippage cap. Mainnet calls
+/// are gated behind `SBO3L_ALLOW_MAINNET_TX=1` at the CLI layer.
+pub const MAINNET_QUOTER_V2_ADDRESS: &str = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e";
+
+/// EIP-155 mainnet chain id (1).
+pub const MAINNET_CHAIN_ID: u64 = 1;
+
+/// Mainnet WETH9 token address. Canonical wrapped-ETH; same address
+/// every Ethereum tooling has used since 2017.
+pub const MAINNET_WETH: &str = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
 /// Selector for `quoteExactInputSingle((address,address,uint256,uint24,uint160))`.
 /// Pinned in tests against `keccak256(canonical_type_string)[0..4]`.
 pub const QUOTE_EXACT_INPUT_SINGLE_SELECTOR: [u8; 4] = [0xc6, 0xa5, 0x02, 0x6a];
@@ -179,6 +195,30 @@ impl LiveConfig {
             rpc_url,
             quoter: SEPOLIA_QUOTER_V2_ADDRESS.to_string(),
             chain_id: SEPOLIA_CHAIN_ID,
+            token_in,
+            token_out,
+            fee_tier,
+            amount_in_wei,
+        }
+    }
+
+    /// Mainnet config with sane defaults. Pair to
+    /// [`Self::sepolia_default`] for the `sbo3l uniswap swap
+    /// --network mainnet` flow. Caller supplies `token_in` /
+    /// `token_out` / `amount_in_wei` / `rpc_url`; `quoter` and
+    /// `chain_id` are pinned to the canonical mainnet QuoterV2 +
+    /// chain id.
+    pub fn mainnet_default(
+        token_in: String,
+        token_out: String,
+        fee_tier: u32,
+        amount_in_wei: String,
+        rpc_url: String,
+    ) -> Self {
+        Self {
+            rpc_url,
+            quoter: MAINNET_QUOTER_V2_ADDRESS.to_string(),
+            chain_id: MAINNET_CHAIN_ID,
             token_in,
             token_out,
             fee_tier,

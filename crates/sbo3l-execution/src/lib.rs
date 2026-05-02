@@ -36,8 +36,8 @@ pub use uniswap::{
 };
 pub use uniswap_live::{
     quote_exact_input_single, JsonRpcTransport, LiveConfig, QuoteResult, ReqwestTransport,
-    RpcError, QUOTE_EXACT_INPUT_SINGLE_SELECTOR, SEPOLIA_CHAIN_ID, SEPOLIA_QUOTER_V2_ADDRESS,
-    SEPOLIA_WETH,
+    RpcError, MAINNET_CHAIN_ID, MAINNET_QUOTER_V2_ADDRESS, MAINNET_WETH,
+    QUOTE_EXACT_INPUT_SINGLE_SELECTOR, SEPOLIA_CHAIN_ID, SEPOLIA_QUOTER_V2_ADDRESS, SEPOLIA_WETH,
 };
 pub use uniswap_router::{
     CommandVerdict, EvaluatedCommand, MulticallOutcome, PolicyGate, UniversalRouterCommand,
@@ -45,7 +45,8 @@ pub use uniswap_router::{
 };
 pub use uniswap_trading::{
     encode_exact_input_single, hex_encode, parse_address, sepolia_etherscan_tx_url, AddressError,
-    SwapParams, EXACT_INPUT_SINGLE_SELECTOR, SEPOLIA_SWAP_ROUTER_02, SEPOLIA_USDC,
+    SwapParams, EXACT_INPUT_SINGLE_SELECTOR, MAINNET_SWAP_ROUTER_02, MAINNET_USDC,
+    SEPOLIA_SWAP_ROUTER_02, SEPOLIA_USDC,
 };
 
 /// Back-compat re-export of the old `keeperhub` submodule. Existing
