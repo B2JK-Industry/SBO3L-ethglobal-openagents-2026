@@ -6,14 +6,14 @@
 #
 # Local run:
 #   cargo install cargo-mutants
-#   cargo mutants --in-place --package sbo3l-core
+#   cargo mutants --package sbo3l-core
 #
-# Reference: https://mutants.rs/
-
-# Only mutate the listed packages. Other workspace members (server, cli,
-# adapters) are out-of-scope for the initial run since they are mostly
-# wiring — the high-leverage code is in core/policy/identity.
-test_package = ["sbo3l-core", "sbo3l-policy", "sbo3l-identity"]
+# Reference: https://mutants.rs/configuration.html
+#
+# Note: package selection is done via CLI `--package <name>` (the
+# workflow matrix at .github/workflows/mutation-testing.yml drives this).
+# cargo-mutants has no `test_package` config field — the workflow file is
+# the source of truth for which packages get mutated.
 
 # Skip files that are generated, vendored, or otherwise not target code.
 exclude_globs = [
@@ -25,20 +25,24 @@ exclude_globs = [
     "**/benches/**",
 ]
 
-# Skip individual functions that mutation-testing struggles with.
+# Skip individual functions that mutation testing struggles with.
 exclude_re = [
-    # WASM glue functions are exercised through wasm-pack tests, not unit tests
+    # WASM glue functions are exercised through wasm-pack tests, not unit tests.
     "^wasm_.*",
 ]
 
-# Per-mutant timeout. cargo-mutants default is 300s; we use 180 since
-# our test suite is fast (regression-on-main runs in ~3 min total).
-timeout = 180
+# Per-mutant timeout floor in seconds. cargo-mutants computes a baseline
+# from the unmutated build/test runtime and multiplies by `timeout_multiplier`;
+# this clamps the floor for fast suites where the multiplier alone would
+# produce sub-second timeouts that flake on shared CI runners.
+minimum_test_timeout = 180
 
-# Minimum line of test output to capture for triage.
-output = "mutants.out"
+# Multiplier on the baseline test runtime per mutant.
+timeout_multiplier = 5.0
 
-# Run cargo test with `--release` to match production execution
+# Run cargo build/test with `--release` to match production execution
 # semantics (avoids debug-only `assert!` paths inflating kill rate).
+additional_cargo_args = ["--release"]
+
+# Use `cargo` test runner. Other valid value: "nextest".
 test_tool = "cargo"
-test_args = ["--release"]
