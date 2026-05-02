@@ -14,25 +14,62 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **One-line pitch:** SBO3L is the cryptographically verifiable trust layer for autonomous AI agents — every agent action passes through SBO3L's policy boundary and produces a self-contained Passport capsule anyone can verify offline.
 
-**Project description (~250 words):**
+**Project description (~500 words):**
 
-> SBO3L is a trust layer that sits between an autonomous AI agent and the systems it acts on. Instead of giving the agent a wallet or signing keys, you give it a *mandate*: a policy decision, a signed receipt, and an audit-chain entry — produced by SBO3L the moment the agent submits its intent.
+> **The problem.** Autonomous AI agents are starting to take real actions on real money — paying, swapping, storing, coordinating. Today's stack gives the agent a wallet, a signing key, and trust by default. That's wrong on three counts: an agent operator can't bound *which* actions are allowed, an auditor can't reconstruct *why* a specific action was authorised, and a sponsor (the system that ultimately executes) can't link an inbound request back to a verifiable upstream policy decision.
 >
-> The core wire format is APRP (Agent Payment Request Protocol): a payment-shaped JSON envelope with `intent`, `amount`, `chain`, `expiry`, `risk_class`, `nonce`. SBO3L canonicalises it (JCS), hashes it (SHA-256), runs a deterministic policy decision against an Ed25519-signed active policy, increments multi-scope budgets, claims the nonce, signs a `PolicyReceipt`, appends a hash-chained `AuditEvent`, and routes through a sponsor adapter (KeeperHub webhook, Uniswap quoter, etc.).
+> **What SBO3L does.** SBO3L is a thin trust layer that sits between an autonomous AI agent and the systems it acts on. Instead of giving the agent a wallet or signing keys, you give it a *mandate*: a policy decision, a signed receipt, and an audit-chain entry — produced by SBO3L the moment the agent submits its intent. The agent crate has zero `SigningKey` references; signing happens only inside SBO3L (verified by a grep-asserted demo gate).
 >
-> The output is a *Passport capsule v2* — a single JSON file containing every byte needed to re-derive the decision offline. With one CLI command (`sbo3l passport verify --strict`) anyone can independently confirm: schema, request-hash, policy-hash, decision-result, agent-id, audit-event-id, Ed25519 signatures, audit-chain linkage. No daemon, no network, no RPC. Same WASM verifier runs in the browser at sbo3l.dev/proof.
+> **The wire format.** APRP (Agent Payment Request Protocol) is a payment-shaped JSON envelope with `intent`, `amount`, `chain`, `expiry`, `risk_class`, `nonce`. SBO3L canonicalises it (JCS), hashes it (SHA-256), runs a deterministic policy decision against an Ed25519-signed active policy, increments multi-scope budgets, claims the nonce, signs a `PolicyReceipt`, appends a hash-chained `AuditEvent`, and routes through a sponsor adapter (KeeperHub workflow webhook, Uniswap QuoterV2, ENS resolver).
 >
-> v1.0.1 ships nine Rust crates on crates.io, SDKs on npm and PyPI, six framework integrations (LangChain TS/Py, AutoGen, CrewAI, ElizaOS, LlamaIndex), bonus adapters (Vercel AI, LangGraph), Docker, marketing site, hosted preview, docs site, and a CCIP-Read gateway. KeeperHub, ENS mainnet, and Uniswap Sepolia all have working `live_from_env()` smokes.
+> **Passport capsule v2 — the load-bearing output.** A single JSON file containing every byte needed to re-derive the decision offline: schema, request-hash, policy snapshot, audit segment, decision, agent-id, audit-event-id linkage, Ed25519 signatures. One CLI command (`sbo3l passport verify --strict`) re-derives everything from the capsule alone — no daemon, no network, no RPC. The same WASM verifier runs in the browser at `/proof`: drag-drop a capsule, six green checks pop in. Tamper one byte, verifier rejects.
+>
+> **Live integrations.** All three sponsor live paths shipped + smoke-verified end-to-end. KeeperHub: real workflow webhook accepts the IP-1 envelope, returns a real `executionId` (`kh-172o77rxov7mhwvpssc3x`-shape). ENS: `sbo3lagent.eth` mainnet apex with 5 `sbo3l:*` records on chain (Phase 2 adds 2 more); subnames issued via direct ENS Registry. Uniswap: live `quoteExactInputSingle` against Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`); real swap captures `tx_hash` into the capsule.
+>
+> **What ships at v1.0.1.** Nine Rust crates on crates.io. TypeScript SDK on npm. Python SDK on PyPI. Eight framework integrations (LangChain TS/Py, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph). Docker compose. Marketing site, hosted preview, docs site, CCIP-Read gateway. ENS mainnet apex. Phase 1 exit gate green: 441/441 cargo tests, 13/13 demo gates, 26/0/1 production-shaped runner.
+
+**Tech stack:**
+- **Core:** Rust workspace, 9 published crates (`sbo3l-{core,storage,policy,identity,execution,keeperhub-adapter,server,mcp,cli}`)
+- **SDKs:** TypeScript (`@sbo3l/sdk` on npm), Python (`sbo3l-sdk` on PyPI)
+- **Framework integrations:** LangChain (TS + Py), CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph
+- **Onchain:** ENS (Registry + PublicResolver), ENSIP-25 CCIP-Read, ERC-8004 Identity Registry, Uniswap V3 QuoterV2 + Universal Router (Sepolia)
+- **Off-chain partners:** KeeperHub (workflow webhooks + executionId)
+- **Crypto:** Ed25519 receipts + audit signatures, JCS canonical JSON, SHA-256 hash chain
+- **Storage:** SQLite (8+ migrations: APRP, idempotency, budget, KMS, active-policy, audit-checkpoints)
+- **Infra:** Docker (multi-stage distroless), Vercel (marketing + ccip-gateway), GitHub Actions (CI + post-merge regression sweep), GitHub Pages (capsule mirror)
 
 **Repo URL:** https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
 
-**Live demo URL:** https://sbo3l.dev
+**Live demo URL:** https://sbo3l.dev (custom domain pending; fallback https://sbo3l-marketing.vercel.app)
 
-**Verifier (judges click this):** https://sbo3l.dev/proof
+**Verifier (judges click this):** https://sbo3l.dev/proof (fallback: `/proof` route on the Vercel preview)
 
-**Demo video URL:** _populate after recording_
+**Source:** https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+
+**Demo video URL:** _populate after recording — see [`demo-video-script.md`](demo-video-script.md)_
 
 **Built during the hackathon? (yes/no):** Yes — entire codebase shipped within the 100-day window. Repo init at `9504fa7`; v1.0.1 release commit at `c90f571`.
+
+## Bounty selections
+
+- ✅ **KeeperHub Best Use** (Track 1)
+- ✅ **KeeperHub Builder Feedback** (Track 2)
+- ✅ **ENS Most Creative** (Track 3)
+- ✅ **ENS AI Agents** (Track 4)
+- ✅ **Uniswap Best API** (Track 5)
+- ⏳ 0G Track A (Storage) — Phase 3
+- ⏳ 0G Track B (DA / Compute) — Phase 3
+- ⏳ Gensyn AXL — Phase 3
+
+## Bounty submission tagline (per partner)
+
+| Partner | Tagline |
+|---|---|
+| **KeeperHub Best Use** | "KeeperHub executes. SBO3L proves the execution was authorised." |
+| **KeeperHub Builder Feedback** | "Five concrete asks (KeeperHub/cli#47-#51) filed during real integration work — token-prefix naming, submission/result schema, executionId lookup, upstream policy fields, idempotency semantics." |
+| **ENS Most Creative** | "ENS is not the integration. ENS is the trust DNS." |
+| **ENS AI Agents** | "Identity (ENS) + dynamic state (ENSIP-25 CCIP-Read) + global registry (ERC-8004) — composed into a single agent trust profile any other agent can verify." |
+| **Uniswap Best API** | "A swap executed via the Uniswap API today is opaque. SBO3L makes the audit trail cryptographic — same API, every call gated, signed, and bound to a re-derivable policy decision." |
 
 ## Sponsor track field — KeeperHub Best Use
 
