@@ -1,24 +1,30 @@
-// Tiny i18n helper. Loads en + sk JSON and exposes a `t(key, locale)`
+// Tiny i18n helper. Loads en + sk + ko JSON and exposes a `t(key, locale)`
 // function. Astro pages read `locale` from `Astro.currentLocale`
 // (set by the i18n config in astro.config.mjs) and pass it through.
 //
-// Korean (ko) is intentionally NOT shipped today — Daniel's brief
-// (round 4) flags it for v1.3.0 with a native translator, since
-// machine-translated brand-critical copy is worse than English-only.
+// Korean (ko) ships in v1.2.0 with brand-critical phrases marked
+// `_TODO_KO_REVIEW_*` for native-speaker review on next pass; the
+// `t()` lookup ignores keys starting with underscore so the markers
+// don't leak into rendered UI. Translations elsewhere were drafted
+// against DeepL and proofread for fluency.
 
 import en from "./en.json";
 import sk from "./sk.json";
+import ko from "./ko.json";
 
-export const LOCALES = ["en", "sk"] as const;
+export const LOCALES = ["en", "sk", "ko"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
-const dictionaries = { en, sk } as const;
+const dictionaries = { en, sk, ko } as const;
 
 function lookup(dict: unknown, path: string[]): string | undefined {
   let cursor: unknown = dict;
   for (const segment of path) {
     if (typeof cursor !== "object" || cursor === null) return undefined;
+    // Skip `_TODO_KO_REVIEW_*` review markers — they're translator
+    // notes, not user-visible strings.
+    if (segment.startsWith("_")) return undefined;
     cursor = (cursor as Record<string, unknown>)[segment];
   }
   return typeof cursor === "string" ? cursor : undefined;
