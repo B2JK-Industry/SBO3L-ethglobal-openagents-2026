@@ -26,6 +26,13 @@ rust_decimal = { workspace = true }
 ulid = { workspace = true }
 jsonschema = { workspace = true }
 
+# F-5 EthSigner backends. Pulled only when `eth_signer` feature is
+# enabled; default sbo3l-core builds don't include them.
+# - `k256`: RustCrypto pure-Rust secp256k1 (signing + recovery id).
+# - `tiny-keccak`: keccak256 for EIP-55 address derivation.
+k256 = { version = "0.13", features = ["ecdsa"], optional = true }
+tiny-keccak = { version = "2", features = ["keccak"], optional = true }
+
 # F-5: KMS backends are feature-gated. Each feature compiles a stub
 # module today; the actual SDK dependency is pulled in by a follow-up
 # nightly task once Daniel provisions a test key. Until then, daemon
@@ -37,7 +44,10 @@ default = []
 aws_kms = []
 gcp_kms = []
 phala_tee = []
-eth_signer = []
+# eth_signer pulls k256 + tiny-keccak. Adds ~80 transitive crates;
+# default off so KeeperHub-only consumers don't pay for the EVM
+# stack they don't use.
+eth_signer = ["dep:k256", "dep:tiny-keccak"]
 
 [dev-dependencies]
 # `local_file` signer tests write secrets to per-test temp files +
