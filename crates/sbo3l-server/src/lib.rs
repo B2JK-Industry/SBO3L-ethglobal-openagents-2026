@@ -35,6 +35,8 @@ use sbo3l_storage::Storage;
 pub mod auth;
 pub use auth::AuthConfig;
 
+pub mod executor_callback;
+
 #[cfg(feature = "ws_events")]
 pub mod ws_events;
 
@@ -63,6 +65,10 @@ pub struct AppInner {
     /// reset — a daemon restart is a fresh `AppInner` with a fresh
     /// `started_at`, which is exactly what we want.
     pub started_at: Instant,
+    /// In-memory replay store for executor-callback nonces. Always
+    /// constructed (no feature gate) — the `/v1/executor-callback`
+    /// route is part of the base daemon surface.
+    pub callback_nonce_store: Arc<executor_callback::CallbackNonceStore>,
     /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
     /// only with `--features ws_events`. The publish path inside
     /// `create_payment_request` checks `is_some()` and emits when
@@ -137,6 +143,7 @@ impl AppState {
             receipt_signer,
             auth,
             started_at: Instant::now(),
+            callback_nonce_store: Arc::new(executor_callback::CallbackNonceStore::new()),
             #[cfg(feature = "ws_events")]
             ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
         }))
@@ -147,7 +154,11 @@ pub fn router(state: AppState) -> Router {
     let r = Router::new()
         .route("/v1/health", get(health))
         .route("/v1/healthz", get(healthz))
-        .route("/v1/payment-requests", post(create_payment_request));
+        .route("/v1/payment-requests", post(create_payment_request))
+        .route(
+            "/v1/executor-callback",
+            post(executor_callback::executor_callback_handler),
+        );
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
     r.with_state(state)
