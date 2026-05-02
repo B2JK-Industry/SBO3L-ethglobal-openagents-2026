@@ -2,12 +2,12 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-04-30 (post-cleanup sweep)
-**Branch:** `main` (HEAD `29e2135` — post URL slug rename, sponsor narrative refresh, CI security pass, repo URL updates, plus the B1/B2/B3/B7 implementation track)
+**Last updated:** 2026-05-03 (post R18 cascade)
+**Branch:** `main` (HEAD `84a811a` — post R18: KeyFlowDiagram + /roadmap + /status truth-table + /submission/<slug> 404s fixed + CLI Bug #5+#6 fixes + sbo3l doctor --extended + install-smoke CI + final UAT pre-submit pass)
 **Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired.
-**Open implementation PRs:** **0** open at audit time. PRs [#61](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/61) (cryptographic passport verifier — B1) and [#62](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/62) (ScopeBlind IP audit — B2) merged earlier on 2026-04-30 along with the rest of the post-rename cleanup (#63, #64, #67, #69, #71, #72, #73, #74, #75).
-**CI on `main`:** ✅ green (`Rust check` + `Validate JSON schemas / OpenAPI`).
-**Blockers:** none.
+**Open implementation PRs:** **0** open. R18 wave landed PRs #369–#384 (marketing truthfulness + WASM verifier deploy, Vercel rootDirectory fix, ruff/fmt drift, Astro 5 schema fix for /submission, truth-table /status page, KeyFlowDiagram, /roadmap, install-smoke CI, sbo3l doctor --extended, UAT Round 1).
+**CI on `main`:** ✅ green (`CI` + `Pages` + `Supply chain security` + `Integrations publish` + `Regression on main`).
+**Blockers:** none for code; demo video record + ETHGlobal form submit are operator-side actions.
 
 For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_REVIEW_B5.md). For the **KeeperHub IP-1..IP-5 implementation audit** see [PR #48](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/48) (DRAFT, doc-only, not yet on `main`; awaiting Daniel review). For the **historical PR-by-PR audit trail** (frozen at `f52596c`, pre PR #11+) see [`FINAL_REVIEW.md`](FINAL_REVIEW.md).
 

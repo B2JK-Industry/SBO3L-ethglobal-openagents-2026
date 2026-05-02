@@ -24,7 +24,7 @@ sbo3l agent register \
     "sbo3l:capability": "x402-purchase",
     "sbo3l:reputation": "0"
   }' \
-  --owner 0xdc7EFA00000000000000000000000000000000d2
+  --owner 0xCAFEBABE00000000000000000000000000DEADBE
 ```
 
 The default `--parent sbo3lagent.eth` and `--network sepolia` mean a
@@ -104,7 +104,7 @@ into `cast send` via `jq -r .register_calldata_hex`:
 ```bash
 sbo3l agent register \
   --name research-agent \
-  --owner 0xdc7EFA00000000000000000000000000000000d2 \
+  --owner 0xCAFEBABE00000000000000000000000000DEADBE \
   --records '{"sbo3l:agent_id":"research-agent-01"}' \
   --out /tmp/durin.json
 

@@ -52,7 +52,7 @@ sbo3l agent register \
   --name research-agent \
   --network sepolia \
   --records '{"sbo3l:agent_id":"research-agent-01", ...}' \
-  --owner 0xdc7EFA00000000000000000000000000000000d2 \
+  --owner 0xCAFEBABE00000000000000000000000000DEADBE \
   --erc8004-register \
   --capsule-uri "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsules/research-agent-01.json"
 ```
