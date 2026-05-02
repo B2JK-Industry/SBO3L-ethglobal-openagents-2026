@@ -1,0 +1,104 @@
+---
+title: Token-gated identity
+description: Bind agent identity to ERC-721 / ERC-1155 ownership; compose with AnyOf / AllOf for sophisticated access policies.
+audience: agent platform engineers, NFT-project ops, regulated-industry compliance
+outcome: You'll know how to gate an SBO3L agent on token ownership, how composites work, and how time-windowed gates handle expiring credentials.
+prereqs:
+  - APRP wire format read
+  - signing model read
+---
+
+A token gate ties an agent's authorisation to ownership of an on-chain asset (NFT, soulbound token, semi-fungible). The gate evaluates at decision time: if the agent's wallet currently holds the required token, the policy may proceed; otherwise the request denies fail-closed with `auth.token_gate_failed`.
+
+## Why token gates
+
+Three concrete patterns:
+
+- **Membership-only agents** — only DAO members (`balanceOf >= 1` on the membership NFT) can run a research agent owned by the DAO.
+- **Time-windowed credentials** — an agent runs only while its operator holds an event-attendance NFT, with the gate auto-expiring N hours after the event.
+- **Tier-stratified policies** — Free / Pro / Enterprise tiers determined by which 1155 token type the operator holds.
+
+Without token gates, the same outcomes require off-chain user databases. With them, the credential lives where it should: on chain, public, transferable subject to the issuer's rules.
+
+## Gate shape
+
+```json
+{
+  "type": "token_gate",
+  "any_of": [
+    { "erc721":  { "address": "0xMembership...", "min_balance": 1 } },
+    { "erc1155": { "address": "0xPro...", "token_id": "1", "min_balance": 1 } }
+  ]
+}
+```
+
+`any_of` succeeds if either branch holds; `all_of` requires both. They nest:
+
+```json
+{
+  "all_of": [
+    { "erc721": { "address": "0xMembership...", "min_balance": 1 } },
+    { "any_of": [
+        { "erc1155": { "address": "0xPro...", "token_id": "1" } },
+        { "erc1155": { "address": "0xEnterprise...", "token_id": "1" } }
+      ]
+    }
+  ]
+}
+```
+
+Reads as: "must hold membership NFT AND (Pro OR Enterprise tier)".
+
+## Time-window extension
+
+Add a `valid_after` / `valid_before` pair:
+
+```json
+{
+  "type": "token_gate",
+  "valid_after":  "2026-06-01T00:00:00Z",
+  "valid_before": "2026-06-08T23:59:59Z",
+  "erc721": { "address": "0xConfNFT...", "min_balance": 1 }
+}
+```
+
+Useful for conference-attendance agents, event-bot policies, or any credential with an expiry. The gate checks both: token currently held AND now within window.
+
+## Risk-class presets
+
+For common patterns, the gate can reference a named preset:
+
+| Preset | Expansion |
+|---|---|
+| `risk:low` | accepts soulbound + non-transferable membership tokens; rejects transferable NFTs |
+| `risk:medium` | accepts any 721 / 1155 from a vetted issuer registry |
+| `risk:high` | accepts any 721 / 1155 from any issuer (maximum permissiveness) |
+
+Presets resolve at policy-load time; the resolved gate is what gets signed into the receipt. Updating a preset issuer registry doesn't retroactively change in-flight policies.
+
+## Evaluation cost
+
+The daemon caches token-balance lookups per `(address, agent_wallet)` pair for `--token-gate-cache-ttl` seconds (default 30 s). Within the TTL, no RPC call fires; afterwards, a single `eth_call` to `balanceOf` resolves it.
+
+For high-frequency agents with stable credentials, set TTL to 5 minutes — most gates are cheap. For credentials that revoke fast (sale of NFT mid-stream), set TTL to 5 seconds.
+
+```bash
+# CLI evaluation (dry-run a gate without running the daemon)
+sbo3l token-gate test \
+  --gate '{ "type": "token_gate", "erc721": { "address": "0xABC...", "min_balance": 1 } }' \
+  --wallet 0xDEF...
+# gate-passes: true
+# basis: balanceOf(0xDEF) = 3, min_balance = 1
+```
+
+## Source pointers
+
+- Implementation: `crates/sbo3l-policy/src/token_gate.rs` (#237)
+- Issuer registry: `crates/sbo3l-policy/src/registries/issuer.rs`
+- Test corpus: `tests/fixtures/token-gates/*.json` (good + adversarial cases)
+- Sepolia test contract: deployed at `0xConfNFT...` (see `demo-fixtures/sepolia-token-gates.json`)
+
+## See also
+
+- [Policy decision](/concepts/policy) — token gates are one predicate type among many.
+- [Signing model](/concepts/signing) — operator wallet signature on the gate config (rotation = re-sign).
