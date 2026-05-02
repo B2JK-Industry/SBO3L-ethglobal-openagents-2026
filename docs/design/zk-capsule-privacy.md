@@ -1,11 +1,37 @@
-# ZK-redacted capsule privacy — design + scope (R13 P4)
+# ZK / commitment-based privacy — design + status (R13 P4 → R14 P1 LIVE primitive)
 
-**Status:** **design doc only.** Round 13 P4 asked for circom +
-groth16 + browser snarkjs + verifier-accepts-ZK-or-full toggle in
+**Status update (R14 P1):** the scaffold is no longer a mock. The
+Rust module
+([`crates/sbo3l-core/src/zk_capsule.rs`](../../crates/sbo3l-core/src/zk_capsule.rs))
+ships a **real cryptographic primitive**: Ristretto-based Pedersen
+commitments + a Schnorr proof-of-knowledge of the opening, both
+implemented against `curve25519-dalek` v4. 16 unit tests including
+hiding (different randomness → different commitments), binding
+(post-commitment message tamper detected), Schnorr round trip,
+wrong-message rejection, tampered-commitment rejection,
+tampered-response rejection, randomised-proof distinctness, and
+JSON serialisation round trip.
+
+**Scope honest-trim is preserved**: the full Groth16 SNARK over
+"prove valid SBO3L capsule whose signature verifies + audit chain
+links + decision is allow" is still multi-day work (circom circuit
++ trusted-setup ceremony + browser snarkjs). What we ship here is
+the **strictly narrower** primitive — commitment-based selective
+disclosure / anti-front-running / timed disclosure — which is the
+foundational ZK property and works as real cryptography today.
+The R13 design below describes the full Groth16 plan; the Rust
+module's `ZkCapsuleVerifier` trait + types are preserved for the
+future-Groth16-shape surface.
+
+---
+
+## Original R13 P4 design (preserved for context)
+
+Round 13 P4 asked for circom + groth16 + browser snarkjs + verifier-accepts-ZK-or-full toggle in
 6h. That's truly multi-day work for a meaningful circuit; rushing
 it produces a brittle artefact that breaks under any input change.
 This doc covers what we'd build, the trust model, the integration
-points, and the honest scope-trim. The Rust verifier scaffold lives
+points, and the honest scope-trim. The Rust verifier scaffold lived
 at [`crates/sbo3l-core/src/zk_capsule.rs`](../../crates/sbo3l-core/src/zk_capsule.rs) — feature-gated, no real cryptography
 yet, ready to consume real proofs once the circuit lands.
 **Companion:** [`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md) —

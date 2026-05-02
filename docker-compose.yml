@@ -94,11 +94,58 @@ services:
     environment:
       SBO3L_DB: /var/lib/sbo3l/sbo3l.db
 
+  # Postgres profile — production-shape multi-tenant backend.
+  #   docker compose --profile pg up postgres -d
+  # Apply migrations:
+  #   docker compose --profile pg run --rm sbo3l-pg-migrate
+  # See docs/dev3/production/01-postgres-rls-migration.md for the
+  # production deployment plan; this profile is for local dev /
+  # integration-test parity.
+  postgres:
+    profiles: ["pg"]
+    image: postgres:16-alpine
+    container_name: sbo3l-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sbo3l
+      POSTGRES_PASSWORD: sbo3l_dev_only
+      POSTGRES_DB: sbo3l
+    ports:
+      - "5432:5432"
+    volumes:
+      - sbo3l-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sbo3l -d sbo3l"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  sbo3l-pg-migrate:
+    profiles: ["pg"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sbo3l/server:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://sbo3l:sbo3l_dev_only@postgres:5432/sbo3l"
+    # Run V020__postgres_init.sql via the dedicated CLI subcommand
+    # (see crates/sbo3l-cli/src/pg.rs). Idempotent — re-run safely.
+    entrypoint: ["/usr/local/bin/sbo3l", "pg", "migrate"]
+    restart: "no"
+
 volumes:
   # Documentation-only — all real persistence is bind-mounted at
   # ./data above, per the F-8 acceptance criterion. Listed here so
   # `docker compose config` shows the intended persistent surface.
   sbo3l-data:
     name: sbo3l-data
+    driver: local
+    external: false
+  sbo3l-pg-data:
+    name: sbo3l-pg-data
     driver: local
     external: false

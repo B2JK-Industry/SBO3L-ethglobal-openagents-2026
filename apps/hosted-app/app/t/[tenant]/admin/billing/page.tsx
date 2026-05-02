@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { tenantBySlug, userHasAccessTo } from "@/lib/tenants";
 import { billingForTenant, TIER_LIMITS, fmtNumber, type Tier } from "@/lib/tenant-billing";
+import { UpgradeButton } from "./UpgradeButton";
 
 interface Props { params: Promise<{ tenant: string }> }
 
@@ -79,10 +80,15 @@ export default async function TenantBillingPage({ params }: Props): Promise<JSX.
               <div style={{ marginTop: "0.8em" }}>
                 {isCurrent ? (
                   <span style={{ fontSize: "0.85em", color: "var(--accent)" }}>● current plan</span>
+                ) : tier === "free" ? (
+                  <span style={{ fontSize: "0.75em", color: "var(--muted)" }}>Downgrade via Customer Portal</span>
                 ) : (
-                  <button disabled className="ghost" style={{ fontSize: "0.85em", width: "100%" }}>
-                    {limits.monthly_usd > (TIER_LIMITS[billing.tier].monthly_usd) ? "Upgrade" : "Downgrade"} (Stripe checkout — coming P3.5)
-                  </button>
+                  <UpgradeButton
+                    tenantSlug={slug}
+                    targetTier={tier as "pro" | "enterprise"}
+                    isUpgrade={limits.monthly_usd > TIER_LIMITS[billing.tier].monthly_usd}
+                    label={limits.monthly_usd > TIER_LIMITS[billing.tier].monthly_usd ? "Upgrade" : "Downgrade"}
+                  />
                 )}
               </div>
             </div>
@@ -91,8 +97,8 @@ export default async function TenantBillingPage({ params }: Props): Promise<JSX.
       </div>
 
       <aside style={{ marginTop: "1.5em", padding: "1em 1.2em", background: "var(--code-bg)", border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)", borderRadius: "var(--r-md)", color: "var(--muted)", fontSize: "0.88em" }}>
-        <strong style={{ color: "var(--fg)" }}>Stripe wiring is mocked.</strong>{" "}
-        See <Link href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/dev3/production/02-stripe-billing-runbook.md" target="_blank" rel="noopener">docs/dev3/production/02-stripe-billing-runbook.md</Link> for the full webhook flow + tier-change state machine. Real Checkout sessions require the daemon's <code>/api/billing/checkout</code> endpoint plus a Stripe account linked at tenant onboarding.
+        <strong style={{ color: "var(--fg)" }}>Stripe wired in test mode.</strong>{" "}
+        Checkout buttons hit <code>/api/billing/checkout</code> which creates a real Stripe Session in the test sandbox. Set <code>STRIPE_SECRET_KEY</code> + price IDs in Vercel env to switch to live. See <Link href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/dev3/production/02-stripe-billing-runbook.md" target="_blank" rel="noopener">02-stripe-billing-runbook.md</Link> for the daemon-side wiring still pending (tenant tier writeback on subscription.updated webhook).
       </aside>
     </main>
   );

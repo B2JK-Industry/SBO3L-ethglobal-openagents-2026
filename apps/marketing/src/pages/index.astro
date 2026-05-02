@@ -23,7 +23,10 @@ const blocks = [
 ---
 <BaseLayout title="SBO3L — Don't give your agent a wallet. Give it a mandate.">
   <section class="hero">
-    <h1>Don't give your agent a wallet.<br />Give it a mandate.</h1>
+    <h1>
+      <span class="line line-1">Don't give your agent a wallet.</span>
+      <span class="line line-2">Give it a mandate.</span>
+    </h1>
     <p class="lede">
       SBO3L is the cryptographically verifiable <strong>trust layer</strong> for
       autonomous AI agents. Every action your agent takes — pay, swap, store,
@@ -161,14 +164,44 @@ SBO3L_UNISWAP_TOKEN_OUT=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 \\
     line-height: 1.2;
     margin-bottom: 0.7em;
   }
+  .hero h1 .line {
+    display: block;
+    opacity: 0;
+    transform: translateY(0.4em);
+    animation: heroLineIn 0.7s cubic-bezier(.2, .7, .2, 1) forwards;
+  }
+  .hero h1 .line-1 { animation-delay: 0.05s; }
+  .hero h1 .line-2 { animation-delay: 0.25s; color: var(--accent); }
   .hero .lede {
     font-size: var(--fs-2);
     color: var(--muted);
     margin-bottom: 1.5em;
     max-width: 700px;
+    opacity: 0;
+    animation: heroFadeIn 0.7s cubic-bezier(.2, .7, .2, 1) 0.5s forwards;
   }
   .hero strong { color: var(--fg); }
-  .cta { display: flex; gap: 1em; flex-wrap: wrap; }
+  .cta {
+    display: flex;
+    gap: 1em;
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: heroFadeIn 0.7s cubic-bezier(.2, .7, .2, 1) 0.7s forwards;
+  }
+
+  @keyframes heroLineIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes heroFadeIn {
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero h1 .line, .hero .lede, .cta {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
 
   ul.blocks { padding-left: 0; }
   ul.blocks li { list-style: none; padding-left: 1.4em; position: relative; }

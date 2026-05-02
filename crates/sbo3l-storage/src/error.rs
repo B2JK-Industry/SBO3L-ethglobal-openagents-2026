@@ -20,6 +20,14 @@ pub enum StorageError {
     Io(#[from] std::io::Error),
     #[error("audit_event id '{id}' not found in chain")]
     AuditEventNotFound { id: String },
+    /// Configuration error — bad DATABASE_URL, missing env var, etc.
+    /// Used by the Postgres backend (feature `postgres`).
+    #[error("configuration: {0}")]
+    Configuration(String),
+    /// Migration runtime error (Postgres backend). Sqlx propagates the
+    /// underlying SQL error into the message.
+    #[error("migration: {0}")]
+    Migration(String),
 }
 
 pub type StorageResult<T> = Result<T, StorageError>;

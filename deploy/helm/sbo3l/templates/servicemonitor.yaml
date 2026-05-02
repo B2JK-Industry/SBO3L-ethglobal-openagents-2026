@@ -1,0 +1,33 @@
+{{- /*
+Prometheus Operator ServiceMonitor — points at /v1/metrics. Requires
+the ``monitoring.coreos.com/v1`` CRD installed in-cluster (kube-prometheus-stack
+or upstream prometheus-operator). Off by default.
+*/ -}}
+{{- if .Values.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "sbo3l.fullname" . }}
+  labels:
+    {{- include "sbo3l.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "sbo3l.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /v1/metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      {{- with .Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

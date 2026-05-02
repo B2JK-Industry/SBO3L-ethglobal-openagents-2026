@@ -1,0 +1,15 @@
+
+> sbo3l-cross-protocol-killer@1.2.0 verify-output
+> tsx src/verify-output.ts --file /tmp/r14-mock-run/transcript-pretty.txt
+
+
+verify-output checks (7/7):
+  ✅  transcript.is_array
+  ✅  transcript.length=10 (actual=10)
+  ✅  transcript.steps_in_order
+  ✅  audit.chain_links_consistent
+  ✅  capsule.schema_v2
+  ✅  verifier.all_checks_ok (6/6)
+  ✅  final.decision=allow
+
+✓ transcript verifies — full audit chain consistent.
