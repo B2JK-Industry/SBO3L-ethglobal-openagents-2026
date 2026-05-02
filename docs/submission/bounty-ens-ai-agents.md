@@ -13,7 +13,7 @@ The "AI Agents" track rewards depth in ENS-as-agent-infrastructure, not just nam
 
 1. **ENS text records (mainnet)** — static identity (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`)
 2. **ENSIP-25 CCIP-Read gateway** — dynamic state (current `audit_root`, fresh `capability`, computed `reputation`) without burning gas on every update
-3. **ERC-8004 Identity Registry** — global agent identity anchor on mainnet, linking the ENS subname to a verifiable canonical pubkey
+3. **ERC-8004 Identity Registry** — global agent identity anchor (Sepolia LIVE at `0x600c10dE2fd5BB8f3F47cd356Bcb80289845Db37`; mainnet deploy gated on operator wallet PK + ~$50 gas), linking the ENS subname to a verifiable canonical pubkey
 
 Each layer is independently useful. Stacked, they answer every question an autonomous agent needs to ask before trusting another autonomous agent: *who are you, what are you allowed to do, what's your current reputation, and is your identity globally verifiable?*
 
@@ -30,7 +30,7 @@ ENSIP-25 / EIP-3668 off-chain resolution. SBO3L's gateway at https://ccip.sbo3l.
 
 ### ERC-8004 Identity Registry
 
-T-4-2 — agents register their `agent_id` + canonical pubkey in the ERC-8004 Identity Registry on mainnet, anchoring the ENS subname to a global identity. Calldata builders + dry-run path land in the upcoming PR (#125 + #132).
+T-4-2 — agents register their `agent_id` + canonical pubkey in the ERC-8004 Identity Registry, anchoring the ENS subname to a global identity. **Live Sepolia deployment** at `0x600c10dE2fd5BB8f3F47cd356Bcb80289845Db37` (PR #358). Mainnet deployment scoped for the post-submission window (gated on operator wallet PK + ~$50 mainnet gas — explicitly NOT a hackathon-window claim). Calldata builders + dry-run path live in `crates/sbo3l-identity/src/erc8004.rs`.
 
 ### Cross-agent reputation (T-4-3 ✅ shipped at v1.2.0)
 

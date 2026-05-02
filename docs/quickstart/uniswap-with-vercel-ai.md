@@ -67,7 +67,7 @@ const swap = await uniswap.swap({
   tokenIn: uniswap.SEPOLIA_WETH,
   tokenOut: uniswap.SEPOLIA_USDC,
   fee: 500,
-  recipient: "0xdc7EFA000000000000000000000000000000D231",
+  recipient: "0xCAFEBABE00000000000000000000000000DEADBE",
   amountIn: 1_000_000_000_000_000n,    // 0.001 WETH
   amountOutMinimum: 1n,                // mock-mode: doesn't matter
 });

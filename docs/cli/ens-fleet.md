@@ -67,7 +67,7 @@ print(json.dumps({
     "sbo3l:policy_url":     "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/research-agent-01.json",
     "sbo3l:capabilities":   "[\"x402-purchase\"]",
 }))')" \
-  --owner 0xdc7EFA00000000000000000000000000000000d2
+  --owner 0xCAFEBABE00000000000000000000000000DEADBE
 
 # Expected last line: `broadcasted: false (dry-run does NOT contact an RPC)`
 ```
