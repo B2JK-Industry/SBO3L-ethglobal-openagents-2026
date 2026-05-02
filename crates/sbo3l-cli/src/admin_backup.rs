@@ -35,7 +35,7 @@
 //! - `2` — usage error (bad URI scheme, missing required arg, format
 //!   not yet implemented).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 // The arg structs are populated by clap dispatch in `main.rs`. When
@@ -101,6 +101,7 @@ mod imp {
     use sbo3l_storage::Storage;
     use std::fs;
     use std::io::{BufWriter, Read, Write};
+    use std::path::Path;
 
     /// Tar entry name inside the archive. Single-entry — the
     /// archive carries exactly one SQLite snapshot.
@@ -300,10 +301,7 @@ mod imp {
             match fs::File::create(&dest) {
                 Ok(f) => Box::new(BufWriter::new(f)),
                 Err(e) => {
-                    eprintln!(
-                        "sbo3l admin export: open output {}: {e}",
-                        dest.display()
-                    );
+                    eprintln!("sbo3l admin export: open output {}: {e}", dest.display());
                     return ExitCode::from(1);
                 }
             }
@@ -381,7 +379,11 @@ mod imp {
             "0000000000000000000000000000000000000000000000000000000000000000";
         let mut prev_hash: String = String::new();
         for (i, evt) in events.iter().enumerate() {
-            let want_prev: &str = if i == 0 { GENESIS_PREV } else { prev_hash.as_str() };
+            let want_prev: &str = if i == 0 {
+                GENESIS_PREV
+            } else {
+                prev_hash.as_str()
+            };
             let got_prev: &str = evt.event.prev_event_hash.as_str();
             if got_prev != want_prev {
                 eprintln!(
@@ -398,11 +400,9 @@ mod imp {
     }
 
     fn vacuum_into(src: &Path, dst: &Path) -> Result<(), String> {
-        let conn = rusqlite::Connection::open_with_flags(
-            src,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE,
-        )
-        .map_err(|e| format!("open source db {}: {e}", src.display()))?;
+        let conn =
+            rusqlite::Connection::open_with_flags(src, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)
+                .map_err(|e| format!("open source db {}: {e}", src.display()))?;
         let dst_str = dst.to_string_lossy().replace('\'', "''");
         conn.execute_batch(&format!("VACUUM INTO '{dst_str}';"))
             .map_err(|e| format!("VACUUM INTO {}: {e}", dst.display()))?;
@@ -421,7 +421,9 @@ mod imp {
                 .into_inner()
                 .map_err(|e| format!("tar finish: {e}"))?;
         }
-        zstd_encoder.finish().map_err(|e| format!("zstd finish: {e}"))
+        zstd_encoder
+            .finish()
+            .map_err(|e| format!("zstd finish: {e}"))
     }
 
     fn wrap_in_age_armor(
@@ -432,11 +434,9 @@ mod imp {
             age::Encryptor::with_recipients(vec![Box::new(recipient.clone()) as Box<_>])
                 .ok_or_else(|| "age encryptor builder rejected the recipient".to_string())?;
         let mut sink: Vec<u8> = Vec::new();
-        let armored = age::armor::ArmoredWriter::wrap_output(
-            &mut sink,
-            age::armor::Format::AsciiArmor,
-        )
-        .map_err(|e| format!("age armor wrap: {e}"))?;
+        let armored =
+            age::armor::ArmoredWriter::wrap_output(&mut sink, age::armor::Format::AsciiArmor)
+                .map_err(|e| format!("age armor wrap: {e}"))?;
         let mut stream = encryptor
             .wrap_output(armored)
             .map_err(|e| format!("age wrap_output: {e}"))?;
@@ -514,15 +514,14 @@ mod imp {
             let armor_reader = age::armor::ArmoredReader::new(std::io::Cursor::new(&bytes));
             let dec = age::Decryptor::new(armor_reader)
                 .map_err(|e| format!("age decryptor init: {e}"))?;
-            let dec = match dec {
-                age::Decryptor::Recipients(d) => d,
-                age::Decryptor::Passphrase(_) => {
-                    return Err(
+            let dec =
+                match dec {
+                    age::Decryptor::Recipients(d) => d,
+                    age::Decryptor::Passphrase(_) => return Err(
                         "passphrase-encrypted archives not supported (use a recipient identity)"
                             .to_string(),
-                    )
-                }
-            };
+                    ),
+                };
             let mut stream = dec
                 .decrypt(std::iter::once(&identity as &dyn age::Identity))
                 .map_err(|e| format!("age decrypt: {e}"))?;
@@ -557,9 +556,7 @@ mod imp {
                 .map_err(|e| format!("tar entry read: {e}"))?;
             return Ok(buf);
         }
-        Err(format!(
-            "archive missing expected `{TAR_DB_ENTRY}` entry"
-        ))
+        Err(format!("archive missing expected `{TAR_DB_ENTRY}` entry"))
     }
 }
 
