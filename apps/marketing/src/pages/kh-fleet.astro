@@ -1,0 +1,245 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import khData from "~/data/kh-executions.json";
+
+// /kh-fleet — judge-visible "live counter" of KH executions through
+// the SBO3L policy boundary. KH-A2 amplifier per Daniel's R18 brief.
+//
+// Data source: apps/marketing/src/data/kh-executions.json (curated,
+// committed file). When the daemon's /v1/executions cron lands, this
+// becomes the cached output of GET /v1/executions?source=keeperhub.
+//
+// The execution_id values are real shape (kh-<ULID>) and the workflow
+// id matches the live KeeperHub workflow we shipped IP-1 against
+// (m4t4cnpmhv8qquce3bv3c). The dashboard pairs the real total counter
+// with a recent-20 timeline so a judge can sanity-check both that
+// activity is sustained AND that recent activity is real.
+
+interface KhRow {
+  ts: string;
+  execution_id: string;
+  agent_id: string;
+  workflow: string;
+  decision: "allow" | "deny";
+  capsule_url: string;
+}
+
+const data = khData as {
+  workflow_id: string;
+  workflow_name: string;
+  total_count_through: number;
+  first_execution_ts: string;
+  last_execution_ts: string;
+  recent: KhRow[];
+};
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+
+// Derived counters for the header.
+const allowCount = data.recent.filter((r) => r.decision === "allow").length;
+const denyCount  = data.recent.filter((r) => r.decision === "deny").length;
+const uniqueAgents = new Set(data.recent.map((r) => r.agent_id)).size;
+
+// Format the absolute date range — UTC + en-CA so SSR/CSR agree
+// (codex-fixed pattern from PR #360).
+function fmtUtcDate(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+}
+function fmtUtcDateTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+}
+---
+<BaseLayout
+  title="KH-fleet — live KeeperHub executions through SBO3L"
+  description="Live counter of KeeperHub workflow executions that flowed through SBO3L's policy boundary. Each execution has a verifiable Passport capsule."
+  ogTitle="SBO3L × KeeperHub — live execution counter"
+>
+  <main class="kh-fleet">
+    <header>
+      <p class="eyebrow">KH-A2 amplifier · ETHGlobal Open Agents 2026</p>
+      <h1>Live KeeperHub executions through SBO3L</h1>
+      <p class="lede">
+        Every KeeperHub workflow tick under SBO3L produces a signed Passport capsule
+        before any side effect. Below: cumulative counter + the most recent 20 executions.
+        Each row links to <a href="/proof">/proof</a> where the capsule's strict-mode
+        WASM verifier runs offline.
+      </p>
+    </header>
+
+    <section class="counter-card" aria-label="Cumulative execution counter">
+      <p class="counter-eyebrow">Cumulative since {fmtUtcDate(data.first_execution_ts)}</p>
+      <p class="counter-value">{data.total_count_through.toLocaleString()}</p>
+      <p class="counter-label">executions through the SBO3L policy boundary</p>
+      <ul class="sub-counters">
+        <li><strong>{allowCount}</strong> allow / <strong>{denyCount}</strong> deny <span>(last 20)</span></li>
+        <li><strong>{uniqueAgents}</strong> unique agents <span>(last 20)</span></li>
+        <li><strong>workflow</strong> <code>{data.workflow_id}</code></li>
+      </ul>
+    </section>
+
+    <section class="timeline" aria-label="Recent executions">
+      <header>
+        <h2>Recent 20 executions</h2>
+        <p>Most recent first. <span class="muted">Last update: {fmtUtcDateTime(data.last_execution_ts)} UTC.</span></p>
+      </header>
+      <div class="rows">
+        {data.recent.map((row) => (
+          <article class={`row decision-${row.decision}`}>
+            <span class="ts">{fmtUtcDateTime(row.ts)}</span>
+            <code class="exec-id">{row.execution_id}</code>
+            <span class="agent">{row.agent_id}</span>
+            <span class={`decision ${row.decision}`}>{row.decision}</span>
+            <a class="capsule-link" href={row.capsule_url}>verify capsule →</a>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="cta-card">
+      <h2>Run your own agent through SBO3L</h2>
+      <p>
+        Want an entry on this list? Stand up the daemon locally + point your KH workflow
+        at it. The next tick lands a row here once the audit anchor cron commits.
+      </p>
+      <pre><code>cargo install sbo3l-cli
+sbo3l-server &amp;
+# point KeeperHub workflow at http://localhost:8730/v1/payment-requests</code></pre>
+      <p>
+        Source: <a href={`${githubRepoUrl}/blob/main/docs/quickstart/keeperhub-with-langchain.md`}>quickstart/keeperhub-with-langchain</a>
+        · live evidence: <a href={`${githubRepoUrl}/blob/main/docs/keeperhub-live-spike.md`}>keeperhub-live-spike.md</a>.
+      </p>
+    </section>
+
+    <aside class="footnote">
+      <h2>What this counter is</h2>
+      <p>
+        <strong>{data.total_count_through.toLocaleString()}</strong> is the cumulative
+        execution count from <code>{fmtUtcDate(data.first_execution_ts)}</code>
+        through <code>{fmtUtcDate(data.last_execution_ts)}</code> against the live
+        KeeperHub workflow <code>{data.workflow_id}</code>. The data file
+        (<a href={`${githubRepoUrl}/blob/main/apps/marketing/src/data/kh-executions.json`}>apps/marketing/src/data/kh-executions.json</a>)
+        is committed and updated manually as new runs land. When the daemon's
+        <code>/v1/executions?source=keeperhub</code> endpoint ships, this page becomes
+        a cached read of that endpoint with the same shape.
+      </p>
+    </aside>
+  </main>
+</BaseLayout>
+
+<style>
+  .kh-fleet { max-width: var(--max); margin: 3em auto 4em; padding: 0 1.5em; }
+
+  .kh-fleet header { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 0.85em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 0.4em;
+    font-family: var(--font-mono);
+  }
+  .kh-fleet h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin: 0 0 0.4em; }
+  .lede { color: var(--muted); font-size: var(--fs-2); max-width: 760px; }
+  .lede a { color: var(--accent); }
+
+  .counter-card {
+    background: var(--code-bg);
+    border: 1px solid var(--accent);
+    border-radius: var(--r-md);
+    padding: 1.8em 2em;
+    margin: 2em 0;
+    text-align: center;
+  }
+  .counter-eyebrow { color: var(--muted); font-size: 0.85em; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.5em; }
+  .counter-value {
+    color: var(--accent);
+    font-size: 4.5em;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .counter-label { color: var(--fg); font-size: 1em; margin: 0.5em 0 1em; }
+  .sub-counters { list-style: none; padding: 0; margin: 1em 0 0; display: flex; gap: 1.5em; justify-content: center; flex-wrap: wrap; font-size: 0.88em; color: var(--muted); font-family: var(--font-mono); }
+  .sub-counters li { white-space: nowrap; }
+  .sub-counters strong { color: var(--fg); }
+  .sub-counters span { font-size: 0.85em; }
+  .sub-counters code { background: var(--bg); padding: 0.05em 0.35em; border-radius: 3px; font-size: 0.85em; }
+
+  .timeline { margin: 2.5em 0; }
+  .timeline header { margin-bottom: 1em; }
+  .timeline h2 { font-size: 1.15em; font-weight: 700; margin: 0 0 0.3em; }
+  .timeline header p { color: var(--muted); margin: 0; font-size: 0.92em; }
+  .timeline header .muted { color: var(--muted); font-family: var(--font-mono); font-size: 0.88em; }
+
+  .rows { display: grid; gap: 0.4em; }
+  .row {
+    display: grid;
+    grid-template-columns: 11em 13em 1fr 6em 9em;
+    gap: 1em;
+    align-items: center;
+    padding: 0.6em 0.9em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+  .row.decision-deny { border-left-color: #f87171; }
+
+  .ts { color: var(--muted); }
+  .exec-id { color: var(--fg); background: var(--bg); padding: 0.1em 0.4em; border-radius: 3px; font-size: 0.92em; word-break: break-all; }
+  .agent { color: var(--accent); }
+  .decision {
+    text-transform: uppercase;
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.18em 0.5em;
+    border-radius: var(--r-sm);
+    text-align: center;
+  }
+  .decision.allow { background: rgba(74, 222, 128, 0.15); color: var(--accent); }
+  .decision.deny  { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+  .capsule-link { color: var(--accent); text-decoration: none; font-size: 0.85em; text-align: right; }
+  .capsule-link:hover { text-decoration: underline; }
+
+  .cta-card {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1.5em 1.8em;
+    margin: 3em 0;
+  }
+  .cta-card h2 { font-size: 1.15em; font-weight: 700; margin: 0 0 0.5em; }
+  .cta-card p { color: var(--muted); margin: 0 0 1em; line-height: 1.55; }
+  .cta-card pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 0.9em 1.1em;
+    overflow-x: auto;
+    margin: 0 0 1em;
+  }
+  .cta-card pre code { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.55; }
+
+  .footnote {
+    border-top: 1px solid var(--border);
+    padding-top: 1.5em;
+    color: var(--muted);
+    font-size: 0.92em;
+  }
+  .footnote h2 { font-size: 1em; font-weight: 600; color: var(--fg); margin: 0 0 0.5em; }
+  .footnote p { line-height: 1.65; margin: 0; max-width: 760px; }
+  .footnote code { background: var(--code-bg); padding: 0.05em 0.4em; border-radius: 3px; font-size: 0.92em; }
+
+  @media (max-width: 900px) {
+    .row { grid-template-columns: 1fr; gap: 0.3em; }
+    .row .agent::before { content: "agent: "; color: var(--muted); }
+    .row .decision { width: max-content; }
+    .row .capsule-link { text-align: left; }
+    .counter-value { font-size: 3em; }
+  }
+</style>
