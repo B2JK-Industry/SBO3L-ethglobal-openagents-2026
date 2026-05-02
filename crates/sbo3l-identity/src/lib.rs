@@ -16,6 +16,7 @@
 
 pub mod ccip_read;
 pub mod contracts;
+pub mod cross_agent;
 pub mod cross_chain;
 pub mod durin;
 pub mod ens;
@@ -35,6 +36,11 @@ pub use contracts::{
     addr_eq, all_pins, is_placeholder, resolver_for, universal_resolver_for, ContractPin, Network,
     ENS_REGISTRY, ERC8004_SEPOLIA_PLACEHOLDER, OFFCHAIN_RESOLVER_SEPOLIA, PLACEHOLDER_ZERO,
     PUBLIC_RESOLVER_MAINNET, PUBLIC_RESOLVER_SEPOLIA,
+pub use cross_agent::{
+    build_challenge, sign_challenge, verify_challenge, CrossAgentChallenge, CrossAgentError,
+    CrossAgentReject, CrossAgentTrust, PubkeyResolver, SignedChallenge, CHALLENGE_SCHEMA,
+    FRESHNESS_WINDOW_MS, PUBKEY_RECORD_KEY, TRUST_SCHEMA,
+};
 pub use cross_chain::{
     build_set_attestation_calldata, commit_report, compute_eip712_digest, from_text_record,
     sign_attestation, to_text_record, verify_attestation, verify_attestation_with_context,
