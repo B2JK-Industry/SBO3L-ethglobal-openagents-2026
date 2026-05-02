@@ -127,8 +127,10 @@ fn expected_result_strategy() -> impl Strategy<Value = ExpectedResult> {
 }
 
 fn payment_request_strategy() -> impl Strategy<Value = PaymentRequest> {
-    (
-        // 0..=4 (struct construction needs ≤ 12 elements per tuple in proptest)
+    // Proptest's `Strategy` impl for tuples tops out at 12 elements;
+    // PaymentRequest has 14 generated fields. Split into two
+    // sub-tuples (head + tail) and join via nested prop_map.
+    let head = (
         "agent[0-9]{1,8}",
         "task[0-9]{1,8}",
         intent_strategy(),
@@ -136,6 +138,8 @@ fn payment_request_strategy() -> impl Strategy<Value = PaymentRequest> {
         "[A-Z]{2,6}",
         destination_strategy(),
         payment_protocol_strategy(),
+    );
+    let tail = (
         "[a-z]{3,12}-(mainnet|testnet|sepolia|polygon|base)",
         "https://[a-z]{3,12}\\.example\\.com/rpc",
         prop::option::of(prop::collection::hash_map(
@@ -149,9 +153,28 @@ fn payment_request_strategy() -> impl Strategy<Value = PaymentRequest> {
         "01[0-9A-HJKMNP-TV-Z]{24}", // ULID alphabet (Crockford-base32, no I/L/O/U)
         prop::option::of(expected_result_strategy()),
         risk_class_strategy(),
-    )
-        .prop_map(
-            |(
+    );
+    (head, tail).prop_map(
+        |(
+            (agent_id, task_id, intent, amount, token, destination, payment_protocol),
+            (
+                chain,
+                provider_url,
+                metadata_opt,
+                expiry_secs,
+                nonce,
+                expected_result,
+                risk_class,
+            ),
+        )| {
+            let x402_payload = metadata_opt.map(|m| {
+                serde_json::Value::Object(
+                    m.into_iter()
+                        .map(|(k, v)| (k, serde_json::Value::String(v)))
+                        .collect(),
+                )
+            });
+            PaymentRequest {
                 agent_id,
                 task_id,
                 intent,
@@ -161,37 +184,14 @@ fn payment_request_strategy() -> impl Strategy<Value = PaymentRequest> {
                 payment_protocol,
                 chain,
                 provider_url,
-                metadata_opt,
-                expiry_secs,
+                x402_payload,
+                expiry: Utc.timestamp_opt(expiry_secs, 0).unwrap(),
                 nonce,
                 expected_result,
                 risk_class,
-            )| {
-                let x402_payload = metadata_opt.map(|m| {
-                    serde_json::Value::Object(
-                        m.into_iter()
-                            .map(|(k, v)| (k, serde_json::Value::String(v)))
-                            .collect(),
-                    )
-                });
-                PaymentRequest {
-                    agent_id,
-                    task_id,
-                    intent,
-                    amount,
-                    token,
-                    destination,
-                    payment_protocol,
-                    chain,
-                    provider_url,
-                    x402_payload,
-                    expiry: Utc.timestamp_opt(expiry_secs, 0).unwrap(),
-                    nonce,
-                    expected_result,
-                    risk_class,
-                }
-            },
-        )
+            }
+        },
+    )
 }
 
 // -------- properties --------
