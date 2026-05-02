@@ -1,0 +1,96 @@
+version: 2.1
+
+description: |
+  SBO3L capsule verifier for CircleCI. Verifies a SBO3L Passport capsule
+  against the same 6-check inline verifier as the GitHub Action
+  (actions/sbo3l-verify) and the GitLab CI template. Surfaces decision +
+  audit_event_id + 6/6 to downstream steps via persistent workspace.
+
+display:
+  source_url: https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+  home_url: https://sbo3l.dev
+
+executors:
+  default:
+    docker:
+      - image: cimg/node:20.18
+
+commands:
+  verify:
+    description: "Verify a SBO3L Passport capsule (markdown report + JSON artifact)."
+    parameters:
+      capsule:
+        description: "Path to capsule JSON file."
+        type: string
+      fail-on-deny:
+        description: "Fail the job if decision is deny / requires_human."
+        type: boolean
+        default: true
+      report-dir:
+        description: "Directory to write capsule-report.md + capsule-result.json."
+        type: string
+        default: "/tmp/sbo3l"
+    steps:
+      - run:
+          name: Fetch SBO3L verifier (zero-dep, ~110 LoC)
+          command: |
+            mkdir -p << parameters.report-dir >>
+            curl -fsSL -o /tmp/sbo3l-verifier.mjs \
+              https://raw.githubusercontent.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/main/ci-plugins/_shared/verifier.mjs
+      - run:
+          name: Verify capsule (markdown report)
+          environment:
+            SBO3L_FAIL_ON_DENY: "<< parameters.fail-on-deny >>"
+            SBO3L_REPORT_FORMAT: "markdown"
+          command: |
+            SBO3L_CAPSULE_PATH="<< parameters.capsule >>" \
+              node /tmp/sbo3l-verifier.mjs | tee "<< parameters.report-dir >>/capsule-report.md"
+      - run:
+          name: Emit JSON for downstream steps
+          environment:
+            SBO3L_FAIL_ON_DENY: "false"
+            SBO3L_REPORT_FORMAT: "json"
+          command: |
+            SBO3L_CAPSULE_PATH="<< parameters.capsule >>" \
+              node /tmp/sbo3l-verifier.mjs \
+              > "<< parameters.report-dir >>/capsule-result.json"
+      - store_artifacts:
+          path: << parameters.report-dir >>
+          destination: sbo3l
+
+jobs:
+  verify:
+    description: "One-step capsule verification job."
+    executor: default
+    parameters:
+      capsule:
+        type: string
+      fail-on-deny:
+        type: boolean
+        default: true
+    steps:
+      - checkout
+      - verify:
+          capsule: << parameters.capsule >>
+          fail-on-deny: << parameters.fail-on-deny >>
+
+examples:
+  verify_capsule_in_workflow:
+    description: "Verify a generated capsule artifact mid-pipeline."
+    usage:
+      version: 2.1
+      orbs:
+        sbo3l: sbo3l/sbo3l@1.2.0
+      jobs:
+        my-job:
+          docker:
+            - image: cimg/base:stable
+          steps:
+            - checkout
+            - run: ./generate-capsule.sh > artifacts/latest.capsule.json
+            - sbo3l/verify:
+                capsule: artifacts/latest.capsule.json
+      workflows:
+        verify:
+          jobs:
+            - my-job

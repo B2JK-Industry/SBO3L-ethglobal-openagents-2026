@@ -46,6 +46,7 @@ k256 = { version = "0.13", features = ["ecdsa"], optional = true }
 tiny-keccak = { version = "2", features = ["keccak"], optional = true }
 curve25519-dalek = { version = "4.1.3", features = ["rand_core", "digest"] }
 blake3 = "1.8.5"
+frost-ed25519 = { version = "3", features = ["serialization"] }
 
 # wasm32 verifier slice (`scripts/build-wasm-verifier.sh`): pin
 # `getrandom = { version = "0.3", features = ["wasm_js"] }` for the

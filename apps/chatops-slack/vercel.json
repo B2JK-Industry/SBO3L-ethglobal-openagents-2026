@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [{ "src": "dist/server.js", "use": "@vercel/node" }],
+  "rewrites": [{ "source": "/(.*)", "destination": "/dist/server.js" }],
+  "env": {
+    "SLACK_SIGNING_SECRET": "@sbo3l-slack-signing-secret",
+    "SBO3L_DAEMON_URL": "@sbo3l-daemon-url"
+  }
+}

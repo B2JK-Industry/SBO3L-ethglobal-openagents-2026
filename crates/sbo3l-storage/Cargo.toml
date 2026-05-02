@@ -27,5 +27,17 @@ ulid = { workspace = true }
 # F-2: USD-string → cents conversion lives at the policy/storage boundary.
 rust_decimal = { workspace = true }
 
+# Postgres backend (production deployment). Off by default so the
+# default `cargo build -p sbo3l-storage` stays sqlite-only and fast.
+# Enable with `--features postgres`. CI gates the feature behind a
+# matrix axis (postgres job pulls a postgres:16 service container).
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio", "macros", "json", "uuid", "chrono"], optional = true }
+uuid = { version = "1", features = ["v4"], optional = true }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"], optional = true }
+
+[features]
+default = []
+postgres = ["dep:sqlx", "dep:uuid", "dep:tokio"]
+
 [dev-dependencies]
 tempfile = { workspace = true }
