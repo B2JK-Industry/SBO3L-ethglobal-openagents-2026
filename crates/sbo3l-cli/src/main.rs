@@ -478,8 +478,9 @@ enum PassportCmd {
     /// (schema → request_hash → policy → budget → audit → signed
     /// receipt) and emit one `sbo3l.passport_capsule.v1` JSON to
     /// `--out`. Wraps existing primitives — no policy/audit/crypto
-    /// rewrite. P2.1 supports `--mode mock` only; `--mode live` is
-    /// rejected (live integration is P5.1/P6.1 work).
+    /// rewrite. Supports `--mode mock` only; `--mode live` is
+    /// rejected (live executor integration runs in the daemon, not
+    /// in this offline CLI surface).
     Run {
         /// Path to an APRP JSON file (the request body the agent
         /// would normally POST to `/v1/payment-requests`).
@@ -507,10 +508,11 @@ enum PassportCmd {
         /// this value (status=not_called is hard-enforced).
         #[arg(long, value_enum)]
         executor: ExecutorChoiceArg,
-        /// Execution mode. P2.1 only supports `mock`. `live` is
-        /// rejected with exit 2 (truthfulness rule: live claims
-        /// require real evidence). For real live execution, use the
-        /// daemon (`sbo3l-server`) with configured executor credentials.
+        /// Execution mode. This offline CLI only supports `mock`.
+        /// `live` is rejected with exit 2 (truthfulness rule: live
+        /// claims require real evidence). For real live execution,
+        /// use the daemon (`sbo3l-server`) with configured executor
+        /// credentials.
         #[arg(long, value_enum, default_value_t = ModeChoiceArg::Mock)]
         mode: ModeChoiceArg,
         /// Output path for the capsule JSON. Written atomically
