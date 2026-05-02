@@ -56,37 +56,41 @@
 
 ## What this delivered
 
-### 30 framework adapters (TypeScript + Python)
+### 32 publishable packages (25 npm + 7 PyPI) — corrected post-self-review
+
+> **Correction note:** an earlier draft of this section said "30 framework adapters" — actual count is **32 publishable packages** (25 npm + 7 PyPI). Bug + fix documented in `docs/dev2/self-review-bugs.md` (Bug 1).
 
 | TypeScript (npm) | Python (PyPI) |
 |---|---|
-| `@sbo3l/sdk` | `sbo3l-sdk` |
-| `@sbo3l/langchain` ✅ live | `sbo3l-langchain` ✅ live |
-| `@sbo3l/autogen` ✅ live | `sbo3l-crewai` ✅ live |
-| `@sbo3l/elizaos` ✅ live | `sbo3l-llamaindex` ✅ live |
-| `@sbo3l/vercel-ai` | `sbo3l-langgraph` ✅ live |
-| `@sbo3l/openai-assistants` | `sbo3l-agno` |
-| `@sbo3l/anthropic` | `sbo3l-pydantic-ai` |
-| `@sbo3l/anthropic-computer-use` | |
-| `@sbo3l/mastra` | |
-| `@sbo3l/vellum` | |
-| `@sbo3l/langflow` | |
-| `@sbo3l/inngest` | |
-| `@sbo3l/marketplace` | |
-| `@sbo3l/letta` | |
-| `@sbo3l/autogpt` | |
-| `@sbo3l/babyagi` | |
-| `@sbo3l/superagi` | |
-| `@sbo3l/cohere-tools` | |
-| `@sbo3l/together` | |
-| `@sbo3l/perplexity` | |
-| `@sbo3l/replicate` | |
-| `@sbo3l/modal` | |
-| `@sbo3l/e2b` | |
-| `@sbo3l/agentforce` | |
-| `@sbo3l/copilot-studio` | |
+| `@sbo3l/sdk` ✅ live | `sbo3l-sdk` ✅ live |
+| `@sbo3l/marketplace` ✅ live | `sbo3l-langchain` ✅ live |
+| `@sbo3l/langchain` ✅ live | `sbo3l-crewai` ✅ live |
+| `@sbo3l/autogen` ✅ live | `sbo3l-llamaindex` ✅ live |
+| `@sbo3l/elizaos` ✅ live | `sbo3l-langgraph` ✅ live |
+| `@sbo3l/vercel-ai` ✅ live | `sbo3l-agno` ❌ (PyPI publisher pending) |
+| `@sbo3l/openai-assistants` ✅ live | `sbo3l-pydantic-ai` ❌ (PyPI publisher pending) |
+| `@sbo3l/anthropic` ✅ live | |
+| `@sbo3l/anthropic-computer-use` ✅ live | |
+| `@sbo3l/mastra` ✅ live | |
+| `@sbo3l/vellum` ✅ live | |
+| `@sbo3l/langflow` ✅ live | |
+| `@sbo3l/inngest` ✅ live | |
+| `@sbo3l/letta` ✅ live | |
+| `@sbo3l/autogpt` ✅ live | |
+| `@sbo3l/babyagi` ✅ live | |
+| `@sbo3l/superagi` ✅ live | |
+| `@sbo3l/cohere-tools` ✅ live | |
+| `@sbo3l/together` ✅ live | |
+| `@sbo3l/perplexity` ✅ live | |
+| `@sbo3l/replicate` ✅ live | |
+| `@sbo3l/modal` ✅ live | |
+| `@sbo3l/e2b` ✅ live | |
+| `@sbo3l/agentforce` ✅ live | |
+| `@sbo3l/copilot-studio` ✅ live | |
 
-**Live state:** 8/30 packages live on registries. The other 22 are gated on Daniel's NPM_TOKEN provisioning + 2 PyPI trusted publishers + a 30-min workflow matrix extension. Wire format is correct on every live package — recovery path documented in PR #228.
+**Live state (corrected):** **30/32 packages live** on registries. The 2 remaining are `sbo3l-agno` + `sbo3l-pydantic-ai` (PyPI), both gated on trusted-publisher configuration (`pypi-agno-py`, `pypi-pydantic-ai-py`). Wire format is correct on every package — recovery path documented in PR #228.
+
+> **Correction note:** an earlier draft of this section claimed "8/30 packages live". That was stale at write-time — Daniel's `gh workflow run` re-fires for the post-cohort packages had not yet completed. Per `docs/dev2/self-review-bugs.md` (Bug 2) the correct number is **30/32 live**. Verified by direct HEAD requests against `https://registry.npmjs.org/<encoded-pkg>/1.2.0`.
 
 ### Apps + tooling
 
@@ -118,12 +122,13 @@
 
 ## What's still pending
 
-- **15 more npm publishes** — workflow matrix needs the post-cohort packages added. ~30 minutes; documented in `docs/proof/npm-publishes-final.md`.
-- **2 more PyPI publishes** — need trusted publishers configured (`pypi-agno-py`, `pypi-pydantic-ai-py`). ~3 minutes each on PyPI.
+- **2 PyPI publishes** — `sbo3l-agno` + `sbo3l-pydantic-ai` need trusted publishers configured (`pypi-agno-py`, `pypi-pydantic-ai-py`). ~3 minutes each on PyPI.
 - **Discord + Teams bot deployments** — Vercel deploy + Slack/Discord/Azure app registration; Daniel-side per `apps/chatops-{discord,teams}/DEPLOY.md`.
 - **VS Code / JetBrains extension code** — deferred (P4 from R13/R14 — needs marketplace publishing accounts).
 - **Browser extension code** — deferred (P5 from R13/R14 — needs Chrome Web Store + Firefox AMO accounts).
 - **5 sponsor SDKs** — deferred (P2 from R14 — each is a deeper integration deserving its own focused turn).
 - **Cross-protocol LIVE recording** — script ships in PR #319; recording is Daniel's one-shot per `RECORDING.md`.
+
+> **Correction note:** an earlier draft of this section listed "15 more npm publishes" as pending. All 15 (and 7 others) landed before this self-review was written — see `docs/proof/npm-publishes-final.md` for the corrected 30/32 live state.
 
 See `docs/dev2/scope-cuts-r13-r14.md` for the explicit deferral spec.
