@@ -1,0 +1,28 @@
+{
+  "name": "sbo3l-cross-protocol-killer",
+  "private": true,
+  "version": "1.2.0",
+  "type": "module",
+  "description": "10-step cross-protocol research-agent: ENS → 5 LLM frameworks → KH workflow → Uniswap → capsule → verify. One audit chain, every event signed.",
+  "scripts": {
+    "demo": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "verify-output": "tsx src/verify-output.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sbo3l/sdk": "file:../../sdks/typescript",
+    "@sbo3l/anthropic": "file:../../sdks/typescript/integrations/anthropic",
+    "@sbo3l/openai-assistants": "file:../../sdks/typescript/integrations/openai-assistants",
+    "@sbo3l/mastra": "file:../../sdks/typescript/integrations/mastra",
+    "@sbo3l/vellum": "file:../../sdks/typescript/integrations/vellum",
+    "@sbo3l/vercel-ai": "file:../../sdks/typescript/integrations/vercel-ai"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

@@ -171,7 +171,8 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/v1/admin/flags",
             get(feature_flags::list_flags_handler).post(feature_flags::set_flag_handler),
-        );
+        )
+        .route("/v1/admin/metrics", get(admin_metrics));
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
     r.with_state(state)
@@ -277,6 +278,114 @@ async fn healthz(State(state): State<AppState>) -> Response {
         audit_chain_head: head,
         audit_chain_length: length,
         uptime_seconds,
+    })
+    .into_response()
+}
+
+// ---------------------------------------------------------------------------
+// /v1/admin/metrics — observability dashboard wire format (apps/observability).
+//
+// Returns ONE bucket containing the current audit_chain_length and
+// placeholder counters for requests / allows / denies / latency. The
+// dashboard renders cleanly with one bucket; future server-side request
+// instrumentation extends the bucket count without changing the wire
+// shape.
+//
+// Wire shape mirrors `apps/observability/src/lib/metrics.ts::MetricsSnapshot`
+// exactly so the dashboard flips from mock → live by setting `?endpoint=`
+// without any code change.
+
+#[derive(Debug, Serialize)]
+pub struct MetricsLatency {
+    pub p50: f64,
+    pub p95: f64,
+    pub p99: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsBucket {
+    pub ts: String,
+    pub requests: u64,
+    pub allows: u64,
+    pub denies: u64,
+    pub requires_human: u64,
+    pub audit_chain_length: u64,
+    pub latency_ms: MetricsLatency,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsDaemon {
+    pub endpoint: String,
+    pub version: &'static str,
+    pub started_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsSnapshot {
+    pub bucket_seconds: u64,
+    pub buckets: Vec<MetricsBucket>,
+    pub daemon: MetricsDaemon,
+}
+
+async fn admin_metrics(State(state): State<AppState>) -> Response {
+    let inner = &state.0;
+
+    let length = match inner.storage.lock() {
+        Ok(s) => match s.audit_count() {
+            Ok(n) => n,
+            Err(e) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": format!("audit_count: {e}"),
+                    })),
+                )
+                    .into_response();
+            }
+        },
+        Err(_) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "status": "storage_unreachable",
+                    "reason": "storage mutex poisoned",
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    // One-bucket snapshot. `requests` / `allows` / `denies` /
+    // `latency_ms` are placeholder zeros — adding real per-bucket
+    // instrumentation needs a counters map + a sliding-window collector
+    // that lives outside this minimal endpoint. Tracked as a follow-up
+    // in the observability dashboard PR (#252).
+    let now = Utc::now();
+    let started = inner.started_at;
+    let started_at_iso =
+        (Utc::now() - chrono::Duration::seconds(started.elapsed().as_secs() as i64)).to_rfc3339();
+
+    Json(MetricsSnapshot {
+        bucket_seconds: 60,
+        buckets: vec![MetricsBucket {
+            ts: now.to_rfc3339(),
+            requests: 0,
+            allows: 0,
+            denies: 0,
+            requires_human: 0,
+            audit_chain_length: length,
+            latency_ms: MetricsLatency {
+                p50: 0.0,
+                p95: 0.0,
+                p99: 0.0,
+            },
+        }],
+        daemon: MetricsDaemon {
+            endpoint: "self".to_string(),
+            version: env!("CARGO_PKG_VERSION"),
+            started_at: started_at_iso,
+        },
     })
     .into_response()
 }
