@@ -30,10 +30,15 @@
 // storagescan-galileo URL opens in a new tab (window.open) so it
 // bypasses the iframe frame-src restriction entirely.
 //
-// Component is a pure Astro island with `is:inline` script — matches
-// the convention set by PassportVerifier.astro. Marketing site has no
-// React/Vitest infra (it's static-only Astro 5), so this ships without
-// either; equivalent behavior is exercised manually via the dev server.
+// Component is a pure Astro island. The runtime lives at
+// `public/zerog-uploader-runtime.js` and is loaded via `<script src=…>`
+// rather than `is:inline` — Vercel's CSP is `script-src 'self'
+// 'wasm-unsafe-eval'` (no `'unsafe-inline'`), so any inline script is
+// blocked in production. Constants the runtime needs (storagescan URLs,
+// indexer probe URL, timeout, max file bytes) flow through `data-*`
+// attributes on the root element. Multiple instances on a page each get
+// their own `id`; the runtime auto-binds every `[data-zerog-uploader]`
+// at DOMContentLoaded.
 
 interface Props {
   /// Optional id for the inline component instance, used when mounting
@@ -50,7 +55,17 @@ const PROBE_TIMEOUT_MS = 5000;
 const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
 ---
 
-<section class="zg-uploader" id={id} data-state="idle">
+<section
+  class="zg-uploader"
+  id={id}
+  data-state="idle"
+  data-zerog-uploader
+  data-storagescan-tool-url={STORAGESCAN_TOOL_URL}
+  data-storagescan-file-url={STORAGESCAN_FILE_URL}
+  data-indexer-probe-url={INDEXER_PROBE_URL}
+  data-probe-timeout-ms={String(PROBE_TIMEOUT_MS)}
+  data-max-file-bytes={String(MAX_FILE_BYTES)}
+>
   <header class="zg-head">
     <h2>Upload a Passport capsule to 0G Storage</h2>
     <p class="lede">
@@ -275,310 +290,4 @@ const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
   .zg-permalink { font-family: var(--font-mono); font-size: 0.85em; word-break: break-all; }
 </style>
 
-<script
-  is:inline
-  define:vars={{
-    id,
-    STORAGESCAN_TOOL_URL,
-    STORAGESCAN_FILE_URL,
-    INDEXER_PROBE_URL,
-    PROBE_TIMEOUT_MS,
-    MAX_FILE_BYTES,
-  }}
->
-  // ZeroGUploader runtime — DOM-scoped to the component instance so
-  // multiple uploaders on one page don't collide.
-  (function init() {
-    const root = document.getElementById(id);
-    if (!root) return;
-
-    const $ = (sel) => root.querySelector(sel);
-    const drop = $(".zg-drop");
-    const fileInput = drop.querySelector('input[type="file"]');
-    const promptEl = $(".zg-drop-prompt");
-    const loadedEl = $(".zg-drop-loaded");
-    const fileNameEl = $(".zg-file-name");
-    const fileMetaEl = $(".zg-file-meta");
-    const clearBtn = $(".zg-clear");
-    const errEl = $(".zg-error");
-    const uploadBtn = $(".zg-upload");
-    const statusEl = $(".zg-status");
-    const fallbackEl = $(".zg-fallback");
-    const manualHashInput = $(".zg-manual-hash");
-    const manualSubmitBtn = $(".zg-manual-submit");
-    const successEl = $(".zg-success");
-    const successSrcEl = $(".zg-success-source");
-    const hashValueEl = $(".zg-hash-value");
-    const copyBtn = $(".zg-copy");
-    const permalinkEl = $(".zg-permalink");
-
-    let currentFile = null;
-
-    // ---- helpers --------------------------------------------------------
-
-    function setError(msg) {
-      if (msg) {
-        errEl.textContent = msg;
-        errEl.hidden = false;
-      } else {
-        errEl.textContent = "";
-        errEl.hidden = true;
-      }
-    }
-
-    function setStatus(s) {
-      statusEl.textContent = s;
-    }
-
-    function setState(s) {
-      root.dataset.state = s;
-    }
-
-    function bytesHuman(n) {
-      if (n < 1024) return n + " B";
-      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
-      return (n / (1024 * 1024)).toFixed(2) + " MB";
-    }
-
-    function isHex32(s) {
-      // 0G Storage rootHash is 32 bytes (64 hex chars), 0x-prefixed.
-      // Loose-validate format only — the hash is its own proof.
-      return /^0x[0-9a-fA-F]{64}$/.test(s.trim());
-    }
-
-    function showSuccess(rootHash, source) {
-      successEl.hidden = false;
-      const norm = rootHash.trim().toLowerCase();
-      hashValueEl.textContent = norm;
-      const url = STORAGESCAN_FILE_URL + "/" + norm;
-      permalinkEl.textContent = url;
-      permalinkEl.href = url;
-      successSrcEl.textContent =
-        source === "manual"
-          ? "Source: manually pasted from 0G storage tool."
-          : "Source: 0G SDK auto-upload.";
-      setState("success");
-    }
-
-    // ---- file pickup + validation ---------------------------------------
-
-    async function pickFile(file) {
-      setError(null);
-      successEl.hidden = true;
-      fallbackEl.hidden = true;
-
-      if (!file) return;
-      if (file.size > MAX_FILE_BYTES) {
-        setError("File too large (" + bytesHuman(file.size) + "). 0G testnet practical cap is 1 MB.");
-        return;
-      }
-
-      let text;
-      try {
-        text = await file.text();
-      } catch (e) {
-        setError("Could not read file: " + (e && e.message ? e.message : String(e)));
-        return;
-      }
-
-      if (!text || !text.trim()) {
-        setError("File is empty.");
-        return;
-      }
-
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch (e) {
-        setError("Not valid JSON: " + (e && e.message ? e.message : String(e)));
-        return;
-      }
-
-      if (!parsed || typeof parsed !== "object") {
-        setError("JSON root must be an object (got " + (parsed === null ? "null" : typeof parsed) + ").");
-        return;
-      }
-
-      if (typeof parsed.schema !== "string" || !parsed.schema) {
-        setError(
-          "Missing top-level `schema` field — this doesn't look like a SBO3L Passport capsule (expected schema like `sbo3l.passport_capsule.v1`)."
-        );
-        return;
-      }
-
-      currentFile = file;
-      promptEl.hidden = true;
-      loadedEl.hidden = false;
-      fileNameEl.textContent = file.name;
-      fileMetaEl.textContent = "(" + bytesHuman(file.size) + ", schema=" + parsed.schema + ")";
-      uploadBtn.disabled = false;
-      setStatus("ready");
-      setState("ready");
-    }
-
-    function clearFile() {
-      currentFile = null;
-      fileInput.value = "";
-      promptEl.hidden = false;
-      loadedEl.hidden = true;
-      fileNameEl.textContent = "";
-      fileMetaEl.textContent = "";
-      uploadBtn.disabled = true;
-      setError(null);
-      setStatus("idle");
-      setState("idle");
-      successEl.hidden = true;
-      fallbackEl.hidden = true;
-    }
-
-    // ---- drag-drop wiring -----------------------------------------------
-
-    drop.addEventListener("click", () => {
-      if (!currentFile) fileInput.click();
-    });
-    drop.addEventListener("keydown", (e) => {
-      if ((e.key === "Enter" || e.key === " ") && !currentFile) {
-        e.preventDefault();
-        fileInput.click();
-      }
-    });
-
-    drop.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      drop.classList.add("zg-drag");
-    });
-    drop.addEventListener("dragleave", () => {
-      drop.classList.remove("zg-drag");
-    });
-    drop.addEventListener("drop", (e) => {
-      e.preventDefault();
-      drop.classList.remove("zg-drag");
-      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) void pickFile(f);
-    });
-
-    fileInput.addEventListener("change", (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) void pickFile(f);
-    });
-
-    clearBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      clearFile();
-    });
-
-    // ---- 0G primary path: liveness probe + handoff ----------------------
-    //
-    // We probe the indexer's HEAD reachability with a 5s AbortController
-    // timeout. If reachable, we still fall back to the manual web tool
-    // because uploading via the SDK requires a private key signer; the
-    // manual UI handles wallet connection in its own context. If the
-    // probe fails, we surface that as the explicit reason in the
-    // fallback panel and proceed identically.
-
-    async function probeIndexer() {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort("timeout"), PROBE_TIMEOUT_MS);
-      try {
-        // CORS may block a real fetch response read, but we only care
-        // whether the request resolves vs. times out. `mode: "no-cors"`
-        // returns an opaque response on success — enough signal.
-        await fetch(INDEXER_PROBE_URL, {
-          method: "GET",
-          mode: "no-cors",
-          signal: ac.signal,
-          cache: "no-store",
-        });
-        clearTimeout(timer);
-        return { ok: true };
-      } catch (e) {
-        clearTimeout(timer);
-        const reason =
-          ac.signal.aborted
-            ? "timeout after " + PROBE_TIMEOUT_MS + "ms"
-            : (e && e.message ? e.message : "network error");
-        return { ok: false, reason };
-      }
-    }
-
-    async function handleUpload() {
-      if (!currentFile) return;
-      setError(null);
-      uploadBtn.disabled = true;
-      setStatus("probing 0G indexer…");
-
-      const probe = await probeIndexer();
-      if (probe.ok) {
-        setStatus("indexer reachable — handing off to manual web tool");
-      } else {
-        setStatus("indexer unreachable (" + probe.reason + ") — falling back");
-      }
-
-      // Open the storagescan tool in a new tab and reveal the manual
-      // panel with the rootHash paste field. Same UX whether the probe
-      // succeeded or timed out — only the inline status text differs.
-      try {
-        window.open(STORAGESCAN_TOOL_URL, "_blank", "noopener,noreferrer");
-      } catch (_) {
-        // Popup blockers are non-fatal; the in-page link still works.
-      }
-
-      fallbackEl.hidden = false;
-      setState("fallback");
-      uploadBtn.disabled = false;
-    }
-
-    uploadBtn.addEventListener("click", () => void handleUpload());
-
-    // ---- manual rootHash submit -----------------------------------------
-
-    manualSubmitBtn.addEventListener("click", () => {
-      const v = manualHashInput.value.trim();
-      if (!v) {
-        setError("Paste the rootHash from the 0G storage tool first.");
-        return;
-      }
-      if (!isHex32(v)) {
-        setError("rootHash must be 0x-prefixed 32-byte hex (66 chars total). Got " + v.length + " chars.");
-        return;
-      }
-      setError(null);
-      showSuccess(v, "manual");
-      setStatus("manual rootHash accepted");
-    });
-
-    manualHashInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        manualSubmitBtn.click();
-      }
-    });
-
-    // ---- copy-to-clipboard ----------------------------------------------
-
-    copyBtn.addEventListener("click", async () => {
-      const v = hashValueEl.textContent || "";
-      if (!v) return;
-      try {
-        await navigator.clipboard.writeText(v);
-        copyBtn.classList.add("zg-copied");
-        const orig = copyBtn.textContent;
-        copyBtn.textContent = "Copied";
-        setTimeout(() => {
-          copyBtn.classList.remove("zg-copied");
-          copyBtn.textContent = orig;
-        }, 1500);
-      } catch (_) {
-        // Older browsers without clipboard API — select the hash text
-        // manually as a degraded affordance.
-        const range = document.createRange();
-        range.selectNode(hashValueEl);
-        const sel = window.getSelection();
-        if (sel) {
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      }
-    });
-  })();
-</script>
+<script type="module" src="/zerog-uploader-runtime.js"></script>

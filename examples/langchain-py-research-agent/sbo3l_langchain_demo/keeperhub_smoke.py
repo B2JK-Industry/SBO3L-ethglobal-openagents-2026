@@ -47,7 +47,7 @@ def main() -> int:
         ref = envelope.get("kh_execution_ref")
         if ref:
             print(f"\n✓ allow + KH executed — kh_execution_ref={ref}")
-            print(f"  workflow={envelope.get('kh_workflow_id')}")
+            print(f"  workflow_advisory={envelope.get('kh_workflow_id_advisory')}")
             print(f"  audit_event_id={envelope.get('audit_event_id')}")
             return 0
         print(

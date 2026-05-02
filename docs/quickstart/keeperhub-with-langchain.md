@@ -111,7 +111,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ../../sdks/python -e ../../int
 .venv/bin/python -m sbo3l_langchain_demo.keeperhub_smoke
 ```
 
-The `keeperhub_tool()` factory in `sbo3l_langchain_demo.keeperhub_tool` returns a tool descriptor whose envelope explicitly carries `kh_workflow_id` + `kh_execution_ref` keys (named for the LLM to branch on, vs inferring from `execution_ref`'s `kh-` prefix). 6 pytest cases cover allow / deny / workflow-id-override / invalid-input paths against a mocked daemon.
+The `keeperhub_tool()` factory in `sbo3l_langchain_demo.keeperhub_tool` returns a tool descriptor whose envelope explicitly carries `kh_workflow_id_advisory` + `kh_execution_ref` keys (named for the LLM to branch on, vs inferring from `execution_ref`'s `kh-` prefix). The `_advisory` suffix on `kh_workflow_id_advisory` is intentional: today the daemon's env-configured webhook URL is the source of truth for actual routing, so the tool surfaces the caller's *intended* workflow for context tagging rather than misrepresenting it as a routing override. 6 pytest cases cover allow / deny / workflow-id-context / invalid-input paths against a mocked daemon.
 
 ## Next
 

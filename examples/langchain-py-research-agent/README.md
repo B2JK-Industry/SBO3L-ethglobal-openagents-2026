@@ -67,19 +67,19 @@ Expected output (with `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN` se
 ▶ tool: sbo3l_keeperhub_payment_request
   envelope:
     decision: "allow"
-    kh_workflow_id: "m4t4cnpmhv8qquce3bv3c"
+    kh_workflow_id_advisory: "m4t4cnpmhv8qquce3bv3c"
     kh_execution_ref: "kh-01HTAWX5..."
     audit_event_id: "evt-..."
     ...
 
 ✓ allow + KH executed — kh_execution_ref=kh-01HTAWX5...
-  workflow=m4t4cnpmhv8qquce3bv3c
+  workflow_advisory=m4t4cnpmhv8qquce3bv3c
   audit_event_id=evt-...
 ```
 
 Without webhook env vars on the daemon, the KH adapter falls back to `local_mock` — the demo still prints a `kh-<ULID>` ref (with `mock=true` evidence in the receipt) so the wire path is visible end-to-end.
 
-The wrapper (`sbo3l_langchain_demo.keeperhub_tool.keeperhub_tool`) returns a `kh_execution_ref` field explicitly named for the LLM to branch on, plus the workflow id surfaced for context. Useful in agent code that needs to reason "did KH execute?" without inferring from `execution_ref`'s prefix.
+The wrapper (`sbo3l_langchain_demo.keeperhub_tool.keeperhub_tool`) returns a `kh_execution_ref` field explicitly named for the LLM to branch on, plus a `kh_workflow_id_advisory` field carrying the *intended* workflow target (this value is NOT used for routing — the daemon's env config is the source of truth; see `keeperhub_tool` docstring). Useful for context tagging in audit trails.
 
 ## Tests
 

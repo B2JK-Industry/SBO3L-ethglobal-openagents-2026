@@ -57,9 +57,25 @@ We've now filed 10 distinct issues + 5 draft PRs across two rounds, every one de
 
 ## Verification checklist for judges
 
-- [Open the 5 round-2 KH issues](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3A%40me+%2352..%2356) — each has reproduction commands, line-ref'd friction, and proposed fix shape.
-- [Open the 5 companion draft PRs](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3A%40me+%22kh-bf-additional%22) — each carries the proposed adapter-side diff as a doc-only file under `docs/keeperhub-consumer-shape-proposals/`.
-- [Re-read round 1 evidence](../submission/bounty-keeperhub-builder-feedback.md) — original 5 issues that started the cumulative submission.
+Direct links (no GitHub login required — `author:@me` would have only resolved for the signed-in viewer):
+
+- The 5 round-2 KH issues:
+  - [KeeperHub/cli#52](https://github.com/KeeperHub/cli/issues/52) — HTTP error code catalog + retry semantics
+  - [KeeperHub/cli#53](https://github.com/KeeperHub/cli/issues/53) — public mock fixture suite / Docker image
+  - [KeeperHub/cli#54](https://github.com/KeeperHub/cli/issues/54) — webhook timeout SLO publication
+  - [KeeperHub/cli#55](https://github.com/KeeperHub/cli/issues/55) — schema-version headers
+  - [KeeperHub/cli#56](https://github.com/KeeperHub/cli/issues/56) — max payload size documentation
+- The 5 companion draft PRs on this repo:
+  - [PR #402](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/402) — consumer shape for KH-cli#52
+  - [PR #403](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/403) — consumer shape for KH-cli#53
+  - [PR #404](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/404) — consumer shape for KH-cli#54
+  - [PR #405](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/405) — consumer shape for KH-cli#55
+  - [PR #406](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/406) — consumer shape for KH-cli#56
+- [Re-read round 1 evidence](../submission/bounty-keeperhub-builder-feedback.md) — original 5 issues (#47–#51) that started the cumulative submission.
+
+Filtered listings (link to a search anyone can run; uses explicit author):
+- [All 10 SBO3L-filed issues on KeeperHub/cli](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry)
+- [All 5 KH-BF draft PRs on this repo](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3AB2JK-Industry+%22kh-bf-additional%22)
 
 ## Sponsor-specific value prop
 
