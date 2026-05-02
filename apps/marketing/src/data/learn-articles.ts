@@ -242,6 +242,125 @@ require = [{ private_mempool = true, when = { amount_usd = { gt = 5000 } } }]</c
 </p>
 `;
 
+const langChainHtml = `
+<p>
+  You wrap your agent in LangChain. LangChain wraps your agent's
+  <em>reasoning</em>: which tool to call, with which arguments, in
+  what order. That's load-bearing. But LangChain doesn't wrap the
+  <em>boundary</em> between "the agent decided" and "the action
+  executed." That's the gap SBO3L closes.
+</p>
+
+<h2>The five-line wire</h2>
+
+<p>Vanilla LangChain — the agent reasons, the tool fires, no audit:</p>
+
+<pre><code>const chain = createOpenAIToolsAgent({ llm, tools, prompt });
+const result = await chain.invoke({ input });
+// → tool calls happened. Where's the receipt?</code></pre>
+
+<p>With <code>@sbo3l/langchain</code> — same chain, plus a callback handler:</p>
+
+<pre><code>import { Sbo3lCallbackHandler } from "@sbo3l/langchain";
+
+const sbo3l = new Sbo3lCallbackHandler({
+  url: "http://localhost:8730",
+  agentId: "research-01",
+  onDeny: (reason) =&gt; logger.warn("policy deny:", reason),
+});
+
+const chain = createOpenAIToolsAgent({ llm, tools, prompt });
+const result = await chain.invoke({ input }, { callbacks: [sbo3l] });
+// → every tool call now produces a signed receipt
+// → policy denies surface as a tool_result with deny_code
+// → handler.receipts contains the full audit trail</code></pre>
+
+<h2>What changes</h2>
+
+<ul>
+  <li><strong>Every tool call has a signed receipt.</strong> Not a
+    callback log. Not a database row your daemon writes after the
+    fact. A cryptographic receipt produced <em>before</em> the
+    tool executes, signed with the daemon's Ed25519 key, with the
+    request hash and policy hash baked in.</li>
+  <li><strong>Policy denies are part of the chain output.</strong>
+    LangChain's standard tool-call result protocol carries the
+    deny code through to the LLM, so the agent can reason about
+    rejection ("I can't transfer that much; ask the user to lower
+    the amount") instead of crashing.</li>
+  <li><strong>The audit chain is queryable.</strong>
+    <code>handler.receipts</code> is a list of all the receipts
+    from this chain run. Hash-chained, exportable, replayable. Your
+    SOC 2 auditor doesn't ask "did the agent do something it
+    shouldn't?" — they ask "show me the receipts" and you ship the
+    list.</li>
+</ul>
+
+<h2>Why your CFO wants this</h2>
+
+<p>
+  Imagine the conversation when the LangChain-driven agent does
+  something expensive (or wrong, or both):
+</p>
+
+<table>
+  <thead><tr><th>Without SBO3L</th><th>With SBO3L</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>"What happened?" — engineer reconstructs from logs, OpenAI
+        traces, blockchain explorer, maybe LangSmith if they paid
+        for it. Hours of forensic work.</td>
+      <td>"What happened?" — engineer pulls capsule by request_hash,
+        verifies offline against the daemon's published Ed25519
+        pubkey, has cryptographic proof of what the agent decided
+        and what policy was in force. Minutes.</td>
+    </tr>
+    <tr>
+      <td>"Could it have been worse?" — uncertain. Logs might be
+        incomplete; the agent's reasoning chain is ephemeral.</td>
+      <td>"Could it have been worse?" — query the policy snapshot
+        referenced by <code>policy_hash</code>; show the rules that
+        prevented worse outcomes from firing.</td>
+    </tr>
+    <tr>
+      <td>"Who approved this?" — depends on which review you logged.
+        Not always available.</td>
+      <td>"Who approved this?" — the receipt's
+        <code>matched_rule_id</code> points at the exact policy
+        rule. The rule's git history shows who shipped it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>What this isn't</h2>
+
+<ul>
+  <li><strong>Not a LangChain replacement.</strong> The handler is
+    additive. Same agent, same tools, same prompts. SBO3L doesn't
+    second-guess the LLM's reasoning — it just enforces the boundary
+    around what the LLM can actually <em>do</em>.</li>
+  <li><strong>Not a free latency lunch.</strong> Each tool call
+    adds one round-trip to the daemon (typically &lt;1ms over Unix
+    socket, ~5ms over HTTP). For human-perceived latency this is
+    invisible; for high-frequency batch agents you can run the
+    daemon in-process via the Rust crate directly.</li>
+  <li><strong>Not a substitute for prompt engineering.</strong>
+    SBO3L can't stop the LLM from <em>trying</em> to call the wrong
+    tool — but it can stop the call from succeeding. The LLM gets
+    a deny code; your prompt should teach it to handle that
+    gracefully.</li>
+</ul>
+
+<h2>Try it</h2>
+
+<p>
+  The Node.js + Python LangChain adapter quickstart is at
+  <a href="/quickstart/langchain"><code>/quickstart/langchain</code></a>
+  — five minutes from <code>npm install</code> to your first
+  signed receipt against a local daemon.
+</p>
+`;
+
 export const ARTICLES: Article[] = [
   {
     slug: "tier-architecture",
@@ -274,6 +393,14 @@ export const ARTICLES: Article[] = [
     reading_min: 3,
     audience: "Treasury automation + DEX-trading agents",
     body_html: mevGuardHtml.trim(),
+  },
+  {
+    slug: "why-langchain-needs-sbo3l",
+    title: "Why LangChain needs SBO3L (and what changes when you wire them)",
+    description: "LangChain wraps your agent's reasoning. SBO3L wraps LangChain's tool calls in policy + signed audit. Five lines of code, one boundary your CFO understands.",
+    reading_min: 5,
+    audience: "LangChain devs already shipping agents in production",
+    body_html: langChainHtml.trim(),
   },
 ];
 
