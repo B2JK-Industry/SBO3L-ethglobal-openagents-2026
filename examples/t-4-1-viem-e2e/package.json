@@ -1,0 +1,23 @@
+{
+  "name": "@sbo3l/example-t-4-1-viem-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "T-4-1 closeout — viem E2E test against the deployed Sepolia OffchainResolver. Resolves an SBO3L sbo3l:* text record via the CCIP-Read gateway.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
