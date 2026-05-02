@@ -23,6 +23,7 @@ pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
 pub mod erc8004;
+pub mod policy_cid;
 pub mod reputation_publisher;
 pub mod time_window_gate;
 pub mod token_gate;
