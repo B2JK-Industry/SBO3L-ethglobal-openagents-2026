@@ -4,8 +4,11 @@ import BaseLayout from "~/layouts/BaseLayout.astro";
 
 export async function getStaticPaths() {
   const all = await getCollection("submissions");
+  // Astro 5: `entry.slug` is the auto-derived slug (filename without
+  // extension). Schema cannot declare its own `slug` field — that field
+  // is reserved by the content collection runtime.
   return all.map((entry) => ({
-    params: { bounty: entry.data.slug },
+    params: { bounty: entry.slug },
     props: { entry },
   }));
 }
@@ -15,9 +18,9 @@ const { Content } = await render(entry);
 
 // All other bounty entries — for the "view another" footer.
 const all = await getCollection("submissions");
-const others = all.filter((e) => e.data.slug !== entry.data.slug);
+const others = all.filter((e) => e.slug !== entry.slug);
 
-const shareUrl = `https://sbo3l-marketing.vercel.app/submission/${entry.data.slug}`;
+const shareUrl = `https://sbo3l-marketing.vercel.app/submission/${entry.slug}`;
 const shareText = `${entry.data.title} — SBO3L · ETHGlobal Open Agents 2026`;
 ---
 <BaseLayout
@@ -52,7 +55,7 @@ const shareText = `${entry.data.title} — SBO3L · ETHGlobal Open Agents 2026`;
         <h2>Other bounty submissions</h2>
         <ul>
           {others.map((o) => (
-            <li><a href={`/submission/${o.data.slug}`}>{o.data.title}</a></li>
+            <li><a href={`/submission/${o.slug}`}>{o.data.title}</a></li>
           ))}
         </ul>
       </aside>

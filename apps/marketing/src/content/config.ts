@@ -24,11 +24,15 @@ const blog = defineCollection({
 // prebuild. The source-of-truth lives in docs/submission/ alongside the
 // rest of the submission pack; the marketing site mirrors them so the
 // content site can render via Astro's content pipeline.
+//
+// NOTE: `slug` is a reserved field in Astro 5 — auto-derived from the
+// entry filename. Do NOT add it to the schema (causes
+// InvalidContentEntryDataError). The dynamic route [bounty].astro
+// uses `entry.id` (or `entry.slug`) to compute the URL.
 const submissions = defineCollection({
   type: "content",
   schema: z.object({
     title: z.string().min(1),
-    slug: z.string().min(1),
     audience: z.string().optional(),
     source_file: z.string().min(1),
   }),
