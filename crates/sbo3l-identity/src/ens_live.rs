@@ -177,6 +177,31 @@ impl<T: JsonRpcTransport> LiveEnsResolver<T> {
     pub fn network(&self) -> EnsNetwork {
         self.network
     }
+
+    /// Read a single ENS text record by raw key. Used by
+    /// `sbo3l agent verify-ens` (T-3-2) which needs to read keys
+    /// outside the canonical [`SBO3L_TEXT_KEYS`] set (e.g.
+    /// `sbo3l:pubkey_ed25519`, `sbo3l:capabilities`,
+    /// `sbo3l:policy_url`).
+    ///
+    /// Returns `Ok(None)` for empty / unset records (PublicResolver
+    /// convention: missing record → empty string), `Ok(Some(value))`
+    /// otherwise. Resolves the same two-step `resolver(node) +
+    /// text(node, key)` flow [`Self::resolve`] uses, just per-key
+    /// instead of a fixed five-key sweep.
+    pub fn resolve_raw_text(&self, name: &str, key: &str) -> Result<Option<String>, ResolveError> {
+        let node = namehash(name).map_err(|_| ResolveError::UnknownName(name.to_string()))?;
+        let resolver_addr = call_resolver(&self.transport, &node)?;
+        if is_zero_address(&resolver_addr) {
+            return Err(ResolveError::UnknownName(name.to_string()));
+        }
+        let value = call_text(&self.transport, &resolver_addr, &node, key)?;
+        if value.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(value))
+        }
+    }
 }
 
 impl LiveEnsResolver<ReqwestTransport> {

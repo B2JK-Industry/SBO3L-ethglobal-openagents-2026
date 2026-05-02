@@ -1,0 +1,8 @@
+[04-race] start 2026-05-02T05:42:01Z
+[chaos] firing 50 concurrent same-key POSTs
+[chaos] response histogram:
+  45 200
+   5 409
+PASS: audit chain grew by exactly 1 event despite 50 concurrent same-key POSTs
+PASS: 200=45 409=5 total=50
+[04-race] end 2026-05-02T05:48:28Z; failed=0
