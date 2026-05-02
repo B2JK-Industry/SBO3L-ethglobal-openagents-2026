@@ -24,7 +24,12 @@ services:
     command: ["sbo3l-server"]
     environment:
       SBO3L_ALLOW_UNAUTHENTICATED: "1"
-      SBO3L_BIND: "0.0.0.0:8730"
+      # Server reads SBO3L_LISTEN (not SBO3L_BIND); 0.0.0.0 binds to
+      # all interfaces — required so other containers in the compose
+      # network can reach this one. SBO3L_ALLOW_UNSAFE_PUBLIC_BIND
+      # acknowledges the non-loopback bind (the F-4 safety gate).
+      SBO3L_LISTEN: "0.0.0.0:8730"
+      SBO3L_ALLOW_UNSAFE_PUBLIC_BIND: "1"
     ports:
       - "8730:8730"
     healthcheck:
