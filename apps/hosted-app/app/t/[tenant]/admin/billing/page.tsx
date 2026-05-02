@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { tenantBySlug, userHasAccessTo } from "@/lib/tenants";
 import { billingForTenant, TIER_LIMITS, fmtNumber, type Tier } from "@/lib/tenant-billing";
 import { UpgradeButton } from "./UpgradeButton";
+import { PortalButton } from "./PortalButton";
 
 interface Props { params: Promise<{ tenant: string }> }
 
@@ -105,12 +106,16 @@ export default async function TenantBillingPage({ params }: Props): Promise<JSX.
                   their existing subscription). Upgrades remain on
                   Checkout where new-subscription semantics are correct.
                 */}
+                {/*
+                  Codex review fix (PR #360 follow-up): the previous
+                  "Downgrade via Customer Portal" was static text
+                  with no actionable button. Now wired to <PortalButton/>
+                  which POSTs to /api/billing/portal and redirects.
+                */}
                 {isCurrent ? (
                   <span style={{ fontSize: "0.85em", color: "var(--accent)" }}>● current plan</span>
                 ) : limits.monthly_usd < TIER_LIMITS[billing.tier].monthly_usd ? (
-                  <span style={{ fontSize: "0.78em", color: "var(--muted)" }}>
-                    Downgrade via Customer Portal
-                  </span>
+                  <PortalButton tenantSlug={slug} label="Downgrade in Customer Portal" />
                 ) : (
                   <UpgradeButton
                     tenantSlug={slug}
