@@ -3101,7 +3101,7 @@ dependencies = [
 
 [[package]]
 name = "research-agent"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3361,7 +3361,7 @@ checksum = "dd29631678d6fb0903b69223673e122c32e9ae559d0960a38d574695ebc0ea15"
 
 [[package]]
 name = "sbo3l-cli"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "alloy",
  "anyhow",
@@ -3391,7 +3391,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-core"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
@@ -3413,7 +3413,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-execution"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -3431,7 +3431,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-identity"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "hex",
  "reqwest",
@@ -3446,7 +3446,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-keeperhub-adapter"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -3461,7 +3461,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-mcp"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3487,7 +3487,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-policy"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -3505,7 +3505,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-server"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3535,7 +3535,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-storage"
-version = "1.0.1"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
