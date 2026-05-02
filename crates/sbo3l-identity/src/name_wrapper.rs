@@ -115,14 +115,23 @@ impl Fuse {
 /// Operator-controlled fuses (the ones in the `ownerControlledFuses`
 /// uint16 arg of `wrapETH2LD` and `setFuses`) live in the low 16
 /// bits. Parent-controlled fuses (`PARENT_CANNOT_CONTROL`,
-/// `IS_DOT_ETH`, `CAN_EXTEND_EXPIRY`) live in the high bits and
-/// pass through `setSubnodeRecord`'s `fuses` uint32 arg instead.
-pub fn fuses_bitmask(fuses: &[Fuse]) -> u32 {
+/// `CAN_EXTEND_EXPIRY`) live in the high bits and pass through
+/// `setSubnodeRecord`'s `fuses` uint32 arg instead.
+///
+/// `IS_DOT_ETH` is a NameWrapper-internal fuse — the contract sets
+/// it itself when a `.eth` 2LD is wrapped, and it is NOT in
+/// `USER_SETTABLE_FUSES`. Calls that include this bit revert at
+/// broadcast. We therefore reject it at calldata construction time
+/// rather than letting an operator discover the revert on chain.
+pub fn fuses_bitmask(fuses: &[Fuse]) -> Result<u32, NameWrapperError> {
     let mut out = 0u32;
     for f in fuses {
+        if matches!(f, Fuse::IS_DOT_ETH) {
+            return Err(NameWrapperError::InternalFuseNotSettable("IS_DOT_ETH"));
+        }
         out |= f.bit();
     }
-    out
+    Ok(out)
 }
 
 /// NameWrapper-side errors. Mirrors `AnchorError` shape so callers
@@ -135,6 +144,8 @@ pub enum NameWrapperError {
     LabelTooLong(usize),
     #[error("operator-controlled fuses must fit in uint16")]
     OwnerFusesOverflow,
+    #[error("fuse {0} is NameWrapper-internal and not user-settable; calldata including it would revert at broadcast")]
+    InternalFuseNotSettable(&'static str),
     #[error(transparent)]
     Anchor(#[from] AnchorError),
 }
@@ -339,18 +350,24 @@ mod tests {
 
     #[test]
     fn fuses_bitmask_combines_correctly() {
-        let bits = fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::CANNOT_TRANSFER]);
+        let bits = fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::CANNOT_TRANSFER]).unwrap();
         assert_eq!(bits, 0x0001 | 0x0004);
     }
 
     #[test]
     fn fuses_bitmask_handles_parent_fuses() {
-        let bits = fuses_bitmask(&[
-            Fuse::CANNOT_UNWRAP,
-            Fuse::PARENT_CANNOT_CONTROL,
-            Fuse::IS_DOT_ETH,
-        ]);
-        assert_eq!(bits, 0x0001 | 0x10000 | 0x20000);
+        let bits =
+            fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::PARENT_CANNOT_CONTROL]).unwrap();
+        assert_eq!(bits, 0x0001 | 0x10000);
+    }
+
+    #[test]
+    fn fuses_bitmask_rejects_is_dot_eth() {
+        // IS_DOT_ETH is NameWrapper-internal — calldata containing it
+        // reverts at broadcast. We surface the rejection at calldata
+        // build time so misuse is caught before any tx is sent.
+        let err = fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::IS_DOT_ETH]).unwrap_err();
+        assert!(matches!(err, NameWrapperError::InternalFuseNotSettable("IS_DOT_ETH")));
     }
 
     #[test]
@@ -358,7 +375,7 @@ mod tests {
         let cd = wrap_eth_2ld_calldata(
             "sbo3lagent",
             "0xdc7EFA6b4Bd77d1a406DE4727F0DF567e597D231",
-            fuses_bitmask(&[Fuse::CANNOT_UNWRAP]),
+            fuses_bitmask(&[Fuse::CANNOT_UNWRAP]).unwrap(),
             "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63",
         )
         .unwrap();
@@ -397,7 +414,7 @@ mod tests {
     fn set_fuses_happy_path() {
         let cd = set_fuses_calldata(
             "sbo3lagent.eth",
-            fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::CANNOT_BURN_FUSES]),
+            fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::CANNOT_BURN_FUSES]).unwrap(),
         )
         .unwrap();
         assert_eq!(&cd[..4], &SET_FUSES_SELECTOR);
@@ -430,7 +447,7 @@ mod tests {
             0,
             // Issue with PARENT_CANNOT_CONTROL + CANNOT_UNWRAP →
             // child sovereign.
-            fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::PARENT_CANNOT_CONTROL]),
+            fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::PARENT_CANNOT_CONTROL]).unwrap(),
             // Expiry = max-ish (year 2200ish).
             7_000_000_000,
         )

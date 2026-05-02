@@ -34,7 +34,7 @@
  * judge-facing, not test-suite-load-bearing.
  */
 
-import { createPublicClient, http, namehash } from 'viem';
+import { createPublicClient, encodeFunctionData, http, namehash } from 'viem';
 import { sepolia } from 'viem/chains';
 
 // Mirrors `sbo3l-identity::contracts::OFFCHAIN_RESOLVER_SEPOLIA`.
@@ -178,11 +178,17 @@ function dnsEncode(name: string): Uint8Array {
   const out: number[] = [];
   for (const label of name.split('.')) {
     if (!label) continue;
-    if (label.length > 63) {
-      throw new Error(`label too long: ${label.length} bytes`);
+    // DNS wire format prefixes each label with its UTF-8 *byte*
+    // length, NOT JavaScript's UTF-16 code-unit count. For non-ASCII
+    // labels (emoji, accents) the JS `.length` is smaller than the
+    // encoded byte count, which produces malformed names. Encode
+    // first, then prefix with the encoded length.
+    const encoded = new TextEncoder().encode(label);
+    if (encoded.length > 63) {
+      throw new Error(`label too long: ${encoded.length} bytes`);
     }
-    out.push(label.length);
-    for (const c of new TextEncoder().encode(label)) out.push(c);
+    out.push(encoded.length);
+    for (const c of encoded) out.push(c);
   }
   out.push(0);
   return new Uint8Array(out);
@@ -193,12 +199,9 @@ function encodeFunctionDataInline(
   abi: readonly { name: string; type: string; inputs: readonly { name: string; type: string }[] }[],
   args: readonly unknown[]
 ): `0x${string}` {
-  // Tiny shim around viem's encodeFunctionData. Imported lazily so
-  // a viem version that prefers the newer named-export API still
-  // works.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { encodeFunctionData } = require('viem');
-  // Cast because TS wants the strict viem ABI typing.
+  // Thin wrapper around viem's encodeFunctionData. Imported as a
+  // standard ESM named import — `require()` is undefined in this
+  // file's runtime (package.json has `"type": "module"`).
   return encodeFunctionData({
     abi: abi as never,
     functionName: fn as never,

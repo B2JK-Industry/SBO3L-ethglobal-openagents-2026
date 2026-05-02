@@ -140,7 +140,7 @@ DEPLOY_OUTPUT="$(
     --rpc-url "$RPC_URL" \
     --broadcast \
     --json \
-    --silent \
+    --quiet \
     2>&1
 )" || {
   echo "$DEPLOY_OUTPUT" >&2

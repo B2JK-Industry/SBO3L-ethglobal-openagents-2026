@@ -68,7 +68,11 @@ jobs:
 
   deploy-preview:
     name: Vercel preview deploy
-    if: github.event_name == 'pull_request'
+    # Skip on fork PRs and Dependabot — they don't get repo secrets, so
+    # the `vercel pull/build/deploy` calls would receive empty
+    # credentials and fail the check spuriously. Only run when the PR
+    # head ref lives in this repo.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 15

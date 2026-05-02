@@ -11,8 +11,8 @@ load-bearing for runtime authentication, policy enforcement, and
 audit-chain integrity.
 
 `sbo3lagent.eth` (mainnet, owned) carries seven `sbo3l:*` text
-records: `agent_id`, `endpoint`, `pubkey_ed25519`, `policy_url`,
-`policy_hash`, `audit_root`, `proof_uri`, `capabilities`. `policy_hash`
+records: `agent_id`, `endpoint`, `pubkey_ed25519`, `policy_hash`,
+`audit_root`, `proof_uri`, `capabilities`. `policy_hash`
 is the JCS+SHA-256 of the agent's active policy snapshot; any judge
 holding the ENS record and the daemon's `/v1/policy` endpoint can
 re-hash and prove non-drift independently. `audit_root` pins the

@@ -139,6 +139,25 @@ fn live_register_agent_calldata_targets_real_contract() {
         "expected `result` or `error` from eth_call; got {json}"
     );
 
+    if has_result {
+        // `eth_call` returns `"0x"` (zero bytes) when the target
+        // address has no code at all (EOA) or when a contract returns
+        // an empty payload. Treating that as success is a false
+        // positive — it lets a misconfigured `SBO3L_ERC8004_ADDR`
+        // pointing at an EOA pass the test. Require the result to be
+        // a non-empty hex string. ABI-encoded returns are 32-byte
+        // aligned, so we accept any length ≥ 2 (the "0x" prefix) +
+        // 64 hex chars = 66, but in practice anything > 2 indicates
+        // real contract execution.
+        let result_str = json["result"]
+            .as_str()
+            .expect("`result` field is a string per JSON-RPC spec");
+        assert!(
+            result_str.len() > 2 && result_str.starts_with("0x"),
+            "`eth_call` returned empty `\"0x\"` — target at {registry_hex} has no code or returned empty. Did SBO3L_ERC8004_ADDR get pointed at an EOA?"
+        );
+    }
+
     if let Some(err) = json.get("error") {
         let msg = err.get("message").and_then(|m| m.as_str()).unwrap_or("");
         assert!(

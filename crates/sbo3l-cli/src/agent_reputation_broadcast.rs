@@ -154,6 +154,25 @@ pub async fn cmd_broadcast(args: ReputationPublishArgs, network: EnsNetwork) -> 
     };
     println!("  chain_id:       {chain_id}");
 
+    // Refuse if RPC chain id doesn't match `--network`. Otherwise an
+    // operator passing `--network sepolia` with a mainnet RPC silently
+    // sends `setText` to the wrong chain (with the right resolver
+    // address shape, since ENS Public Resolvers live at different
+    // mainnet/Sepolia addresses but EOAs may collide on chain).
+    let expected_chain_id = match network {
+        EnsNetwork::Mainnet => 1u64,
+        EnsNetwork::Sepolia => 11_155_111u64,
+    };
+    if chain_id != expected_chain_id {
+        eprintln!(
+            "sbo3l agent reputation-publish --broadcast: --network {} expects chain_id {}, but RPC reports {}. Refusing to broadcast against mismatched chain.",
+            network.as_str(),
+            expected_chain_id,
+            chain_id
+        );
+        return ExitCode::from(2);
+    }
+
     let resolver_addr: Address = resolver.into();
     let tx = TransactionRequest::default()
         .with_to(resolver_addr)

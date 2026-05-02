@@ -70,6 +70,10 @@ error InvalidAuditRoot();
 error CallerNotTenantOwner(address caller, address expected);
 error TenantAlreadyClaimed(bytes32 tenantId, address existingOwner);
 error TenantNotClaimed(bytes32 tenantId);
+error CallerNotAdmin(address caller, address expected);
+error TenantHasAnchors(bytes32 tenantId, uint256 anchorCount);
+
+event TenantOwnerReassigned(bytes32 indexed tenantId, address indexed previousOwner, address indexed newOwner);
 
 contract AnchorRegistry {
     /// @notice One anchor record. Stored verbatim in `_anchors[tenantId][sequence]`.
@@ -105,6 +109,27 @@ contract AnchorRegistry {
     ///         written at sequence position `sequence`.
     mapping(bytes32 => mapping(uint256 => Anchor)) internal _anchors;
 
+    /// @notice Admin address with the limited power to reassign a
+    ///         tenant *that has not yet published any anchors*. This
+    ///         exists to mitigate the front-running squat attack
+    ///         (a mempool watcher submits the same `claimTenant` with
+    ///         higher gas to lock out the legitimate operator).
+    ///
+    ///         The admin CANNOT reassign a tenant once any anchor has
+    ///         been published — that would be retroactive history
+    ///         tampering, which the append-only invariant forbids.
+    ///         The admin is therefore strictly weaker than tenant
+    ///         ownership: it can only undo squats, not rewrite truth.
+    ///
+    ///         Production deployments should bind this to a multi-sig
+    ///         (or to address(0) for fully trustless operation, in
+    ///         which case the squat-recovery path becomes a redeploy).
+    address public immutable admin;
+
+    constructor(address admin_) {
+        admin = admin_;
+    }
+
     /// @notice Claim a tenant_id. The first caller becomes the
     ///         permanent owner; subsequent calls revert with
     ///         `TenantAlreadyClaimed`. Tenants are identified by
@@ -117,6 +142,25 @@ contract AnchorRegistry {
         address existing = tenantOwner[tenantId];
         if (existing != address(0)) revert TenantAlreadyClaimed(tenantId, existing);
         tenantOwner[tenantId] = msg.sender;
+    }
+
+    /// @notice Admin-only: reassign a tenant whose owner squatted via
+    ///         front-running. Strictly bounded: ONLY callable by
+    ///         `admin`, and ONLY when the tenant has not yet
+    ///         published any anchors (`nextSequence == 0`). This
+    ///         preserves the append-only / no-retroactive-tampering
+    ///         invariant: a tenant with even one anchor is
+    ///         immutable forever.
+    /// @param  tenantId   Tenant to reassign.
+    /// @param  newOwner   Address that becomes the new owner.
+    function reassignTenant(bytes32 tenantId, address newOwner) external {
+        if (msg.sender != admin) revert CallerNotAdmin(msg.sender, admin);
+        if (tenantId == bytes32(0)) revert InvalidTenantId();
+        uint256 anchors = nextSequence[tenantId];
+        if (anchors != 0) revert TenantHasAnchors(tenantId, anchors);
+        address prev = tenantOwner[tenantId];
+        tenantOwner[tenantId] = newOwner;
+        emit TenantOwnerReassigned(tenantId, prev, newOwner);
     }
 
     /// @notice Publish an anchor under a claimed tenant. Caller MUST

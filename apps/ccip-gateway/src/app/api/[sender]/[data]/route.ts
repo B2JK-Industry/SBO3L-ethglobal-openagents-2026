@@ -24,6 +24,7 @@ import type { Hex } from "viem";
 import { decodeResolverCall } from "@/lib/ens";
 import { lookupByNode } from "@/lib/records";
 import {
+  encodeAddressResult,
   encodeEmptyStringResult,
   encodeStringResult,
   signGatewayResponse,
@@ -97,10 +98,12 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const value = agent.records[decoded.key] ?? "";
     resultBytes = encodeStringResult(value);
   } else {
-    // addr(node) — for now, return zero address. Agents don't have
-    // their own EVM addresses bound at the resolver level in T-4-1;
-    // T-4-2 ERC-8004 entry carries the address.
-    resultBytes = encodeStringResult("");
+    // addr(node) — return zero address. Agents don't have their own
+    // EVM addresses bound at the resolver level in T-4-1; T-4-2
+    // ERC-8004 entry carries the address. MUST encode as ABI-encoded
+    // address (32-byte word), NOT as `string`, or viem.getEnsAddress
+    // mis-decodes the (offset, length) header as an address.
+    resultBytes = encodeAddressResult("0x0000000000000000000000000000000000000000");
   }
 
   try {

@@ -37,7 +37,12 @@ pragma solidity ^0.8.24;
 ///      bound to the registry contract — sigs from a copy of this
 ///      contract on a different address don't validate (the
 ///      contract address is part of the digest).
-bytes32 constant DOMAIN = keccak256("SBO3L-Reputation-Registry-v1");
+// v2 bumps the digest to bind block.chainid alongside address(this).
+// Without chainid, an EOA deploying the same bytecode at the same
+// nonce on Sepolia + mainnet produces collidable contract addresses,
+// and a signature crafted for one chain replays on the other. v2
+// closes that. v1 was the deployed Sepolia version (immutable).
+bytes32 constant DOMAIN = keccak256("SBO3L-Reputation-Registry-v2");
 
 event ReputationWritten(
     bytes32 indexed tenantId,
@@ -208,12 +213,13 @@ contract SBO3LReputationRegistry {
 
     /// @dev Internal digest builder. Binds tenantId + agent + score
     ///      + chainHeadBlock + sequence + DOMAIN + this contract
-    ///      address into one 32-byte hash. Signers signing this
-    ///      hash can't have their sigs replayed across:
+    ///      address + block.chainid into one 32-byte hash. Signers
+    ///      signing this hash can't have their sigs replayed across:
     ///      - different sequence positions (sequence in payload)
     ///      - different agents (agent in payload)
     ///      - different scores (score in payload)
     ///      - different contracts (address(this) in payload)
+    ///      - different chains (block.chainid in payload — v2)
     ///      - different schemes (DOMAIN constant in payload)
     function _digestFor(
         bytes32 tenantId,
@@ -226,6 +232,7 @@ contract SBO3LReputationRegistry {
             abi.encodePacked(
                 hex"1900",
                 address(this),
+                block.chainid,
                 DOMAIN,
                 tenantId,
                 agent,

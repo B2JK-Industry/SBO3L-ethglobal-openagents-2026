@@ -156,12 +156,25 @@ where
     let mut total: u64 = 0;
 
     for event in events {
-        total += 1;
         match event.decision.as_str() {
-            "allow" if event.executor_confirmed => clean_count += 1,
-            "allow" => allow_unconfirmed += 1,
-            "deny" => deny_weighted += age_weight(event.age),
-            _ => {} // unknown decisions ignored — don't punish them
+            "allow" if event.executor_confirmed => {
+                clean_count += 1;
+                total += 1;
+            }
+            "allow" => {
+                allow_unconfirmed += 1;
+                total += 1;
+            }
+            "deny" => {
+                deny_weighted += age_weight(event.age);
+                total += 1;
+            }
+            // Unknown decisions are ignored — they MUST NOT contribute
+            // to `total` either, otherwise clean_ratio and
+            // weighted_deny_ratio shrink for callers whose history
+            // happens to contain unknown-kind events (silently
+            // depressing scores for clean agents).
+            _ => {}
         }
     }
 
@@ -335,16 +348,41 @@ mod tests {
 
     #[test]
     fn v2_unknown_decisions_are_ignored() {
-        // Unknown decisions don't count for or against.
+        // Unknown decisions MUST NOT contribute to the denominator —
+        // otherwise an agent that happens to have queue/rate_limit
+        // events in its history is silently penalised below an
+        // identical clean agent. Pre-2026-05-02 this test asserted
+        // 55 (the buggy diluted output); the fix to compute_reputation_v2
+        // restores the documented "don't punish them" semantic.
         let r = compute_reputation_v2(vec![
             ev("allow", true, 0),
             ev("queue", false, 0),
             ev("rate_limited", false, 0),
         ]);
-        // total=3, clean=1 (1/3 ≈ 0.333), no denies, confirm=1/1=1.0,
-        // stability_bonus = 0.03.
-        // 60 * 0.333 + 20 * 1.0 + 15 * 1.0 + 5 * 0.03 = 55.15 → 55
-        assert_eq!(r.as_u8(), 55);
+        // total=1 (only the allow counts), clean=1, confirm=1/1=1.0,
+        // stability_bonus = 1/100 = 0.01.
+        // 60 * 1.0 + 20 * 1.0 + 15 * 1.0 + 5 * 0.01 = 95.05 → 95
+        assert_eq!(r.as_u8(), 95);
+    }
+
+    #[test]
+    fn v2_unknown_decisions_dont_dilute_clean_score() {
+        // Regression test for the diluted-denominator bug. An agent
+        // with 10 clean events should score the same as the same agent
+        // with 10 clean + 100 unknown events — the unknowns should
+        // not pull the score down at all.
+        let clean: Vec<_> = (0..10).map(|_| ev("allow", true, 0)).collect();
+        let baseline = compute_reputation_v2(clean.clone());
+
+        let mut mixed = clean;
+        mixed.extend((0..100).map(|_| ev("queue", false, 0)));
+        let mixed_score = compute_reputation_v2(mixed);
+
+        assert_eq!(
+            baseline.as_u8(),
+            mixed_score.as_u8(),
+            "unknown-decision events must not dilute clean scores"
+        );
     }
 
     #[test]

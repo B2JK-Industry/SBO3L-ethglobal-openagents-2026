@@ -51,6 +51,7 @@ error CallerNotOperator(address caller, address expected);
 error NoRefundOwed(address bidder, uint256 id);
 error RefundFailed(uint256 amount);
 error PayoutFailed(uint256 amount);
+error NoOperatorProceedsOwed(address operator);
 
 event AuctionCreated(
     uint256 indexed id,
@@ -78,6 +79,10 @@ event AuctionSettled(
 event AuctionUnsold(uint256 indexed id, string label);
 
 event RefundWithdrawn(uint256 indexed id, address indexed bidder, uint256 amount);
+
+event OperatorProceedsAccrued(uint256 indexed id, address indexed operator, uint256 amount);
+
+event OperatorProceedsWithdrawn(address indexed operator, uint256 amount);
 
 contract SBO3LSubnameAuction {
     /// @notice Minimum bid increment over the current high bid, in
@@ -114,6 +119,15 @@ contract SBO3LSubnameAuction {
     ///         can't lock the auction with a revert-on-receive
     ///         contract.
     mapping(uint256 => mapping(address => uint256)) internal _refundsOwed;
+
+    /// @notice Per-operator settled-auction proceeds. After `settle`
+    ///         credits the winning bid here, the operator pulls via
+    ///         `withdrawOperatorProceeds`. Pull-pattern protects
+    ///         settlement from a misconfigured operator address (e.g.
+    ///         a contract with a reverting `receive`) — without this,
+    ///         a push-style transfer in `settle` would brick the
+    ///         auction permanently.
+    mapping(address => uint256) internal _operatorProceeds;
 
     /// @notice Create an auction. Caller becomes the operator entitled
     ///         to the winning bid on settlement.
@@ -170,7 +184,15 @@ contract SBO3LSubnameAuction {
             if (msg.value < a.reserve) revert BidBelowReserve(msg.value, a.reserve);
         } else {
             // Subsequent bid — must beat current high by min increment.
-            uint256 minRequired = a.highBid + (a.highBid * MIN_INCREMENT_BPS) / 10_000;
+            // Floor the increment at 1 wei so tiny bids (highBid <
+            // 10_000 / MIN_INCREMENT_BPS) can't be replaced by an
+            // equal bid; otherwise integer truncation makes the
+            // computed increment 0 and `minRequired == highBid`.
+            uint256 increment = (a.highBid * MIN_INCREMENT_BPS) / 10_000;
+            if (increment == 0) {
+                increment = 1;
+            }
+            uint256 minRequired = a.highBid + increment;
             if (msg.value < minRequired) {
                 revert BidIncrementTooSmall(msg.value, minRequired);
             }
@@ -223,8 +245,23 @@ contract SBO3LSubnameAuction {
         uint256 winningBid = a.highBid;
         emit AuctionSettled(id, a.highBidder, a.label, winningBid);
 
-        (bool ok, ) = payable(a.operator).call{value: winningBid}("");
-        if (!ok) revert PayoutFailed(winningBid);
+        // Pull-pattern proceeds — settle is permissionless ("anyone can
+        // call after end time") so a push transfer to a contract-typed
+        // operator with a reverting `receive` would otherwise brick the
+        // settle path forever and trap the winning bid in this contract.
+        _operatorProceeds[a.operator] += winningBid;
+        emit OperatorProceedsAccrued(id, a.operator, winningBid);
+    }
+
+    /// @notice Withdraw queued settlement proceeds for the calling
+    ///         operator. Pull-pattern; mirrors `withdrawRefund`.
+    function withdrawOperatorProceeds() external returns (uint256 amount) {
+        amount = _operatorProceeds[msg.sender];
+        if (amount == 0) revert NoOperatorProceedsOwed(msg.sender);
+        _operatorProceeds[msg.sender] = 0;
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        if (!ok) revert PayoutFailed(amount);
+        emit OperatorProceedsWithdrawn(msg.sender, amount);
     }
 
     /// @notice Read an auction's full state. Returns the zero-shape
@@ -236,6 +273,13 @@ contract SBO3LSubnameAuction {
     /// @notice Read the queued refund balance for (auction, bidder).
     function refundOwed(uint256 id, address bidder) external view returns (uint256) {
         return _refundsOwed[id][bidder];
+    }
+
+    /// @notice Read the queued settlement-proceeds balance for an
+    ///         operator. Pull-pattern; operator calls
+    ///         `withdrawOperatorProceeds` to claim.
+    function operatorProceeds(address operator) external view returns (uint256) {
+        return _operatorProceeds[operator];
     }
 
     /// @notice ERC-165 advertisement. Currently advertises only IERC165;
