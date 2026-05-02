@@ -15,6 +15,7 @@
 //! be added without touching call sites.
 
 pub mod ccip_read;
+pub mod cross_agent;
 pub mod cross_chain;
 pub mod durin;
 pub mod ens;
@@ -29,6 +30,11 @@ pub use ccip_read::{
     decode_gateway_data, decode_gateway_response_body, decode_string_result,
     parse_offchain_lookup_revert, CcipError, GatewayBody, GatewayResponse, OffchainLookup,
     OFFCHAIN_LOOKUP_SELECTOR,
+};
+pub use cross_agent::{
+    build_challenge, sign_challenge, verify_challenge, CrossAgentChallenge, CrossAgentError,
+    CrossAgentReject, CrossAgentTrust, PubkeyResolver, SignedChallenge, CHALLENGE_SCHEMA,
+    FRESHNESS_WINDOW_MS, PUBKEY_RECORD_KEY, TRUST_SCHEMA,
 };
 pub use cross_chain::{
     build_set_attestation_calldata, commit_report, compute_eip712_digest, from_text_record,

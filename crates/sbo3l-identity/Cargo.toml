@@ -19,9 +19,18 @@ sbo3l-core = { workspace = true }
 sbo3l-policy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# T-3-4 cross-agent: JCS canonicalisation for the signed-challenge
+# wire format so two agents on different stacks see byte-identical
+# signing input.
+serde_json_canonicalizer = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
+# T-3-4 cross-agent: Ed25519 sign / verify for peer challenges. The
+# CLI side uses sbo3l-core's signer infrastructure; this crate
+# verifies a peer's signature directly against the pubkey it pulls
+# via getEnsText, so dalek lives here too.
+ed25519-dalek = { workspace = true }
 # B3 anchor side + LiveEnsResolver: keccak256 for ENS namehash and
 # function selectors. Crate-local (not workspace) to keep blast
 # radius small — only the live-resolver and anchor-envelope paths
