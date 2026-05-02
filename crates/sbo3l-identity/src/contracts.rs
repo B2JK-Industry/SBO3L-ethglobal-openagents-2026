@@ -145,21 +145,34 @@ pub const UNIVERSAL_RESOLVER_SEPOLIA: ContractPin = ContractPin {
 // SBO3L deployments (we control the private key)
 // ============================================================
 
-/// SBO3L OffchainResolver on Sepolia (T-4-1 deploy). Deployed and
-/// verified live; the Sepolia anchor for every CCIP-Read demo. Pair
-/// the gateway URL `sbo3l-ccip.vercel.app` for the full off-chain
-/// extension flow.
+/// SBO3L OffchainResolver on Sepolia (T-4-1 redeploy 2026-05-03).
+/// Deployed and verified live; the Sepolia anchor for every CCIP-Read
+/// demo. Pair the gateway URL `sbo3l-ccip.vercel.app` for the full
+/// off-chain extension flow.
 ///
-/// Migration plan (mainnet): the same `forge create` script with
+/// **Heidi UAT bug #2 fix (2026-05-03)**: the previous deploy at
+/// `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` stored a malformed
+/// URL template (`"...{sender/{data}.json}"` — closing `}` after
+/// `sender` migrated to the end) because of `forge create
+/// --constructor-args` brace-rebalancing. The new deploy was issued
+/// via the forge SCRIPT wrapper at
+/// `script/DeployOffchainResolver.s.sol` which encodes the URL as a
+/// Solidity string literal so CLI parsing never touches it. Live
+/// wired to `research-agent.sbo3lagent.eth` Sepolia subname (PR
+/// #390) and verifiable via the
+/// `tests/sepolia_or_live.rs::new_or_url_template_is_canonical`
+/// probe.
+///
+/// Migration plan (mainnet): the same forge script with
 /// `NETWORK=mainnet SBO3L_ALLOW_MAINNET_TX=1` produces the mainnet
-/// counterpart; pin its address as
-/// `OFFCHAIN_RESOLVER_MAINNET` once Daniel's deploy lands.
+/// counterpart; pin its address as `OFFCHAIN_RESOLVER_MAINNET` once
+/// Daniel's deploy lands.
 pub const OFFCHAIN_RESOLVER_SEPOLIA: ContractPin = ContractPin {
-    address: "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+    address: "0x87e99508C222c6E419734CACbb6781b8d282b1F6",
     network: Network::Sepolia,
-    label: "SBO3L OffchainResolver (Sepolia, T-4-1 deploy)",
+    label: "SBO3L OffchainResolver (Sepolia, T-4-1 redeploy 2026-05-03)",
     canonical_source:
-        "https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+        "https://sepolia.etherscan.io/address/0x87e99508C222c6E419734CACbb6781b8d282b1F6",
 };
 
 // ============================================================
@@ -468,9 +481,13 @@ mod tests {
     /// drift.
     #[test]
     fn offchain_resolver_sepolia_pinned_to_known_deploy() {
+        // Updated 2026-05-03: redeployed to fix Heidi UAT bug #2
+        // (malformed URL template). Old address
+        // `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` is orphaned on
+        // chain but no longer pinned anywhere.
         assert_eq!(
             OFFCHAIN_RESOLVER_SEPOLIA.address,
-            "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3"
+            "0x87e99508C222c6E419734CACbb6781b8d282b1F6"
         );
         assert_eq!(OFFCHAIN_RESOLVER_SEPOLIA.network, Network::Sepolia);
     }
