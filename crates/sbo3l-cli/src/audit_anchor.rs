@@ -1,4 +1,4 @@
-//! `sbo3l audit anchor` — Phase 3.1 broadcast pipeline.
+//! `sbo3l audit anchor` — broadcast an audit-root anchor on-chain.
 //!
 //! Builds the Dev-4-pinned [`AnchorRegistry.publishAnchor`] calldata
 //! over the local audit chain head and either prints a dry-run
