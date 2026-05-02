@@ -1,0 +1,44 @@
+# cargo-mutants config (R13 P2).
+#
+# Drives weekly mutation testing on sbo3l-core, sbo3l-policy, sbo3l-identity.
+# Goal: 90%+ mutation kill rate across these three crates. Alive
+# mutations file GitHub issues for triage.
+#
+# Local run:
+#   cargo install cargo-mutants
+#   cargo mutants --in-place --package sbo3l-core
+#
+# Reference: https://mutants.rs/
+
+# Only mutate the listed packages. Other workspace members (server, cli,
+# adapters) are out-of-scope for the initial run since they are mostly
+# wiring — the high-leverage code is in core/policy/identity.
+test_package = ["sbo3l-core", "sbo3l-policy", "sbo3l-identity"]
+
+# Skip files that are generated, vendored, or otherwise not target code.
+exclude_globs = [
+    "**/build.rs",
+    "**/wasm.rs",
+    "**/wasm_types.rs",
+    "**/mock_kms.rs",
+    "**/tests/**",
+    "**/benches/**",
+]
+
+# Skip individual functions that mutation-testing struggles with.
+exclude_re = [
+    # WASM glue functions are exercised through wasm-pack tests, not unit tests
+    "^wasm_.*",
+]
+
+# Per-mutant timeout. cargo-mutants default is 300s; we use 180 since
+# our test suite is fast (regression-on-main runs in ~3 min total).
+timeout = 180
+
+# Minimum line of test output to capture for triage.
+output = "mutants.out"
+
+# Run cargo test with `--release` to match production execution
+# semantics (avoids debug-only `assert!` paths inflating kill rate).
+test_tool = "cargo"
+test_args = ["--release"]
