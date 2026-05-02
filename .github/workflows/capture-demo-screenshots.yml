@@ -87,12 +87,23 @@ jobs:
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "made_changes=true" >> "$GITHUB_OUTPUT"
 
-      - name: Open auto-PR
+      - name: Open auto-PR (fall back to manual link on org-policy block)
         if: inputs.open_pr == true && steps.branch.outputs.made_changes == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.SCREENSHOT_BOT_PAT || github.token }}
         run: |
-          gh pr create \
+          # Self-review fix: previously this step failed the whole run when
+          # the org has "Allow GitHub Actions to create and approve PRs"
+          # disabled. The branch + screenshots already pushed successfully
+          # but the workflow status went red, hiding the fact that the
+          # capture itself worked.
+          #
+          # New behavior: try gh pr create; if it returns the known org-
+          # policy error, print a one-click compare URL in the job summary
+          # so Daniel opens the PR manually. Branch + artifact still
+          # available either way.
+          set +e
+          pr_output=$(gh pr create \
             --base main \
             --head "${{ steps.branch.outputs.branch }}" \
             --title "chore(marketing): refresh /demo screenshots" \
@@ -102,11 +113,38 @@ jobs:
           - \`.svg\` placeholder references swapped to \`.png\` in 3 demo pages
           - \`.svg\` placeholder files removed; \`.placeholder-step.svg\` (artist source) kept
 
-          Triggered by @${{ github.actor }} via \`workflow_dispatch\`.
+          Triggered by @${{ github.actor }} via \`workflow_dispatch\`." 2>&1)
+          create_rc=$?
+          set -e
 
-          Auto-merge enabled below."
-          pr_number=$(gh pr list --head "${{ steps.branch.outputs.branch }}" --json number -q '.[0].number')
-          gh pr merge "$pr_number" --auto --squash --delete-branch
+          if [ "$create_rc" -eq 0 ]; then
+            echo "Opened PR: $pr_output"
+            pr_number=$(gh pr list --head "${{ steps.branch.outputs.branch }}" --json number -q '.[0].number')
+            gh pr merge "$pr_number" --auto --squash --delete-branch
+            exit 0
+          fi
+
+          if echo "$pr_output" | grep -q "GitHub Actions is not permitted to create or approve pull requests"; then
+            branch="${{ steps.branch.outputs.branch }}"
+            manual_url="https://github.com/${{ github.repository }}/compare/main...${branch}?quick_pull=1&title=chore(marketing)%3A+refresh+%2Fdemo+screenshots"
+            {
+              echo "## Auto-PR blocked by org policy"
+              echo
+              echo "Branch \`$branch\` pushed with captured screenshots, but the org has"
+              echo "\"Allow GitHub Actions to create and approve pull requests\" disabled."
+              echo
+              echo "**One-click PR:** [${manual_url}](${manual_url})"
+              echo
+              echo "To unblock permanently:"
+              echo "- Enable Settings → Actions → General → \"Allow GitHub Actions to create and approve pull requests\", OR"
+              echo "- Add a fine-grained PAT with \`pull-requests: write\` as repo secret \`SCREENSHOT_BOT_PAT\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::auto-PR blocked by org policy; branch pushed and screenshots uploaded as artifact. See run summary for one-click PR link."
+            exit 0
+          fi
+
+          echo "::error::gh pr create failed: $pr_output"
+          exit 1
 
       - name: Upload screenshots as artifact
         if: always()
