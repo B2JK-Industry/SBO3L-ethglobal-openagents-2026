@@ -6,7 +6,7 @@
  */
 
 import recordsRaw from "../../data/records.json";
-import { namehash } from "./ens.js";
+import { namehash } from "./ens";
 
 type RecordsFile = Record<string, Record<string, string>>;
 
