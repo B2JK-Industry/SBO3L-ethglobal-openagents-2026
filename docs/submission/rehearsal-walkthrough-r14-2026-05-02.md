@@ -110,7 +110,7 @@
 3. ☐ At `/proof`, drop `test-corpus/passport/v2_golden_001_minimal.json` — confirm 6/6 ✅.
 4. ☐ At `/proof`, paste a tampered capsule (flip 1 byte in `audit_chain[0].payload_hash`) — confirm ❌.
 5. ☐ `cargo install sbo3l-cli --version 1.2.0` — confirm `sbo3l --version` → `sbo3l 1.2.0`.
-6. ☐ `sbo3l passport resolve sbo3lagent.eth` — confirm 5 records.
+6. ☐ `sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` — confirm 5 records.
 
 Optional but powerful (requires funded Sepolia wallet):
 

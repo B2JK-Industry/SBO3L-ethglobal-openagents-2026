@@ -39,7 +39,7 @@ T-4-2 — agents register their `agent_id` + canonical pubkey in the ERC-8004 Id
 ## Live verification
 
 - **CCIP gateway:** https://sbo3l-ccip.vercel.app/ + smoke fail-mode `/api/0xdeadbeef/0x12345678.json` returns 400 (correct rejection of invalid sender) per [`docs/submission/url-evidence.md`](url-evidence.md)
-- **CLI resolve dynamic record:** `sbo3l passport resolve research-agent.sbo3lagent.eth --records sbo3l:reputation` — gateway hit, signed response verified
+- **CLI resolve dynamic record:** `sbo3l agent verify-ens research-agent.sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` — gateway hit, signed response verified
 - **Mainnet apex byte-match:** `sbo3l-identity` CI test asserts the on-chain `policy_hash` byte-matches the offline fixture (no drift)
 - **Reputation 4-criteria scoring tests:** `crates/sbo3l-policy/src/reputation.rs` + integration test fleet (PR #126 ✅)
 
