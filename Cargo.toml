@@ -64,6 +64,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 tempfile = "3"
 
+# property-based testing (R13 P1) — used as dev-dep in sbo3l-core for
+# invariants that must hold across any input (APRP roundtrip, hash
+# determinism, audit chain linkage, capsule tamper-detection). Default
+# 256 cases; long-run mode bumps to 100K via env var (see
+# crates/sbo3l-core/tests/proptest_invariants.rs).
+proptest = "1"
+
 # server / client
 axum = "0.7"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

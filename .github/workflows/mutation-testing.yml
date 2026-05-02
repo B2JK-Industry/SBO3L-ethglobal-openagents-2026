@@ -1,0 +1,168 @@
+name: Mutation testing
+
+# R13 P2 — cargo-mutants weekly mutation testing on sbo3l-core,
+# sbo3l-policy, sbo3l-identity. Goal: 90%+ kill rate. Alive mutations
+# file GitHub issues for triage.
+#
+# Reference: https://mutants.rs/
+#
+# Local run:
+#   cargo install cargo-mutants
+#   cargo mutants --in-place --package sbo3l-core
+
+on:
+  schedule:
+    # Weekly Sunday 02:00 UTC — full mutation run is ~30-90 min.
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Comma-separated package list (default: core,policy,identity)"
+        required: false
+        default: "sbo3l-core,sbo3l-policy,sbo3l-identity"
+      file:
+        description: "Specific file to mutate (e.g. crates/sbo3l-core/src/aprp.rs)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  mutants:
+    name: Mutate ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - sbo3l-core
+          - sbo3l-policy
+          - sbo3l-identity
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Filter package
+        id: filter
+        run: |
+          requested="${{ inputs.packages }}"
+          if [[ -z "$requested" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [[ ",$requested," == *",${{ matrix.package }},"* ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping ${{ matrix.package }} (not in $requested)"
+          fi
+
+      - name: Install Rust + cargo-mutants
+        if: steps.filter.outputs.run == 'true'
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          cargo install cargo-mutants --version "^25"
+
+      - name: Cache cargo
+        if: steps.filter.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: mutants-${{ matrix.package }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+
+      - name: Run cargo-mutants
+        if: steps.filter.outputs.run == 'true'
+        env:
+          FILE_FILTER: ${{ inputs.file }}
+        run: |
+          ARGS=(--package ${{ matrix.package }} --output mutants.out --json)
+          if [[ -n "$FILE_FILTER" ]]; then
+            ARGS+=(--file "$FILE_FILTER")
+          fi
+          cargo mutants "${ARGS[@]}" || true
+          # Print summary regardless of exit code; we summarize from the JSON below.
+          echo "::notice::cargo-mutants finished — see summary step"
+
+      - name: Summarize results
+        if: steps.filter.outputs.run == 'true'
+        id: summary
+        run: |
+          if [[ ! -d mutants.out ]]; then
+            echo "::warning::no mutants.out directory; cargo-mutants likely failed early"
+            echo "kill_rate=0" >> "$GITHUB_OUTPUT"
+            echo "alive=0" >> "$GITHUB_OUTPUT"
+            echo "missed=0" >> "$GITHUB_OUTPUT"
+            echo "caught=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Aggregate per-mutant outcomes from outcomes.json.
+          python3 - <<'PY'
+          import json, os
+          path = "mutants.out/outcomes.json"
+          try:
+              with open(path) as f:
+                  outcomes = json.load(f)
+          except FileNotFoundError:
+              outcomes = []
+          tally = {}
+          for o in outcomes:
+              s = o.get("summary", "unknown")
+              tally[s] = tally.get(s, 0) + 1
+          caught = tally.get("CAUGHT", 0)
+          missed = tally.get("MISSED", 0)
+          timeout = tally.get("TIMEOUT", 0)
+          unviable = tally.get("UNVIABLE", 0)
+          total = caught + missed + timeout + unviable
+          kill_rate = (caught / max(1, caught + missed)) * 100 if (caught + missed) else 0.0
+          print(f"caught={caught} missed={missed} timeout={timeout} unviable={unviable} kill_rate={kill_rate:.1f}%")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"kill_rate={kill_rate:.1f}\n")
+              f.write(f"caught={caught}\n")
+              f.write(f"missed={missed}\n")
+              f.write(f"alive={missed}\n")
+          PY
+
+      - name: Upload mutants.out
+        if: steps.filter.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-${{ matrix.package }}
+          path: mutants.out/
+          if-no-files-found: ignore
+
+      - name: Open issue if kill rate < 90%
+        if: steps.filter.outputs.run == 'true' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const killRate = parseFloat('${{ steps.summary.outputs.kill_rate }}') || 0;
+            const alive = parseInt('${{ steps.summary.outputs.alive }}', 10) || 0;
+            if (killRate >= 90.0 && alive === 0) {
+              core.notice(`✅ ${{ matrix.package }} mutation kill rate ${killRate.toFixed(1)}% — above 90% target.`);
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🧬 Mutation kill rate < 90% on ${{ matrix.package }} (${killRate.toFixed(1)}%)`,
+              body: [
+                `Weekly mutation run found **${alive} alive mutation(s)** in \`${{ matrix.package }}\`. Kill rate: **${killRate.toFixed(1)}%** (target: ≥ 90%).`,
+                ``,
+                `**Workflow run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                ``,
+                `**To triage locally:**`,
+                "```bash",
+                `cargo install cargo-mutants`,
+                `cargo mutants --package ${{ matrix.package }}`,
+                "```",
+                ``,
+                `**Pattern:** alive mutations indicate either (a) missing test coverage of the mutated branch, or (b) a deliberately equivalent transformation. Add a test for (a); add an \`# [mutants::skip]\` annotation with rationale for (b).`,
+                ``,
+                `cc: @B2JK-Industry`,
+              ].join('\n'),
+              labels: ['mutation-testing', 'needs-triage', 'test-coverage'],
+            })

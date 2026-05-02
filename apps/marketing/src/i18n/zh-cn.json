@@ -1,0 +1,24 @@
+{
+  "common": {
+    "tagline_part1": "不要给你的智能体一个钱包。",
+    "tagline_part2": "给它一个授权。",
+    "_TODO_ZH_CN_REVIEW_tagline": "Native zh-CN reviewer: confirm 授权 (authorization/mandate) vs 委托 (delegation); current choice preserves the action-of-issuing framing.",
+    "cta_start": "5 分钟开始",
+    "cta_view_source": "查看源代码",
+    "cta_walk_demo": "浏览演示",
+    "cta_verify": "亲自验证胶囊",
+    "nav_features": "功能",
+    "nav_proof": "证明",
+    "nav_demo": "演示",
+    "nav_docs": "文档",
+    "nav_github": "GitHub",
+    "nav_quickstart": "快速开始",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — 提交作品"
+  },
+  "index": {
+    "lede": "SBO3L 是面向自主 AI 智能体的可加密验证信任层。智能体执行的每个操作 — 支付、交换、存储、计算、协调 — 都先经过 SBO3L 的策略边界。"
+  },
+  "submission": {
+    "h1": "面向自主 AI 智能体的可加密验证信任层。"
+  }
+}

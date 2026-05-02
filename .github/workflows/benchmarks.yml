@@ -1,0 +1,62 @@
+name: Competitive benchmarks
+
+# R13 P5 — criterion benchmark suite. Runs on demand (manual dispatch)
+# and against PRs touching the benchmark directory. Not run on every
+# main push because criterion is intentionally noisy (warm-up + sample
+# collection takes minutes); we don't want to slow the cascade.
+
+on:
+  pull_request:
+    paths:
+      - "benchmarks/competitive/**"
+      - "crates/sbo3l-core/src/**"
+      - "crates/sbo3l-policy/src/**"
+      - ".github/workflows/benchmarks.yml"
+  workflow_dispatch:
+    inputs:
+      bench_filter:
+        description: "Filter to a specific bench (default: all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: Bench (criterion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            benchmarks/competitive/target/
+          key: bench-${{ runner.os }}-${{ hashFiles('benchmarks/competitive/Cargo.toml') }}
+
+      - name: Run criterion
+        env:
+          FILTER: ${{ inputs.bench_filter }}
+        run: |
+          cd benchmarks/competitive
+          if [[ -n "$FILTER" ]]; then
+            cargo bench -- "$FILTER"
+          else
+            cargo bench
+          fi
+
+      - name: Upload criterion HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-report
+          path: benchmarks/competitive/target/criterion/
+          if-no-files-found: warn
