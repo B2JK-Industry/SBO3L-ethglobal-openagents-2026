@@ -43,10 +43,10 @@ survive.
 | Deploy tx | (forge script, see broadcast manifest) |
 | Bytecode length | 4747 hex chars |
 
-Verified on chain via PublicNode + Alchemy RPC:
+Verified on chain via PublicNode (open RPC, no key needed):
 
 ```bash
-RPC=https://eth-sepolia.g.alchemy.com/v2/<key>
+RPC=https://ethereum-sepolia-rpc.publicnode.com
 ADDR=0x87e99508c222c6e419734cacbb6781b8d282b1f6
 
 cast call "$ADDR" "urls(uint256)(string)" 0 --rpc-url "$RPC"

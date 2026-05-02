@@ -66,14 +66,28 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 async function handleSubscriptionChange(sub: Stripe.Subscription): Promise<NextResponse> {
   const tenantUuid = sub.metadata?.tenant_uuid;
   if (!tenantUuid) {
+    // Subs created outside our exact Checkout flow have no metadata —
+    // they're not ours to handle. 200 + ignored stops Stripe retries
+    // for events we'll never act on.
     console.warn("[stripe] subscription change missing tenant_uuid metadata — ignored", { subId: sub.id });
     return NextResponse.json({ received: true, ignored: true, reason: "missing_tenant_metadata" });
   }
   const priceId = sub.items.data[0]?.price.id;
   const tier = priceId ? tierFromPriceId(priceId) : null;
   if (!tier) {
-    console.warn("[stripe] subscription change with unknown price — ignored", { tenantUuid, priceId });
-    return NextResponse.json({ received: true, ignored: true, reason: "unknown_price", priceId });
+    // Codex review fix (PR #360 follow-up): the previous handler
+    // returned 2xx + ignored on unknown priceId for tenant-bound
+    // subs, which permanently dropped the tier-change signal on a
+    // transient deploy/mapping mismatch (e.g. price IDs not yet
+    // synced after a Stripe rotation). Tenant-bound events MUST
+    // remain retriable so the eventual catch-up read of the price
+    // mapping resolves them. Return 503 — Stripe retries with
+    // exponential backoff for ≤3 days.
+    console.error("[stripe] subscription change with unknown priceId for tenant-bound event — RETRY", { tenantUuid, priceId });
+    return NextResponse.json(
+      { error: "unknown_price_for_tenant", priceId, tenant: tenantUuid, hint: "price ID not in tierFromPriceId mapping; check STRIPE_PRICE_* env config or the deploy bundle" },
+      { status: 503 },
+    );
   }
   console.log("[stripe] subscription.changed", { tenantUuid, tier, status: sub.status });
   return NextResponse.json({ received: true, tenant: tenantUuid, tier });

@@ -42,6 +42,26 @@ The first instinct of every team building an agent-identity layer is to ship a r
 
 The choice was therefore not *should we use ENS or a custom registry* — it was *should we accept that an opinionated commitment set on top of ENS is the lower-cost, higher-leverage path*. We accepted. The consequences of that choice define the rest of this manifesto.
 
+## 2.5 Verifiable, not claimed
+
+Kevin (ENS team) recently flagged the obvious risk for any agent-identity-via-ENS scheme: a user can set whatever text record they want. The naïve trust profile is *self-claimed* — *I say my GitHub is github.com/foo, my Twitter is @foo, my reputation is 99/100*, and a verifier reading the records has no way to challenge those values without a side-channel. That is a disqualifying argument for any agent-identity layer that doesn't preempt it.
+
+SBO3L's `sbo3l:policy_hash` is the rebuttal. It is not a user claim. It is a JCS+SHA-256 commitment to the canonical policy snapshot the live SBO3L engine actually enforces. The relationship between the text record and the engine is one-directional: whatever the engine runs as policy is hashed and that hash is what the record commits to. The CLI command `sbo3l agent verify-ens <name>` performs a drift check on every call:
+
+```
+sbo3l agent verify-ens research-agent.sbo3lagent.eth
+# → reads sbo3l:policy_hash from ENS
+# → fetches the agent's daemon /v1/policy/snapshot
+# → recomputes JCS+SHA-256 over the snapshot
+# → compares the recomputed hash byte-for-byte against the on-chain value
+# → if they differ: exits with code 2 + deny code policy_hash.drift_detected
+# → if they match: exits 0 + prints the verified hash
+```
+
+The same flow applies to `sbo3l:audit_root` (recomputed against the running audit chain), `sbo3l:pubkey_ed25519` (recomputed by signing a freshness challenge and verifying against the published key), and `sbo3l:agent_id` (compared against the receipt-bound identifier). Every record in the seven-key profile that a verifier can independently recompute against the agent's runtime *is* recomputed; the records that can't (`capability`, `endpoint`) are advisory and clearly labelled as such.
+
+So when a consumer reads SBO3L's text records, they're not reading "what this agent claims about itself." They're reading "what this agent's running engine cryptographically commits to." Tampering — by the agent owner, by a compromised resolver, by anyone — surfaces as a drift detection on the very next read. The text record is verifiable, not claimed. That's the property the seven-record profile leans on, and it's the property a self-claimed-records design fundamentally can't replicate. (Source-of-truth: [`crates/sbo3l-identity/src/verify_ens.rs::verify_policy_hash_drift`](../../crates/sbo3l-identity/src/verify_ens.rs).)
+
 ## 3. The trust profile in seven records
 
 ENS gives us `text(node, key)`. SBO3L proposes seven keys. Each key answers a question a remote verifier needs an answer to. Each key has a normative format. Each key has a normative interpretation. Together they form a self-contained agent-identity profile.

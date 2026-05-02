@@ -18,7 +18,7 @@ Wire path:
   5. Tool returns:
        {
          "decision": "allow" | "deny" | "requires_human",
-         "kh_workflow_id": "<workflow id from env or default>",
+         "kh_workflow_id_advisory": "<advisory tag — daemon env routes the actual call>",
          "kh_execution_ref": "kh-01HTAWX5..." | None,
          "audit_event_id": "evt-...",
          "request_hash": "...", "policy_hash": "...",
@@ -53,7 +53,7 @@ from sbo3l_sdk import SBO3LClientSync
 
 
 #: Live KeeperHub workflow id verified end-to-end on 2026-04-30.
-#: Override per-call via `kh_workflow_id` arg, or globally via
+#: Override per-call via `workflow_id` arg (advisory only — see docstring), or globally via
 #: `SBO3L_KEEPERHUB_WORKFLOW_ID` env on the agent process (advisory —
 #: the daemon ultimately decides which webhook URL it POSTs to).
 DEFAULT_KH_WORKFLOW_ID = "m4t4cnpmhv8qquce3bv3c"
@@ -78,7 +78,7 @@ _DEFAULT_DESCRIPTION = (
     "policy decision. On allow, the SBO3L daemon's KeeperHub adapter executes "
     "the payment by POSTing the IP-1 envelope to a KeeperHub workflow webhook "
     "and returns the captured executionId as kh_execution_ref. Input MUST be a "
-    "JSON-stringified APRP. Returns: {decision, kh_workflow_id, "
+    "JSON-stringified APRP. Returns: {decision, kh_workflow_id_advisory, "
     "kh_execution_ref, audit_event_id, request_hash, policy_hash, deny_code}. "
     "On deny, branch on deny_code."
 )
@@ -93,9 +93,19 @@ def keeperhub_tool(
 ) -> KeeperHubToolDescriptor:
     """Build the KH-flavored LangChain tool descriptor.
 
+    `workflow_id` is **advisory only** — it is reported back in the
+    envelope under `kh_workflow_id_advisory` so the agent / audit log
+    can record which workflow the caller intended, but the SBO3L
+    daemon's KH adapter routes per its own `SBO3L_KEEPERHUB_WEBHOOK_URL`
+    env var (the per-call workflow_id is NOT injected into the APRP
+    body and the daemon does NOT receive it). If the caller's
+    `workflow_id` doesn't match what the daemon is configured for, the
+    actual KH execution will land on the daemon-configured workflow,
+    not the caller's. Use this field for context tagging only; do not
+    rely on it as a routing override.
+
     `workflow_id` defaults to `DEFAULT_KH_WORKFLOW_ID` (the live workflow
-    verified during the ETHGlobal Open Agents 2026 submission). Override
-    per-instance for a different KH workflow (e.g. staging / your own).
+    verified during the ETHGlobal Open Agents 2026 submission).
 
     Wire it into LangChain via:
 
@@ -161,7 +171,13 @@ def keeperhub_tool(
         return json.dumps(
             {
                 "decision": r.get("decision"),
-                "kh_workflow_id": kh_workflow_id,
+                # Renamed from `kh_workflow_id` to make the contract
+                # honest: this value is the caller's intended target,
+                # NOT the workflow the daemon actually routed to. The
+                # daemon-configured webhook URL (env-var-driven) is the
+                # source of truth for actual routing — see the
+                # `keeperhub_tool` docstring + KeeperHub/cli#52.
+                "kh_workflow_id_advisory": kh_workflow_id,
                 # `kh_execution_ref` is None on deny / requires_human, OR on
                 # allow when the daemon's KH adapter ran in local_mock with
                 # no webhook configured but failed to populate execution_ref

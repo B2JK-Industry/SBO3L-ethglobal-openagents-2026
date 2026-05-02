@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="SBO3L title card" style="display:block;width:100%;height:auto;background:#0a0a0f">
+  <defs>
+    <style><![CDATA[
+      @keyframes tc-particle {
+        0%, 100% { opacity: 0.1; transform: translateY(0); }
+        50% { opacity: 0.6; transform: translateY(-20px); }
+      }
+      .tc-p { animation: tc-particle 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @media (prefers-reduced-motion: reduce) { .tc-p { animation: none; } }
+    ]]></style>
+  </defs>
+
+  <rect x="0" y="0" width="1920" height="1080" fill="#0a0a0f"/>
+
+  <circle class="tc-p" cx="0" cy="60" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:0s"/>
+  <circle class="tc-p" cx="67" cy="173" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.2s"/>
+  <circle class="tc-p" cx="134" cy="286" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.4s"/>
+  <circle class="tc-p" cx="201" cy="399" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.6s"/>
+  <circle class="tc-p" cx="268" cy="512" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.8s"/>
+  <circle class="tc-p" cx="335" cy="625" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:1s"/>
+  <circle class="tc-p" cx="402" cy="738" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:1.2s"/>
+  <circle class="tc-p" cx="469" cy="851" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:1.4s"/>
+  <circle class="tc-p" cx="536" cy="64" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:1.6s"/>
+  <circle class="tc-p" cx="603" cy="177" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:1.8s"/>
+  <circle class="tc-p" cx="670" cy="290" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:2s"/>
+  <circle class="tc-p" cx="737" cy="403" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:2.2s"/>
+  <circle class="tc-p" cx="804" cy="516" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:2.4s"/>
+  <circle class="tc-p" cx="871" cy="629" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:2.6s"/>
+  <circle class="tc-p" cx="938" cy="742" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:2.8s"/>
+  <circle class="tc-p" cx="1005" cy="855" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:3s"/>
+  <circle class="tc-p" cx="1072" cy="68" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:3.2s"/>
+  <circle class="tc-p" cx="1139" cy="181" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:3.4s"/>
+  <circle class="tc-p" cx="1206" cy="294" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:3.6s"/>
+  <circle class="tc-p" cx="1273" cy="407" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:3.8s"/>
+  <circle class="tc-p" cx="1340" cy="520" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:4s"/>
+  <circle class="tc-p" cx="1407" cy="633" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:4.2s"/>
+  <circle class="tc-p" cx="1474" cy="746" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:4.4s"/>
+  <circle class="tc-p" cx="1541" cy="859" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:4.6s"/>
+  <circle class="tc-p" cx="1608" cy="72" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:4.8s"/>
+  <circle class="tc-p" cx="1675" cy="185" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:0s"/>
+  <circle class="tc-p" cx="1742" cy="298" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.2s"/>
+  <circle class="tc-p" cx="1809" cy="411" r="1" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.4s"/>
+  <circle class="tc-p" cx="1876" cy="524" r="2" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.6s"/>
+  <circle class="tc-p" cx="23" cy="637" r="3" fill="#4ad6a7" opacity="0.3" style="animation-delay:0.8s"/>
+
+  <g transform="translate(960 460)">
+    <rect x="-80" y="-80" width="160" height="160" rx="16" fill="#4ad6a7"/>
+    <text x="0" y="38" text-anchor="middle" font-family="ui-monospace, monospace" font-size="120" font-weight="700" fill="#0a0a0f">3</text>
+  </g>
+
+  <text x="960" y="660" text-anchor="middle" font-family="ui-monospace, monospace" font-size="80" fill="#e6e6ec" letter-spacing="20">SBO3L</text>
+
+  <text x="960" y="730" text-anchor="middle" font-family="ui-monospace, monospace" font-size="26" fill="#9999a8" letter-spacing="2">Don't give your agent a wallet. Give it a mandate.</text>
+
+  <line x1="760" y1="980" x2="1160" y2="980" stroke="#4ad6a7" stroke-width="1" opacity="0.5"/>
+  <text x="960" y="1010" text-anchor="middle" font-family="ui-monospace, monospace" font-size="18" fill="#9999a8" letter-spacing="3">ETHGLOBAL OPEN AGENTS 2026 · v1.0</text>
+</svg>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="KeeperHub integration" style="display:block;width:100%;height:auto">
+  <rect x="0" y="0" width="200" height="200" rx="8" fill="#0a0a0f" stroke="#2a2a3a" stroke-width="1"/>
+  <rect x="0" y="0" width="200" height="4" fill="#4ad6a7"/>
+  <text x="20" y="32" font-family="ui-monospace, monospace" font-size="10" fill="#9999a8" letter-spacing="2">SPONSOR TRACK</text>
+  <g transform="translate(100 100)">
+    <path d="M 0 -28 L 24 -16 L 24 8 Q 24 24 0 32 Q -24 24 -24 8 L -24 -16 Z" fill="none" stroke="#4ad6a7" stroke-width="2"/>
+    <circle cx="-10" cy="-2" r="3" fill="#4ad6a7"/>
+    <circle cx="10" cy="-2" r="3" fill="#4ad6a7"/>
+    <circle cx="0" cy="14" r="3" fill="#4ad6a7"/>
+    <line x1="-10" y1="-2" x2="0" y2="14" stroke="#4ad6a7" stroke-width="1"/>
+    <line x1="10" y1="-2" x2="0" y2="14" stroke="#4ad6a7" stroke-width="1"/>
+    <line x1="-10" y1="-2" x2="10" y2="-2" stroke="#4ad6a7" stroke-width="1"/>
+  </g>
+  <text x="100" y="156" text-anchor="middle" font-family="ui-monospace, monospace" font-size="16" fill="#e6e6ec">KeeperHub</text>
+  <text x="100" y="178" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#9999a8" letter-spacing="1">Live workflow + signed receipts</text>
+</svg>

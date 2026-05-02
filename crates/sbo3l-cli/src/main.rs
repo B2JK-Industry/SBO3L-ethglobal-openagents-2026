@@ -1761,9 +1761,10 @@ fn cmd_audit_export(
                     println!("{envelope_str}");
                 }
             }
-            // Print rootHash on its own line so shell pipelines can capture
-            // it without parsing the envelope.
-            println!("rootHash={}", remote_ref.root_hash);
+            // rootHash goes to stderr so stdout stays a valid single
+            // JSON document when --out is omitted (shell pipelines can
+            // still capture it, just from fd 2).
+            eprintln!("rootHash={}", remote_ref.root_hash);
             ExitCode::SUCCESS
         }
         other => {
