@@ -1,6 +1,7 @@
 ---
 import Nav from "~/components/Nav.astro";
 import Footer from "~/components/Footer.astro";
+import { isLocale, isRtlLocale, DEFAULT_LOCALE, type Locale } from "~/i18n";
 import "~/styles/global.css";
 
 interface Props {
@@ -14,11 +15,19 @@ const {
   title,
   description = "SBO3L is the cryptographically verifiable trust layer for autonomous AI agents.",
   ogTitle = "SBO3L — Agent Trust Layer",
-  lang = "en",
+  lang,
 } = Astro.props;
+
+// Self-review fix: derive lang + dir from Astro.currentLocale rather than
+// trusting the prop default. The previous default of `lang = "en"` meant
+// every locale rendered as `<html lang="en">` (wrong) and AR/HE never got
+// `dir="rtl"` despite isRtlLocale() existing in src/i18n.
+const currentLocale: Locale = isLocale(Astro.currentLocale) ? Astro.currentLocale : DEFAULT_LOCALE;
+const resolvedLang = lang ?? currentLocale;
+const dir = isRtlLocale(currentLocale) ? "rtl" : "ltr";
 ---
 <!doctype html>
-<html lang={lang}>
+<html lang={resolvedLang} dir={dir}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />

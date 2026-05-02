@@ -17,24 +17,28 @@ const docsUrl = "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026
   </nav>
 </header>
 
-<script is:inline>
+<script>
   // Cmd+K (Mac) / Ctrl+K (others) → open docs site (Starlight has
   // built-in pagefind search). On the docs site itself the same
   // shortcut focuses Starlight's native search box.
-  (function () {
-    function onKey(e) {
-      const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
-      if (!isCmdK) return;
-      const target = e.target;
-      const isInput = target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-      if (isInput) return;
-      e.preventDefault();
-      const link = document.querySelector("a.search-hint");
-      const url = link instanceof HTMLAnchorElement ? link.getAttribute("data-docs-url") : null;
-      if (url) window.location.href = url;
-    }
-    document.addEventListener("keydown", onKey);
-  })();
+  //
+  // Self-review fix: dropped `is:inline` so Astro bundles this as a
+  // hashed static file. The marketing site's strict CSP
+  // (script-src 'self' 'wasm-unsafe-eval' per vercel.json) blocks
+  // inline scripts; the previous `is:inline` would have failed CSP
+  // in production, leaving Cmd+K silently broken on the deployed site.
+  function onKey(e: KeyboardEvent): void {
+    const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+    if (!isCmdK) return;
+    const target = e.target;
+    const isInput = target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+    if (isInput) return;
+    e.preventDefault();
+    const link = document.querySelector("a.search-hint");
+    const url = link instanceof HTMLAnchorElement ? link.getAttribute("data-docs-url") : null;
+    if (url) window.location.href = url;
+  }
+  document.addEventListener("keydown", onKey);
 </script>
 
 <style>
