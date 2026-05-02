@@ -1,0 +1,384 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import { SCENARIOS } from "~/lib/playground/scenarios";
+
+const githubBaseUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+const mockEngineUrl = `${githubBaseUrl}/blob/main/apps/marketing/src/lib/playground/mock-engine.ts`;
+const realEngineUrl = `${githubBaseUrl}/tree/main/crates/sbo3l-core`;
+---
+<BaseLayout
+  title="SBO3L mock playground — edit a policy, see the decision"
+  description="Browser-side mock decision engine. Edit an APRP + policy, see the verdict. Mock-signed capsules; for real cryptography use /playground/live."
+>
+  <article class="playground">
+    <!-- Banner: persistent MOCK warning -->
+    <div role="alert" class="mock-banner">
+      <strong>⚠️ MOCK PLAYGROUND.</strong>
+      Decisions here are computed by a TypeScript reimplementation in your browser — <em>not</em> the real <code>sbo3l-core</code> engine. Mock capsules are <strong>not cryptographically signed</strong> and will be rejected by the strict-mode verifier.
+      <span class="banner-actions">
+        <a href={mockEngineUrl} rel="noopener">View mock source</a>
+        <a href="/learn/tier-architecture">Why mock?</a>
+        <a href="/playground/live" class="emphasis">Run on real daemon →</a>
+      </span>
+    </div>
+
+    <header>
+      <h1>Mock playground</h1>
+      <p class="lede">
+        Pick a scenario, edit the APRP + policy, hit Decide. The mock engine evaluates the inputs against pattern-matching rules and produces a synthetic capsule with deterministic hashes — useful for understanding what flows through the daemon in production.
+      </p>
+    </header>
+
+    <!-- Scenario tabs -->
+    <nav class="scenarios" aria-label="Pre-loaded scenarios">
+      {SCENARIOS.map((s, i) => (
+        <button
+          type="button"
+          class={`scenario-tab ${i === 0 ? "active" : ""}`}
+          data-scenario={s.id}
+          aria-pressed={i === 0 ? "true" : "false"}
+          title={s.blurb}
+        >
+          <span class="emoji" aria-hidden="true">{s.outcome_emoji}</span>
+          <span class="label">{s.label}</span>
+        </button>
+      ))}
+    </nav>
+
+    <p class="scenario-blurb" id="scenario-blurb" data-default={SCENARIOS[0]!.blurb}>{SCENARIOS[0]!.blurb}</p>
+
+    <!-- Editors + result panel -->
+    <div class="grid">
+      <section class="pane">
+        <header>
+          <span class="pane-title">APRP REQUEST</span>
+          <span class="pane-meta">JSON</span>
+        </header>
+        <textarea
+          id="aprp-input"
+          aria-label="APRP request envelope"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          autocorrect="off"
+        >{SCENARIOS[0]!.aprp}</textarea>
+      </section>
+
+      <section class="pane">
+        <header>
+          <span class="pane-title">POLICY OVERRIDE</span>
+          <span class="pane-meta">TOML</span>
+        </header>
+        <textarea
+          id="policy-input"
+          aria-label="Policy TOML"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          autocorrect="off"
+        >{SCENARIOS[0]!.policy}</textarea>
+      </section>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="decide-btn" class="btn primary">▶ Decide (mock)</button>
+      <button type="button" id="copy-capsule-btn" class="btn ghost" disabled>📋 Copy capsule</button>
+      <button type="button" id="reset-btn" class="btn ghost">🔄 Reset to scenario</button>
+    </div>
+
+    <!-- Decision panel -->
+    <section class="result" id="result-panel" aria-live="polite">
+      <header>
+        <span class="result-title">MOCK DECISION RESULT</span>
+        <span class="result-meta">Click <em>Decide (mock)</em> to compute</span>
+      </header>
+      <div class="result-body" id="result-body">
+        <p class="muted">No decision yet — edit the inputs above and click <strong>Decide (mock)</strong>.</p>
+      </div>
+    </section>
+
+    <!-- Right rail teaching -->
+    <aside class="teaching">
+      <h2>Concepts</h2>
+      <ul>
+        <li><a href="/learn/audit-chain">What is APRP?</a></li>
+        <li><a href="/learn/audit-chain">What is a policy hash?</a></li>
+        <li><a href="/learn/tier-architecture">Why mock-only here?</a></li>
+        <li><a href="/playground/live">Run this on the real daemon →</a></li>
+      </ul>
+
+      <h2>Source</h2>
+      <ul>
+        <li><a href={mockEngineUrl} rel="noopener">View mock engine source</a></li>
+        <li><a href={realEngineUrl} rel="noopener">View real engine (Rust)</a></li>
+      </ul>
+    </aside>
+  </article>
+</BaseLayout>
+
+<script>
+  import { SCENARIOS, findScenario } from "~/lib/playground/scenarios";
+  import { decideMock } from "~/lib/playground/mock-engine";
+
+  // Astro bundles this as a static file under _astro/, served from
+  // same-origin so strict CSP (script-src 'self') passes.
+
+  const aprpInput = document.getElementById("aprp-input") as HTMLTextAreaElement | null;
+  const policyInput = document.getElementById("policy-input") as HTMLTextAreaElement | null;
+  const decideBtn = document.getElementById("decide-btn");
+  const copyBtn = document.getElementById("copy-capsule-btn") as HTMLButtonElement | null;
+  const resetBtn = document.getElementById("reset-btn");
+  const resultBody = document.getElementById("result-body");
+  const blurbEl = document.getElementById("scenario-blurb");
+  const tabs = document.querySelectorAll<HTMLButtonElement>(".scenario-tab");
+
+  let currentScenarioId = SCENARIOS[0]?.id ?? "";
+  let lastCapsuleJson: string | null = null;
+
+  function loadScenario(id: string): void {
+    const s = findScenario(id);
+    if (!s || !aprpInput || !policyInput) return;
+    aprpInput.value = s.aprp;
+    policyInput.value = s.policy;
+    if (blurbEl) blurbEl.textContent = s.blurb;
+    currentScenarioId = id;
+    tabs.forEach((t) => {
+      const active = t.dataset.scenario === id;
+      t.classList.toggle("active", active);
+      t.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    if (resultBody) resultBody.innerHTML = '<p class="muted">Inputs reset. Click <strong>Decide (mock)</strong>.</p>';
+    if (copyBtn) copyBtn.disabled = true;
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.scenario;
+      if (id) loadScenario(id);
+    });
+  });
+
+  resetBtn?.addEventListener("click", () => loadScenario(currentScenarioId));
+
+  decideBtn?.addEventListener("click", async () => {
+    if (!aprpInput || !policyInput || !resultBody) return;
+    resultBody.innerHTML = '<p class="muted">Computing…</p>';
+    if (copyBtn) copyBtn.disabled = true;
+    const result = await decideMock(aprpInput.value, policyInput.value);
+    if (!result.ok) {
+      resultBody.innerHTML = `<p class="error"><strong>Error (${escape(result.error.kind)}):</strong> ${escape(result.error.message)}</p>`;
+      lastCapsuleJson = null;
+      return;
+    }
+    const d = result.decision;
+    const outcomeClass = d.outcome === "allow" ? "allow" : d.outcome === "require_human" ? "human" : "deny";
+    const outcomeIcon = d.outcome === "allow" ? "✅" : d.outcome === "require_human" ? "⚠️" : "❌";
+    lastCapsuleJson = JSON.stringify(d.mock_capsule, null, 2);
+    if (copyBtn) copyBtn.disabled = false;
+    resultBody.innerHTML = `
+      <p class="outcome ${outcomeClass}">${outcomeIcon} <strong>${escape(d.outcome.toUpperCase())}</strong>${d.deny_code ? ' · <code>' + escape(d.deny_code) + '</code>' : ''}</p>
+      <dl class="kv">
+        <dt>matched_rule</dt><dd><code>${escape(d.matched_rule ?? "—")}</code></dd>
+        <dt>request_hash</dt><dd><code>${escape(d.request_hash)}</code></dd>
+        <dt>policy_hash</dt><dd><code>${escape(d.policy_hash)}</code></dd>
+        <dt>audit_event_id</dt><dd><code>${escape(d.audit_event_id)}</code></dd>
+        <dt>capsule_signed</dt><dd><strong class="warn">NO (mock has no key)</strong></dd>
+      </dl>
+      <details>
+        <summary>Show generated mock capsule</summary>
+        <pre class="capsule-json">${escape(lastCapsuleJson)}</pre>
+      </details>
+      <p class="next">
+        ↗ <a href="/playground/live">Run this same APRP + policy on /playground/live</a> for a real signed receipt.
+      </p>
+    `;
+  });
+
+  copyBtn?.addEventListener("click", async () => {
+    if (!lastCapsuleJson) return;
+    try {
+      await navigator.clipboard.writeText(lastCapsuleJson);
+      copyBtn.textContent = "✓ Copied";
+      setTimeout(() => { if (copyBtn) copyBtn.textContent = "📋 Copy capsule"; }, 1500);
+    } catch {
+      copyBtn.textContent = "Clipboard blocked";
+    }
+  });
+
+  function escape(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  }
+</script>
+
+<style>
+  .playground {
+    max-width: var(--max);
+    margin: 2em auto 4em;
+    padding: 0 1.5em;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    grid-template-areas:
+      "banner banner"
+      "header header"
+      "scenarios scenarios"
+      "blurb blurb"
+      "grid teaching"
+      "actions teaching"
+      "result teaching";
+    gap: 1.5em;
+  }
+
+  .mock-banner {
+    grid-area: banner;
+    padding: 0.85em 1.1em;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    border-left: 4px solid #f87171;
+    border-radius: var(--r-md);
+    color: var(--fg);
+    font-size: 0.92em;
+    line-height: 1.5;
+  }
+  .mock-banner code { background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .banner-actions { display: inline-block; margin-left: 0.5em; }
+  .banner-actions a { margin-right: 0.8em; color: var(--accent); }
+  .banner-actions a.emphasis { font-weight: 600; }
+
+  .playground header { grid-area: header; }
+  .playground h1 { font-size: var(--fs-3); font-weight: 700; margin: 0 0 0.4em; }
+  .playground .lede { color: var(--muted); margin: 0; max-width: 760px; }
+
+  .scenarios {
+    grid-area: scenarios;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+  }
+  .scenario-tab {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 0.45em 0.8em;
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .scenario-tab:hover { border-color: var(--accent); }
+  .scenario-tab.active { border-color: var(--accent); background: rgba(74, 222, 128, 0.08); color: var(--accent); }
+
+  .scenario-blurb { grid-area: blurb; color: var(--muted); margin: 0; font-size: 0.95em; }
+
+  .grid {
+    grid-area: grid;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1em;
+  }
+  .pane {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .pane header { padding: 0.5em 0.9em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .pane-title { color: var(--accent); font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.06em; }
+  .pane-meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.78em; }
+  .pane textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 280px;
+    border: 0;
+    background: transparent;
+    color: var(--fg);
+    padding: 0.9em 1em;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    line-height: 1.55;
+    resize: vertical;
+    outline: none;
+  }
+  .pane textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .actions {
+    grid-area: actions;
+    display: flex;
+    gap: 0.6em;
+    flex-wrap: wrap;
+  }
+
+  .result {
+    grid-area: result;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .result header { padding: 0.6em 1em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; }
+  .result-title { color: var(--accent); font-family: var(--font-mono); font-size: 0.82em; letter-spacing: 0.06em; }
+  .result-meta { color: var(--muted); font-size: 0.85em; }
+  .result-body { padding: 1em 1.2em; }
+  .result-body .muted { color: var(--muted); }
+  .result-body .error { color: #f87171; }
+  .result-body .outcome { font-size: 1.2em; margin: 0 0 0.8em; }
+  .result-body .outcome.allow { color: var(--accent); }
+  .result-body .outcome.deny { color: #f87171; }
+  .result-body .outcome.human { color: #ffce5c; }
+  .result-body .outcome code { background: rgba(248, 113, 113, 0.1); padding: 0.1em 0.4em; border-radius: 3px; font-size: 0.8em; }
+  .kv {
+    display: grid;
+    grid-template-columns: 11em 1fr;
+    gap: 0.3em 1em;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.84em;
+  }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-all; }
+  .kv .warn { color: #ffce5c; }
+  details { margin-top: 1em; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 0.88em; }
+  details[open] summary { color: var(--fg); margin-bottom: 0.5em; }
+  .capsule-json { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0.8em 1em; font-family: var(--font-mono); font-size: 0.8em; line-height: 1.5; overflow-x: auto; max-height: 400px; }
+  .next { margin-top: 1em; font-size: 0.92em; }
+  .next a { color: var(--accent); }
+
+  .teaching {
+    grid-area: teaching;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1em 1.2em;
+    align-self: start;
+    position: sticky;
+    top: 1.5em;
+  }
+  .teaching h2 { font-size: 0.85em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 0.6em; }
+  .teaching h2:not(:first-child) { margin-top: 1.4em; }
+  .teaching ul { list-style: none; padding: 0; margin: 0; }
+  .teaching li { margin-bottom: 0.4em; }
+  .teaching a { color: var(--accent); font-size: 0.9em; }
+
+  @media (max-width: 900px) {
+    .playground {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "banner"
+        "header"
+        "scenarios"
+        "blurb"
+        "grid"
+        "actions"
+        "result"
+        "teaching";
+    }
+    .grid { grid-template-columns: 1fr; }
+    .teaching { position: static; }
+  }
+</style>
