@@ -73,7 +73,7 @@ Web pages on `crates.io` and `npmjs.com` are JS-rendered SPAs that return 404/40
 
 | Record | Value | Status | Verify |
 |---|---|---|---|
-| Mainnet apex | `sbo3lagent.eth` | ✅ live (5 records on chain) | https://app.ens.domains/sbo3lagent.eth (200) or `sbo3l passport resolve sbo3lagent.eth` |
+| Mainnet apex | `sbo3lagent.eth` | ✅ live (5 records on chain) | https://app.ens.domains/sbo3lagent.eth (200) or `sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` |
 | Mainnet `policy_hash` | `e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf` | ✅ matches offline fixture byte-for-byte | re-derive: `sbo3l policy current --hash` |
 | Sepolia parent | `sbo3lagent.eth` (per ENS-parent-decision 2026-05-01 — re-using mainnet parent for Sepolia subnames) | 🟡 fleet-of-5 in flight | |
 | Subname pattern | `<name>.sbo3lagent.eth` | 🟡 issued via direct ENS Registry `setSubnodeRecord` (Durin dropped 2026-05-01) | |

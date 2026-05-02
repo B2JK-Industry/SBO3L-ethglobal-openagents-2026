@@ -48,24 +48,31 @@ KeeperHub workflow execution + 5 builder-feedback issues filed with concrete pai
 
 **Why this first:** it's the entire SBO3L pitch in 60 seconds. Zero hosted-service trust. One file. Six checks. The judge feels the trust property in their hands.
 
-### Demo 2 — `cargo install sbo3l-cli && sbo3l passport resolve sbo3lagent.eth` (≤ 30s)
+### Demo 2 — `cargo install sbo3l-cli && sbo3l agent verify-ens sbo3lagent.eth` (≤ 30s)
 
 ```bash
 cargo install sbo3l-cli --version 1.2.0
-sbo3l passport resolve sbo3lagent.eth
+sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com
 ```
 
-**What appears:**
+**What appears (verified by Heidi via UAT 2026-05-02):**
 
 ```
-sbo3l:agent_id        research-agent-01
-sbo3l:endpoint        https://sbo3l-ccip.vercel.app/api/...
-sbo3l:policy_hash     e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf
-sbo3l:audit_root      0000...000  (genesis — no events anchored yet)
-sbo3l:proof_uri       https://sbo3l-marketing.vercel.app/proof
+verify-ens: sbo3lagent.eth  (network: mainnet)
+---
+  —       sbo3l:agent_id            actual="research-agent-01"
+  —       sbo3l:endpoint            actual="http://127.0.0.1:8730/v1"
+  —       sbo3l:policy_hash         actual="e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf"
+  —       sbo3l:audit_root          actual="0x0000…0000"  (genesis)
+  —       sbo3l:proof_uri           actual="https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json"
+---
+  totals: pass=0 fail=0 skip=5 absent=3
+  verdict: PASS
 ```
 
 **Why this second:** the ENS resolution path is real. The `policy_hash` byte-matches the offline fixture (`sbo3l policy current --hash`). The judge sees mainnet truth.
+
+> **Heads up on `sbo3l:endpoint`:** the published value is `http://127.0.0.1:8730/v1` — that's the operator's local daemon. Reachable only from the operator's machine (by design — the agent's daemon is local-by-default; it's not a public service). The trust assertion is the `policy_hash` + `audit_root`, not endpoint reachability.
 
 ### Demo 3 — `/marketplace` + Sepolia OffchainResolver CCIP-Read (≤ 60s)
 
@@ -125,7 +132,7 @@ Walk these in a fresh browser before hitting submit:
 - [ ] At `/proof`, drop `test-corpus/passport/v2_golden_001_minimal.json` — confirm 6/6 ✅.
 - [ ] At `/proof`, paste a tampered capsule (flip 1 byte in `audit_chain[0].payload_hash`) — confirm ❌.
 - [ ] `cargo install sbo3l-cli --version 1.2.0` — confirm `sbo3l --version` → `sbo3l 1.2.0`.
-- [ ] `sbo3l passport resolve sbo3lagent.eth` — confirm 5 records.
+- [ ] `sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` — confirm 5 records.
 - [ ] Open https://sbo3l-marketing.vercel.app/marketplace — confirm 5 starter policies render.
 - [ ] (Optional) `cast call 0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3 ...` — show OffchainResolver live.
 
