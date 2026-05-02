@@ -4,12 +4,10 @@
     "slug": "sbo3l-mobile",
     "version": "0.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "scheme": "sbo3l",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0e1a"
     },
@@ -25,7 +23,6 @@
       "package": "dev.sbo3l.mobile",
       "permissions": ["CAMERA", "USE_BIOMETRIC"],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0e1a"
       }
     },

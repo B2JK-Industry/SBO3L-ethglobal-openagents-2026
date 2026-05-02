@@ -26,8 +26,24 @@ export default defineConfig({
       'de', 'fr', 'it', 'es', 'pt-br', 'pl', 'cs', 'hu',
       'ar', 'he', 'zh-cn', 'zh-tw', 'ru', 'uk', 'tr', 'hi', 'th',
     ],
+    // Codex review fix (PR #284 + #296): we declared 17 locales in
+    // the array but only `sk/` and `ko/` page directories exist on
+    // disk. Without a fallback mapping, navigating to /de/, /ja/,
+    // /ar/, etc. via the LocaleSwitcher would 404. Fall back to EN
+    // content so the URLs resolve; i18n strings still pull from
+    // each locale's JSON via the `t()` helper in src/i18n/index.ts,
+    // so headers + CTAs translate even when the page body itself
+    // is the English file.
+    fallback: {
+      sk: 'en', ko: 'en', ja: 'en',
+      de: 'en', fr: 'en', it: 'en', es: 'en', 'pt-br': 'en',
+      pl: 'en', cs: 'en', hu: 'en',
+      ar: 'en', he: 'en', 'zh-cn': 'en', 'zh-tw': 'en',
+      ru: 'en', uk: 'en', tr: 'en', hi: 'en', th: 'en',
+    },
     routing: {
       prefixDefaultLocale: false,
+      fallbackType: 'redirect',
     },
   },
   build: {
