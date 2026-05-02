@@ -12,6 +12,7 @@ mod agent;
 mod agent_broadcast;
 mod agent_reputation;
 mod agent_verify;
+mod audit_anchor;
 mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
@@ -636,6 +637,59 @@ enum AuditCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+
+    /// On-chain audit-root anchor (Phase 3.1).
+    ///
+    /// Computes a 32-byte digest over the local audit chain head +
+    /// ABI-encodes a `publishAnchor(bytes32 tenantId, bytes32
+    /// auditRoot, uint64 chainHeadBlock)` call against Dev 4's
+    /// AnchorRegistry contract.
+    ///
+    /// `--dry-run` (default) prints the envelope. `--broadcast`
+    /// signs + sends the tx via alloy (requires `--features
+    /// eth_broadcast` at build time + a funded signer key).
+    Anchor {
+        /// SBO3L SQLite database path. The chain digest is computed
+        /// over the audit-chain head (latest event in the per-tenant
+        /// subsequence).
+        #[arg(long)]
+        db: PathBuf,
+        /// Tenant id, hex-encoded with optional `0x` prefix (32
+        /// bytes / 64 hex chars). Defaults to `keccak256("default")`
+        /// for single-tenant deployments.
+        #[arg(long)]
+        tenant_id: Option<String>,
+        /// `mainnet` | `sepolia`. Default `sepolia`. Mainnet
+        /// additionally requires `SBO3L_ALLOW_MAINNET_TX=1` in env.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+        /// Override the AnchorRegistry contract address. Default:
+        /// the network's well-known deployment (`0x0000…0000` until
+        /// Dev 4's deployment pins a real address).
+        #[arg(long)]
+        registry: Option<String>,
+        /// EVM block number the digest is being anchored against.
+        /// Surfaces in the on-chain `AnchorPublished` event.
+        /// Operators running the cron job typically pass
+        /// `eth_blockNumber` from the RPC at job start.
+        #[arg(long, default_value_t = 0)]
+        chain_head_block: u64,
+        /// Send the tx for real (otherwise dry-run only).
+        #[arg(long)]
+        broadcast: bool,
+        /// JSON-RPC endpoint (only consulted with `--broadcast`).
+        #[arg(long)]
+        rpc_url: Option<String>,
+        /// Name of the env var holding the operator's signing key.
+        /// Default `SBO3L_DEPLOYER_PRIVATE_KEY` (matches the GH
+        /// Actions secret name).
+        #[arg(long)]
+        private_key_env_var: Option<String>,
+        /// Write the envelope to `<path>` as JSON in addition to
+        /// printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -773,6 +827,30 @@ fn main() -> ExitCode {
             rpc_url,
             private_key_env_var: Some(private_key_env_var),
             offline_fixture,
+            out,
+        }),
+        Command::Audit {
+            op:
+                AuditCmd::Anchor {
+                    db,
+                    tenant_id,
+                    network,
+                    registry,
+                    chain_head_block,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
+                    out,
+                },
+        } => audit_anchor::cmd_audit_anchor(audit_anchor::AuditAnchorArgs {
+            db,
+            tenant_id,
+            network,
+            registry,
+            chain_head_block,
+            broadcast,
+            rpc_url,
+            private_key_env_var,
             out,
         }),
         Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
