@@ -50,10 +50,7 @@ fn currency_strategy() -> impl Strategy<Value = Currency> {
 
 fn money_strategy() -> impl Strategy<Value = Money> {
     // Reasonable money strings — match the production wire format.
-    (
-        "[1-9][0-9]{0,9}\\.[0-9]{2}",
-        currency_strategy(),
-    )
+    ("[1-9][0-9]{0,9}\\.[0-9]{2}", currency_strategy())
         .prop_map(|(value, currency)| Money { value, currency })
 }
 
@@ -74,19 +71,21 @@ fn destination_strategy() -> impl Strategy<Value = Destination> {
             http_method_strategy(),
             prop::option::of("0x[0-9a-fA-F]{40}"),
         )
-            .prop_map(|(url, method, expected_recipient)| Destination::X402Endpoint {
-                url,
-                method,
-                expected_recipient,
-            }),
+            .prop_map(
+                |(url, method, expected_recipient)| Destination::X402Endpoint {
+                    url,
+                    method,
+                    expected_recipient,
+                }
+            ),
         ("0x[0-9a-fA-F]{40}").prop_map(|address| Destination::Eoa { address }),
         ("0x[0-9a-fA-F]{40}").prop_map(|address| Destination::SmartAccount { address }),
-        ("0x[0-9a-fA-F]{40}", "0x[0-9a-fA-F]{40}").prop_map(
-            |(token_address, recipient)| Destination::Erc20Transfer {
+        ("0x[0-9a-fA-F]{40}", "0x[0-9a-fA-F]{40}").prop_map(|(token_address, recipient)| {
+            Destination::Erc20Transfer {
                 token_address,
                 recipient,
             }
-        ),
+        }),
     ]
 }
 
@@ -157,15 +156,7 @@ fn payment_request_strategy() -> impl Strategy<Value = PaymentRequest> {
     (head, tail).prop_map(
         |(
             (agent_id, task_id, intent, amount, token, destination, payment_protocol),
-            (
-                chain,
-                provider_url,
-                metadata_opt,
-                expiry_secs,
-                nonce,
-                expected_result,
-                risk_class,
-            ),
+            (chain, provider_url, metadata_opt, expiry_secs, nonce, expected_result, risk_class),
         )| {
             let x402_payload = metadata_opt.map(|m| {
                 serde_json::Value::Object(
