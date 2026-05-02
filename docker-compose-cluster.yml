@@ -1,0 +1,104 @@
+# SBO3L 3-node Raft cluster — EXPERIMENTAL.
+#
+# Usage:
+#   docker compose -f docker-compose-cluster.yml up
+#
+# What this does:
+#   * Builds the same `sbo3l/server:latest` image as `docker-compose.yml`
+#     except with `--features cluster` so the openraft scaffold links.
+#     (The default Dockerfile build does NOT include cluster code; see the
+#     `cluster_build` build-arg below.)
+#   * Spins up three nodes — `node-1`, `node-2`, `node-3` — each with a
+#     distinct `SBO3L_NODE_ID` and a peer list pointing at the other two.
+#     Host ports 8731 / 8732 / 8733 each map to the daemon's :8730 inside
+#     the container so curl from the host can hit each node directly:
+#         curl http://localhost:8731/v1/admin/cluster/status
+#
+# What this is NOT:
+#   * Production-ready. See `docs/cluster-mode.md` for the EXPERIMENTAL
+#     caveats: no durable log compaction, no partition-recovery testing,
+#     no joint-consensus membership change, in-memory raft log store.
+#   * A drop-in replacement for `docker-compose.yml`. The single-node
+#     compose file still serves the audit-chain hot path (POST
+#     /v1/payment-requests) directly to local SQLite; the cluster file
+#     ships the cluster API as a parallel surface.
+#
+# Bootstrap:
+#   With three nodes up, the bootstrap leader has to be told to initialise
+#   the cluster. The `main.rs` binary in cluster mode currently does NOT
+#   auto-init (we want the operator to choose which node bootstraps); a
+#   small init helper crate would call `RaftNode::initialize(peers)` once.
+#   For the scaffold, drive it manually from a Rust snippet against the
+#   in-process API, OR use the `/v1/admin/cluster/raft/*` endpoints once a
+#   `cluster init` HTTP route is added (TODO, see follow-up).
+
+services:
+  node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Build-arg so the same Dockerfile can produce a feature=cluster
+        # image without forking. The Dockerfile passes this through to
+        # `cargo build --features ${SBO3L_BUILD_FEATURES:-}`.
+        SBO3L_BUILD_FEATURES: "cluster"
+    image: sbo3l/server:cluster
+    container_name: sbo3l-cluster-node-1
+    restart: unless-stopped
+    ports:
+      - "8731:8730"
+    environment:
+      SBO3L_NODE_ID: "1"
+      # Peer list omits self — each node only knows about the other two.
+      # Format: comma-separated `host:port`. Inter-node Raft RPCs go to
+      # /v1/admin/cluster/raft/* on the listed addresses.
+      SBO3L_PEERS: "node-2:8730,node-3:8730"
+      SBO3L_BIND_ADDR: "0.0.0.0:8730"
+      SBO3L_DEV_ONLY_SIGNER: "1"
+      SBO3L_ALLOW_UNAUTHENTICATED: "1"
+    networks:
+      - sbo3l-cluster
+
+  node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SBO3L_BUILD_FEATURES: "cluster"
+    image: sbo3l/server:cluster
+    container_name: sbo3l-cluster-node-2
+    restart: unless-stopped
+    ports:
+      - "8732:8730"
+    environment:
+      SBO3L_NODE_ID: "2"
+      SBO3L_PEERS: "node-1:8730,node-3:8730"
+      SBO3L_BIND_ADDR: "0.0.0.0:8730"
+      SBO3L_DEV_ONLY_SIGNER: "1"
+      SBO3L_ALLOW_UNAUTHENTICATED: "1"
+    networks:
+      - sbo3l-cluster
+
+  node-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SBO3L_BUILD_FEATURES: "cluster"
+    image: sbo3l/server:cluster
+    container_name: sbo3l-cluster-node-3
+    restart: unless-stopped
+    ports:
+      - "8733:8730"
+    environment:
+      SBO3L_NODE_ID: "3"
+      SBO3L_PEERS: "node-1:8730,node-2:8730"
+      SBO3L_BIND_ADDR: "0.0.0.0:8730"
+      SBO3L_DEV_ONLY_SIGNER: "1"
+      SBO3L_ALLOW_UNAUTHENTICATED: "1"
+    networks:
+      - sbo3l-cluster
+
+networks:
+  sbo3l-cluster:
+    driver: bridge

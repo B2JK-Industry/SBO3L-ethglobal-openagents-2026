@@ -47,6 +47,17 @@ ed25519-dalek = { workspace = true }
 jsonwebtoken = "9"
 bcrypt = "0.15"
 
+# R14 P4: Raft cluster scaffold (EXPERIMENTAL). Pulled in only when
+# `--features cluster` is enabled — the no-feature build (and the
+# default `cargo build -p sbo3l-server`) does not link openraft.
+# `serde` + `serde_json` features wire openraft's own serde wiring;
+# we bincode-encode the application log entries ourselves over plain
+# `serde::{Serialize, Deserialize}` derives.
+openraft = { version = "0.9", default-features = false, features = ["serde", "serde_json", "single-term-leader", "storage-v2"], optional = true }
+bincode = { version = "1.3", optional = true }
+reqwest = { workspace = true, optional = true }
+async-trait = { version = "0.1", optional = true }
+
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
@@ -72,3 +83,8 @@ eth_signer = ["sbo3l-core/eth_signer"]
 # default so existing daemon runs aren't disturbed; opt in with
 # `--features ws_events` at build time.
 ws_events = []
+# R14 P4: 3-node Raft cluster scaffold (EXPERIMENTAL). When ON, mounts
+# the `/v1/admin/cluster/*` surface and links openraft. OFF by default
+# — the audit chain remains single-node unless explicitly opted in.
+# See `docs/cluster-mode.md` for the EXPERIMENTAL caveats.
+cluster = ["dep:openraft", "dep:bincode", "dep:reqwest", "dep:async-trait"]

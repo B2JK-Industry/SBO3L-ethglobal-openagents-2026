@@ -48,6 +48,12 @@ pub mod ws_events;
 #[cfg(feature = "ws_events")]
 pub mod admin_events;
 
+/// R14 P4 — 3-node Raft cluster scaffold (**EXPERIMENTAL**). Built only
+/// with `--features cluster`. See `crates/sbo3l-server/src/cluster/mod.rs`
+/// + `docs/cluster-mode.md` for what's wired vs what's TODO.
+#[cfg(feature = "cluster")]
+pub mod cluster;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
