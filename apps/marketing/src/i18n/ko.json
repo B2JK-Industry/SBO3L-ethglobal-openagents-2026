@@ -1,0 +1,39 @@
+{
+  "common": {
+    "tagline_part1": "에이전트에게 지갑을 주지 마세요.",
+    "tagline_part2": "위임장을 주세요.",
+    "_TODO_KO_REVIEW_tagline": "Native Korean reviewer: confirm '위임장' (mandate/proxy) preserves the wallet/mandate wordplay; alternative '권한위임' (delegation of authority) loses the noun-form parallelism.",
+    "cta_start": "5분 안에 시작하기",
+    "cta_view_source": "소스 보기",
+    "cta_walk_demo": "데모 둘러보기",
+    "cta_verify": "캡슐 직접 검증하기",
+    "nav_features": "기능",
+    "nav_proof": "증명",
+    "nav_demo": "데모",
+    "nav_docs": "문서",
+    "nav_github": "GitHub",
+    "nav_quickstart": "빠른 시작",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 제출작"
+  },
+  "index": {
+    "lede": "SBO3L은 자율 AI 에이전트를 위한 암호학적으로 검증 가능한 신뢰 계층입니다. 에이전트가 수행하는 모든 작업 — 결제, 스왑, 저장, 연산, 조정 — 은 먼저 SBO3L의 정책 경계를 통과합니다. 결과물: 누구나 오프라인에서 검증할 수 있는 자기 완결형 Passport 캡슐.",
+    "section_what_is": "SBO3L이란",
+    "section_what_blocks": "SBO3L이 차단하는 것",
+    "section_evidence": "실제 통합 증거",
+    "section_arch": "아키텍처",
+    "section_reproduce": "직접 재현해보기",
+    "section_resources": "자료",
+    "what_is_blurb": "AI 에이전트를 위한 로컬 정책 + 예산 + 영수증 + 감사 방화벽을 구현한 Rust 워크스페이스. 허용 → 스폰서 실행기로 라우팅 (KeeperHub, Uniswap). 거부 → 실행기는 호출되지 않습니다. 모든 결정은 에이전트의 공개된 Ed25519 공개키만으로 누구나 오프라인 검증할 수 있는 Passport 캡슐로 포장될 수 있습니다."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · 제출작",
+    "h1": "자율 AI 에이전트를 위한 암호학적으로 검증 가능한 신뢰 계층.",
+    "judge_test_h2": "심사위원 테스트",
+    "judge_test_body": "위의 어떤 주장도 우리 말만 믿지 마세요. /proof 페이지에 캡슐을 끌어다 놓으세요. WebAssembly 검증기 — 데몬 내부에서 실행되는 동일한 Rust 코드를 wasm32로 컴파일한 것 — 가 브라우저에서 6가지 strict 검사를 모두 실행합니다. 업로드 없음, API 호출 없음, 데몬 없음. 6개의 녹색 체크 또는 구체적인 거부 사유."
+  },
+  "proof": {
+    "h1": "Passport 캡슐 검증",
+    "lede": "캡슐을 붙여넣거나 끌어다 놓으세요. 6가지 strict 모드 검사 모두 WASM으로 컴파일된 sbo3l-core를 통해 브라우저에서 실행됩니다. 어떤 데이터도 페이지를 떠나지 않습니다 — 업로드 없음, API 호출 없음, 분석 없음.",
+    "_TODO_KO_REVIEW": "Native Korean reviewer: 'strict 모드' is left in English-Korean mix; consider '엄격 모드' for full Korean. Same for 'WASM' (technical term, leave) and 'Passport 캡슐' (brand term, leave)."
+  }
+}

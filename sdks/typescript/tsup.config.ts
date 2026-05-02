@@ -7,6 +7,7 @@ export default defineConfig({
     auth: "src/auth.ts",
     types: "src/types.ts",
     "cross-agent": "src/cross-agent.ts",
+    uniswap: "src/uniswap/index.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

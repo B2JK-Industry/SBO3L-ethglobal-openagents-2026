@@ -40,7 +40,7 @@ html, body {
 
 main { width: 100vw; height: calc(100vh - 3em); }
 #chrome.embed + main { height: 100vh; }
-#viz { width: 100%; height: 100%; display: block; }
+#viz, #viz-canvas { width: 100%; height: 100%; display: block; }
 
 .node circle { fill: var(--code-bg); stroke: var(--accent); stroke-width: 2; }
 .node.allow circle { fill: var(--accent); }

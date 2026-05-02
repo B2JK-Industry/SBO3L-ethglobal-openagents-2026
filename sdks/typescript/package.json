@@ -52,6 +52,10 @@
       "types": "./dist/cross-agent.d.ts",
       "import": "./dist/cross-agent.js",
       "require": "./dist/cross-agent.cjs"
+    "./uniswap": {
+      "types": "./dist/uniswap.d.ts",
+      "import": "./dist/uniswap.js",
+      "require": "./dist/uniswap.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -88,6 +92,14 @@
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
+  },
+  "peerDependencies": {
+    "viem": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "viem": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

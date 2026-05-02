@@ -105,6 +105,12 @@ export type {
   CrossAgentTrust,
   PubkeyResolver,
 } from "./cross-agent.js";
+/**
+ * Uniswap helper namespace — agent-side swap construction + (live mode)
+ * sign + broadcast. Submits APRP via `client.submit()` separately for
+ * the policy decision; this module's `swap()` runs AFTER `decision === "allow"`.
+ */
+export * as uniswap from "./uniswap/index.js";
 
 /** SDK package version; matches `package.json` `version`. */
 export const VERSION = "0.1.0";

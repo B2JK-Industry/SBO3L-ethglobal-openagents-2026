@@ -1,0 +1,27 @@
+[package]
+name = "sbo3l-anchor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L Phase 3.1: on-chain audit-chain anchoring — periodically publish audit-root digests to AnchorRegistry contracts on Ethereum / Optimism / Base / Polygon for tamper-evident verification."
+keywords = ["sbo3l", "audit", "anchor", "ethereum", "merkle"]
+categories = ["cryptography", "data-structures"]
+
+[dependencies]
+sbo3l-core = { workspace = true }
+sbo3l-storage = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_json_canonicalizer = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+# keccak256 for the AnchorRegistry function selector + EVM-style
+# digest hashing. Same crate sbo3l-identity already pulls.
+tiny-keccak = { version = "2", features = ["keccak"] }

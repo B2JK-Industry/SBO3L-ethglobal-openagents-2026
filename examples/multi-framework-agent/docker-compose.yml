@@ -1,0 +1,98 @@
+# SBO3L cross-framework demo — single agent crossing 3 LLM frameworks.
+#
+# Topology:
+#
+#     orchestrator  ──▶  plan (LangChain)  ──▶  SBO3L
+#                   ──▶  execute (CrewAI)  ──▶  SBO3L
+#                   ──▶  confirm (AutoGen) ──▶  SBO3L
+#
+# All three services use the SAME SBO3L daemon → single hash-chained audit
+# spans every framework boundary. Run:
+#
+#     docker compose up --build
+#     docker compose run --rm orchestrator
+#
+# First-time `up --build` pulls + builds (~3-5 min). Subsequent `up` boots
+# in <60s on a warm machine.
+
+services:
+  sbo3l-server:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: sbo3l-server:demo
+    command: ["sbo3l-server"]
+    environment:
+      SBO3L_ALLOW_UNAUTHENTICATED: "1"
+      # Server reads SBO3L_LISTEN (not SBO3L_BIND); 0.0.0.0 binds to
+      # all interfaces — required so other containers in the compose
+      # network can reach this one. SBO3L_ALLOW_UNSAFE_PUBLIC_BIND
+      # acknowledges the non-loopback bind (the F-4 safety gate).
+      SBO3L_LISTEN: "0.0.0.0:8730"
+      SBO3L_ALLOW_UNSAFE_PUBLIC_BIND: "1"
+    ports:
+      - "8730:8730"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8730/v1/health | grep -q ok"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+  plan:
+    build:
+      context: ../..
+      dockerfile: examples/multi-framework-agent/services/plan/Dockerfile
+    image: sbo3l-multi-plan:demo
+    environment:
+      SBO3L_ENDPOINT: "http://sbo3l-server:8730"
+    ports:
+      - "8001:8001"
+    depends_on:
+      sbo3l-server:
+        condition: service_healthy
+
+  execute:
+    build:
+      context: ../..
+      dockerfile: examples/multi-framework-agent/services/execute/Dockerfile
+    image: sbo3l-multi-execute:demo
+    environment:
+      SBO3L_ENDPOINT: "http://sbo3l-server:8730"
+    ports:
+      - "8002:8002"
+    depends_on:
+      sbo3l-server:
+        condition: service_healthy
+
+  confirm:
+    build:
+      context: ../..
+      dockerfile: examples/multi-framework-agent/services/confirm/Dockerfile
+    image: sbo3l-multi-confirm:demo
+    environment:
+      SBO3L_ENDPOINT: "http://sbo3l-server:8730"
+    ports:
+      - "8003:8003"
+    depends_on:
+      sbo3l-server:
+        condition: service_healthy
+
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: examples/multi-framework-agent/orchestrator/Dockerfile
+    image: sbo3l-multi-orchestrator:demo
+    environment:
+      PLAN_URL: "http://plan:8001"
+      EXECUTE_URL: "http://execute:8002"
+      CONFIRM_URL: "http://confirm:8003"
+      SBO3L_ENDPOINT: "http://sbo3l-server:8730"
+    profiles: ["run"]   # not started by default; invoke via `compose run`
+    depends_on:
+      plan:
+        condition: service_started
+      execute:
+        condition: service_started
+      confirm:
+        condition: service_started

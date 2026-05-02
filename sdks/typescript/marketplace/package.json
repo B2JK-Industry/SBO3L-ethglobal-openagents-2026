@@ -23,6 +23,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "sbo3l-marketplace": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -33,13 +36,18 @@
       "types": "./dist/policies.d.ts",
       "import": "./dist/policies.js",
       "require": "./dist/policies.cjs"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js",
+      "require": "./dist/cli.cjs"
     }
   },
   "files": ["dist", "policies", "README.md", "CHANGELOG.md"],
   "sideEffects": false,
   "engines": { "node": ">=18" },
   "scripts": {
-    "build": "tsup src/index.ts src/policies.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/policies.ts src/cli.ts --format esm,cjs --dts --clean && chmod +x dist/cli.js dist/cli.cjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
