@@ -44,7 +44,7 @@ pub enum SignerError {
     /// `SBO3L_SIGNER_BACKEND` was set to a string the factory doesn't
     /// recognise.
     #[error(
-        "unknown SBO3L_SIGNER_BACKEND='{0}'; expected one of dev / aws_kms / gcp_kms / phala_tee"
+        "unknown SBO3L_SIGNER_BACKEND='{0}'; expected one of dev / local_file / aws_kms / gcp_kms / phala_tee"
     )]
     UnknownBackend(String),
 
@@ -97,6 +97,7 @@ pub trait Signer: Send + Sync {
 }
 
 pub mod dev;
+pub mod local_file;
 
 #[cfg(feature = "aws_kms")]
 pub mod aws_kms;
@@ -111,6 +112,7 @@ pub mod phala_tee;
 pub mod eth;
 
 pub use dev::DevSignerLockedDown;
+pub use local_file::{KeyFileFormat, LocalFileSigner};
 
 /// Daemon startup factory. Reads `SBO3L_SIGNER_BACKEND` (default `dev`)
 /// and constructs the matching [`Signer`] for the given `role`
@@ -122,6 +124,8 @@ pub fn signer_from_env(role: &str) -> Result<Box<dyn Signer>, SignerError> {
     let backend = std::env::var("SBO3L_SIGNER_BACKEND").unwrap_or_else(|_| "dev".to_string());
     match backend.as_str() {
         "dev" => Ok(Box::new(DevSignerLockedDown::from_env(role)?)),
+
+        "local_file" => Ok(Box::new(LocalFileSigner::from_env(role)?)),
 
         "aws_kms" => {
             #[cfg(feature = "aws_kms")]

@@ -144,3 +144,13 @@ upstream:
 
 - The agent-identity → policy-hash → audit-root pattern via ENS text records felt natural; partners that resolve ENS metadata should consider standardising the `sbo3l:*` keys.
 - Sponsor adapters benefit from a clean separation between "decide" (policy) and "execute" (sponsor). This is the architectural angle SBO3L wants to validate.
+
+## Concrete pain points hit during live integration
+
+The five highest-friction items encountered during the live SBO3L ↔ partner wiring, distilled from the per-partner sections above. Each is filed as a GitHub issue against the upstream partner repo so the discussion can carry on past the hackathon submission window.
+
+- **KeeperHub — undocumented submission/result schema.** No public JSON schema for the action submission/result envelope; the hackathon adapter mocks execution. Filed: [KeeperHub/cli#48](https://github.com/KeeperHub/cli/issues/48).
+- **KeeperHub — `executionId` lookup undocumented.** No documented GET path or MCP tool for post-submit status / run-log retrieval. Filed: [KeeperHub/cli#49](https://github.com/KeeperHub/cli/issues/49).
+- **KeeperHub — token-prefix naming (`kh_*` vs `wfb_*`).** The split between native API tokens and workflow-webhook tokens isn't surfaced in the public docs; cost real wiring time. Filed: [KeeperHub/cli#47](https://github.com/KeeperHub/cli/issues/47).
+- **KeeperHub — first-class upstream policy/audit fields on submission envelope.** No native fields for `sbo3l_*` / upstream attestation; offline auditors have no cryptographic link from a KeeperHub execution row back to the SBO3L decision that approved it. Filed: [KeeperHub/cli#50](https://github.com/KeeperHub/cli/issues/50).
+- **KeeperHub — Idempotency-Key / retry semantics on workflow webhooks.** Undocumented dedup behavior on duplicate webhook delivery; policy engines have to choose between "never retry" (loses delivery) or "retry blindly" (risks double-spending). Filed: [KeeperHub/cli#51](https://github.com/KeeperHub/cli/issues/51).

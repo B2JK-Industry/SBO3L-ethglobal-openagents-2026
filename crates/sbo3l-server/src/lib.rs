@@ -9,6 +9,7 @@
 //! return the cached envelope without re-running any side-effecting step.
 
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
@@ -34,6 +35,11 @@ use sbo3l_storage::Storage;
 pub mod auth;
 pub use auth::AuthConfig;
 
+pub mod executor_callback;
+
+#[cfg(feature = "ws_events")]
+pub mod ws_events;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
@@ -53,6 +59,23 @@ pub struct AppInner {
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
     pub auth: AuthConfig,
+    /// Process start time. Surfaced via `/v1/healthz` so Dev 3's
+    /// hosted-app daemon-down detection can render a meaningful
+    /// `uptime_seconds`. Captured once at `AppState::full` time, never
+    /// reset — a daemon restart is a fresh `AppInner` with a fresh
+    /// `started_at`, which is exactly what we want.
+    pub started_at: Instant,
+    /// In-memory replay store for executor-callback nonces. Always
+    /// constructed (no feature gate) — the `/v1/executor-callback`
+    /// route is part of the base daemon surface.
+    pub callback_nonce_store: Arc<executor_callback::CallbackNonceStore>,
+    /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
+    /// only with `--features ws_events`. The publish path inside
+    /// `create_payment_request` checks `is_some()` and emits when
+    /// the bus is wired; existing daemon runs (without the feature)
+    /// see no behaviour change.
+    #[cfg(feature = "ws_events")]
+    pub ws_events: Option<std::sync::Arc<ws_events::WsEventsBus>>,
 }
 
 impl AppState {
@@ -119,19 +142,130 @@ impl AppState {
             audit_signer,
             receipt_signer,
             auth,
+            started_at: Instant::now(),
+            callback_nonce_store: Arc::new(executor_callback::CallbackNonceStore::new()),
+            #[cfg(feature = "ws_events")]
+            ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
         }))
     }
 }
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
+    let r = Router::new()
         .route("/v1/health", get(health))
+        .route("/v1/healthz", get(healthz))
         .route("/v1/payment-requests", post(create_payment_request))
-        .with_state(state)
+        .route(
+            "/v1/executor-callback",
+            post(executor_callback::executor_callback_handler),
+        );
+    #[cfg(feature = "ws_events")]
+    let r = r.route("/v1/events", get(ws_events::ws_events_handler));
+    r.with_state(state)
 }
 
+/// Legacy liveness probe. Returns the literal string `ok`. Kept for
+/// callers that already shipped against the original `/v1/health`
+/// contract; new integrations should prefer [`healthz`] which carries
+/// version + audit-chain head + uptime.
 async fn health() -> &'static str {
     "ok"
+}
+
+/// Structured health response served at `GET /v1/healthz`. Designed
+/// for Dev 3's hosted-app daemon-down detection — one call covers
+/// "is the daemon up", "what version", "is the audit chain alive",
+/// and "for how long". Stable wire format; additive changes only.
+#[derive(Debug, Serialize)]
+pub struct HealthzResponse {
+    /// Always `"ok"` on a 200; on a 503 the body carries
+    /// `"storage_unreachable"` so failure mode is structured, not
+    /// just an HTTP code.
+    pub status: &'static str,
+    /// `Cargo.toml` version of the `sbo3l-server` crate at compile
+    /// time. Useful for confirming a new build actually deployed.
+    pub version: &'static str,
+    /// Hex-encoded `event_hash` of the latest audit event. `null`
+    /// when the chain is empty (fresh daemon, no requests yet).
+    /// Surfacing this lets a probe assert "audit chain advanced"
+    /// across two health calls.
+    pub audit_chain_head: Option<String>,
+    /// Seq number of the chain tip; pairs with `audit_chain_head`
+    /// for a unique identity (the hash alone is monotonic but a
+    /// length lets the probe also see growth).
+    pub audit_chain_length: u64,
+    /// Wall-clock seconds since `AppInner::started_at`. Reset by
+    /// daemon restart, which is the intended semantic.
+    pub uptime_seconds: u64,
+}
+
+/// `GET /v1/healthz` — full daemon health snapshot.
+///
+/// Returns 200 with [`HealthzResponse`] when storage is reachable
+/// (audit-chain head can be queried). Returns 503 with a problem-shape
+/// body when the storage mutex is poisoned or the audit query fails;
+/// either is a hard signal that the daemon can't serve traffic.
+async fn healthz(State(state): State<AppState>) -> Response {
+    let inner = &state.0;
+    let uptime_seconds = inner.started_at.elapsed().as_secs();
+
+    let (head, length) = {
+        let storage = match inner.storage.lock() {
+            Ok(s) => s,
+            Err(_) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": "storage mutex poisoned",
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "uptime_seconds": uptime_seconds,
+                    })),
+                )
+                    .into_response();
+            }
+        };
+        let length = match storage.audit_count() {
+            Ok(n) => n,
+            Err(e) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": format!("audit_count: {e}"),
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "uptime_seconds": uptime_seconds,
+                    })),
+                )
+                    .into_response();
+            }
+        };
+        let head = match storage.audit_last() {
+            Ok(opt) => opt.map(|ev| ev.event_hash),
+            Err(e) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": format!("audit_last: {e}"),
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "uptime_seconds": uptime_seconds,
+                    })),
+                )
+                    .into_response();
+            }
+        };
+        (head, length)
+    };
+
+    Json(HealthzResponse {
+        status: "ok",
+        version: env!("CARGO_PKG_VERSION"),
+        audit_chain_head: head,
+        audit_chain_length: length,
+        uptime_seconds,
+    })
+    .into_response()
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -644,6 +778,29 @@ async fn run_pipeline(
         }
     };
 
+    // T-3-5 backend: fan out the request outcome to the trust-dns viz
+    // event bus. No-op when no subscribers are connected (broadcast
+    // channel returns SendError quietly). Compiled out entirely
+    // without `--features ws_events`.
+    #[cfg(feature = "ws_events")]
+    if let Some(bus) = inner.ws_events.as_ref() {
+        let viz_decision = match receipt_decision {
+            ReceiptDecision::Allow => ws_events::DecisionKind::Allow,
+            ReceiptDecision::Deny => ws_events::DecisionKind::Deny,
+            // requires_human is rejected upstream; defensive default.
+            ReceiptDecision::RequiresHuman => ws_events::DecisionKind::Deny,
+        };
+        ws_events::publish_pipeline_run(
+            bus,
+            &aprp.agent_id,
+            None, // ENS name lookup is upstream of this handler.
+            viz_decision,
+            final_deny_code.clone(),
+            signed_event.event.seq,
+            &signed_event.event_hash,
+        );
+    }
+
     let receipt = UnsignedReceipt {
         agent_id: aprp.agent_id.clone(),
         decision: receipt_decision.clone(),
@@ -681,10 +838,8 @@ async fn run_pipeline(
 /// Embedded reference policy for development/demo. Production callers should
 /// load from `/etc/sbo3l/policies/...`.
 pub fn reference_policy() -> Policy {
-    Policy::parse_json(include_str!(
-        "../../../test-corpus/policy/reference_low_risk.json"
-    ))
-    .expect("invariant: bundled reference policy parses")
+    Policy::parse_json(include_str!("../policies/reference_low_risk.json"))
+        .expect("invariant: bundled reference policy parses")
 }
 
 #[cfg(test)]

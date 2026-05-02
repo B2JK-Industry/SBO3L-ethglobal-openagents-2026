@@ -97,6 +97,18 @@ pub const AUDIT_ROOT_KEY: &str = "sbo3l:audit_root";
 /// `keccak256("setText(bytes32,string,string)")`.
 pub const SET_TEXT_SELECTOR: [u8; 4] = [0x10, 0xf1, 0x3a, 0x8c];
 
+/// `setSubnodeRecord(bytes32 node, bytes32 label, address owner, address resolver, uint64 ttl)`
+/// — the ENS Registry function that issues a subname under a parent in
+/// a single tx (vs the older `setSubnodeOwner` + separate `setResolver`
+/// + `setTTL` triple). Selector = first 4 bytes of
+///   `keccak256("setSubnodeRecord(bytes32,bytes32,address,address,uint64)")`.
+///
+/// We pivoted to the canonical ENS Registry path (vs Durin's gateway
+/// model) for T-3-1 broadcast — Daniel owns `sbo3lagent.eth` on
+/// mainnet, so calling `Registry.setSubnodeRecord` directly issues
+/// the subname without any third-party registrar contract.
+pub const SET_SUBNODE_RECORD_SELECTOR: [u8; 4] = [0x5e, 0xf2, 0xc7, 0xf0];
+
 /// EIP-137 namehash. Recursive: namehash("") = 32 zero bytes;
 /// namehash("x.y") = keccak256(namehash("y") || keccak256("x")).
 /// Labels are joined by `.`. We don't normalise (ENSIP-15 / UTS-46)
@@ -169,6 +181,49 @@ pub fn set_text_calldata(node: [u8; 32], key: &str, value: &str) -> Vec<u8> {
     out.extend(std::iter::repeat_n(0u8, value_pad));
 
     out
+}
+
+/// ABI-encode `setSubnodeRecord(bytes32 node, bytes32 label, address owner, address resolver, uint64 ttl)`.
+///
+/// All five args are static (32-byte) — no offsets, no tails. The
+/// layout is just selector || node || label || owner_padded ||
+/// resolver_padded || ttl_padded, total 4 + 5*32 = 164 bytes. This is
+/// the simplest possible ABI shape — we don't share the dynamic-tail
+/// machinery with `set_text_calldata` because nothing here is dynamic.
+///
+/// `label` is the keccak256 of the subname's leftmost label (e.g.
+/// `keccak256(b"research-agent")` for `research-agent.sbo3lagent.eth`),
+/// **not** the namehash of the full FQDN — the Registry's recursion
+/// logic computes the FQDN namehash internally as
+/// `keccak256(parent_node || label_hash)`.
+pub fn set_subnode_record_calldata(
+    parent_node: [u8; 32],
+    label_hash: [u8; 32],
+    owner: [u8; 20],
+    resolver: [u8; 20],
+    ttl: u64,
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(4 + 5 * 32);
+    out.extend_from_slice(&SET_SUBNODE_RECORD_SELECTOR);
+    out.extend_from_slice(&parent_node);
+    out.extend_from_slice(&label_hash);
+    // address owner — left-pad 20 bytes to 32.
+    out.extend(std::iter::repeat_n(0u8, 12));
+    out.extend_from_slice(&owner);
+    // address resolver — same.
+    out.extend(std::iter::repeat_n(0u8, 12));
+    out.extend_from_slice(&resolver);
+    // uint64 ttl — left-pad to 32.
+    out.extend_from_slice(&u256_be(ttl));
+    out
+}
+
+/// keccak256 of the bytes of a single ENS label, used as the second
+/// argument to [`set_subnode_record_calldata`]. Public so the broadcast
+/// path can compute the same value the on-chain registry will compute
+/// internally — the FQDN namehash is `keccak256(parent_node || label_hash(label))`.
+pub fn label_hash(label: &str) -> [u8; 32] {
+    keccak256(label.as_bytes())
 }
 
 fn pad_to_32_multiple(n: usize) -> usize {
@@ -341,6 +396,53 @@ mod tests {
     fn set_text_selector_matches_signature() {
         let derived = keccak256(b"setText(bytes32,string,string)");
         assert_eq!(derived[..4], SET_TEXT_SELECTOR);
+    }
+
+    /// Selector = first 4 bytes of
+    /// keccak256("setSubnodeRecord(bytes32,bytes32,address,address,uint64)").
+    /// Locked against the canonical ENS Registry deploy.
+    #[test]
+    fn set_subnode_record_selector_matches_signature() {
+        let derived = keccak256(b"setSubnodeRecord(bytes32,bytes32,address,address,uint64)");
+        assert_eq!(derived[..4], SET_SUBNODE_RECORD_SELECTOR);
+    }
+
+    #[test]
+    fn set_subnode_record_calldata_has_static_layout() {
+        // 4 selector + 5 * 32 args = 164 bytes, no dynamic tails.
+        let parent = [0xaa; 32];
+        let label = [0xbb; 32];
+        let owner = [0x11; 20];
+        let resolver = [0x22; 20];
+        let calldata = set_subnode_record_calldata(parent, label, owner, resolver, 0);
+        assert_eq!(calldata.len(), 4 + 5 * 32);
+        assert_eq!(calldata[..4], SET_SUBNODE_RECORD_SELECTOR);
+        assert_eq!(calldata[4..36], parent);
+        assert_eq!(calldata[36..68], label);
+        // address fields are left-padded with 12 zero bytes.
+        assert_eq!(calldata[68..80], [0u8; 12]);
+        assert_eq!(calldata[80..100], owner);
+        assert_eq!(calldata[100..112], [0u8; 12]);
+        assert_eq!(calldata[112..132], resolver);
+        // ttl is uint64 left-padded to 32.
+        assert_eq!(calldata[132..164], [0u8; 32]);
+    }
+
+    #[test]
+    fn set_subnode_record_ttl_serialises_at_low_24_bytes() {
+        let calldata = set_subnode_record_calldata([0; 32], [0; 32], [0; 20], [0; 20], 0xdeadbeef);
+        // The ttl is at calldata[132..164]; its 8 low bytes carry the
+        // u64 big-endian representation. Rest must be zero.
+        assert_eq!(&calldata[132..156], &[0u8; 24]);
+        assert_eq!(&calldata[156..164], &0xdeadbeef_u64.to_be_bytes());
+    }
+
+    #[test]
+    fn label_hash_research_agent_matches_keccak() {
+        // keccak256(b"research-agent") — recomputed locally so the
+        // test is self-checking.
+        let direct = keccak256(b"research-agent");
+        assert_eq!(label_hash("research-agent"), direct);
     }
 
     /// Sanity check: setText calldata for short args has the expected

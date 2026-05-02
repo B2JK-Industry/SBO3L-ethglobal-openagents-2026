@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/autogen",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Microsoft AutoGen function adapter wrapping SBO3L — gate every agent payment intent through SBO3L's policy boundary.",
   "license": "MIT",
   "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
