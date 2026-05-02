@@ -89,7 +89,7 @@ That's **178 additional vitest** the closeout report missed.
 | Observability dashboard | 13 |
 | GitHub Action verifier | 8 |
 | CI plugins shared verifier | 10 |
-| **Total Dev 2 TypeScript tests** | **534** (was 402) |
+| **Total Dev 2 TypeScript tests** | **526** (was 402; per-row math: 434 + 56 + 5 + 13 + 8 + 10) |
 
 **Fix:** `docs/dev2/closeout-test-pass.md` updated to clarify scope + add the 5 missing packages with a 25/25 result.
 
@@ -115,4 +115,4 @@ I also re-read every shipped TS/Rust file for runtime bugs. Spot checks:
 
 5 bugs, all in closeout documentation. None affect runtime behavior of any shipped package or app. All corrected in this PR.
 
-The actual final state is **better** than what the original closeout claimed — 30/32 packages live (originally claimed 8/30), 534 tests passing (originally claimed 402).
+The actual final state is **better** than what the original closeout claimed — 30/32 packages live (originally claimed 8/30), 526 tests passing (originally claimed 402).

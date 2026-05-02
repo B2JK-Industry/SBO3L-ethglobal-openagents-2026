@@ -46,6 +46,14 @@ try {
 // Mirrors sdks/typescript/src/passport.ts::verify shape. We inline the
 // checks here so the action has zero npm install cost — the full SDK
 // is fetched only when consumers want extended Ed25519 + ENS lookups.
+//
+// Real Passport capsules from this repo (test-corpus/passport/v2_*.json)
+// use `schema` at the root and store the verdict at `decision.result`,
+// `audit_event_id` at `audit.audit_event_id`, etc. The legacy fallbacks
+// to `capsule_type` / top-level `decision` / etc. let bare-receipt
+// envelopes still verify.
+const HEX64 = /^[0-9a-f]{64}$/;
+
 function verifyInline(c) {
   const checks = [];
   const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -54,39 +62,59 @@ function verifyInline(c) {
     name: "capsule.is_object",
     ok: isObj(c),
   });
-  if (!isObj(c)) return { decision: "deny", checks };
+  if (!isObj(c)) return { decision: "deny", audit_event_id: null, checks };
 
-  const ctype = c.capsule_type ?? c.receipt_type ?? "";
+  const ctype = c.schema ?? c.capsule_type ?? c.receipt_type ?? "";
   checks.push({
     name: "capsule.type_recognised",
     ok: typeof ctype === "string" && ctype.startsWith("sbo3l."),
     detail: ctype,
   });
 
-  const decision = c.decision ?? c.receipt?.decision ?? "unknown";
+  const decision =
+    c.decision?.result ??
+    c.decision?.receipt?.decision ??
+    (typeof c.decision === "string" ? c.decision : undefined) ??
+    c.receipt?.decision ??
+    "unknown";
   checks.push({
     name: "capsule.decision_set",
     ok: ["allow", "deny", "requires_human"].includes(decision),
     detail: decision,
   });
 
-  const auditId = c.audit_event_id ?? c.receipt?.audit_event_id ?? null;
+  const auditId =
+    c.audit?.audit_event_id ??
+    c.decision?.receipt?.audit_event_id ??
+    c.audit_event_id ??
+    c.receipt?.audit_event_id ??
+    null;
   checks.push({
     name: "capsule.audit_event_id_present",
     ok: typeof auditId === "string" && /^evt-/.test(auditId),
     detail: auditId,
   });
 
-  const requestHash = c.request_hash ?? c.receipt?.request_hash ?? null;
+  const requestHash =
+    c.request?.request_hash ??
+    c.decision?.receipt?.request_hash ??
+    c.request_hash ??
+    c.receipt?.request_hash ??
+    null;
   checks.push({
     name: "capsule.request_hash_present",
-    ok: typeof requestHash === "string" && requestHash.length === 64,
+    ok: typeof requestHash === "string" && HEX64.test(requestHash),
   });
 
-  const policyHash = c.policy_hash ?? c.receipt?.policy_hash ?? null;
+  const policyHash =
+    c.policy?.policy_hash ??
+    c.decision?.receipt?.policy_hash ??
+    c.policy_hash ??
+    c.receipt?.policy_hash ??
+    null;
   checks.push({
     name: "capsule.policy_hash_present",
-    ok: typeof policyHash === "string" && policyHash.length === 64,
+    ok: typeof policyHash === "string" && HEX64.test(policyHash),
   });
 
   return { decision, audit_event_id: auditId, checks };

@@ -131,6 +131,18 @@ class PolicyGuardNode:
             if hasattr(result, "__await__"):
                 # Async client used in a sync-graph context — surface a clear
                 # error. Use SBO3LClientSync for sync graphs.
+                # Close the coroutine before returning so Python's GC
+                # doesn't emit `RuntimeWarning: coroutine ... was never
+                # awaited` (which fails any test runner using
+                # -W error::RuntimeWarning).
+                close = getattr(result, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:  # noqa: BLE001 — closing a half-started
+                        # coroutine can raise; we have no recovery and the
+                        # caller already gets a structured deny envelope.
+                        pass
                 return {
                     "deny_reason": {
                         "code": "transport.async_client_in_sync_graph",
@@ -188,9 +200,22 @@ def route_after_guard(state: dict[str, Any]) -> str:
             {"execute": "execute", DENIED: END},
         )
 
-    Returns `"execute"` when an allow receipt is present, `DENIED` otherwise.
+    Returns ``"execute"`` only when the LATEST guard run produced an allow —
+    i.e. ``policy_receipt`` is present AND no fresh ``deny_reason`` is
+    set in the same state.
+
+    Why we check ``deny_reason`` FIRST:
+    LangGraph merges partial state updates from each node. A retried or
+    re-entered guard call can append a fresh deny on top of an older
+    cached allow receipt, leaving both fields populated. Routing on
+    ``policy_receipt`` alone would then execute downstream work after a
+    deny — a safety violation. Checking ``deny_reason`` first short-
+    circuits that race; the receipt is only honoured when no deny
+    coexists.
     """
 
+    if isinstance(state.get("deny_reason"), dict):
+        return DENIED
     if isinstance(state.get("policy_receipt"), dict):
         return "execute"
     return DENIED

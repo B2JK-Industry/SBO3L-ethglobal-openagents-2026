@@ -27,10 +27,21 @@
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates
     - curl -fsSL -o /tmp/verifier.mjs https://raw.githubusercontent.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/main/ci-plugins/_shared/verifier.mjs
   script:
+    # GitLab CI's `set -e` is implicit on each script line, but pipes do
+    # NOT propagate the failure of any non-final command by default.
+    # Set pipefail explicitly so a non-zero verifier exit fails the job
+    # even when piped through tee.
+    - set -o pipefail
     # Markdown report → job log + artifact
     - SBO3L_CAPSULE_PATH="${SBO3L_CAPSULE_PATH}" SBO3L_REPORT_FORMAT=markdown node /tmp/verifier.mjs | tee capsule-report.md
-    # JSON for downstream consumers
-    - SBO3L_CAPSULE_PATH="${SBO3L_CAPSULE_PATH}" SBO3L_REPORT_FORMAT=json node /tmp/verifier.mjs > capsule-result.json
+    # JSON for downstream consumers (don't fail-on-deny here — we still
+    # want the JSON written so artifacts include the structured result).
+    - SBO3L_CAPSULE_PATH="${SBO3L_CAPSULE_PATH}" SBO3L_FAIL_ON_DENY=false SBO3L_REPORT_FORMAT=json node /tmp/verifier.mjs > capsule-result.json
+    # Extract scalar fields into a dotenv file so downstream jobs can
+    # consume them via `dependencies: [sbo3l_verify]` + the
+    # `artifacts.reports.dotenv` declaration below. node -p evaluates a
+    # JS expression and prints; > capsule-result.env writes the file.
+    - node -e 'const r=JSON.parse(require("fs").readFileSync("capsule-result.json","utf8")); console.log(`SBO3L_DECISION=${r.decision}\nSBO3L_AUDIT_EVENT_ID=${r.audit_event_id||""}\nSBO3L_CHECKS_PASSED=${r.checks_passed}`)' > capsule-result.env
   artifacts:
     when: always
     paths:
