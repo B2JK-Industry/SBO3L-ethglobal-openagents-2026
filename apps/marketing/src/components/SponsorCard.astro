@@ -1,0 +1,146 @@
+---
+// SponsorCard — single sponsor track card with brand-themed motif.
+// R19 Wave 2 Task C. Converted from /tmp/sbo3l-design-kit/assets/sponsor.jsx.
+//
+// Inline SVG, viewBox 240×140. One of four motifs ("keeperhub" /
+// "ens" / "uniswap" / "anthropic") rendered in the right column;
+// track name + subtitle + CTA in the left column. The whole card is
+// an <a> link to the per-bounty submission page.
+
+interface Props {
+  track: string;
+  subtitle: string;
+  motif: "keeperhub" | "ens" | "uniswap" | "anthropic";
+  href: string;
+}
+const { track, subtitle, motif, href } = Astro.props;
+---
+<a href={href} class="sponsor-card" aria-label={`${track} sponsor track`}>
+  <svg viewBox="0 0 240 140" class="card-svg">
+    <rect x="0" y="0" width="240" height="140" rx="6" class="card-bg" />
+    <rect x="0" y="0" width="3" height="140" class="card-accent-stripe" />
+
+    <!-- Header: SPONSOR TRACK -->
+    <text x="20" y="26" class="card-eyebrow">SPONSOR TRACK</text>
+    <line x1="20" y1="34" x2="60" y2="34" class="card-eyebrow-rule" />
+
+    <!-- Brand-themed motif on the right -->
+    <g transform="translate(190 70)" class="motif">
+      {motif === "keeperhub" && (
+        <g>
+          <path d="M 0 -22 L 20 -14 L 20 6 Q 20 22 0 28 Q -20 22 -20 6 L -20 -14 Z" fill="none" class="m-stroke-thick" />
+          <circle cx="-8" cy="-4" r="3" class="m-fill" />
+          <circle cx="8"  cy="-4" r="3" class="m-fill" />
+          <circle cx="0"  cy="14" r="3" class="m-fill" />
+          <line x1="-8" y1="-4" x2="0" y2="14" class="m-stroke-thin" />
+          <line x1="8"  y1="-4" x2="0" y2="14" class="m-stroke-thin" />
+          <line x1="-8" y1="-4" x2="8" y2="-4" class="m-stroke-thin" />
+        </g>
+      )}
+      {motif === "ens" && (
+        <g>
+          <rect x="-10" y="-26" width="20" height="14" rx="2" fill="none" class="m-stroke-thick" />
+          <text x="0" y="-16" text-anchor="middle" class="motif-label">.eth</text>
+          <line x1="0"   y1="-12" x2="0"   y2="-4" class="m-stroke-thin" />
+          <line x1="-18" y1="-4"  x2="18"  y2="-4" class="m-stroke-thin" />
+          <line x1="-18" y1="-4"  x2="-18" y2="2"  class="m-stroke-thin" />
+          <line x1="0"   y1="-4"  x2="0"   y2="2"  class="m-stroke-thin" />
+          <line x1="18"  y1="-4"  x2="18"  y2="2"  class="m-stroke-thin" />
+          <rect x="-26" y="2" width="16" height="14" rx="2" fill="none" class="m-stroke-thick" />
+          <rect x="-8"  y="2" width="16" height="14" rx="2" class="m-fill m-stroke-thick" />
+          <rect x="10"  y="2" width="16" height="14" rx="2" fill="none" class="m-stroke-thick" />
+          <text x="0" y="13" text-anchor="middle" class="motif-fill-label">sbo3l</text>
+        </g>
+      )}
+      {motif === "uniswap" && (
+        <g>
+          <path d="M -22 -8 L 18 -8 M 12 -14 L 18 -8 L 12 -2" fill="none" class="m-stroke-thick m-linecap" />
+          <path d="M 22 12 L -18 12 M -12 6 L -18 12 L -12 18" fill="none" class="m-stroke-thick m-linecap" />
+          <rect x="-7" y="-2" width="14" height="10" rx="1.5" class="m-fill" />
+          <path d="M -4 -2 L -4 -6 Q -4 -10 0 -10 Q 4 -10 4 -6 L 4 -2" fill="none" class="m-stroke-thick" />
+        </g>
+      )}
+      {motif === "anthropic" && (
+        <g>
+          <rect x="-24" y="-18" width="32" height="22" rx="3" fill="none" class="m-stroke-thick" />
+          <path d="M -10 4 L -8 10 L -2 4" fill="none" class="m-stroke-thick m-linejoin" />
+          <circle cx="-16" cy="-8" r="1.5" class="m-fill" />
+          <circle cx="-8"  cy="-8" r="1.5" class="m-fill" />
+          <circle cx="0"   cy="-8" r="1.5" class="m-fill" />
+          <rect x="12" y="-6" width="14" height="16" rx="2" fill="none" class="m-stroke-thick" />
+          <line x1="15" y1="-2" x2="23" y2="-2" class="m-stroke-thin" />
+          <line x1="15" y1="2"  x2="20" y2="2"  class="m-stroke-thin" />
+          <line x1="15" y1="6"  x2="23" y2="6"  class="m-stroke-thin" />
+        </g>
+      )}
+    </g>
+
+    <!-- Title + subtitle + CTA -->
+    <text x="20" y="70"  class="card-title">{track}</text>
+    <text x="20" y="92"  class="card-subtitle">{subtitle}</text>
+    <text x="20" y="118" class="card-cta">VIEW SUBMISSION →</text>
+  </svg>
+</a>
+
+<style>
+  .sponsor-card {
+    display: block;
+    text-decoration: none;
+    transition: transform 0.15s ease;
+  }
+  .sponsor-card:hover { transform: translateY(-2px); text-decoration: none; }
+  .sponsor-card:hover .card-bg { stroke: var(--accent); }
+
+  .card-svg { display: block; width: 100%; height: auto; }
+  .card-bg {
+    fill: var(--code-bg);
+    stroke: var(--border);
+    stroke-width: 1;
+    transition: stroke 0.15s ease;
+  }
+  .card-accent-stripe { fill: var(--accent); }
+
+  .card-eyebrow {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 9px;
+    fill: var(--muted);
+    letter-spacing: 2px;
+  }
+  .card-eyebrow-rule { stroke: var(--accent); stroke-width: 1; }
+
+  .card-title {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 20px;
+    fill: var(--fg);
+  }
+  .card-subtitle {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 10px;
+    fill: var(--muted);
+  }
+  .card-cta {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 9px;
+    fill: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  /* Motif strokes/fills — inherit accent so dark/light theming flows */
+  .m-stroke-thick { stroke: var(--accent); stroke-width: 1.5; }
+  .m-stroke-thin  { stroke: var(--accent); stroke-width: 1; }
+  .m-linecap { stroke-linecap: round; stroke-linejoin: round; }
+  .m-linejoin { stroke-linejoin: round; }
+  .m-fill { fill: var(--accent); }
+
+  .motif-label {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 7px;
+    fill: var(--accent);
+  }
+  .motif-fill-label {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 7px;
+    font-weight: 700;
+    fill: var(--bg);
+  }
+</style>
