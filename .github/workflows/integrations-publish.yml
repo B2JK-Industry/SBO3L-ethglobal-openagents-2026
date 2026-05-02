@@ -36,6 +36,13 @@ on:
       - "sdks/typescript/integrations/**"
       - "sdks/python/integrations/**"
       - ".github/workflows/integrations-publish.yml"
+  # Manual trigger — used to re-fire publish jobs against an existing
+  # tag when the workflow file changes after the tag was pushed (the
+  # tag's snapshot of the workflow file controls what runs, so we need
+  # workflow_dispatch to escape that lock-in). Each publish job's
+  # internal `if:` gate also accepts `github.ref_name` from a manual
+  # dispatch with the tag selected.
+  workflow_dispatch: {}
 
 permissions:
   contents: read
