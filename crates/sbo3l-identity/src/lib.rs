@@ -19,6 +19,7 @@ pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
+pub mod erc8004;
 pub mod reputation_publisher;
 pub mod universal;
 
@@ -40,6 +41,11 @@ pub use ens_anchor::{
 pub use ens_live::{
     JsonRpcTransport, LiveEnsResolver, ReqwestTransport, RpcError, ENS_REGISTRY_ADDRESS,
     RESOLVER_SELECTOR, SBO3L_TEXT_KEYS, TEXT_SELECTOR,
+};
+pub use erc8004::{
+    build_dry_run as build_erc8004_dry_run, register_agent_calldata,
+    ChainConfig as Erc8004ChainConfig, Erc8004DryRun, Erc8004Error,
+    RegisterRequest as Erc8004RegisterRequest, ERC8004_DRY_RUN_SCHEMA, REGISTER_AGENT_SELECTOR,
 };
 pub use reputation_publisher::{
     build_publish_envelope, PublishMode, ReputationEventInput, ReputationPublishEnvelope,
