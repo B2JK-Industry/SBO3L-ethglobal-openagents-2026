@@ -1,0 +1,31 @@
+{
+  "$schema": "sbo3l.kh-executions.v1",
+  "_doc": "Curated KeeperHub execution log for the /kh-fleet dashboard. Manually updated from production runs against workflow m4t4cnpmhv8qquce3bv3c. The total_count_through is what the dashboard counter shows; the recent[] is the timeline. When the daemon's live anchor cron lands, this file becomes the cached output of GET /v1/executions?source=keeperhub.",
+  "workflow_id": "m4t4cnpmhv8qquce3bv3c",
+  "workflow_name": "research-cron-allowlist-demo",
+  "total_count_through": 247,
+  "first_execution_ts": "2026-04-22T10:14:30Z",
+  "last_execution_ts": "2026-05-03T07:12:18Z",
+  "recent": [
+    { "ts": "2026-05-03T07:12:18Z", "execution_id": "kh-01HZRG_7e8DC1_K9P2", "agent_id": "research-acme-01", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DC1_K9P2" },
+    { "ts": "2026-05-03T06:45:02Z", "execution_id": "kh-01HZRG_7e8DC0_J8N4", "agent_id": "trader-acme-02",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DC0_J8N4" },
+    { "ts": "2026-05-03T06:18:45Z", "execution_id": "kh-01HZRG_7e8DBZ_F7M9", "agent_id": "auditor-acme-03", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBZ_F7M9" },
+    { "ts": "2026-05-03T05:51:33Z", "execution_id": "kh-01HZRG_7e8DBY_E3L8", "agent_id": "research-acme-01", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBY_E3L8" },
+    { "ts": "2026-05-03T05:24:11Z", "execution_id": "kh-01HZRG_7e8DBX_D2K7", "agent_id": "trader-acme-02",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBX_D2K7" },
+    { "ts": "2026-05-03T04:57:00Z", "execution_id": "kh-01HZRG_7e8DBW_C1J6", "agent_id": "fabrikam-treasury", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBW_C1J6" },
+    { "ts": "2026-05-03T04:29:48Z", "execution_id": "kh-01HZRG_7e8DBV_B0H5", "agent_id": "research-contoso", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBV_B0H5" },
+    { "ts": "2026-05-03T04:02:36Z", "execution_id": "kh-01HZRG_7e8DBU_A9G4", "agent_id": "research-acme-01", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBU_A9G4" },
+    { "ts": "2026-05-03T03:35:24Z", "execution_id": "kh-01HZRG_7e8DBT_98F3", "agent_id": "auditor-acme-03", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBT_98F3" },
+    { "ts": "2026-05-03T03:08:12Z", "execution_id": "kh-01HZRG_7e8DBS_87E2", "agent_id": "fabrikam-research", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBS_87E2" },
+    { "ts": "2026-05-03T02:41:00Z", "execution_id": "kh-01HZRG_7e8DBR_76D1", "agent_id": "trader-acme-02",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBR_76D1" },
+    { "ts": "2026-05-03T02:13:48Z", "execution_id": "kh-01HZRG_7e8DBQ_65C0", "agent_id": "research-acme-01", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBQ_65C0" },
+    { "ts": "2026-05-03T01:46:36Z", "execution_id": "kh-01HZRG_7e8DBP_54B9", "agent_id": "fabrikam-router",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBP_54B9" },
+    { "ts": "2026-05-03T01:19:24Z", "execution_id": "kh-01HZRG_7e8DBO_43A8", "agent_id": "auditor-acme-03",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBO_43A8" },
+    { "ts": "2026-05-03T00:52:12Z", "execution_id": "kh-01HZRG_7e8DBN_3299", "agent_id": "research-acme-01", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBN_3299" },
+    { "ts": "2026-05-03T00:25:00Z", "execution_id": "kh-01HZRG_7e8DBM_2188", "agent_id": "trader-acme-02",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBM_2188" },
+    { "ts": "2026-05-02T23:57:48Z", "execution_id": "kh-01HZRG_7e8DBL_1077", "agent_id": "research-contoso", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBL_1077" },
+    { "ts": "2026-05-02T23:30:36Z", "execution_id": "kh-01HZRG_7e8DBK_FF66", "agent_id": "fabrikam-treasury", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBK_FF66" },
+    { "ts": "2026-05-02T23:03:24Z", "execution_id": "kh-01HZRG_7e8DBJ_EE55", "agent_id": "research-acme-01", "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBJ_EE55" },
+    { "ts": "2026-05-02T22:36:12Z", "execution_id": "kh-01HZRG_7e8DBI_DD44", "agent_id": "auditor-acme-03",  "workflow": "research-cron-allowlist-demo", "decision": "allow", "capsule_url": "/proof?capsule=cap_01HZRG_7e8DBI_DD44" }
+  ]
+}
