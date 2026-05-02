@@ -115,6 +115,17 @@ pub mod eth_kms;
 #[cfg(feature = "eth_signer")]
 pub mod eth_local;
 
+// R14 P3 — live cloud-KMS EthSigner backends. Each pulls a vendor SDK
+// only when its feature is enabled. `eth_kms_common` holds the shared
+// SPKI / DER / address helpers; gated to either feature so it's
+// available to whichever backend is active.
+#[cfg(feature = "eth_kms_aws")]
+pub mod eth_kms_aws_live;
+#[cfg(any(feature = "eth_kms_aws", feature = "eth_kms_gcp"))]
+pub mod eth_kms_common;
+#[cfg(feature = "eth_kms_gcp")]
+pub mod eth_kms_gcp_live;
+
 pub use dev::DevSignerLockedDown;
 pub use local_file::{KeyFileFormat, LocalFileSigner};
 
@@ -139,12 +150,22 @@ pub fn eth_signer_from_env(role: &str) -> Result<Box<dyn EthSigner>, SignerError
     match backend.as_str() {
         "local_file" => Ok(Box::new(eth_local::EthLocalFileSigner::from_env(role)?)),
 
+        // R14 P3: live AWS KMS EthSigner is gated behind `eth_kms_aws`.
+        // The older `aws_kms` Ed25519 stub feature still exposes a
+        // compile-only stub via `eth_kms::aws` — kept for callers that
+        // pull the trait but not the SDK.
         "aws_kms" => {
-            #[cfg(feature = "aws_kms")]
+            #[cfg(feature = "eth_kms_aws")]
+            {
+                Ok(Box::new(eth_kms_aws_live::AwsEthKmsLiveSigner::from_env(
+                    role,
+                )?))
+            }
+            #[cfg(all(feature = "aws_kms", not(feature = "eth_kms_aws")))]
             {
                 Ok(Box::new(eth_kms::aws::AwsEthKmsSigner::from_env(role)?))
             }
-            #[cfg(not(feature = "aws_kms"))]
+            #[cfg(not(any(feature = "aws_kms", feature = "eth_kms_aws")))]
             {
                 let _ = role;
                 Err(SignerError::BackendNotCompiled("aws_kms"))
@@ -152,11 +173,17 @@ pub fn eth_signer_from_env(role: &str) -> Result<Box<dyn EthSigner>, SignerError
         }
 
         "gcp_kms" => {
-            #[cfg(feature = "gcp_kms")]
+            #[cfg(feature = "eth_kms_gcp")]
+            {
+                Ok(Box::new(eth_kms_gcp_live::GcpEthKmsLiveSigner::from_env(
+                    role,
+                )?))
+            }
+            #[cfg(all(feature = "gcp_kms", not(feature = "eth_kms_gcp")))]
             {
                 Ok(Box::new(eth_kms::gcp::GcpEthKmsSigner::from_env(role)?))
             }
-            #[cfg(not(feature = "gcp_kms"))]
+            #[cfg(not(any(feature = "gcp_kms", feature = "eth_kms_gcp")))]
             {
                 let _ = role;
                 Err(SignerError::BackendNotCompiled("gcp_kms"))
