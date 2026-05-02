@@ -1,0 +1,3 @@
+# Daemon logs are run-specific noise; keep result.txt + before/after.json
+artifacts/*/daemon.log
+artifacts/*/sbo3l.db*

@@ -10,6 +10,8 @@ use sbo3l_core::{schema, SchemaError};
 mod agent;
 #[cfg(feature = "eth_broadcast")]
 mod agent_broadcast;
+mod agent_reputation;
+mod agent_verify;
 mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
@@ -196,6 +198,102 @@ enum AgentCmd {
 
         /// Write the dry-run envelope to `<path>` as JSON in addition
         /// to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+
+    /// Verify the ENS records of an SBO3L agent (pair to `register`).
+    ///
+    /// Resolves all canonical `sbo3l:*` text records for the supplied
+    /// FQDN via `LiveEnsResolver` and asserts each present record
+    /// matches the operator's expectations.
+    ///
+    /// Pass `--expected-pubkey 0x<64-hex>` (or derive from
+    /// `--key-file <path>`) to assert the agent's
+    /// `sbo3l:pubkey_ed25519` record matches a known identity.
+    /// Pass `--expected-records '<json>'` for per-record assertions
+    /// against any `sbo3l:*` key.
+    ///
+    /// Exit codes: 0 PASS / 2 FAIL / 1 resolution error.
+    /// See `docs/cli/agent-verify.md`.
+    VerifyEns {
+        /// Fully-qualified ENS name (e.g.
+        /// `research-agent.sbo3lagent.eth`).
+        fqdn: String,
+
+        /// `mainnet` or `sepolia`. Default `mainnet` (the live name).
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Override the resolver RPC. Default = `SBO3L_ENS_RPC_URL`.
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        /// `0x` + 64 hex chars Ed25519 pubkey. Asserts against
+        /// `sbo3l:pubkey_ed25519`. Mutually exclusive with
+        /// `--key-file`.
+        #[arg(long)]
+        expected_pubkey: Option<String>,
+
+        /// Path to a local Ed25519 secret seed (32 raw bytes OR 64
+        /// hex chars in UTF-8). Pubkey is derived and asserted.
+        #[arg(long, conflicts_with = "expected_pubkey")]
+        key_file: Option<PathBuf>,
+
+        /// JSON object `{"sbo3l:agent_id":"...", ...}` of expected
+        /// records. Records not listed are reported but not failed.
+        ///
+        /// Default: **strict mode** — any key outside the canonical
+        /// `sbo3l:*` set causes verify-ens to refuse with exit code
+        /// 2, so a typo (`sbol3:agent_id`) doesn't silently turn
+        /// into a no-op expectation. Pass `--lenient` to opt back
+        /// into the legacy silent-ignore behaviour.
+        #[arg(long)]
+        expected_records: Option<String>,
+
+        /// Silently ignore unknown keys in `--expected-records`.
+        /// Disables the strict-mode default. Useful when an upstream
+        /// pipeline injects extra metadata that's not part of
+        /// SBO3L's canonical record set.
+        #[arg(long, default_value_t = false)]
+        lenient: bool,
+
+        /// Emit a `sbo3l.verify_ens_report.v1` JSON envelope instead
+        /// of human-readable text.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Compute and publish an agent's reputation score (T-4-6).
+    ///
+    /// Reads audit events from `--events <file.json>` (a JSON array
+    /// of {decision, executor_confirmed, age_secs} objects), computes
+    /// the v2 weighted score (sbo3l_policy::reputation::compute_reputation_v2),
+    /// and emits a setText envelope publishing the score to the agent's
+    /// `sbo3l:reputation_score` ENS text record.
+    ///
+    /// **Dry-run only in this build.** Broadcast wires through F-5
+    /// EthSigner once that lands.
+    ReputationPublish {
+        /// FQDN of the agent (e.g. `research-agent.sbo3lagent.eth`).
+        #[arg(long)]
+        fqdn: String,
+
+        /// Path to a JSON file: array of `ReputationEventInput`
+        /// (`{decision, executor_confirmed, age_secs}`).
+        #[arg(long)]
+        events: PathBuf,
+
+        /// `mainnet` or `sepolia`. Default `mainnet` since the
+        /// canonical reputation publishes are on `sbo3lagent.eth`.
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Override the resolver address. Default = the network's
+        /// canonical PublicResolver.
+        #[arg(long)]
+        resolver: Option<String>,
+
+        /// Write the envelope JSON to `<path>` in addition to printing.
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -801,6 +899,46 @@ fn main() -> ExitCode {
             private_key_env_var,
             out,
         }),
+        Command::Agent {
+            op:
+                AgentCmd::VerifyEns {
+                    fqdn,
+                    network,
+                    rpc_url,
+                    expected_pubkey,
+                    key_file,
+                    expected_records,
+                    lenient,
+                    json,
+                },
+        } => agent_verify::cmd_agent_verify_ens(agent_verify::AgentVerifyEnsArgs {
+            fqdn,
+            network,
+            rpc_url,
+            expected_pubkey,
+            key_file,
+            lenient,
+            expected_records,
+            json,
+        }),
+        Command::Agent {
+            op:
+                AgentCmd::ReputationPublish {
+                    fqdn,
+                    events,
+                    network,
+                    resolver,
+                    out,
+                },
+        } => agent_reputation::cmd_agent_reputation_publish(
+            agent_reputation::ReputationPublishArgs {
+                fqdn,
+                events,
+                network,
+                resolver,
+                out,
+            },
+        ),
     }
 }
 
