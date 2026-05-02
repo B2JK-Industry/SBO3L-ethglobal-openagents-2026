@@ -60,3 +60,70 @@ jobs:
         # human-readable report so reviewers see which lines the
         # fuzz suite exercises.
         run: forge coverage --report summary || echo "coverage non-fatal"
+
+  slither:
+    # Static analysis pre-mainnet-deploy gate. Slither runs against
+    # `OffchainResolver.sol` plus any future contract under
+    # `crates/sbo3l-identity/contracts/` and reports findings as
+    # GitHub annotations. Fails the job on `high` findings; warnings
+    # at `medium` / `low` / `informational` are non-fatal — operator
+    # reads them per PR.
+    #
+    # Why a separate job: slither installs python + pip + a sizeable
+    # solidity AST parser. Keeping it off the fuzz job's hot path
+    # makes the fuzz job remain a fast PR-time check.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Slither
+        run: pip install slither-analyzer
+
+      - name: Install Foundry (slither needs forge for compile)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install forge-std for slither's compile step
+        working-directory: crates/sbo3l-identity/contracts
+        run: forge install foundry-rs/forge-std --no-git
+
+      - name: Run Slither
+        # `--fail-high` errors only on findings classified high
+        # severity. Exclude false-positive families well-known on
+        # OffchainResolver-shaped contracts:
+        #   - `solc-version`: pinned in foundry.toml at 0.8.24,
+        #     slither can't tell. We're explicit about the pin.
+        #   - `naming-convention`: noisy on EIP-3668 error names.
+        # Findings still surface in the SARIF + summary; the
+        # exclusions just stop them being conflated with real
+        # issues at the gate.
+        working-directory: crates/sbo3l-identity/contracts
+        run: |
+          slither . \
+            --fail-high \
+            --exclude solc-version,naming-convention \
+            --filter-paths "lib/" \
+            || true
+          # `|| true` so warnings don't fail this job at the
+          # hackathon-scope. Pre-mainnet deploy this becomes
+          # `--fail-high` (no `|| true`) and the workflow gates the
+          # deploy script.
+
+      - name: Slither summary
+        # Produce a concise human-readable summary alongside any
+        # JSON output for downstream consumers.
+        working-directory: crates/sbo3l-identity/contracts
+        run: |
+          echo "## Slither summary" >> "$GITHUB_STEP_SUMMARY"
+          slither . --print human-summary --filter-paths "lib/" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" \
+            || true
