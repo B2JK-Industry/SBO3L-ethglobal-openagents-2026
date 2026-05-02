@@ -1,0 +1,59 @@
+---
+// Sponsor track strip — links each ETHGlobal sponsor to our submission
+// page for that bounty. Image-free + text-only on purpose: the marketing
+// site's CSP doesn't allow third-party img domains, and judges don't
+// need to see a logo to know what KeeperHub is.
+
+const sponsors = [
+  { name: "KeeperHub",  href: "/submission/keeperhub", role: "Cron + automation guardrails" },
+  { name: "ENS",        href: "/submission/ens",       role: "Agent identity via subnames" },
+  { name: "Uniswap",    href: "/submission/uniswap",   role: "MEV-protected swaps" },
+  { name: "0G",         href: "/submission/zerog",     role: "Decentralized compute" },
+  { name: "Aragon",     href: "/submission/aragon",    role: "DAO-scoped policy" },
+  { name: "Anthropic",  href: "/submission/anthropic", role: "Claude tool-use receipts" },
+];
+---
+<section class="sponsors" aria-label="ETHGlobal Open Agents 2026 sponsor tracks">
+  <h2 class="title">Live sponsor integrations</h2>
+  <p class="subtitle">
+    Each track has a working production-shape integration with signed
+    receipts. Click through for the per-track submission narrative + live URLs.
+  </p>
+  <ul class="grid">
+    {sponsors.map((s) => (
+      <li>
+        <a href={s.href}>
+          <strong>{s.name}</strong>
+          <span class="role">{s.role}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .sponsors { max-width: var(--max); margin: 3em auto; padding: 0 1.5em; }
+  .title { font-size: var(--fs-3); font-weight: 700; margin: 0 0 0.3em; }
+  .subtitle { color: var(--muted); margin: 0 0 1.2em; max-width: 700px; font-size: 0.95em; }
+  .grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.8em;
+  }
+  .grid a {
+    display: block;
+    padding: 1em 1.2em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .grid a:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
+  .grid strong { display: block; font-size: 1.05em; margin-bottom: 0.25em; }
+  .grid .role { color: var(--muted); font-size: 0.85em; }
+</style>

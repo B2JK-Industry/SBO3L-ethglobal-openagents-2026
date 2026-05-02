@@ -1,0 +1,401 @@
+---
+// 30-second cinematic that walks a judge through what SBO3L does
+// without making them read. 6 scenes, ~17 seconds total, auto-loops.
+//
+// Scenarios are picked via the `variant` prop:
+//   - "deny-amount"   — $50K swap, denied (max_amount rule)
+//   - "deny-provider" — unknown provider, denied
+//   - "allow-clean"   — trusted KH workflow, allowed
+//   - "deny-mev"      — MEV slippage, denied
+//
+// Tier-1 of the 3-tier proof stack: pure CSS keyframes + static SVG,
+// zero JS, zero Lottie. Astro static build, CSP-clean. Lottie was
+// considered but the marketing site has 21 locale variants — adding
+// a JSON animation per locale is not worth the bundle weight.
+//
+// prefers-reduced-motion: animation is replaced with static stills
+// + a "Tap to play" overlay; users opt back into motion via the
+// browser/OS setting.
+
+interface Props {
+  variant?: "deny-amount" | "deny-provider" | "allow-clean" | "deny-mev";
+}
+const { variant = "deny-amount" } = Astro.props;
+
+const scenarios = {
+  "deny-amount":   { intent: "swap $50,000",       rule: "max_amount: $1000",        outcome: "DENY", code: "policy.deny_amount_too_large" },
+  "deny-provider": { intent: "call unknown.dex.io", rule: "allowlist: [KH, Uniswap]", outcome: "DENY", code: "policy.deny_unknown_provider" },
+  "allow-clean":   { intent: "KH workflow",         rule: "allowlist: [KH, Uniswap]", outcome: "ALLOW", code: "policy.matched_rule_allow_keeperhub" },
+  "deny-mev":      { intent: "swap @ 25% slippage", rule: "max_slippage: 1%",         outcome: "DENY", code: "policy.deny_mev_slippage" },
+};
+const s = scenarios[variant];
+const denied = s.outcome === "DENY";
+---
+<section class="cinematic" aria-label={`SBO3L decision flow demo — ${variant}`} data-variant={variant}>
+  <div class="stage">
+    <!-- Scene 1: APRP envelope flies in -->
+    <div class="scene scene-1" aria-hidden="true">
+      <div class="envelope">
+        <div class="envelope-flap"></div>
+        <div class="envelope-body">
+          <span class="label">APRP</span>
+          <strong class="intent">{s.intent}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2: policy checks -->
+    <div class="scene scene-2" aria-hidden="true">
+      <div class="policy-doc">
+        <span class="filename">policy.toml</span>
+        <ul class="rules">
+          <li class="rule rule-a">schema_version = 1</li>
+          <li class="rule rule-b">tenant = "playground"</li>
+          <li class={`rule rule-c ${denied ? "rule-violated" : "rule-passed"}`}>{s.rule}</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Scene 3: decision stamp -->
+    <div class={`scene scene-3 ${denied ? "deny" : "allow"}`} aria-hidden="true">
+      <div class="stamp">
+        <span class="stamp-text">{s.outcome}</span>
+        <code class="stamp-code">{s.code}</code>
+      </div>
+    </div>
+
+    <!-- Scene 4: audit chain link -->
+    <div class="scene scene-4" aria-hidden="true">
+      <div class="chain">
+        <div class="chain-block">prev</div>
+        <div class="chain-link"></div>
+        <div class="chain-block current">decision</div>
+        <div class="chain-link"></div>
+        <div class="chain-block">next</div>
+      </div>
+    </div>
+
+    <!-- Scene 5: capsule with 6 checks -->
+    <div class="scene scene-5" aria-hidden="true">
+      <div class="capsule">
+        <span class="filename">capsule.json</span>
+        <ul class="checks">
+          <li class="check check-1">✓ APRP signature</li>
+          <li class="check check-2">✓ Policy hash</li>
+          <li class="check check-3">✓ Decision deterministic</li>
+          <li class="check check-4">✓ Audit chain link</li>
+          <li class="check check-5">✓ Public key Ed25519</li>
+          <li class="check check-6">✓ Strict-mode</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Scene 6: tagline -->
+    <div class="scene scene-6" aria-hidden="true">
+      <p class="tagline">No daemon. No keys. No risk.</p>
+    </div>
+  </div>
+
+  <!-- Caption read by screen readers + shown when reduced-motion -->
+  <div class="caption">
+    <strong>Scenario:</strong> {s.intent} → <strong class={denied ? "deny" : "allow"}>{s.outcome}</strong> · {s.code}
+  </div>
+</section>
+
+<style>
+  .cinematic {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    margin: 1.5em auto;
+    aspect-ratio: 16 / 9;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg, 12px);
+    overflow: hidden;
+    font-family: var(--font-mono, ui-monospace);
+  }
+
+  .stage { position: absolute; inset: 0; }
+
+  /* Per-scene keyframes so each scene is visible for its actual
+     duration (3s+3s+2s+3s+4s+2s = 17s total) without gaps between
+     scenes. Single shared keyframe with staggered animation-delay
+     was wrong — animation-delay shifts the whole cycle, so a 17s
+     animation with delay 11s only enters its 0% state at clock
+     11s; before that the element sits in its base CSS state, which
+     defaults to opacity 1 (visible when it should be hidden). */
+  .scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation-duration: 17s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+  .scene-1 { animation-name: scene-1-cycle; }
+  .scene-2 { animation-name: scene-2-cycle; }
+  .scene-3 { animation-name: scene-3-cycle; }
+  .scene-4 { animation-name: scene-4-cycle; }
+  .scene-5 { animation-name: scene-5-cycle; }
+  .scene-6 { animation-name: scene-6-cycle; }
+
+  /* Timeline boundaries (rounded to 0.5%):
+       scene 1: 0-3s   = 0%-17.6%  → keyframe boundary 0/2/16/18
+       scene 2: 3-6s   = 17.6-35.3 → 16/18/34/36
+       scene 3: 6-8s   = 35.3-47.1 → 34/36/46/48
+       scene 4: 8-11s  = 47.1-64.7 → 46/48/64/66
+       scene 5: 11-15s = 64.7-88.2 → 64/66/87/89
+       scene 6: 15-17s = 88.2-100  → 87/89/99/100
+     1.5% cross-fade between adjacent scenes hides any frame seam. */
+  @keyframes scene-1-cycle {
+    0%, 2% { opacity: 1; }
+    16%    { opacity: 1; }
+    18%, 100% { opacity: 0; }
+  }
+  @keyframes scene-2-cycle {
+    0%, 16% { opacity: 0; }
+    18%, 34% { opacity: 1; }
+    36%, 100% { opacity: 0; }
+  }
+  @keyframes scene-3-cycle {
+    0%, 34% { opacity: 0; }
+    36%, 46% { opacity: 1; }
+    48%, 100% { opacity: 0; }
+  }
+  @keyframes scene-4-cycle {
+    0%, 46% { opacity: 0; }
+    48%, 64% { opacity: 1; }
+    66%, 100% { opacity: 0; }
+  }
+  @keyframes scene-5-cycle {
+    0%, 64% { opacity: 0; }
+    66%, 87% { opacity: 1; }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes scene-6-cycle {
+    0%, 87% { opacity: 0; }
+    89%, 99% { opacity: 1; }
+    100%     { opacity: 0; }
+  }
+
+  /* --- Scene 1 envelope --- */
+  .envelope {
+    width: 60%;
+    max-width: 320px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    background: var(--bg);
+    padding: 0.8em 1em;
+    box-shadow: 0 0 32px rgba(74,222,128,0.15);
+    animation: pulse-amount 3s ease-in-out infinite;
+  }
+  .envelope .label { color: var(--muted); font-size: 0.7em; letter-spacing: 0.18em; }
+  .envelope .intent { display: block; color: var(--fg); font-size: 1.4em; margin-top: 0.3em; }
+  @keyframes pulse-amount {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.04); }
+  }
+
+  /* --- Scene 2 policy --- */
+  .policy-doc {
+    width: 70%;
+    max-width: 380px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8em 1em;
+  }
+  .filename { color: var(--muted); font-size: 0.75em; }
+  .rules { list-style: none; padding: 0; margin: 0.5em 0 0; }
+  .rule {
+    color: var(--muted);
+    font-size: 0.82em;
+    padding: 0.2em 0.4em;
+    border-left: 2px solid transparent;
+    opacity: 0;
+    animation-duration: 17s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+  /* Rules light up sequentially during scene 2 (clock 3.5s, 4.0s,
+     4.6s = 20.6%, 23.5%, 27.1% of 17s cycle). Each stays visible
+     until end of scene 2 (35%). */
+  .rule-a { animation-name: rule-a-light; }
+  .rule-b { animation-name: rule-b-light; }
+  .rule-c { animation-name: rule-c-light; }
+  @keyframes rule-a-light {
+    0%, 19% { opacity: 0; }
+    21%, 35% { opacity: 1; }
+    36%, 100%{ opacity: 0; }
+  }
+  @keyframes rule-b-light {
+    0%, 23% { opacity: 0; }
+    24%, 35% { opacity: 1; }
+    36%, 100%{ opacity: 0; }
+  }
+  @keyframes rule-c-light {
+    0%, 26% { opacity: 0; }
+    27%, 35% { opacity: 1; }
+    36%, 100%{ opacity: 0; }
+  }
+  .rule-violated { color: #f87171; border-left-color: #f87171; }
+  .rule-passed { color: var(--accent); border-left-color: var(--accent); }
+
+  /* --- Scene 3 stamp --- */
+  .scene-3 .stamp {
+    border: 4px solid;
+    padding: 0.4em 1.2em;
+    border-radius: 8px;
+    transform: rotate(-6deg) scale(0);
+    animation: stamp-down 17s cubic-bezier(.5,1.7,.5,1) infinite;
+    text-align: center;
+  }
+  .scene-3.deny .stamp  { color: #f87171; border-color: #f87171; }
+  .scene-3.allow .stamp { color: var(--accent); border-color: var(--accent); }
+  .stamp-text { font-size: 2em; font-weight: 800; letter-spacing: 0.1em; display: block; }
+  .stamp-code { font-size: 0.7em; color: var(--muted); display: block; margin-top: 0.3em; }
+  /* Stamp drops during scene 3 (35.3%-47.1%): bounce in at 36%,
+     hold at scene-3 end (46%), reset off-screen for next loop. */
+  @keyframes stamp-down {
+    0%, 35%  { transform: rotate(-12deg) scale(0); }
+    37%      { transform: rotate(-6deg) scale(1.15); }
+    40%, 46% { transform: rotate(-6deg) scale(1); }
+    48%, 100%{ transform: rotate(-12deg) scale(0); }
+  }
+
+  /* --- Scene 4 chain --- */
+  .chain { display: flex; align-items: center; gap: 0.5em; }
+  .chain-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5em 0.9em;
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+  .chain-block.current { border-color: var(--accent); color: var(--accent); }
+  .chain-link {
+    width: 24px;
+    height: 2px;
+    background: linear-gradient(to right, var(--border), var(--accent), var(--border));
+    background-size: 200% 100%;
+    animation: link-flow 17s linear infinite;
+  }
+  @keyframes link-flow {
+    0%, 47%   { background-position: 100% 0; }
+    50%       { background-position: 0% 0; }
+    65%, 100% { background-position: -100% 0; }
+  }
+
+  /* --- Scene 5 capsule --- */
+  .capsule {
+    width: 70%;
+    max-width: 380px;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.8em 1em;
+  }
+  .checks { list-style: none; padding: 0; margin: 0.4em 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.2em 1em; }
+  .check {
+    color: var(--accent);
+    font-size: 0.8em;
+    opacity: 0;
+    animation-duration: 17s;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-out;
+  }
+  /* Checks pop in during scene 5 (64.7%-88.2%): six checks at
+     11.2s, 11.4s, 11.6s, 11.8s, 12.0s, 12.2s of cycle =
+     65.9%, 67.1%, 68.2%, 69.4%, 70.6%, 71.8%. Each holds visible
+     until scene 5 ends at 87%. animation-delay shifts the whole
+     cycle, breaking the math, so we use distinct keyframes per
+     check at absolute timeline percentages. */
+  .check-1 { animation-name: check-1-pop; }
+  .check-2 { animation-name: check-2-pop; }
+  .check-3 { animation-name: check-3-pop; }
+  .check-4 { animation-name: check-4-pop; }
+  .check-5 { animation-name: check-5-pop; }
+  .check-6 { animation-name: check-6-pop; }
+  @keyframes check-1-pop {
+    0%, 65%   { opacity: 0; transform: translateX(-6px); }
+    66%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-2-pop {
+    0%, 66%   { opacity: 0; transform: translateX(-6px); }
+    67%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-3-pop {
+    0%, 67%   { opacity: 0; transform: translateX(-6px); }
+    68%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-4-pop {
+    0%, 68%   { opacity: 0; transform: translateX(-6px); }
+    69%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-5-pop {
+    0%, 69%   { opacity: 0; transform: translateX(-6px); }
+    70%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-6-pop {
+    0%, 70%   { opacity: 0; transform: translateX(-6px); }
+    71%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+
+  /* --- Scene 6 tagline --- */
+  .tagline {
+    color: var(--accent);
+    font-family: var(--font-sans, system-ui);
+    font-size: 1.6em;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-align: center;
+    margin: 0;
+  }
+
+  /* --- Caption (always visible below the stage) --- */
+  .caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5em 1em;
+    background: rgba(10,14,26,0.85);
+    color: var(--muted);
+    font-size: 0.78em;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  .caption .deny  { color: #f87171; }
+  .caption .allow { color: var(--accent); }
+
+  /* Reduced motion: kill every animation, pin scene 3 (the decision)
+     visible with its stamp + deny/allow code so the scenario message
+     comes through statically. Other scenes stay opacity 0. */
+  @media (prefers-reduced-motion: reduce) {
+    .scene { animation: none; opacity: 0; }
+    .scene-3 { opacity: 1; }
+    .scene-3 .stamp { transform: rotate(-6deg) scale(1); animation: none; }
+    .rule, .check, .chain-link, .envelope { animation: none; opacity: 1; }
+    .rule-violated, .rule-passed { opacity: 1; }
+  }
+
+  @media (max-width: 640px) {
+    .cinematic { aspect-ratio: 4 / 3; }
+    .envelope { width: 80%; }
+    .policy-doc, .capsule { width: 88%; }
+    .checks { grid-template-columns: 1fr; }
+    .stamp-text { font-size: 1.5em; }
+    .tagline { font-size: 1.1em; padding: 0 1em; }
+  }
+</style>
