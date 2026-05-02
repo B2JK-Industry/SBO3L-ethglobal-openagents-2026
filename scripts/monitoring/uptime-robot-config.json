@@ -1,0 +1,66 @@
+{
+  "_comment": "UptimeRobot v3 batch import payload. Pre-fill `api_key` with your Main API Key from https://uptimerobot.com/dashboard.html#mySettings (Settings → API). Then: curl -X POST https://api.uptimerobot.com/v3/monitors/batch -d @uptime-robot-config.json -H 'Content-Type: application/json'",
+  "api_key": "REPLACE_WITH_YOUR_API_KEY",
+  "format": "json",
+  "monitors": [
+    {
+      "friendly_name": "SBO3L marketing (Vercel preview)",
+      "url": "https://sbo3l-marketing.vercel.app/",
+      "type": 1,
+      "interval": 60,
+      "_comment": "type=1 is HTTP(s); interval=60 is seconds (1-min checks)"
+    },
+    {
+      "friendly_name": "SBO3L CCIP gateway root",
+      "url": "https://sbo3l-ccip.vercel.app/",
+      "type": 1,
+      "interval": 60
+    },
+    {
+      "friendly_name": "SBO3L CCIP invalid-input rejection",
+      "url": "https://sbo3l-ccip.vercel.app/api/0xdeadbeef/0x12345678.json",
+      "type": 2,
+      "keyword_type": 2,
+      "keyword_value": "404",
+      "_comment_on_keyword": "type=2 is keyword check; UptimeRobot considers the monitor up if the HTTP response status code does NOT match the keyword. We invert: monitor flips DOWN if the gateway returns 404 (which would be wrong — it should be 400)",
+      "interval": 300
+    },
+    {
+      "friendly_name": "GitHub repo",
+      "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026",
+      "type": 1,
+      "interval": 300
+    },
+    {
+      "friendly_name": "ENS app sbo3lagent.eth",
+      "url": "https://app.ens.domains/sbo3lagent.eth",
+      "type": 1,
+      "interval": 300
+    },
+    {
+      "friendly_name": "crates.io API: sbo3l-cli",
+      "url": "https://crates.io/api/v1/crates/sbo3l-cli",
+      "type": 2,
+      "keyword_type": 1,
+      "keyword_value": "1.0.1",
+      "_comment_on_keyword": "keyword_type=1 = exists; UptimeRobot flips DOWN if '1.0.1' is NOT present in the response body. Bump to '1.2.0' after the v1.2.0 publish completes",
+      "interval": 300
+    },
+    {
+      "friendly_name": "npm: @sbo3l/sdk",
+      "url": "https://registry.npmjs.org/@sbo3l/sdk",
+      "type": 2,
+      "keyword_type": 1,
+      "keyword_value": "@sbo3l/sdk",
+      "interval": 300
+    },
+    {
+      "friendly_name": "PyPI: sbo3l-sdk",
+      "url": "https://pypi.org/pypi/sbo3l-sdk/json",
+      "type": 2,
+      "keyword_type": 1,
+      "keyword_value": "sbo3l-sdk",
+      "interval": 300
+    }
+  ]
+}

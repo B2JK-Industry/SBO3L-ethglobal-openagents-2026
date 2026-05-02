@@ -1,0 +1,69 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import PassportVerifier from "~/components/PassportVerifier.astro";
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+---
+<BaseLayout
+  title="SBO3L — Verify a Passport capsule in your browser"
+  description="In-browser SBO3L Passport verifier. Paste a capsule JSON and run all 6 cryptographic checks via WebAssembly — no daemon, no network."
+>
+  <section class="hero">
+    <h1>Verify a Passport capsule</h1>
+    <p class="lede">
+      Every SBO3L decision is wrapped in a Passport capsule — a
+      self-contained, offline-verifiable proof artifact. This page
+      runs the same Rust verifier the CLI ships, compiled to
+      WebAssembly. You don't trust this server; you trust the bytes
+      of <code>sbo3l_core_bg.wasm</code> we serve, and you can verify
+      that bytes match the published <a href="https://crates.io/crates/sbo3l-core">sbo3l-core</a>
+      crate yourself.
+    </p>
+  </section>
+
+  <PassportVerifier />
+
+  <section class="docs">
+    <h2>What gets checked</h2>
+    <p>
+      A v2 self-contained capsule embeds <code>policy.policy_snapshot</code>
+      and <code>audit.audit_segment</code>; the verifier runs all 6 checks
+      with no aux input:
+    </p>
+    <ol>
+      <li><strong>structural</strong> — schema + cross-field invariants (deny ⇒ no execution, live mode ⇒ evidence, hash agreement, etc.)</li>
+      <li><strong>request_hash_recompute</strong> — JCS+SHA-256 of the embedded APRP equals the claimed <code>request_hash</code></li>
+      <li><strong>policy_hash_recompute</strong> — JCS+SHA-256 of the embedded policy equals the claimed <code>policy_hash</code></li>
+      <li><strong>receipt_signature</strong> — Ed25519 signature on the embedded receipt verifies against the embedded receipt-signer pubkey</li>
+      <li><strong>audit_chain</strong> — the embedded audit-bundle's chain segment verifies (signatures + prev-hash linkage)</li>
+      <li><strong>audit_event_link</strong> — the bundle's <code>summary.audit_event_id</code> matches the capsule's <code>audit.audit_event_id</code> and is present in the chain segment</li>
+    </ol>
+    <p>
+      v1 capsules pass the structural and request-hash checks; the
+      remaining four show as <em>SKIPPED</em> because the capsule
+      doesn't carry the embedded crypto material. That's an honest
+      report — never a fake-OK.
+    </p>
+    <p>
+      Source: <a href={`${githubRepoUrl}/blob/main/crates/sbo3l-core/src/passport.rs`}>crates/sbo3l-core/src/passport.rs</a>
+      (<a href={`${githubRepoUrl}/blob/main/crates/sbo3l-core/src/wasm.rs`}>wasm.rs</a> for the JS bridge,
+      <a href={`${githubRepoUrl}/blob/main/scripts/build-wasm-verifier.sh`}>scripts/build-wasm-verifier.sh</a> for the build pipeline).
+    </p>
+  </section>
+
+  <style>
+    .hero { max-width: var(--max); margin: 2em auto 1em; padding: 0 1.5em; }
+    .hero h1 { margin: 0 0 0.4em; }
+    .lede { color: var(--muted); margin: 0; }
+    .docs {
+      max-width: var(--max);
+      margin: 2em auto;
+      padding: 0 1.5em;
+      color: var(--muted);
+    }
+    .docs h2 { color: var(--ink); margin-bottom: 0.4em; }
+    .docs ol { padding-left: 1.4em; }
+    .docs ol li { margin-bottom: 0.4em; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+  </style>
+</BaseLayout>

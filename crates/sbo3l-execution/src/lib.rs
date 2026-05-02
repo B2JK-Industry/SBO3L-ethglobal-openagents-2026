@@ -18,11 +18,17 @@
 //! should depend on `sbo3l-keeperhub-adapter` directly (path/git
 //! today; crates.io once published) — that's the IP-4 win.
 
+pub mod smart_wallet;
 pub mod uniswap;
 pub mod uniswap_live;
+pub mod uniswap_router;
 
 pub use sbo3l_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor};
 pub use sbo3l_keeperhub_adapter::{build_envelope, KeeperHubExecutor, KeeperHubMode};
+pub use smart_wallet::{
+    BundleOutcome, EvaluatedCall, GateVerdict, PostTxGate, PreTxGate, SimulationOutcome, Simulator,
+    SmartWalletExecutor, WalletCall, WalletKind,
+};
 pub use uniswap::{
     evaluate_swap, SwapCheck, SwapPolicy, SwapPolicyOutcome, SwapQuote, SwapToken, UniswapExecutor,
     UniswapMode,
@@ -31,6 +37,10 @@ pub use uniswap_live::{
     quote_exact_input_single, JsonRpcTransport, LiveConfig, QuoteResult, ReqwestTransport,
     RpcError, QUOTE_EXACT_INPUT_SINGLE_SELECTOR, SEPOLIA_CHAIN_ID, SEPOLIA_QUOTER_V2_ADDRESS,
     SEPOLIA_WETH,
+};
+pub use uniswap_router::{
+    CommandVerdict, EvaluatedCommand, MulticallOutcome, PolicyGate, UniversalRouterCommand,
+    UniversalRouterExecutor, UNIVERSAL_ROUTER_MAINNET_V2, UNIVERSAL_ROUTER_SEPOLIA_V2,
 };
 
 /// Back-compat re-export of the old `keeperhub` submodule. Existing

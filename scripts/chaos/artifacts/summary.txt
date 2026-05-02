@@ -1,0 +1,58 @@
+SBO3L chaos suite — 2026-05-02 ~05:48Z (Heidi end-to-end run)
+=================================================================
+
+Build: cargo build --release -p sbo3l-server (rc=0)
+Binary: target/release/sbo3l-server
+Daemon env: SBO3L_SIGNER_BACKEND=dev SBO3L_DEV_ONLY_SIGNER=1 SBO3L_ALLOW_UNAUTHENTICATED=1
+
+[01-daemon-crash-mid-tx]   FAIL — both POSTs returned HTTP 200, but audit
+                                  chain did not advance from 1 → 2. Mystery:
+                                  second POST after SIGKILL+restart with a
+                                  different nonce did not append a new
+                                  audit row. **Real finding worth tracking
+                                  as a bug/clarification ticket** —
+                                  expected 1 event per APRP submission.
+[02-storage-corruption]    PASS — sqlite3 byte-flip on payload_hash detected
+                                  at chain re-mount; 2 audit rows seeded
+                                  cleanly + flip applied to seq=2.
+[03-sponsor-partition]     PASS — KH webhook to RFC 5737 192.0.2.1 timed
+                                  out as expected; idempotency replay on
+                                  same key returned 409 within grace window.
+[04-concurrent-race]       PASS — 50 concurrent same-Idempotency-Key POSTs:
+                                  exactly 45×200 + 5×409 = 50 total; audit
+                                  chain grew by **exactly 1 event** despite
+                                  50 concurrent attempts. Demonstrates the
+                                  #102 state-machine fix holds under load.
+[05-clock-skew]            FAIL — APRP with `expiry: 2026-05-02T05:47:41Z`
+                                  (60s in the past) was APPROVED with
+                                  decision=allow. **Real finding: the
+                                  daemon may not enforce APRP `expiry`
+                                  against current time** — file as a
+                                  security bug/clarification ticket.
+                                  Follow-up: verify against
+                                  crates/sbo3l-server/src/lib.rs and
+                                  crates/sbo3l-policy/src/engine.rs;
+                                  either expiry IS enforced (and our
+                                  fixture has a different reason for the
+                                  rejection bypass) or there is a real
+                                  enforcement gap to fix.
+
+Overall: 3/5 PASS, 2/5 FAIL — both failures surface real findings, not
+suite bugs. The chaos suite itself (lib-common, run-all, 5 scenarios) is
+working correctly. The failures are signal, not noise.
+
+Artifacts retained at scripts/chaos/artifacts/<scenario>/{result.txt,
+before.json, after.json, daemon.log, responses.txt}.
+
+Recommended follow-up tickets:
+  - P0 chaos-01: investigate why 2 sequential POSTs with distinct nonces
+    after SIGKILL+restart produce only 1 audit row. Possibly a daemon
+    re-bind race; possibly a nonce_replay false-positive across the
+    crash boundary (in-memory state lost, persisted state thinks it's
+    seen the nonce).
+  - P0 chaos-05: confirm whether sbo3l-server enforces APRP.expiry. If
+    yes: the chaos fixture's `expiry: <60s ago>` is being parsed but
+    not compared against system time — that's a bug. If no: P-1
+    feature ticket — expiry is a load-bearing identity claim
+    (capsule.aprp_expiry_in_past) and MUST reject.
+

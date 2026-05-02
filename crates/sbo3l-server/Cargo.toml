@@ -27,14 +27,22 @@ sbo3l-storage = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-axum = { workspace = true }
+axum = { workspace = true, features = ["ws"] }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+# T-3-5 backend: futures combinators for the WebSocket split read/write
+# path. Pulled in unconditionally since reqwest already transitively
+# depends on futures-util; gating saves no bytes.
+futures-util = "0.3"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 ulid = { workspace = true }
 hex = { workspace = true }
+# Webhook callback verifier (P5 / `executor_callback.rs`) — pulls
+# `VerifyingKey::from_bytes` to construct the per-sponsor verifying
+# key from the env-configured hex pubkey.
+ed25519-dalek = { workspace = true }
 # F-1 auth middleware: bearer (bcrypt) + JWT (Ed25519). Pinned majors.
 jsonwebtoken = "9"
 bcrypt = "0.15"
@@ -45,6 +53,10 @@ http-body-util = "0.1"
 tempfile = { workspace = true }
 ed25519-dalek = { workspace = true }
 base64 = "0.22"
+# T-3-5 integration test: real WebSocket client against the in-process
+# server bound to an ephemeral port.
+tokio-tungstenite = "0.21"
+reqwest = { workspace = true }
 
 # F-5: passthrough features for sbo3l-core's KMS backends so a
 # `cargo test -p sbo3l-server --features aws_kms` route compiles the
@@ -56,3 +68,7 @@ aws_kms = ["sbo3l-core/aws_kms"]
 gcp_kms = ["sbo3l-core/gcp_kms"]
 phala_tee = ["sbo3l-core/phala_tee"]
 eth_signer = ["sbo3l-core/eth_signer"]
+# T-3-5: mounts `GET /v1/events` (WebSocket → trust-dns viz). OFF by
+# default so existing daemon runs aren't disturbed; opt in with
+# `--features ws_events` at build time.
+ws_events = []
