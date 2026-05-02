@@ -11,7 +11,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro check",
-    "test": "node --test src/lib/*.test.mjs"
+    "test": "node --test src/lib/*.test.mjs",
+    "build:qr": "node scripts/build-qr.mjs"
   },
   "dependencies": {
     "@sbo3l/design-tokens": "file:../../packages/design-tokens",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
+    "qrcode": "^1.5.4",
     "typescript": "^5.5.0"
   },
   "engines": {
