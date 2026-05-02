@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/openai-assistants",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "OpenAI Assistants API adapter for SBO3L — wrap an APRP submit as an Assistants `function` tool.",
   "license": "MIT",
   "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
