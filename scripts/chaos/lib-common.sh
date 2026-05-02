@@ -28,10 +28,21 @@ DAEMON_LOG=
 DAEMON_PORT="${SBO3L_LISTEN_PORT:-18731}"
 DAEMON_DB=
 
+# Wipe a DB path + its WAL/SHM siblings. Call ONCE per scenario,
+# BEFORE the first `daemon_start`, so the run starts from empty
+# state. Calling it between SIGKILL and restart would erase the
+# audit chain — exactly the chaos-1 false-positive bug.
+daemon_db_reset() {
+  rm -f "$1" "$1-shm" "$1-wal"
+}
+
 daemon_start() {
   DAEMON_DB="${1:-/tmp/sbo3l-chaos-$$.db}"
   DAEMON_LOG="$SCENARIO_DIR/daemon.log"
-  rm -f "$DAEMON_DB" "$DAEMON_DB-shm" "$DAEMON_DB-wal"
+  # NOTE: do NOT wipe $DAEMON_DB here. This helper is also used to
+  # RESTART the daemon against an existing DB (chaos-1: SIGKILL +
+  # restart must preserve the audit chain). Pre-test cleanup belongs
+  # in `daemon_db_reset` (call before the FIRST `daemon_start` only).
   SBO3L_LISTEN="127.0.0.1:$DAEMON_PORT" \
   SBO3L_DB="$DAEMON_DB" \
   SBO3L_ALLOW_UNAUTHENTICATED=1 \
@@ -105,7 +116,10 @@ scenario_finish() {
 # else the daemon rejects with HTTP 400 schema.value_out_of_range.
 fixture_aprp() {
   local nonce="${1:-01HTAWX5K3R8YV9NQB7C6P2D01}"
-  local expiry="${2:-2026-12-31T23:59:59Z}"
+  # 2099-01-01 — far enough in the future that this script's
+  # `protocol.aprp_expired` check (CHAOS-2 fix) doesn't reject
+  # chaos-suite traffic in 2026/2027. Update before 2098.
+  local expiry="${2:-2099-01-01T00:00:00Z}"
   cat <<EOF
 {
   "agent_id": "research-agent-01",
