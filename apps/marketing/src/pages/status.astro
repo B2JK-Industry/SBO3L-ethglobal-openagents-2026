@@ -178,6 +178,35 @@ const sections: { title: string; rows: Row[] }[] = [
       },
     ],
   },
+  {
+    title: "Brand + marketing surface",
+    rows: [
+      {
+        surface: "Visual brand kit (Wave 1)",
+        live: "Logo system + favicon + KeyFlowDiagram polish (#413). KeyFlowDiagram embedded on `/` and `/status` (rendered above this table).",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "Visual brand kit (Wave 2)",
+        live: "Inline-SVG components shipped: HeroIllustration on `/` (animated agent → gate → executor split, #418), PassportCapsule on `/proof` + `/demo` + `/try` (cover thumbnail + open spread, #420), SponsorCard replaces text-only sponsor strip with 4 brand-themed motifs (#423). All CSP-clean (no third-party image domains).",
+        mock: null,
+        notyet: "PNG-twin rasterisation for X/Twitter cards (today: SVG og:image works on Discord/LinkedIn/iMessage, but X falls back to summary card without preview).",
+      },
+      {
+        surface: "Per-page OG share images",
+        live: "`/og/<slug>.svg` endpoint pre-renders 17 brand-styled OG images (1200×630) at build, one per registered page (#424). 6 variants — default / proof / status / roadmap / playground / sponsor. BaseLayout derives slug from `Astro.url.pathname` so every page gets its own OG without explicit prop.",
+        mock: null,
+        notyet: "PNG-twin output (same visual, raster format) for the X-Twitter compatibility gap above.",
+      },
+      {
+        surface: "Trust DNS Manifesto (#388)",
+        live: "4890-word RFC-style manifesto at `docs/concepts/trust-dns-manifesto.md`. Section 2.5 ('Verifiable, not claimed') preempts Kevin (ENS team)'s 'user can set whatever text record' caveat with the policy_hash drift-check rebuttal (#421).",
+        mock: null,
+        notyet: "ENSIP-N submission to ENS DAO governance (post-hackathon window per DAO norms).",
+      },
+    ],
+  },
 ];
 
 const liveCount = sections.flatMap(s => s.rows).filter(r => r.live).length;
