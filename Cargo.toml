@@ -10,6 +10,7 @@ members = [
     "crates/sbo3l-mcp",
     "crates/sbo3l-cli",
     "crates/sbo3l-server",
+    "crates/sbo3l-anchor",
     "demo-agents/research-agent",
 ]
 
