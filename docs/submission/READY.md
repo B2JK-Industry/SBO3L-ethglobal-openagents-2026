@@ -1,9 +1,25 @@
 # READY — pre-submission sign-off
 
 > **Filed by:** Heidi (QA + Release agent).
-> **Original:** R12 (2026-05-02 ~14:50 CEST). **Refreshed:** R14 (2026-05-02 ~17:25 CEST).
-> **Repo state at R14:** main HEAD `cd0fcfb` — `docs(impl-status): bump test count 377/377 → 777/777` (#307).
-> **Status:** ⚠️ **READY WITH DOCUMENTED GAPS** — Daniel can submit after the 6-step hands-on rehearsal (see [`rehearsal-walkthrough-r14-2026-05-02.md`](rehearsal-walkthrough-r14-2026-05-02.md)).
+> **Original:** R12 (2026-05-02 ~14:50 CEST). **R14 refresh:** 2026-05-02 ~17:25 CEST. **Final closeout:** 2026-05-02 ~17:35 CEST.
+> **Repo state:** main HEAD `18076db` — `feat(round-15): Discord+Teams ChatOps bots + closeout reports` (#338).
+> **Status:** ✅ **READY — Daniel can submit** subject to the 8-step hands-on rehearsal in [`HANDOFF-FOR-DANIEL.md`](HANDOFF-FOR-DANIEL.md) "Pre-submit checklist."
+
+## Final closeout — gap closures since R14
+
+| Item | R14 status | Final closeout status |
+|---|---|---|
+| `/marketplace` Vercel | 🔴 404 | ✅ **HTTP 200** |
+| `sbo3l-langgraph` PyPI | 🔴 404 | ✅ **1.2.0 LIVE** |
+| `@sbo3l/langchain` npm | 🔴 404 | ✅ **1.2.0 LIVE** |
+| `@sbo3l/autogen` npm | 🔴 404 | ✅ **1.2.0 LIVE** |
+| `@sbo3l/elizaos` npm | 🔴 404 | ✅ **1.2.0 LIVE** |
+| 4 new Sepolia contracts (Anchor / SubnameAuction / ReputationBond / ReputationRegistry) | 🔴 not deployed | ✅ **all 4 deployed + bytecode-verified** |
+| Phase 3 final status doc | 🟡 individual round status only | ✅ **`PHASE-3-FINAL-STATUS.md` consolidated** |
+| Daniel handoff for submission day | 🟡 informal | ✅ **`HANDOFF-FOR-DANIEL.md`** |
+| Final regression proof doc | 🟡 implicit | ✅ **`docs/proof/regression-final-pass.md`** |
+| Supply-chain CI (cargo-audit + npm-audit + SBOM + gitleaks) | 🔴 missing | ✅ **shipped (#335)** |
+| `CODE_OF_CONDUCT.md` + `CONTRIBUTING.md` | 🔴 missing | ✅ **shipped (#335)** |
 
 ---
 
@@ -80,15 +96,16 @@
 - ✅ Mutation testing for 3 crates (kill-rate target ≥ 90%)
 - ✅ Criterion benchmark harness (4 benches × 10 measurements)
 
-## Documented gaps at submission time (R14, unchanged from R12)
+## Documented gaps at submission time (final closeout — most R12/R14 gaps closed)
 
 | Gap | Severity | Daniel action | Mitigation if not closed |
 |---|---|---|---|
-| `NPM_TOKEN` not provisioned → 5 npm pkgs 404 + `@sbo3l/sdk@1.0.0` stale | 🟡 Medium | Add repo secret | Python SDK 1.2.0 + CLI 1.2.0 cover install; 8 tags pre-pushed |
-| `sbo3l-langgraph` PyPI publisher not provisioned → 404 | 🟢 Low | Provision PyPI trusted publisher | 4 other Python integrations work |
-| `/marketplace` 404 on Vercel preview | 🟡 Medium | Trigger fresh Vercel deploy | `@sbo3l/marketplace` registry + `sbo3l-marketplace` CLI verifiable from package source |
-| `sbo3l-trust-dns-viz` 404 (Vercel project not deployed) | 🟢 Low | Deploy `apps/trust-dns-viz/` | Source verifiable; canvas works locally |
+| `@sbo3l/sdk` still at 1.0.0 (not 1.2.0) on npm | 🟢 Low | Bump npm dist-tag (3 framework integrations already at 1.2.0) | Python SDK + CLI at 1.2.0 cover full install path |
+| Peripheral npm packages 404 (`@sbo3l/{vercel-ai,design-tokens,marketplace,anthropic,openai-assistants,...}`) | 🟢 Low | Push remaining publish tags | 3 core integrations live (langchain, autogen, elizaos) |
+| Newer PyPI integrations 404 (`sbo3l-{agno,pydantic-ai,...}`) | 🟢 Low | Provision additional PyPI publishers | Top-5 Python integrations all live |
+| `sbo3l-trust-dns-viz` Vercel 404 | 🟢 Low | Deploy `apps/trust-dns-viz/` to Vercel | Source verifiable; canvas works locally |
 | Custom domains DNS not pointed | 🟢 Low | (Optional, post-submission) point CTI-3-1 DNS | Vercel previews are canonical |
+| 8-step hands-on rehearsal | 🟢 Low | Daniel walks pre-submit checklist (≤ 8 min) in `HANDOFF-FOR-DANIEL.md` | — |
 | 6 interactive walkthrough steps | 🟢 Low | Daniel walks 6-step checklist (≤ 8 min) | — |
 
 ## Daniel's go/no-go decision
