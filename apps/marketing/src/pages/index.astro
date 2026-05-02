@@ -2,6 +2,8 @@
 import BaseLayout from "~/layouts/BaseLayout.astro";
 import NumberStrip from "~/components/NumberStrip.astro";
 import ArchDiagram from "~/components/ArchDiagram.astro";
+import CinematicDecision from "~/components/CinematicDecision.astro";
+import SponsorLogos from "~/components/SponsorLogos.astro";
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
 
@@ -40,6 +42,10 @@ const blocks = [
       <a class="btn ghost" href={githubRepoUrl}>View source</a>
     </div>
   </section>
+
+  <CinematicDecision variant="deny-amount" />
+
+  <SponsorLogos />
 
   <NumberStrip />
 

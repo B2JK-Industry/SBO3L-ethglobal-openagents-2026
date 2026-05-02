@@ -1,0 +1,141 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+
+// Honest competitive matrix. Rows hand-checked against each project's
+// docs as of 2026-04 (the rebrand window). Where a competitor _could_
+// implement a feature with effort but doesn't ship it today, we mark
+// "—" rather than "no" — competitors evolve.
+const features = [
+  { feature: "Local policy engine (no remote daemon required)",   sbo3l: "yes", opa: "yes",  casbin: "yes",  guardrails: "no",  langchain_callbacks: "—" },
+  { feature: "Cryptographically signed decision receipts",         sbo3l: "yes", opa: "no",   casbin: "no",   guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "Hash-chained audit log (tamper-evident)",            sbo3l: "yes", opa: "no",   casbin: "no",   guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "Offline capsule verification (no network)",          sbo3l: "yes", opa: "—",    casbin: "—",    guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "On-chain anchor (Ethereum L2)",                      sbo3l: "yes", opa: "no",   casbin: "no",   guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "ENS-based agent identity",                           sbo3l: "yes", opa: "no",   casbin: "no",   guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "Threshold signing (FROST 2-of-3)",                   sbo3l: "yes", opa: "no",   casbin: "no",   guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "Multi-tenant isolation w/ RLS",                      sbo3l: "yes", opa: "—",    casbin: "—",    guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "Built-in budget tracking + USD-string parser",       sbo3l: "yes", opa: "no",   casbin: "no",   guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "WASM-deployable verifier (browser, mobile)",         sbo3l: "yes", opa: "yes",  casbin: "yes",  guardrails: "no",  langchain_callbacks: "no" },
+  { feature: "Framework adapters (>=10 frameworks)",               sbo3l: "yes", opa: "—",    casbin: "—",    guardrails: "yes", langchain_callbacks: "yes" },
+  { feature: "Bench: P50 decision latency < 200µs",                sbo3l: "yes", opa: "yes",  casbin: "yes",  guardrails: "—",   langchain_callbacks: "—" },
+];
+
+const cell = (v: string): { mark: string; cls: string } => {
+  switch (v) {
+    case "yes": return { mark: "✓",   cls: "yes" };
+    case "no":  return { mark: "✗",   cls: "no" };
+    default:    return { mark: "—",   cls: "neutral" };
+  }
+};
+---
+<BaseLayout
+  title="SBO3L vs OPA vs Casbin vs Guardrails vs LangChain — comparison"
+  description="What SBO3L ships that other agent-policy stacks don't: cryptographically signed receipts, hash-chained audit, on-chain anchor, offline verifiability."
+>
+  <section class="hero-strip">
+    <h1>How SBO3L compares</h1>
+    <p class="lede">
+      Agent-policy is a crowded space. Most projects answer
+      <strong>"can the agent do this?"</strong>. SBO3L also answers
+      <strong>"can anyone offline prove what the agent did?"</strong> — that's
+      the cryptographic trust layer. Below: features hand-checked against each
+      project's docs as of 2026-04.
+    </p>
+    <p class="lede-aside">
+      <strong>—</strong> means the project could ship the feature with effort but doesn't today.
+    </p>
+  </section>
+
+  <section class="matrix">
+    <table>
+      <thead>
+        <tr>
+          <th class="feature-col">Feature</th>
+          <th class="sbo3l-col"><span class="brand">SBO3L</span></th>
+          <th>OPA</th>
+          <th>Casbin</th>
+          <th>Guardrails AI</th>
+          <th>LangChain callbacks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {features.map((f) => (
+          <tr>
+            <td class="feature-col">{f.feature}</td>
+            {([f.sbo3l, f.opa, f.casbin, f.guardrails, f.langchain_callbacks] as string[]).map((v) => {
+              const c = cell(v);
+              return <td class={`mark ${c.cls}`} aria-label={v}>{c.mark}</td>;
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Where each tool wins</h2>
+    <ul>
+      <li><strong>OPA:</strong> the most-deployed Rego-based policy engine; if you already have OPA infrastructure, SBO3L plugs in via the receipt layer rather than replacing the policy engine.</li>
+      <li><strong>Casbin:</strong> RBAC/ABAC ergonomics in 30+ languages; SBO3L doesn't try to compete on language reach.</li>
+      <li><strong>Guardrails AI:</strong> LLM output validation (JSON schemas, regex, semantic checks); SBO3L is the upstream "should this LLM tool-call execute at all" layer, not a replacement.</li>
+      <li><strong>LangChain callbacks:</strong> in-process telemetry; SBO3L's adapters slot into the same hook points but emit signed receipts instead of opaque trace events.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Where SBO3L wins</h2>
+    <p>
+      The cryptographic-receipt + audit-chain + on-chain-anchor stack is
+      uniquely SBO3L. If a regulator, auditor, or sponsor asks <em>"prove
+      this agent acted within policy on 2026-03-15 at 14:22:01 UTC"</em>,
+      SBO3L answers with a self-contained capsule any third party can
+      verify offline against the agent's public Ed25519 key. No other
+      project in this matrix produces an artifact with that property.
+    </p>
+    <p>
+      <a class="btn ghost" href="/playground">Try the WASM playground →</a>
+      <a class="btn ghost" href={`${githubRepoUrl}/blob/main/QUICKSTART.md`}>5-minute quickstart →</a>
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero-strip { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
+  .hero-strip h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin-bottom: 0.4em; }
+  .hero-strip .lede { font-size: var(--fs-2); color: var(--muted); max-width: 760px; margin: 0 0 0.5em; }
+  .hero-strip .lede-aside { font-size: 0.9em; color: var(--muted); }
+
+  .matrix { max-width: var(--max); margin: 2em auto; padding: 0 1.5em; overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    font-size: 0.92em;
+  }
+  th, td { padding: 0.65em 0.9em; border-bottom: 1px solid var(--border); text-align: center; }
+  th { background: var(--bg); color: var(--muted); font-weight: 600; font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase; }
+  tr:last-child td { border-bottom: none; }
+  td.feature-col, th.feature-col { text-align: left; min-width: 280px; color: var(--fg); }
+  th.sbo3l-col { color: var(--accent); }
+  td.mark { font-family: var(--font-mono); font-size: 1.1em; }
+  td.yes { color: var(--accent); }
+  td.no { color: #f87171; }
+  td.neutral { color: var(--muted); }
+  .brand { color: var(--accent); font-weight: 700; letter-spacing: 0.05em; }
+
+  .panel { max-width: var(--max); margin: 2em auto; padding: 0 1.5em; }
+  .panel h2 { font-size: var(--fs-3); font-weight: 700; margin-bottom: 0.6em; }
+  .panel ul { padding-left: 1.2em; line-height: 1.7; }
+  .panel li { margin-bottom: 0.4em; }
+  .panel .btn { margin-right: 0.6em; }
+
+  @media (max-width: 640px) {
+    table { font-size: 0.82em; }
+    td.feature-col, th.feature-col { min-width: 200px; }
+  }
+</style>
