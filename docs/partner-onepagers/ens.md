@@ -18,6 +18,21 @@ a reviewer or sponsor can resolve `research-agent.team.eth`, see the
 published policy hash, and compare it to the policy SBO3L is actually
 running.
 
+## Why this isn't another self-claimed text record
+
+Kevin (ENS team) recently flagged in #ens the obvious risk for any
+agent-identity-via-ENS scheme: *a user can set whatever github/X txt
+record they want — it's playing the reputation system.* That argument
+disqualifies most naive ENS-as-identity pitches.
+
+SBO3L's `sbo3l:policy_hash` is the rebuttal — it's not a user claim,
+it's a JCS+SHA-256 commitment to the canonical policy snapshot the live
+engine actually enforces. The CLI command `sbo3l agent verify-ens
+<name>` performs a drift check on every call: if the published hash
+doesn't match the engine's runtime policy, the call fails closed with
+`policy_hash.drift_detected`. **The text record is verifiable, not
+claimed.** Source-of-truth: `crates/sbo3l-identity/src/verify_ens.rs`.
+
 ## What is implemented today (on `main`, this build)
 
 - ENS adapter `sbo3l_identity::OfflineEnsResolver` — offline, fixture-
