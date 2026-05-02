@@ -39,6 +39,9 @@ export default async function TenantLayout({ children, params }: Props): Promise
           {(membership.role === "admin" || membership.role === "operator") && (
             <Link href={`/t/${slug}/admin/audit`}>Admin</Link>
           )}
+          {membership.role === "admin" && (
+            <Link href={`/t/${slug}/admin/policy/edit`}>Policy</Link>
+          )}
         </nav>
         <div style={{ display: "flex", gap: "0.6em", alignItems: "center" }}>
           <TenantSwitcher
