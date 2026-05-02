@@ -1,0 +1,59 @@
+[package]
+name = "sbo3l-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+
+[dependencies.sbo3l-core]
+path = "../crates/sbo3l-core"
+
+[dependencies.sbo3l-policy]
+path = "../crates/sbo3l-policy"
+
+# `cargo fuzz run <target>` builds with these profile overrides.
+# Optimized so 10M iterations completes in nightly window.
+[profile.release]
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[[bin]]
+name = "aprp_parser"
+path = "fuzz_targets/aprp_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "capsule_deserialize"
+path = "fuzz_targets/capsule_deserialize.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "policy_yaml"
+path = "fuzz_targets/policy_yaml.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "audit_event"
+path = "fuzz_targets/audit_event.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "canonical_json"
+path = "fuzz_targets/canonical_json.rs"
+test = false
+doc = false
+
+[workspace]
+# Fuzz pkg is its own workspace so it doesn't pull the production
+# workspace's lockfile. cargo-fuzz documented practice.
