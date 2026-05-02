@@ -1,0 +1,422 @@
+[
+  {
+    "agent_id": "research-agent-001",
+    "ens_name": "agent-001.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "7453d833ca969b56d40ec4fcc6c391b9a4f804d47640a4f06fcc6ccecea12718",
+    "ts_ms": 1746094200000
+  },
+  {
+    "agent_id": "research-agent-002",
+    "ens_name": "agent-002.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "35ce06c8a50c47ecf2aa23880c17aeeefcd9acd798ffdc0634f916d3fcc44cdd",
+    "ts_ms": 1746094200100
+  },
+  {
+    "agent_id": "research-agent-003",
+    "ens_name": "agent-003.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "0845b9e24cd910ef6738be3baf0dd8660bfd25be664b2ddcc0a5c03aa47c836b",
+    "ts_ms": 1746094200200
+  },
+  {
+    "agent_id": "research-agent-004",
+    "ens_name": "agent-004.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "8ee04afa9807a287f227ac62a47790beeb9aec578dc200f77fef4c996315868c",
+    "ts_ms": 1746094200300
+  },
+  {
+    "agent_id": "research-agent-005",
+    "ens_name": "agent-005.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "bca75082e07990bb1c501d96c1b5a2a4feca7a822fd70a07c0854459fca0f0cc",
+    "ts_ms": 1746094200400
+  },
+  {
+    "agent_id": "research-agent-006",
+    "ens_name": "agent-006.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "2ee42c86203e28fb89cccd68ebebe8e11c1db0f30869d2266908ebb4247e6866",
+    "ts_ms": 1746094200500
+  },
+  {
+    "agent_id": "research-agent-007",
+    "ens_name": "agent-007.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "024959fcb833ff6618cffba76c638596f634103557497b5a11db4467381b3f9e",
+    "ts_ms": 1746094200600
+  },
+  {
+    "agent_id": "research-agent-008",
+    "ens_name": "agent-008.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "ab85ce82f195bce9b618c297390dec8cc3d7a5fee5abbb055478c8840727d26e",
+    "ts_ms": 1746094200700
+  },
+  {
+    "agent_id": "research-agent-009",
+    "ens_name": "agent-009.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "c4a0971bc7ddc2939f9ee6546dfaf43d6c831f42d37f83af2d7040520995ee77",
+    "ts_ms": 1746094200800
+  },
+  {
+    "agent_id": "research-agent-010",
+    "ens_name": "agent-010.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "c6b5ef7da7cfe6f264d71712c632d2dd4e56dd5a8f59ea853fcf204daa472dfe",
+    "ts_ms": 1746094200900
+  },
+  {
+    "agent_id": "trading-agent-011",
+    "ens_name": "agent-011.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "ccf6794e1f73568f9b40dba5485f9efc39c8eaedeb6f8f9767ce3557c3f444a2",
+    "ts_ms": 1746094201000
+  },
+  {
+    "agent_id": "trading-agent-012",
+    "ens_name": "agent-012.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "683a0120f718870f02b52b799a9ef1eb50529ac2f46ebeecfb446c1288f8a9a3",
+    "ts_ms": 1746094201100
+  },
+  {
+    "agent_id": "trading-agent-013",
+    "ens_name": "agent-013.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "bde1e0fadc82d7e49ed0c2777c180371b5096dd1be4202055b69e2326baea640",
+    "ts_ms": 1746094201200
+  },
+  {
+    "agent_id": "trading-agent-014",
+    "ens_name": "agent-014.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "8800adb30ba969817aec25473fdc3c70c36304c3e8064662805bfc1c35252f04",
+    "ts_ms": 1746094201300
+  },
+  {
+    "agent_id": "trading-agent-015",
+    "ens_name": "agent-015.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "194970b32b0c535463e004be0bb50a2fb3efd14e9fc2f6c4f9bb942ee5ede730",
+    "ts_ms": 1746094201400
+  },
+  {
+    "agent_id": "trading-agent-016",
+    "ens_name": "agent-016.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "71a408935da9c545210c34173f372e2ef9bd017967cce99f7c99f702c3ba0c59",
+    "ts_ms": 1746094201500
+  },
+  {
+    "agent_id": "trading-agent-017",
+    "ens_name": "agent-017.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "bad46e30afc8d26b3f0e5989ed801164ab7664bf4bfbdf8b1a3e6fc3f0564651",
+    "ts_ms": 1746094201600
+  },
+  {
+    "agent_id": "trading-agent-018",
+    "ens_name": "agent-018.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "f8b8109dd569e626443eb5419cc11fe10a3755a691adac0e8ea706345bf2ee07",
+    "ts_ms": 1746094201700
+  },
+  {
+    "agent_id": "trading-agent-019",
+    "ens_name": "agent-019.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "e887bfb6495969afbe4af51f498941f13bc012ba4ec926631571e352450aebc4",
+    "ts_ms": 1746094201800
+  },
+  {
+    "agent_id": "trading-agent-020",
+    "ens_name": "agent-020.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "1bcee5b96fce4d3f032e68ccdd347c07f92af5b6aa43936f61048bc8f2cff989",
+    "ts_ms": 1746094201900
+  },
+  {
+    "agent_id": "swap-agent-021",
+    "ens_name": "agent-021.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "68800918c958c086b9a0ed5ec2f8272d76b0ff3797a276d67378954f8eb1c195",
+    "ts_ms": 1746094202000
+  },
+  {
+    "agent_id": "swap-agent-022",
+    "ens_name": "agent-022.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "d8ac73d115c148a70d3e2eeb9764eab42f1069ffa4630ed0ffa4fd1bd24fe463",
+    "ts_ms": 1746094202100
+  },
+  {
+    "agent_id": "swap-agent-023",
+    "ens_name": "agent-023.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "a7bc081dfa2537396a74e41ba5d84b0b14c35d1a3d732060258cfa070767c737",
+    "ts_ms": 1746094202200
+  },
+  {
+    "agent_id": "swap-agent-024",
+    "ens_name": "agent-024.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "bce29543f69f885325274e60ce1741e30475876419dac721531da59a6d3513fb",
+    "ts_ms": 1746094202300
+  },
+  {
+    "agent_id": "swap-agent-025",
+    "ens_name": "agent-025.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "ee39ecb60ef31cc3fb87edf10bb9c1cbe1d6c00d5052f1d5c06334cfccc04232",
+    "ts_ms": 1746094202400
+  },
+  {
+    "agent_id": "swap-agent-026",
+    "ens_name": "agent-026.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "8a744fc5d97e5d969d5c9b480ed9929cb74bbf50cd43e9fe5ab4829b893001e2",
+    "ts_ms": 1746094202500
+  },
+  {
+    "agent_id": "swap-agent-027",
+    "ens_name": "agent-027.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "900d5ffadef591536be2efe2bca3bf21d8337d95d0a247d7a26aa66bdba94091",
+    "ts_ms": 1746094202600
+  },
+  {
+    "agent_id": "swap-agent-028",
+    "ens_name": "agent-028.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "df9feb042c93ca5ab8d4006548f7db814766f60b99a3c17248cb1e745b645eb4",
+    "ts_ms": 1746094202700
+  },
+  {
+    "agent_id": "swap-agent-029",
+    "ens_name": "agent-029.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "73dc1676d7839ff069a91cd1281b75fa3ebc35737a4129b86a887cd0d45fc6c8",
+    "ts_ms": 1746094202800
+  },
+  {
+    "agent_id": "swap-agent-030",
+    "ens_name": "agent-030.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "f13ea1072fd5456e054fe452f61757cc700ffdd0386b23c7d73115a71232c4e4",
+    "ts_ms": 1746094202900
+  },
+  {
+    "agent_id": "audit-agent-031",
+    "ens_name": "agent-031.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "a739c128f248d1dd1084acc323198fd10f33e15549a3cfef31035286fb0da24a",
+    "ts_ms": 1746094203000
+  },
+  {
+    "agent_id": "audit-agent-032",
+    "ens_name": "agent-032.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "54bd346bbd137b8447007135a9f25aee741dd58e76becfef5dd387dac3b19eac",
+    "ts_ms": 1746094203100
+  },
+  {
+    "agent_id": "audit-agent-033",
+    "ens_name": "agent-033.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "c599e423f51a1a1f2b9415f361b8402aaf079c3d8466f2cf2975d9e125cfbc79",
+    "ts_ms": 1746094203200
+  },
+  {
+    "agent_id": "audit-agent-034",
+    "ens_name": "agent-034.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "04f560f4cc9a04c1be149d963f818cff33cf979db368b23208df10f007591605",
+    "ts_ms": 1746094203300
+  },
+  {
+    "agent_id": "audit-agent-035",
+    "ens_name": "agent-035.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "0409a0e05de507fbae7758232669cffc2a057e122994c9a4f288ede72866d594",
+    "ts_ms": 1746094203400
+  },
+  {
+    "agent_id": "audit-agent-036",
+    "ens_name": "agent-036.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "3164f9179eef4a25aef2b662e60d58fea71cf447d63073a96d61a258f2401cbd",
+    "ts_ms": 1746094203500
+  },
+  {
+    "agent_id": "audit-agent-037",
+    "ens_name": "agent-037.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "71e0661fc5359d67761aaac0b4a734ce5bf5f70c55b1f2c1cf0adc02a464720f",
+    "ts_ms": 1746094203600
+  },
+  {
+    "agent_id": "audit-agent-038",
+    "ens_name": "agent-038.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "477d5e8b3dfe718630de8a46f642650a7b5fa2b09df347fb1a85b5cf4d09c4bb",
+    "ts_ms": 1746094203700
+  },
+  {
+    "agent_id": "audit-agent-039",
+    "ens_name": "agent-039.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "e7fb5c7f4d97497aa7711f31bf518e6cc7416d91ad81fd0183d122cf7deb9cbd",
+    "ts_ms": 1746094203800
+  },
+  {
+    "agent_id": "audit-agent-040",
+    "ens_name": "agent-040.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "964123a025b951e754d3b2c768b301a5460c639fbd164fde29a3c1a0b18de6f9",
+    "ts_ms": 1746094203900
+  },
+  {
+    "agent_id": "coordinator-agent-041",
+    "ens_name": "agent-041.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "3f35ddfbcad06b51b2dcedbf20a2a26767dcdad3a195cbfac8daa3e416a96e54",
+    "ts_ms": 1746094204000
+  },
+  {
+    "agent_id": "coordinator-agent-042",
+    "ens_name": "agent-042.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "451b05041e492679ab6569ac9f911441ea98028a8aa19fd1309c4444f98bb710",
+    "ts_ms": 1746094204100
+  },
+  {
+    "agent_id": "coordinator-agent-043",
+    "ens_name": "agent-043.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "14565296a63c887b30d3f206663d91ab5c51ce47e6d952e286b8e18fabeed228",
+    "ts_ms": 1746094204200
+  },
+  {
+    "agent_id": "coordinator-agent-044",
+    "ens_name": "agent-044.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "9bd2ea15a219d939f384f0d8c8a0428c728977b890e6e7d1f82fc4f2ac81666d",
+    "ts_ms": 1746094204300
+  },
+  {
+    "agent_id": "coordinator-agent-045",
+    "ens_name": "agent-045.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "643ca4f2c1a2b76231fdf036204f13904a8f84711f121abe7fb6ac0fee593925",
+    "ts_ms": 1746094204400
+  },
+  {
+    "agent_id": "coordinator-agent-046",
+    "ens_name": "agent-046.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "9fb882d7690d2e5e16e7846bb239f9c4fa94b55880c45fe804cc7cab210135b1",
+    "ts_ms": 1746094204500
+  },
+  {
+    "agent_id": "coordinator-agent-047",
+    "ens_name": "agent-047.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "734547dee8f2539205b3a1892a278c6446755d480214946c480db29025a50f6d",
+    "ts_ms": 1746094204600
+  },
+  {
+    "agent_id": "coordinator-agent-048",
+    "ens_name": "agent-048.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "303e31e30c343098854e4e1915385d46c736e2ef5f7bcb027160ec820ef06975",
+    "ts_ms": 1746094204700
+  },
+  {
+    "agent_id": "coordinator-agent-049",
+    "ens_name": "agent-049.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "497950608d197efcaad8dbbeff43a272c29b5c59941535784683aad448694abb",
+    "ts_ms": 1746094204800
+  },
+  {
+    "agent_id": "coordinator-agent-050",
+    "ens_name": "agent-050.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "85e0d5ae3d5de2854c84c8c4f8070c46d8cf3d357b101227208a9c845ac4da27",
+    "ts_ms": 1746094204900
+  },
+  {
+    "agent_id": "oracle-agent-051",
+    "ens_name": "agent-051.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "1f7ab27f831b9b68c195a569e65904b44997a6abcdbebde9767980d4bcef891b",
+    "ts_ms": 1746094205000
+  },
+  {
+    "agent_id": "oracle-agent-052",
+    "ens_name": "agent-052.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "944c10a9b879dc61c50b086df9e9a1410f024b7b466e6232d1d29d8a31607d20",
+    "ts_ms": 1746094205100
+  },
+  {
+    "agent_id": "oracle-agent-053",
+    "ens_name": "agent-053.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "49ee8f0bfce285f899ff69128b985b362652d2de5522752e9440208cd116c139",
+    "ts_ms": 1746094205200
+  },
+  {
+    "agent_id": "oracle-agent-054",
+    "ens_name": "agent-054.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "a1c06a6cabc57ae02a1d9d69ca8e3dbf12e009217f5f25ab38a1e60cec3322b1",
+    "ts_ms": 1746094205300
+  },
+  {
+    "agent_id": "oracle-agent-055",
+    "ens_name": "agent-055.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "a5982f69a0133f39c3f8ef4c1ebc29bfe584d1230a7084ff1894649a5424c887",
+    "ts_ms": 1746094205400
+  },
+  {
+    "agent_id": "oracle-agent-056",
+    "ens_name": "agent-056.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "433ac81425a97b2573c1f3e1b3db0be719d7de61f48c010665d3a2bbe3373ba7",
+    "ts_ms": 1746094205500
+  },
+  {
+    "agent_id": "oracle-agent-057",
+    "ens_name": "agent-057.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "038cd8007e5df8caf8d49f70486d7a7041d7d97024a2b1e9c52c3de5dc67e1d8",
+    "ts_ms": 1746094205600
+  },
+  {
+    "agent_id": "oracle-agent-058",
+    "ens_name": "agent-058.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "fe95fdf2e4021f02577cc3bc3aabfe82c07d492d11b007c5b8983a32045388f1",
+    "ts_ms": 1746094205700
+  },
+  {
+    "agent_id": "oracle-agent-059",
+    "ens_name": "agent-059.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "72a56000cc1e07866a288c1704a2d278161b00d19210213c72627a42a92476b0",
+    "ts_ms": 1746094205800
+  },
+  {
+    "agent_id": "oracle-agent-060",
+    "ens_name": "agent-060.sbo3lagent.eth",
+    "kind": "agent.discovered",
+    "pubkey_b58": "11f3ff3eca6760fe0bb6e2097816efdfb40ad9adcb6e0127236530ddbafee5b5",
+    "ts_ms": 1746094205900
+  }
+]

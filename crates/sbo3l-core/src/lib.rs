@@ -13,6 +13,7 @@ pub mod receipt;
 pub mod schema;
 pub mod signer;
 pub mod signers;
+pub mod webhook;
 
 pub mod wasm_types;
 

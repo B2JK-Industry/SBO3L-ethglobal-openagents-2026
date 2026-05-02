@@ -1,0 +1,22 @@
+{
+  "name": "sbo3l-anthropic-research-agent",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Demo: Anthropic Claude tool-use agent gating each payment-shaped action through SBO3L.",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@sbo3l/anthropic": "file:../../sdks/typescript/integrations/anthropic",
+    "@sbo3l/sdk": "file:../../sdks/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}
