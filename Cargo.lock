@@ -3388,6 +3388,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "http-body-util",
+ "reqwest",
  "rusqlite",
  "sbo3l-anchor",
  "sbo3l-core",
