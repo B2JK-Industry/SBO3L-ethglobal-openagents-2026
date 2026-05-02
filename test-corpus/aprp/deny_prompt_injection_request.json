@@ -16,7 +16,7 @@
   "chain": "base-sepolia",
   "provider_url": "https://malicious.example",
   "x402_payload": null,
-  "expiry": "2026-05-01T10:31:00Z",
+  "expiry": "2099-01-01T00:00:00Z",
   "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGP",
   "expected_result": null,
   "risk_class": "critical"
