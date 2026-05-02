@@ -45,6 +45,27 @@ const blocks = [
 
   <CinematicDecision variant="deny-amount" />
 
+  <section class="tier-cards" aria-label="Three ways to interact with SBO3L">
+    <h2>Three ways to interact</h2>
+    <div class="tier-grid">
+      <a href="/demo" class="tier-card">
+        <span class="tier-num">Tier 1</span>
+        <strong>▶ Watch the cinematic</strong>
+        <span class="tier-desc">30-second motion-graphic walkthrough. Zero code, zero install. Already playing above.</span>
+      </a>
+      <a href="/playground" class="tier-card">
+        <span class="tier-num">Tier 2</span>
+        <strong>✏️  Edit a policy (mock)</strong>
+        <span class="tier-desc">Browser-side TypeScript reimplementation. Edit + decide instantly. Capsules are mock-signed — for understanding, not auditable evidence.</span>
+      </a>
+      <a href="/playground/live" class="tier-card">
+        <span class="tier-num">Tier 3</span>
+        <strong>🌐 Run on real daemon</strong>
+        <span class="tier-desc">Real Vercel-hosted <code>sbo3l-server</code>. Real Ed25519-signed capsules, audit chain anchored to Sepolia.</span>
+      </a>
+    </div>
+  </section>
+
   <SponsorLogos />
 
   <NumberStrip />
@@ -222,4 +243,43 @@ SBO3L_UNISWAP_TOKEN_OUT=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 \\
   @media (max-width: 640px) {
     .hero { margin: 2.5em auto 2em; }
   }
+
+  .tier-cards {
+    max-width: var(--max);
+    margin: 3em auto;
+    padding: 0 1.5em;
+  }
+  .tier-cards h2 {
+    font-size: var(--fs-3);
+    font-weight: 700;
+    margin: 0 0 0.6em;
+  }
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.9em;
+  }
+  .tier-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    padding: 1.2em 1.3em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .tier-card:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
+  .tier-card .tier-num {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .tier-card strong { font-size: 1.1em; font-weight: 600; }
+  .tier-card .tier-desc { color: var(--muted); font-size: 0.9em; line-height: 1.55; }
+  .tier-card code { background: var(--bg); padding: 0.05em 0.3em; border-radius: 3px; font-size: 0.85em; }
 </style>
