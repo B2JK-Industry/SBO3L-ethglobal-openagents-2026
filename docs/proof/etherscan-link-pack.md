@@ -59,11 +59,25 @@ same; the loop just gets two more keys.
 | Contract | Address | Etherscan |
 |---|---|---|
 | **OffchainResolver** (T-4-1) | `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` | [sepolia.etherscan.io/address/0x7c69…8c3](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3) |
+| **AnchorRegistry** (R9 P6) | `0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac` | [sepolia.etherscan.io/address/0x4C30…f4Ac](https://sepolia.etherscan.io/address/0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac) |
+| **SubnameAuction** (R13 P3) | `0x5dE75E64739A95701367F3Ad592e0b674b22114B` | [sepolia.etherscan.io/address/0x5dE7…114B](https://sepolia.etherscan.io/address/0x5dE75E64739A95701367F3Ad592e0b674b22114B) |
+| **ReputationBond** (R13 P7) | `0x75072217B43960414047c362198A428f0E9793dA` | [sepolia.etherscan.io/address/0x7507…93dA](https://sepolia.etherscan.io/address/0x75072217B43960414047c362198A428f0E9793dA) |
+| **ReputationRegistry** (R11 P1) | `0x6aA95d8126B6221607245c068483fa5008F36dc2` | [sepolia.etherscan.io/address/0x6aA9…6dc2](https://sepolia.etherscan.io/address/0x6aA95d8126B6221607245c068483fa5008F36dc2) |
 
-Pinned in code at `sbo3l_identity::contracts::OFFCHAIN_RESOLVER_SEPOLIA`.
-Source: [`crates/sbo3l-identity/contracts/OffchainResolver.sol`](../../crates/sbo3l-identity/contracts/OffchainResolver.sol).
-Fuzz suite (10K runs × 11 properties + 3 immutability checks): [`OffchainResolver.invariant.t.sol`](../../crates/sbo3l-identity/contracts/test/OffchainResolver.invariant.t.sol).
+Pinned in code at:
+- `sbo3l_identity::contracts::OFFCHAIN_RESOLVER_SEPOLIA`
+- `sbo3l_identity::contracts::ANCHOR_REGISTRY_SEPOLIA`
+- `sbo3l_identity::contracts::SUBNAME_AUCTION_SEPOLIA`
+- `sbo3l_identity::contracts::REPUTATION_BOND_SEPOLIA`
+- `sbo3l_identity::contracts::REPUTATION_REGISTRY_SEPOLIA`
+
+Fuzz suites (10K runs each, foundry invariant tests): see the
+corresponding `*.invariant.t.sol` files under
+`crates/sbo3l-identity/contracts/test/`.
 Off-chain gateway: `https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json`.
+
+Live verification evidence (`cast call` reads against PublicNode RPC,
+2026-05-02): [`docs/proof/contracts-live-test.md`](contracts-live-test.md).
 
 ### ENS infrastructure (Sepolia counterparts)
 

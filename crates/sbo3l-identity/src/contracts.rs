@@ -163,6 +163,55 @@ pub const OFFCHAIN_RESOLVER_SEPOLIA: ContractPin = ContractPin {
 };
 
 // ============================================================
+// SBO3L deployments — final closeout (2026-05-02 post-R14)
+// ============================================================
+
+/// SBO3L AnchorRegistry (R9 P6 contract) on Sepolia. Deployed
+/// 2026-05-02; verified live by reading `anchorCount(0x00…)` →
+/// `0` (fresh state) via PublicNode RPC.
+pub const ANCHOR_REGISTRY_SEPOLIA: ContractPin = ContractPin {
+    address: "0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac",
+    network: Network::Sepolia,
+    label: "SBO3L AnchorRegistry (Sepolia, R9 P6)",
+    canonical_source:
+        "https://sepolia.etherscan.io/address/0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac",
+};
+
+/// SBO3L SubnameAuction (R13 P3 contract) on Sepolia. Deployed
+/// 2026-05-02; verified `auctionCount() = 0`,
+/// `MIN_INCREMENT_BPS() = 500`, `MIN_DURATION() = 3600`.
+pub const SUBNAME_AUCTION_SEPOLIA: ContractPin = ContractPin {
+    address: "0x5dE75E64739A95701367F3Ad592e0b674b22114B",
+    network: Network::Sepolia,
+    label: "SBO3L SubnameAuction (Sepolia, R13 P3)",
+    canonical_source:
+        "https://sepolia.etherscan.io/address/0x5dE75E64739A95701367F3Ad592e0b674b22114B",
+};
+
+/// SBO3L ReputationBond (R13 P7 contract) on Sepolia. Deployed
+/// 2026-05-02; verified `BOND_AMOUNT() = 1e16` (0.01 ETH),
+/// `LOCK_PERIOD() = 604800` (7 days), `slasher` and
+/// `insuranceBeneficiary` pinned at constructor time.
+pub const REPUTATION_BOND_SEPOLIA: ContractPin = ContractPin {
+    address: "0x75072217B43960414047c362198A428f0E9793dA",
+    network: Network::Sepolia,
+    label: "SBO3L ReputationBond (Sepolia, R13 P7)",
+    canonical_source:
+        "https://sepolia.etherscan.io/address/0x75072217B43960414047c362198A428f0E9793dA",
+};
+
+/// SBO3L ReputationRegistry (R11 P1 contract) on Sepolia. Deployed
+/// 2026-05-02; verified `tenantSigner(0x00…) = 0x0…0` (no
+/// tenant claimed yet).
+pub const REPUTATION_REGISTRY_SEPOLIA: ContractPin = ContractPin {
+    address: "0x6aA95d8126B6221607245c068483fa5008F36dc2",
+    network: Network::Sepolia,
+    label: "SBO3L ReputationRegistry (Sepolia, R11 P1)",
+    canonical_source:
+        "https://sepolia.etherscan.io/address/0x6aA95d8126B6221607245c068483fa5008F36dc2",
+};
+
+// ============================================================
 // SBO3L candidate / placeholder pins (not yet deployed)
 // ============================================================
 
@@ -232,6 +281,10 @@ pub fn all_pins() -> Vec<ContractPin> {
         PUBLIC_RESOLVER_SEPOLIA,
         UNIVERSAL_RESOLVER_SEPOLIA,
         OFFCHAIN_RESOLVER_SEPOLIA,
+        ANCHOR_REGISTRY_SEPOLIA,
+        SUBNAME_AUCTION_SEPOLIA,
+        REPUTATION_BOND_SEPOLIA,
+        REPUTATION_REGISTRY_SEPOLIA,
         ERC8004_SEPOLIA_PLACEHOLDER,
     ]
 }

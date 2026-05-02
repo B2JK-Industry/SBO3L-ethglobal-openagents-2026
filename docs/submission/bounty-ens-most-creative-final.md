@@ -361,7 +361,12 @@ unblock the path when one triggers.
 | Repository   | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026                           |
 | Live demo    | https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/                           |
 | Mainnet apex | [`sbo3lagent.eth`](https://app.ens.domains/sbo3lagent.eth) (owner [`0xdc7EFA…D231`](https://etherscan.io/address/0xdc7EFA6b4Bd77d1a406DE4727F0DF567e597D231)) |
-| Sepolia OR   | [`0x7c6913…aCA8c3`](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3) |
+| Sepolia OffchainResolver | [`0x7c6913…aCA8c3`](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3) |
+| Sepolia AnchorRegistry | [`0x4C302b…f4Ac`](https://sepolia.etherscan.io/address/0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac) |
+| Sepolia SubnameAuction | [`0x5dE75E…114B`](https://sepolia.etherscan.io/address/0x5dE75E64739A95701367F3Ad592e0b674b22114B) |
+| Sepolia ReputationBond | [`0x750722…93dA`](https://sepolia.etherscan.io/address/0x75072217B43960414047c362198A428f0E9793dA) |
+| Sepolia ReputationRegistry | [`0x6aA95d…6dc2`](https://sepolia.etherscan.io/address/0x6aA95d8126B6221607245c068483fa5008F36dc2) |
+| Live verification | [`docs/proof/contracts-live-test.md`](../proof/contracts-live-test.md) — `cast call` reads against PublicNode RPC, all 5 contracts |
 | Submitted    | 2026-05-02                                                                                 |
 | Companion    | [`bounty-ens-most-creative.md`](bounty-ens-most-creative.md) — the original 500-word draft |
 
