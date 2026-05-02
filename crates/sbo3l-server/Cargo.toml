@@ -145,6 +145,7 @@ grpc = [
     "dep:tokio-stream",
     "dep:tonic-build",
     "dep:protoc-bin-vendored",
+]
 # R14 P5: OpenTelemetry tracing emitter. OFF by default — the
 # no-features build must not pull a single OTEL transitive dep. Enable
 # with `--features otel`. Runtime exporter selection via
