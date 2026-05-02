@@ -1,0 +1,23 @@
+{
+  "common": {
+    "tagline_part1": "Ajanınıza bir cüzdan vermeyin.",
+    "tagline_part2": "Ona bir yetki verin.",
+    "cta_start": "5 dakikada başlayın",
+    "cta_view_source": "Kaynak kodu görüntüle",
+    "cta_walk_demo": "Demoyu inceleyin",
+    "cta_verify": "Kapsülü kendiniz doğrulayın",
+    "nav_features": "Özellikler",
+    "nav_proof": "Kanıt",
+    "nav_demo": "Demo",
+    "nav_docs": "Dokümantasyon",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Hızlı başlangıç",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — başvuru"
+  },
+  "index": {
+    "lede": "SBO3L, otonom AI ajanları için kriptografik olarak doğrulanabilir güven katmanıdır. Ajanınızın gerçekleştirdiği her eylem — ödeme, takas, depolama, hesaplama, koordinasyon — önce SBO3L'in politika sınırından geçer."
+  },
+  "submission": {
+    "h1": "Otonom AI ajanları için kriptografik olarak doğrulanabilir güven katmanı."
+  }
+}
