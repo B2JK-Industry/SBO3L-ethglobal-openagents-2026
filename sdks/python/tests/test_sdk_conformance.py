@@ -83,9 +83,7 @@ def test_python_sdk_matches_every_manifest_vector(manifest: dict) -> None:
         actual_ok = result.ok
         expected_ok = vector["verify_ok"]
         if actual_ok != expected_ok:
-            failure_codes = (
-                ",".join(c.code for c in result.failures) if not actual_ok else ""
-            )
+            failure_codes = ",".join(c.code for c in result.failures) if not actual_ok else ""
             failures.append(
                 f"[{vector['name']}] expected verify_ok={expected_ok}, got {actual_ok} "
                 f"(failures: {failure_codes})"
@@ -98,8 +96,7 @@ def test_python_sdk_matches_every_manifest_vector(manifest: dict) -> None:
             f"({', '.join(pending)})"
         )
     assert not failures, (
-        f"SDK conformance manifest mismatch ({len(failures)} failures):\n"
-        + "\n".join(failures)
+        f"SDK conformance manifest mismatch ({len(failures)} failures):\n" + "\n".join(failures)
     )
 
 
