@@ -21,6 +21,7 @@ pub mod ens_anchor;
 pub mod ens_live;
 pub mod erc8004;
 pub mod reputation_publisher;
+pub mod token_gate;
 pub mod universal;
 
 pub use ccip_read::{
@@ -50,6 +51,11 @@ pub use erc8004::{
 pub use reputation_publisher::{
     build_publish_envelope, PublishMode, ReputationEventInput, ReputationPublishEnvelope,
     ReputationPublishParams, REPUTATION_ENVELOPE_SCHEMA_ID, REPUTATION_TEXT_KEY,
+};
+pub use token_gate::{
+    risk_class_high, risk_class_low, risk_class_medium, AllOfGates, AnyOfGates, Erc1155Gate,
+    Erc721Gate, GateError, GateResult, RiskClass, TokenGate, ERC1155_BALANCE_OF_SELECTOR,
+    ERC721_BALANCE_OF_SELECTOR, ERC721_OWNER_OF_SELECTOR,
 };
 pub use universal::{
     dns_encode, is_offchain_lookup_revert, UniversalError, UniversalResolver,
