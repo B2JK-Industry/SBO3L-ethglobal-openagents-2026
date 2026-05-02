@@ -113,7 +113,7 @@ sbo3l audit chain-prefix --through evt-01HTAWX5...
 - **Claude doesn't call the tool** — `claude-3-5-sonnet-latest` is the most reliable for tool-use; older Haiku may skip.
 - **`input.bad_arguments`** — local zod validation rejected the model's input. Look at the `issues` array in the `tool_result` content for the path that failed.
 - **`policy.deny_recipient_not_allowlisted`** — for `chain: base` the policy allowlists `0x1111...1111`. Use that exact address.
-- **Live ENS broadcast** — that's a separate flow; this quickstart focuses on the SBO3L gate. See [`docs/integrations/ens.md`](../integrations/ens.md) for `sbo3l agent verify-ens` and the `--broadcast` CLI.
+- **Live ENS broadcast** — that's a separate flow; this quickstart focuses on the SBO3L gate. See [`docs/cli/ens-fleet.md`](../cli/ens-fleet.md) for `sbo3l agent verify-ens` and the `--broadcast` CLI.
 
 ## Next
 
