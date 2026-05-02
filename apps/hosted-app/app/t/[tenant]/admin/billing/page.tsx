@@ -9,6 +9,22 @@ interface Props { params: Promise<{ tenant: string }> }
 
 export const dynamic = "force-dynamic";
 
+// Codex review fix (PR #297): formatting an ISO date string with
+// `new Date(...).toLocaleDateString()` interprets bare YYYY-MM-DD
+// as UTC midnight and then displays in the runtime's local timezone.
+// On a server in negative UTC offset (Pacific time, etc.) this
+// shows the day BEFORE the stored date. Use a fixed UTC formatter
+// so the displayed invoice date matches the stored value byte-for-byte.
+function formatStableDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  } catch {
+    return iso;
+  }
+}
+
 export default async function TenantBillingPage({ params }: Props): Promise<JSX.Element> {
   const { tenant: slug } = await params;
   const tenant = tenantBySlug(slug);
@@ -42,7 +58,7 @@ export default async function TenantBillingPage({ params }: Props): Promise<JSX.
       <header style={{ marginBottom: "1.5em" }}>
         <h1 style={{ marginBottom: "0.2em" }}>Billing — {tenant.display_name}</h1>
         <p style={{ color: "var(--muted)", margin: 0, maxWidth: 760 }}>
-          Tier <code>{billing.tier}</code>{billing.next_invoice_at && <> · next invoice {new Date(billing.next_invoice_at).toLocaleDateString()}</>}
+          Tier <code>{billing.tier}</code>{billing.next_invoice_at && <> · next invoice {formatStableDate(billing.next_invoice_at)}</>}
           {billing.payment_method && <> · {billing.payment_method}</>}.
         </p>
       </header>
@@ -78,16 +94,29 @@ export default async function TenantBillingPage({ params }: Props): Promise<JSX.
                 <li>· {limits.support_sla}</li>
               </ul>
               <div style={{ marginTop: "0.8em" }}>
+                {/*
+                  Codex review fix (PR #311): the previous "Downgrade"
+                  button hit /api/billing/checkout which creates a NEW
+                  Stripe subscription line item. For an
+                  enterprise → pro downgrade that produced a duplicate
+                  active subscription instead of changing the existing
+                  plan. Downgrades must use the Customer Portal
+                  (Stripe-hosted, lets the user pick the new plan from
+                  their existing subscription). Upgrades remain on
+                  Checkout where new-subscription semantics are correct.
+                */}
                 {isCurrent ? (
                   <span style={{ fontSize: "0.85em", color: "var(--accent)" }}>● current plan</span>
-                ) : tier === "free" ? (
-                  <span style={{ fontSize: "0.75em", color: "var(--muted)" }}>Downgrade via Customer Portal</span>
+                ) : limits.monthly_usd < TIER_LIMITS[billing.tier].monthly_usd ? (
+                  <span style={{ fontSize: "0.78em", color: "var(--muted)" }}>
+                    Downgrade via Customer Portal
+                  </span>
                 ) : (
                   <UpgradeButton
                     tenantSlug={slug}
                     targetTier={tier as "pro" | "enterprise"}
-                    isUpgrade={limits.monthly_usd > TIER_LIMITS[billing.tier].monthly_usd}
-                    label={limits.monthly_usd > TIER_LIMITS[billing.tier].monthly_usd ? "Upgrade" : "Downgrade"}
+                    isUpgrade={true}
+                    label="Upgrade"
                   />
                 )}
               </div>

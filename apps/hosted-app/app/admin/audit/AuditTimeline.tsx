@@ -105,7 +105,7 @@ export function AuditTimeline({ wsUrl }: Props): JSX.Element {
             }}
           >
             <code style={{ color: "var(--muted)" }}>{new Date(e.ts_ms).toLocaleTimeString()}</code>
-            <code style={{ color: kindColor(e.kind) }}>{e.kind}</code>
+            <code style={{ color: kindColor(e) }}>{e.kind}</code>
             <span>{describe(e)}</span>
           </li>
         ))}
@@ -115,22 +115,16 @@ export function AuditTimeline({ wsUrl }: Props): JSX.Element {
 }
 
 function describe(e: TimelineEvent): string {
-  switch (e.kind) {
-    case "agent.discovered":    return `${e.agent_id} (${e.ens_name})`;
-    case "attestation.signed":  return `${e.from} → ${e.to}  ${e.attestation_id}`;
-    case "decision.made":       return `${e.agent_id}  ${e.decision}${e.deny_code ? ` (${e.deny_code})` : ""}${e.intent ? ` · ${e.intent}` : ""}`;
-    case "audit.checkpoint":    return `${e.agent_id}  chain_length=${e.chain_length}  root=${e.root_hash.slice(0, 14)}…`;
-    case "execution.confirmed": return `${e.agent_id} → ${e.sponsor}  ref=${e.execution_ref}`;
-    case "flag.changed":        return `${e.flag_name} → ${e.enabled ? "on" : "off"} (by ${e.changed_by})`;
+  if (e.kind === "decision") {
+    const tail = e.deny_code ? ` (${e.deny_code})` : "";
+    return `${e.agent_id}  ${e.decision}${tail}  chain_seq=${e.chain_seq}`;
   }
+  return `${e.op_kind}  ${e.message}`;
 }
 
-function kindColor(kind: TimelineEvent["kind"]): string {
-  switch (kind) {
-    case "decision.made":       return "var(--accent)";
-    case "execution.confirmed": return "var(--accent)";
-    case "flag.changed":        return "#ffce5c";
-    case "audit.checkpoint":    return "var(--muted)";
-    default:                    return "var(--fg)";
-  }
+function kindColor(e: TimelineEvent): string {
+  if (e.kind === "operational") return "#ffce5c";
+  if (e.severity === "warn") return "#ffce5c";
+  if (e.severity === "error") return "#f87171";
+  return e.decision === "deny" ? "#f87171" : "var(--accent)";
 }
