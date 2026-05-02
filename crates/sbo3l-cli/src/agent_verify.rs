@@ -60,6 +60,12 @@ pub struct AgentVerifyEnsArgs {
     /// expected records. Records not present here are reported but
     /// not failed.
     pub expected_records: Option<String>,
+    /// Silently ignore unknown keys in `--expected-records`. Default
+    /// is **strict mode**: any key outside [`VERIFY_KEYS`] causes
+    /// verify-ens to refuse with exit code 2 so a typo
+    /// (`sbol3:agent_id` vs `sbo3l:agent_id`) doesn't silently turn
+    /// into a no-op expectation that reports PASS.
+    pub lenient: bool,
     /// Emit a JSON envelope instead of human-readable text.
     pub json: bool,
 }
@@ -149,6 +155,24 @@ pub fn cmd_agent_verify_ens(args: AgentVerifyEnsArgs) -> ExitCode {
         Err(rc) => return rc,
     };
 
+    // Strict-mode check (codex P1 fix): every key in --expected-records
+    // must be one we'll actually verify. Without this guard, a typo
+    // ("sbol3:agent_id") silently sets a no-op expectation and the
+    // run reports PASS — false sense of security.
+    //
+    // --lenient opts back into the legacy silent-ignore behaviour for
+    // operators with bespoke pipelines.
+    if let Err(unknown) = check_strict_keys(&expected_records, args.lenient) {
+        eprintln!(
+            "sbo3l agent verify-ens: --expected-records contains unknown keys: {unknown:?}\n\
+             \n\
+             Allowed keys (the canonical sbo3l:* set): {VERIFY_KEYS:?}\n\
+             \n\
+             Pass --lenient to silently ignore unknown keys (legacy behaviour)."
+        );
+        return ExitCode::from(2);
+    }
+
     // Read each canonical key.
     let mut checks: Vec<RecordCheck> = Vec::with_capacity(VERIFY_KEYS.len());
     for &key in VERIFY_KEYS {
@@ -217,6 +241,31 @@ fn resolve_expected_pubkey(args: &AgentVerifyEnsArgs) -> Result<Option<String>, 
         return Ok(Some(pubkey));
     }
     Ok(None)
+}
+
+/// Strict-mode key check. Returns `Err(sorted unknown keys)` if
+/// `expected_records` has any key outside [`VERIFY_KEYS`] AND
+/// `lenient` is false. `Ok(())` otherwise — including the legacy
+/// `lenient = true` path which always passes.
+fn check_strict_keys(
+    expected_records: &std::collections::HashMap<String, String>,
+    lenient: bool,
+) -> Result<(), Vec<String>> {
+    if lenient {
+        return Ok(());
+    }
+    let known: std::collections::HashSet<&str> = VERIFY_KEYS.iter().copied().collect();
+    let mut unknown: Vec<String> = expected_records
+        .keys()
+        .filter(|k| !known.contains(k.as_str()))
+        .cloned()
+        .collect();
+    if unknown.is_empty() {
+        Ok(())
+    } else {
+        unknown.sort();
+        Err(unknown)
+    }
 }
 
 fn parse_expected_records(
@@ -508,5 +557,57 @@ mod tests {
     fn parse_expected_records_empty_when_unset() {
         let m = parse_expected_records(None).unwrap();
         assert!(m.is_empty());
+    }
+
+    fn map_of(pairs: &[(&str, &str)]) -> std::collections::HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn strict_keys_pass_when_all_canonical() {
+        let m = map_of(&[
+            ("sbo3l:agent_id", "x"),
+            ("sbo3l:endpoint", "y"),
+            ("sbo3l:capabilities", "z"),
+        ]);
+        assert!(check_strict_keys(&m, false).is_ok());
+    }
+
+    #[test]
+    fn strict_keys_pass_on_empty() {
+        let m = map_of(&[]);
+        assert!(check_strict_keys(&m, false).is_ok());
+    }
+
+    #[test]
+    fn strict_keys_reject_typo() {
+        // The classic codex P1 scenario: typo in the namespace prefix.
+        let m = map_of(&[("sbol3:agent_id", "research-agent-01")]);
+        let err = check_strict_keys(&m, false).unwrap_err();
+        assert_eq!(err, vec!["sbol3:agent_id".to_string()]);
+    }
+
+    #[test]
+    fn strict_keys_reject_multiple_unknown_sorted() {
+        let m = map_of(&[
+            ("sbo3l:agent_id", "ok"),
+            ("zeta:bogus", "z"),
+            ("alpha:bogus", "a"),
+        ]);
+        let err = check_strict_keys(&m, false).unwrap_err();
+        // Sorted ascending so the error message is reproducible.
+        assert_eq!(
+            err,
+            vec!["alpha:bogus".to_string(), "zeta:bogus".to_string()]
+        );
+    }
+
+    #[test]
+    fn strict_keys_lenient_passes_unknown() {
+        let m = map_of(&[("sbol3:agent_id", "typo")]);
+        assert!(check_strict_keys(&m, true).is_ok());
     }
 }

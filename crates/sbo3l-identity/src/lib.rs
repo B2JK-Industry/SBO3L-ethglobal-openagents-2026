@@ -14,18 +14,25 @@
 //! to the offline fixture for determinism; a real-resolver implementation can
 //! be added without touching call sites.
 
+pub mod ccip_read;
 pub mod cross_agent;
 pub mod durin;
 pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
+pub mod reputation_publisher;
+pub mod universal;
 
+pub use ccip_read::{
+    decode_gateway_data, decode_gateway_response_body, decode_string_result,
+    parse_offchain_lookup_revert, CcipError, GatewayBody, GatewayResponse, OffchainLookup,
+    OFFCHAIN_LOOKUP_SELECTOR,
+};
 pub use cross_agent::{
     build_challenge, sign_challenge, verify_challenge, CrossAgentChallenge, CrossAgentError,
     CrossAgentReject, CrossAgentTrust, PubkeyResolver, SignedChallenge, CHALLENGE_SCHEMA,
     FRESHNESS_WINDOW_MS, PUBKEY_RECORD_KEY, TRUST_SCHEMA,
 };
-
 pub use durin::{
     build_dry_run as build_durin_dry_run, multicall_calldata, register_calldata, DurinDryRun,
     DurinDryRunSetTextEntry, DurinError, DURIN_DRY_RUN_SCHEMA, MAX_RECORD_VALUE_BYTES,
@@ -39,4 +46,12 @@ pub use ens_anchor::{
 pub use ens_live::{
     JsonRpcTransport, LiveEnsResolver, ReqwestTransport, RpcError, ENS_REGISTRY_ADDRESS,
     RESOLVER_SELECTOR, SBO3L_TEXT_KEYS, TEXT_SELECTOR,
+};
+pub use reputation_publisher::{
+    build_publish_envelope, PublishMode, ReputationEventInput, ReputationPublishEnvelope,
+    ReputationPublishParams, REPUTATION_ENVELOPE_SCHEMA_ID, REPUTATION_TEXT_KEY,
+};
+pub use universal::{
+    dns_encode, is_offchain_lookup_revert, UniversalError, UniversalResolver,
+    UNIVERSAL_RESOLVER_MAINNET, UNIVERSAL_RESOLVER_SEPOLIA, UNIVERSAL_RESOLVE_SELECTOR,
 };

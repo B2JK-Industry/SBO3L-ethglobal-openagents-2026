@@ -1,0 +1,128 @@
+name: Lighthouse audit
+
+# Runs Lighthouse against the live Vercel deploys + posts the score
+# table back as a comment. Triggered on:
+#   - manual dispatch (workflow_dispatch)
+#   - weekly cron (Mon 06:00 UTC) so we catch perf drift over time
+#
+# Score gate: any audit below 90 (perf, a11y, best-practices, SEO) on
+# either desktop OR mobile fails the run + opens an issue tagged
+# `monitoring,lighthouse`. Documented at
+# docs/submission/url-evidence.md (Lighthouse runbook section).
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "URL to audit (overrides default list)"
+        required: false
+        type: string
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: lighthouse-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        url:
+          - https://sbo3l-marketing.vercel.app
+          - https://sbo3l-ccip.vercel.app
+        preset: [desktop, mobile]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Lighthouse
+        run: npm install -g lighthouse@12
+
+      - name: Run Lighthouse — ${{ matrix.url }} (${{ matrix.preset }})
+        id: audit
+        run: |
+          set +e
+          OUT_PREFIX="$(echo '${{ matrix.url }}' | sed 's|https://||;s|/|_|g')-${{ matrix.preset }}"
+          mkdir -p artifacts
+          lighthouse "${{ matrix.url }}" \
+            --preset=${{ matrix.preset }} \
+            --output=json --output=html \
+            --output-path="artifacts/$OUT_PREFIX" \
+            --chrome-flags="--headless --no-sandbox" \
+            --quiet
+          RC=$?
+          if [ $RC -ne 0 ]; then
+            echo "::warning::Lighthouse exited rc=$RC on ${{ matrix.url }} (${{ matrix.preset }})"
+          fi
+
+          PERF=$(jq -r '.categories.performance.score * 100 // 0' "artifacts/$OUT_PREFIX.report.json" | cut -d. -f1)
+          A11Y=$(jq -r '.categories.accessibility.score * 100 // 0' "artifacts/$OUT_PREFIX.report.json" | cut -d. -f1)
+          BEST=$(jq -r '.categories["best-practices"].score * 100 // 0' "artifacts/$OUT_PREFIX.report.json" | cut -d. -f1)
+          SEO=$(jq -r '.categories.seo.score * 100 // 0' "artifacts/$OUT_PREFIX.report.json" | cut -d. -f1)
+          echo "perf=$PERF" >> "$GITHUB_OUTPUT"
+          echo "a11y=$A11Y" >> "$GITHUB_OUTPUT"
+          echo "best=$BEST" >> "$GITHUB_OUTPUT"
+          echo "seo=$SEO" >> "$GITHUB_OUTPUT"
+          echo "out_prefix=$OUT_PREFIX" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-${{ steps.audit.outputs.out_prefix }}
+          path: artifacts/
+
+      - name: Score gate (>= 90 on every category)
+        env:
+          PERF: ${{ steps.audit.outputs.perf }}
+          A11Y: ${{ steps.audit.outputs.a11y }}
+          BEST: ${{ steps.audit.outputs.best }}
+          SEO:  ${{ steps.audit.outputs.seo }}
+          URL:  ${{ matrix.url }}
+          PRESET: ${{ matrix.preset }}
+        run: |
+          FAIL=0
+          for s in $PERF $A11Y $BEST $SEO; do
+            if [ "$s" -lt 90 ]; then FAIL=1; fi
+          done
+          echo "## $URL ($PRESET)" >> "$GITHUB_STEP_SUMMARY"
+          echo "| perf | a11y | best-pract | SEO |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| $PERF | $A11Y | $BEST | $SEO |" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$FAIL" = "1" ]; then
+            echo "::error::At least one category < 90 on $URL ($PRESET): perf=$PERF a11y=$A11Y best=$BEST seo=$SEO"
+            exit 1
+          fi
+
+  alert:
+    needs: audit
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open / comment issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          EXISTING=$(gh issue list --repo "$REPO" --label monitoring --label lighthouse --state open --json number --jq '.[0].number // empty')
+          MSG="🚨 Lighthouse score < 90 on at least one URL/preset (run [${{ github.run_id }}]($RUN_URL)). Open the run summary for the score table; download the lighthouse-* artifact for the full HTML report."
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "$MSG"
+          else
+            gh issue create --repo "$REPO" --title "🚨 Lighthouse score below threshold" --label monitoring --label lighthouse --body "$MSG"
+          fi
