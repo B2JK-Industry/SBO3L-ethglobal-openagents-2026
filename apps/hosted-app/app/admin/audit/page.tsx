@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { eventsWebSocketUrl } from "@/lib/sbo3l-client";
 import { AuditTimeline } from "./AuditTimeline";
+import { DecisionChart } from "./DecisionChart";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default function AdminAuditPage() {
         events scroll off (full chain remains in the daemon's audit DB).
       </p>
 
+      <DecisionChart wsUrl={wsUrl} />
       <AuditTimeline wsUrl={wsUrl} />
 
       <aside style={{ marginTop: "2em", padding: "1em 1.2em", background: "var(--code-bg)", border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)", borderRadius: "var(--r-md)", color: "var(--muted)", fontSize: "0.9em" }}>
