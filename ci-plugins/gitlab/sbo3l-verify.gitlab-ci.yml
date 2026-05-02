@@ -1,0 +1,41 @@
+# SBO3L Capsule Verify — drop-in GitLab CI template.
+#
+# Use via:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/main/ci-plugins/gitlab/sbo3l-verify.gitlab-ci.yml'
+#
+#   sbo3l_verify:
+#     extends: .sbo3l_verify
+#     variables:
+#       SBO3L_CAPSULE_PATH: artifacts/latest.capsule.json
+#
+# Surfaces:
+#   - 6-check verification report to job log + artifact (capsule-report.md)
+#   - structured JSON artifact (capsule-result.json) for downstream jobs
+#   - Job exit code: 0 on allow + all checks ok, 1 otherwise
+
+.sbo3l_verify:
+  image: node:20-bookworm-slim
+  stage: test
+  variables:
+    SBO3L_FAIL_ON_DENY: "true"
+    SBO3L_REPORT_FORMAT: "markdown"
+  before_script:
+    # Pull the shared verifier from the repo. Pinning to main is fine —
+    # the verifier is intentionally tiny + zero-dep.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates
+    - curl -fsSL -o /tmp/verifier.mjs https://raw.githubusercontent.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/main/ci-plugins/_shared/verifier.mjs
+  script:
+    # Markdown report → job log + artifact
+    - SBO3L_CAPSULE_PATH="${SBO3L_CAPSULE_PATH}" SBO3L_REPORT_FORMAT=markdown node /tmp/verifier.mjs | tee capsule-report.md
+    # JSON for downstream consumers
+    - SBO3L_CAPSULE_PATH="${SBO3L_CAPSULE_PATH}" SBO3L_REPORT_FORMAT=json node /tmp/verifier.mjs > capsule-result.json
+  artifacts:
+    when: always
+    paths:
+      - capsule-report.md
+      - capsule-result.json
+    reports:
+      dotenv: capsule-result.env
+    expire_in: 30 days

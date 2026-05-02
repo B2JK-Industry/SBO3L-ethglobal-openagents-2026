@@ -57,6 +57,18 @@ openraft = { version = "0.9", default-features = false, features = ["serde", "se
 bincode = { version = "1.3", optional = true }
 reqwest = { workspace = true, optional = true }
 async-trait = { version = "0.1", optional = true }
+# R14 P5: OpenTelemetry tracing layer. Off by default; enable with
+# `--features otel`. The four `opentelemetry*` crates MUST stay version-
+# pinned together (the major-version churn around 0.21→0.31 broke the
+# inter-crate API on every minor bump). `tracing-opentelemetry` 0.32
+# pairs with the `opentelemetry*` 0.31 series. See `docs/observability.md`
+# for the runbook.
+opentelemetry = { version = "0.31", optional = true }
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic", "http-proto"], optional = true }
+opentelemetry-stdout = { version = "0.31", optional = true }
+tracing-opentelemetry = { version = "0.32", optional = true }
+tower = { version = "0.5", optional = true }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
@@ -67,7 +79,15 @@ base64 = "0.22"
 # T-3-5 integration test: real WebSocket client against the in-process
 # server bound to an ephemeral port.
 tokio-tungstenite = "0.21"
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
+# R14 P5 OTEL stdout integration test (`tests/otel_stdout.rs`):
+# uses `libc::kill(pid, SIGTERM)` to trigger the binary's graceful-
+# shutdown path so the OTEL batch span processor flushes deterministically.
+# Unix-only; Windows path falls back to `child.kill()` (ungraceful, but
+# the integration test is gated on `cfg(feature = "otel")` and CI runs
+# on Linux).
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
 
 # F-5: passthrough features for sbo3l-core's KMS backends so a
 # `cargo test -p sbo3l-server --features aws_kms` route compiles the
@@ -88,3 +108,16 @@ ws_events = []
 # — the audit chain remains single-node unless explicitly opted in.
 # See `docs/cluster-mode.md` for the EXPERIMENTAL caveats.
 cluster = ["dep:openraft", "dep:bincode", "dep:reqwest", "dep:async-trait"]
+# R14 P5: OpenTelemetry tracing emitter. OFF by default — the
+# no-features build must not pull a single OTEL transitive dep. Enable
+# with `--features otel`. Runtime exporter selection via
+# `SBO3L_OTEL_EXPORTER` env (none|stdout|otlp). See
+# `docs/observability.md` for the full env-var matrix.
+otel = [
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "dep:opentelemetry-stdout",
+    "dep:tracing-opentelemetry",
+    "dep:tower",
+]

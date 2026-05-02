@@ -184,3 +184,17 @@ The submission can ship with these gaps documented because **all three sponsor f
 | `/marketplace` 404 on Vercel preview | Cannot click-through marketplace UI | Source live at `apps/marketing/src/pages/marketplace/`; `@sbo3l/marketplace` content-addressed registry + `sbo3l-marketplace` CLI both verifiable from crates.io / npm |
 | `sbo3l-trust-dns-viz.vercel.app` 404 | Cannot click-through visualization | Source live at `apps/trust-dns-viz/`; canvas renderer verifiable from local build |
 | Custom domains (`sbo3l.dev` etc.) DNS not pointed | Vercel preview URLs are the canonical live URLs | Submission uses Vercel preview URLs throughout |
+
+## Sepolia smart contracts deployed 2026-05-02 (R14)
+
+| Contract | Address | Etherscan | Bytes |
+|---|---|---|---|
+| AnchorRegistry | `0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac` | [link](https://sepolia.etherscan.io/address/0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac) | 1653 |
+| SBO3LSubnameAuction | `0x5dE75E64739A95701367F3Ad592e0b674b22114B` | [link](https://sepolia.etherscan.io/address/0x5dE75E64739A95701367F3Ad592e0b674b22114B) | 4466 |
+| SBO3LReputationBond | `0x75072217B43960414047c362198A428f0E9793dA` | [link](https://sepolia.etherscan.io/address/0x75072217B43960414047c362198A428f0E9793dA) | 2683 |
+| SBO3LReputationRegistry | `0x6aA95d8126B6221607245c068483fa5008F36dc2` | [link](https://sepolia.etherscan.io/address/0x6aA95d8126B6221607245c068483fa5008F36dc2) | 3011 |
+
+Deployer wallet: `0x50BA7BF5FDe124DB51777A2bF0eED733756B7e9c`. Total Sepolia gas spent: ~0.000003 ETH.
+ReputationBond: slasher = deployer; insuranceBeneficiary = Daniel's wallet `0xdc7EFA6b…D231`.
+
+PyPI `sbo3l-langgraph` @ 1.2.0 LIVE (2026-05-02). NPM_TOKEN provisioned 2026-05-02 — npm publishes queued.

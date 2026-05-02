@@ -42,6 +42,12 @@ pub use feature_flags::FlagStore;
 
 pub mod metrics;
 
+#[cfg(feature = "otel")]
+pub mod otel;
+
+#[cfg(feature = "otel")]
+pub mod otel_middleware;
+
 #[cfg(feature = "ws_events")]
 pub mod ws_events;
 
@@ -204,7 +210,17 @@ pub fn router(state: AppState) -> Router {
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/admin/events", get(admin_events::admin_events_handler));
-    r.with_state(state)
+    let r = r.with_state(state);
+    // R14 P5: per-request OTEL span enrichment. Only attached when
+    // the `otel` feature is on, so the no-features build pays zero
+    // middleware overhead. The middleware opens an `http.request`
+    // span carrying `http.method`/`http.target`/`http.status_code`
+    // and reserves `Empty` placeholders for `sbo3l.tenant_id` and
+    // `sbo3l.audit_event_id` that handlers fill via
+    // `tracing::Span::current().record(...)`.
+    #[cfg(feature = "otel")]
+    let r = r.layer(axum::middleware::from_fn(otel_middleware::trace_request));
+    r
 }
 
 /// `GET /v1/metrics` — Prometheus text exposition format. Scraped
@@ -997,6 +1013,14 @@ async fn run_pipeline(
     inner
         .metrics
         .record_request(pipeline_started.elapsed(), &receipt_decision);
+
+    // R14 P5: stamp the audit event id onto the per-request OTEL span
+    // (placeholder reserved by `otel_middleware::trace_request`).
+    // No-op when the `otel` feature is off OR when no OTEL exporter
+    // is configured — `tracing::Span::current().record(...)` is safe
+    // to call against a span that never had this field declared; the
+    // record is silently dropped.
+    tracing::Span::current().record("sbo3l.audit_event_id", signed_event.event.id.as_str());
 
     // T-3-5 backend: fan out the request outcome to the trust-dns viz
     // event bus. No-op when no subscribers are connected (broadcast

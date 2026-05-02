@@ -1,0 +1,35 @@
+apiVersion: v2
+name: sbo3l
+description: |
+  EXPERIMENTAL chart skeleton for the SBO3L server (cryptographically
+  verifiable trust layer for autonomous AI agents). Lints clean and
+  templates clean; NOT yet validated against a live cluster. Operators
+  forking this chart should review every default before deploying to
+  production. CRDs (SBO3LPolicy, SBO3LCluster) and multi-replica Raft
+  cluster mode are deliberately out of scope and will ship as a
+  separate operator chart.
+type: application
+# Chart version is independent of appVersion; bumped on chart-shape
+# changes (template additions, value-key renames). Start at 0.1.0
+# while the chart is experimental — first stable release will be 1.0.0.
+version: 0.1.0
+# appVersion tracks the workspace package version of the sbo3l-server
+# binary baked into the default `image.tag`.
+appVersion: "1.2.0"
+kubeVersion: ">=1.27.0-0"
+keywords:
+  - sbo3l
+  - agents
+  - audit
+  - eth
+  - mandate
+home: https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+sources:
+  - https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+maintainers:
+  - name: B2JK Industry
+    url: https://github.com/B2JK-Industry
+icon: https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/icon.png
+annotations:
+  category: Security
+  licenses: Apache-2.0
