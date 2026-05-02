@@ -1,0 +1,1015 @@
+{
+  "agents": [
+    {
+      "agent_id": "research-agent-001",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-001.sbo3lagent.eth",
+      "label": "agent-001",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-001.json",
+      "pubkey_ed25519": "7453d833ca969b56d40ec4fcc6c391b9a4f804d47640a4f06fcc6ccecea12718",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-002",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-002.sbo3lagent.eth",
+      "label": "agent-002",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-002.json",
+      "pubkey_ed25519": "35ce06c8a50c47ecf2aa23880c17aeeefcd9acd798ffdc0634f916d3fcc44cdd",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-003",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-003.sbo3lagent.eth",
+      "label": "agent-003",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-003.json",
+      "pubkey_ed25519": "0845b9e24cd910ef6738be3baf0dd8660bfd25be664b2ddcc0a5c03aa47c836b",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-004",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-004.sbo3lagent.eth",
+      "label": "agent-004",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-004.json",
+      "pubkey_ed25519": "8ee04afa9807a287f227ac62a47790beeb9aec578dc200f77fef4c996315868c",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-005",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-005.sbo3lagent.eth",
+      "label": "agent-005",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-005.json",
+      "pubkey_ed25519": "bca75082e07990bb1c501d96c1b5a2a4feca7a822fd70a07c0854459fca0f0cc",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-006",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-006.sbo3lagent.eth",
+      "label": "agent-006",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-006.json",
+      "pubkey_ed25519": "2ee42c86203e28fb89cccd68ebebe8e11c1db0f30869d2266908ebb4247e6866",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-007",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-007.sbo3lagent.eth",
+      "label": "agent-007",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-007.json",
+      "pubkey_ed25519": "024959fcb833ff6618cffba76c638596f634103557497b5a11db4467381b3f9e",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-008",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-008.sbo3lagent.eth",
+      "label": "agent-008",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-008.json",
+      "pubkey_ed25519": "ab85ce82f195bce9b618c297390dec8cc3d7a5fee5abbb055478c8840727d26e",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-009",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-009.sbo3lagent.eth",
+      "label": "agent-009",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-009.json",
+      "pubkey_ed25519": "c4a0971bc7ddc2939f9ee6546dfaf43d6c831f42d37f83af2d7040520995ee77",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "research-agent-010",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-010.sbo3lagent.eth",
+      "label": "agent-010",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-010.json",
+      "pubkey_ed25519": "c6b5ef7da7cfe6f264d71712c632d2dd4e56dd5a8f59ea853fcf204daa472dfe",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-011",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-011.sbo3lagent.eth",
+      "label": "agent-011",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-011.json",
+      "pubkey_ed25519": "ccf6794e1f73568f9b40dba5485f9efc39c8eaedeb6f8f9767ce3557c3f444a2",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-012",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-012.sbo3lagent.eth",
+      "label": "agent-012",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-012.json",
+      "pubkey_ed25519": "683a0120f718870f02b52b799a9ef1eb50529ac2f46ebeecfb446c1288f8a9a3",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-013",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-013.sbo3lagent.eth",
+      "label": "agent-013",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-013.json",
+      "pubkey_ed25519": "bde1e0fadc82d7e49ed0c2777c180371b5096dd1be4202055b69e2326baea640",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-014",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-014.sbo3lagent.eth",
+      "label": "agent-014",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-014.json",
+      "pubkey_ed25519": "8800adb30ba969817aec25473fdc3c70c36304c3e8064662805bfc1c35252f04",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-015",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-015.sbo3lagent.eth",
+      "label": "agent-015",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-015.json",
+      "pubkey_ed25519": "194970b32b0c535463e004be0bb50a2fb3efd14e9fc2f6c4f9bb942ee5ede730",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-016",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-016.sbo3lagent.eth",
+      "label": "agent-016",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-016.json",
+      "pubkey_ed25519": "71a408935da9c545210c34173f372e2ef9bd017967cce99f7c99f702c3ba0c59",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-017",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-017.sbo3lagent.eth",
+      "label": "agent-017",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-017.json",
+      "pubkey_ed25519": "bad46e30afc8d26b3f0e5989ed801164ab7664bf4bfbdf8b1a3e6fc3f0564651",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-018",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-018.sbo3lagent.eth",
+      "label": "agent-018",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-018.json",
+      "pubkey_ed25519": "f8b8109dd569e626443eb5419cc11fe10a3755a691adac0e8ea706345bf2ee07",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-019",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-019.sbo3lagent.eth",
+      "label": "agent-019",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-019.json",
+      "pubkey_ed25519": "e887bfb6495969afbe4af51f498941f13bc012ba4ec926631571e352450aebc4",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-020",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-020.sbo3lagent.eth",
+      "label": "agent-020",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-020.json",
+      "pubkey_ed25519": "1bcee5b96fce4d3f032e68ccdd347c07f92af5b6aa43936f61048bc8f2cff989",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-021",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-021.sbo3lagent.eth",
+      "label": "agent-021",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-021.json",
+      "pubkey_ed25519": "68800918c958c086b9a0ed5ec2f8272d76b0ff3797a276d67378954f8eb1c195",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-022",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-022.sbo3lagent.eth",
+      "label": "agent-022",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-022.json",
+      "pubkey_ed25519": "d8ac73d115c148a70d3e2eeb9764eab42f1069ffa4630ed0ffa4fd1bd24fe463",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-023",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-023.sbo3lagent.eth",
+      "label": "agent-023",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-023.json",
+      "pubkey_ed25519": "a7bc081dfa2537396a74e41ba5d84b0b14c35d1a3d732060258cfa070767c737",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-024",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-024.sbo3lagent.eth",
+      "label": "agent-024",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-024.json",
+      "pubkey_ed25519": "bce29543f69f885325274e60ce1741e30475876419dac721531da59a6d3513fb",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-025",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-025.sbo3lagent.eth",
+      "label": "agent-025",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-025.json",
+      "pubkey_ed25519": "ee39ecb60ef31cc3fb87edf10bb9c1cbe1d6c00d5052f1d5c06334cfccc04232",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-026",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-026.sbo3lagent.eth",
+      "label": "agent-026",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-026.json",
+      "pubkey_ed25519": "8a744fc5d97e5d969d5c9b480ed9929cb74bbf50cd43e9fe5ab4829b893001e2",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-027",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-027.sbo3lagent.eth",
+      "label": "agent-027",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-027.json",
+      "pubkey_ed25519": "900d5ffadef591536be2efe2bca3bf21d8337d95d0a247d7a26aa66bdba94091",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-028",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-028.sbo3lagent.eth",
+      "label": "agent-028",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-028.json",
+      "pubkey_ed25519": "df9feb042c93ca5ab8d4006548f7db814766f60b99a3c17248cb1e745b645eb4",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-029",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-029.sbo3lagent.eth",
+      "label": "agent-029",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-029.json",
+      "pubkey_ed25519": "73dc1676d7839ff069a91cd1281b75fa3ebc35737a4129b86a887cd0d45fc6c8",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-030",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-030.sbo3lagent.eth",
+      "label": "agent-030",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-030.json",
+      "pubkey_ed25519": "f13ea1072fd5456e054fe452f61757cc700ffdd0386b23c7d73115a71232c4e4",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-031",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-031.sbo3lagent.eth",
+      "label": "agent-031",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-031.json",
+      "pubkey_ed25519": "a739c128f248d1dd1084acc323198fd10f33e15549a3cfef31035286fb0da24a",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-032",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-032.sbo3lagent.eth",
+      "label": "agent-032",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-032.json",
+      "pubkey_ed25519": "54bd346bbd137b8447007135a9f25aee741dd58e76becfef5dd387dac3b19eac",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-033",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-033.sbo3lagent.eth",
+      "label": "agent-033",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-033.json",
+      "pubkey_ed25519": "c599e423f51a1a1f2b9415f361b8402aaf079c3d8466f2cf2975d9e125cfbc79",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-034",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-034.sbo3lagent.eth",
+      "label": "agent-034",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-034.json",
+      "pubkey_ed25519": "04f560f4cc9a04c1be149d963f818cff33cf979db368b23208df10f007591605",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-035",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-035.sbo3lagent.eth",
+      "label": "agent-035",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-035.json",
+      "pubkey_ed25519": "0409a0e05de507fbae7758232669cffc2a057e122994c9a4f288ede72866d594",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-036",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-036.sbo3lagent.eth",
+      "label": "agent-036",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-036.json",
+      "pubkey_ed25519": "3164f9179eef4a25aef2b662e60d58fea71cf447d63073a96d61a258f2401cbd",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-037",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-037.sbo3lagent.eth",
+      "label": "agent-037",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-037.json",
+      "pubkey_ed25519": "71e0661fc5359d67761aaac0b4a734ce5bf5f70c55b1f2c1cf0adc02a464720f",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-038",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-038.sbo3lagent.eth",
+      "label": "agent-038",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-038.json",
+      "pubkey_ed25519": "477d5e8b3dfe718630de8a46f642650a7b5fa2b09df347fb1a85b5cf4d09c4bb",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-039",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-039.sbo3lagent.eth",
+      "label": "agent-039",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-039.json",
+      "pubkey_ed25519": "e7fb5c7f4d97497aa7711f31bf518e6cc7416d91ad81fd0183d122cf7deb9cbd",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-040",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-040.sbo3lagent.eth",
+      "label": "agent-040",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-040.json",
+      "pubkey_ed25519": "964123a025b951e754d3b2c768b301a5460c639fbd164fde29a3c1a0b18de6f9",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-041",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-041.sbo3lagent.eth",
+      "label": "agent-041",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-041.json",
+      "pubkey_ed25519": "3f35ddfbcad06b51b2dcedbf20a2a26767dcdad3a195cbfac8daa3e416a96e54",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-042",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-042.sbo3lagent.eth",
+      "label": "agent-042",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-042.json",
+      "pubkey_ed25519": "451b05041e492679ab6569ac9f911441ea98028a8aa19fd1309c4444f98bb710",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-043",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-043.sbo3lagent.eth",
+      "label": "agent-043",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-043.json",
+      "pubkey_ed25519": "14565296a63c887b30d3f206663d91ab5c51ce47e6d952e286b8e18fabeed228",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-044",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-044.sbo3lagent.eth",
+      "label": "agent-044",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-044.json",
+      "pubkey_ed25519": "9bd2ea15a219d939f384f0d8c8a0428c728977b890e6e7d1f82fc4f2ac81666d",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-045",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-045.sbo3lagent.eth",
+      "label": "agent-045",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-045.json",
+      "pubkey_ed25519": "643ca4f2c1a2b76231fdf036204f13904a8f84711f121abe7fb6ac0fee593925",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-046",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-046.sbo3lagent.eth",
+      "label": "agent-046",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-046.json",
+      "pubkey_ed25519": "9fb882d7690d2e5e16e7846bb239f9c4fa94b55880c45fe804cc7cab210135b1",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-047",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-047.sbo3lagent.eth",
+      "label": "agent-047",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-047.json",
+      "pubkey_ed25519": "734547dee8f2539205b3a1892a278c6446755d480214946c480db29025a50f6d",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-048",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-048.sbo3lagent.eth",
+      "label": "agent-048",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-048.json",
+      "pubkey_ed25519": "303e31e30c343098854e4e1915385d46c736e2ef5f7bcb027160ec820ef06975",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-049",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-049.sbo3lagent.eth",
+      "label": "agent-049",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-049.json",
+      "pubkey_ed25519": "497950608d197efcaad8dbbeff43a272c29b5c59941535784683aad448694abb",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-050",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-050.sbo3lagent.eth",
+      "label": "agent-050",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-050.json",
+      "pubkey_ed25519": "85e0d5ae3d5de2854c84c8c4f8070c46d8cf3d357b101227208a9c845ac4da27",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-051",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-051.sbo3lagent.eth",
+      "label": "agent-051",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-051.json",
+      "pubkey_ed25519": "1f7ab27f831b9b68c195a569e65904b44997a6abcdbebde9767980d4bcef891b",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-052",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-052.sbo3lagent.eth",
+      "label": "agent-052",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-052.json",
+      "pubkey_ed25519": "944c10a9b879dc61c50b086df9e9a1410f024b7b466e6232d1d29d8a31607d20",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-053",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-053.sbo3lagent.eth",
+      "label": "agent-053",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-053.json",
+      "pubkey_ed25519": "49ee8f0bfce285f899ff69128b985b362652d2de5522752e9440208cd116c139",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-054",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-054.sbo3lagent.eth",
+      "label": "agent-054",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-054.json",
+      "pubkey_ed25519": "a1c06a6cabc57ae02a1d9d69ca8e3dbf12e009217f5f25ab38a1e60cec3322b1",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-055",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-055.sbo3lagent.eth",
+      "label": "agent-055",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-055.json",
+      "pubkey_ed25519": "a5982f69a0133f39c3f8ef4c1ebc29bfe584d1230a7084ff1894649a5424c887",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-056",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-056.sbo3lagent.eth",
+      "label": "agent-056",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-056.json",
+      "pubkey_ed25519": "433ac81425a97b2573c1f3e1b3db0be719d7de61f48c010665d3a2bbe3373ba7",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-057",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-057.sbo3lagent.eth",
+      "label": "agent-057",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-057.json",
+      "pubkey_ed25519": "038cd8007e5df8caf8d49f70486d7a7041d7d97024a2b1e9c52c3de5dc67e1d8",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-058",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-058.sbo3lagent.eth",
+      "label": "agent-058",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-058.json",
+      "pubkey_ed25519": "fe95fdf2e4021f02577cc3bc3aabfe82c07d492d11b007c5b8983a32045388f1",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-059",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-059.sbo3lagent.eth",
+      "label": "agent-059",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-059.json",
+      "pubkey_ed25519": "72a56000cc1e07866a288c1704a2d278161b00d19210213c72627a42a92476b0",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "oracle-agent-060",
+      "capabilities": [
+        "price-feed",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "agent-060.sbo3lagent.eth",
+      "label": "agent-060",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/agent-060.json",
+      "pubkey_ed25519": "11f3ff3eca6760fe0bb6e2097816efdfb40ad9adcb6e0127236530ddbafee5b5",
+      "register_tx_hash": null,
+      "status": "pending"
+    }
+  ],
+  "generated_at_utc": "2026-05-01T11:30:00Z",
+  "network": "sepolia",
+  "parent": "sbo3lagent.eth",
+  "schema": "sbo3l.ens_fleet_manifest.v1",
+  "seed_doc": "sbo3l-ens-fleet-60-2026-05-01",
+  "totals": {
+    "agent_count": 60,
+    "failed": 0,
+    "gas_used_total": null,
+    "succeeded": 0
+  }
+}

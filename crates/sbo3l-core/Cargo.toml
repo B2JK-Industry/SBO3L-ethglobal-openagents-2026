@@ -38,3 +38,9 @@ aws_kms = []
 gcp_kms = []
 phala_tee = []
 eth_signer = []
+
+[dev-dependencies]
+# `local_file` signer tests write secrets to per-test temp files +
+# verify the loader handles hex/raw inputs identically. Dev-dep
+# only — release `sbo3l-core` builds don't pull `tempfile`.
+tempfile = { workspace = true }
