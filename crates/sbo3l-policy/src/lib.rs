@@ -1,12 +1,17 @@
 //! SBO3L policy: YAML/JSON policy parsing and rule evaluation.
 
 pub mod budget;
+pub mod cross_chain_reputation;
 pub mod engine;
 pub mod expr;
 pub mod model;
 pub mod reputation;
 mod util;
 
+pub use cross_chain_reputation::{
+    aggregate_reputation, recency_factor, AggregateReputationParams, AggregateReputationReport,
+    ChainReputationSnapshot, PerChainContribution,
+};
 pub use reputation::{compute_reputation, Reputation, ReputationRow};
 
 pub use budget::{BudgetDeny, BudgetTracker};
