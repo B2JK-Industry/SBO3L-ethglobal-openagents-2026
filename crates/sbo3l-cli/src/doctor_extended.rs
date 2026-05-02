@@ -43,8 +43,14 @@ use tiny_keccak::{Hasher, Keccak};
 /// contracts" order, not alphabetical.
 const PROBES: &[ContractProbe] = &[
     ContractProbe {
+        // Canonical Sepolia OR after the 2026-05-03 redeploy (PR #383
+        // + #390 + #396). The orphan at 0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3
+        // shipped the malformed `{sender/{data}.json}` template (Heidi
+        // UAT Bug #2) and is intentionally NOT probed — keeping it on
+        // the probe list would surface a fixed bug as a recurring
+        // failure on every doctor run.
         label: "OffchainResolver",
-        address: "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+        address: "0x87e99508C222c6E419734CACbb6781b8d282b1F6",
         view_signature: "urls(uint256)",
         view_arg: ProbeArg::Uint256(0),
         decode_kind: DecodeKind::DynamicString,
