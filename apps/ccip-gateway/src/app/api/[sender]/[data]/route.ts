@@ -21,13 +21,13 @@
 import { NextResponse } from "next/server";
 import type { Hex } from "viem";
 
-import { decodeResolverCall } from "../../../../lib/ens.js";
-import { lookupByNode } from "../../../../lib/records.js";
+import { decodeResolverCall } from "@/lib/ens";
+import { lookupByNode } from "@/lib/records";
 import {
   encodeEmptyStringResult,
   encodeStringResult,
   signGatewayResponse,
-} from "../../../../lib/sign.js";
+} from "@/lib/sign";
 
 interface RouteParams {
   params: Promise<{ sender: string; data: string }>;

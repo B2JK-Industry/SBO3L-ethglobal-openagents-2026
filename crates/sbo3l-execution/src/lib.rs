@@ -18,6 +18,7 @@
 //! should depend on `sbo3l-keeperhub-adapter` directly (path/git
 //! today; crates.io once published) — that's the IP-4 win.
 
+pub mod smart_wallet;
 pub mod uniswap;
 pub mod uniswap_live;
 pub mod uniswap_router;
@@ -25,6 +26,10 @@ pub mod uniswap_trading;
 
 pub use sbo3l_core::execution::{ExecutionError, ExecutionReceipt, GuardedExecutor};
 pub use sbo3l_keeperhub_adapter::{build_envelope, KeeperHubExecutor, KeeperHubMode};
+pub use smart_wallet::{
+    BundleOutcome, EvaluatedCall, GateVerdict, PostTxGate, PreTxGate, SimulationOutcome, Simulator,
+    SmartWalletExecutor, WalletCall, WalletKind,
+};
 pub use uniswap::{
     evaluate_swap, SwapCheck, SwapPolicy, SwapPolicyOutcome, SwapQuote, SwapToken, UniswapExecutor,
     UniswapMode,

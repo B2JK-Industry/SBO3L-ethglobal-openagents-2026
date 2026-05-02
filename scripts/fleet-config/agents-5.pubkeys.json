@@ -1,0 +1,11 @@
+{
+  "agents": {
+    "audit-agent": "c150336c92fd2e4812ef8e778df11ab99264bd017a0f540827378b7fea13df01",
+    "coordinator-agent": "3508179c76640b71b97e0bee1679b21b80b3c015ea153e1e55d47496e8d54f48",
+    "research-agent": "3c754c3aad07da711d90ef16665f46c53ad050c9b3764a68d444551ca3d22003",
+    "swap-agent": "0f5c0bd2e3b4243ad14440015765fb7a9785e6fe4d567116a81d7b7832c041cc",
+    "trading-agent": "133a21dae2d13849c7756e1ee858319c419b8907c46a8e5917658264567713b1"
+  },
+  "schema": "sbo3l.fleet_pubkeys.v1",
+  "seed_doc": "sbo3l-ens-fleet-2026-05-01"
+}
