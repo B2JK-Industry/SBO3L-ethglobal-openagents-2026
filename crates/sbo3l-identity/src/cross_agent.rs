@@ -163,22 +163,59 @@ pub enum CrossAgentError {
     SystemClock(String),
 }
 
+/// Three-way result of looking up an agent's
+/// `sbo3l:pubkey_ed25519` text record.
+///
+/// The verifier maps each variant to a distinct trust-receipt
+/// rejection so the operator can take the right corrective action:
+///
+/// | Variant | Rejection reason | Operator fix |
+/// |---|---|---|
+/// | `Found(hex)` | (proceeds to signature verification) | n/a |
+/// | `PubkeyMissing` | `sbo3l_pubkey_ed25519_record_missing` | agent owner sets the record |
+/// | `UnknownPeer` | `peer_fqdn_not_in_ens` | register the FQDN before re-trying |
+/// | `Error(msg)` | propagated as `CrossAgentError::EnsResolve` | inspect RPC / network |
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PubkeyLookup {
+    Found(String),
+    PubkeyMissing,
+    UnknownPeer,
+    Error(String),
+}
+
 /// Trait for the ENS lookup the verifier needs. Production binds this
 /// to [`LiveEnsResolver`]; tests inject an in-memory map.
+///
+/// Implementations return [`PubkeyLookup`] rather than a plain
+/// `Result<Option<String>, _>` so the verifier can distinguish:
+///
+/// - **Found** — record present; verify the signature.
+/// - **PubkeyMissing** — FQDN registered in ENS but pubkey record
+///   unset (recoverable: agent owner runs `setText`).
+/// - **UnknownPeer** — FQDN not registered in ENS at all
+///   (recoverable: register the FQDN first).
+/// - **Error** — hard failure (RPC down, malformed namehash);
+///   propagated up as [`CrossAgentError::EnsResolve`].
 pub trait PubkeyResolver {
-    /// Return the agent's `sbo3l:pubkey_ed25519` text record value,
-    /// or `Ok(None)` if the record is absent. `Err` only for hard
-    /// errors (RPC down, malformed namehash) — a missing record is
-    /// `Ok(None)` so the verifier can emit a clean rejection rather
-    /// than crash.
-    fn resolve_pubkey(&self, fqdn: &str) -> Result<Option<String>, CrossAgentError>;
+    fn resolve_pubkey(&self, fqdn: &str) -> PubkeyLookup;
 }
 
 impl<T: JsonRpcTransport> PubkeyResolver for LiveEnsResolver<T> {
-    fn resolve_pubkey(&self, fqdn: &str) -> Result<Option<String>, CrossAgentError> {
+    fn resolve_pubkey(&self, fqdn: &str) -> PubkeyLookup {
         match self.resolve_raw_text(fqdn, PUBKEY_RECORD_KEY) {
-            Ok(v) => Ok(v),
-            Err(e) => Err(CrossAgentError::EnsResolve(e.to_string())),
+            Ok(Some(value)) => PubkeyLookup::Found(value),
+            // ENS Registry has a resolver pointer for this name, but
+            // the `sbo3l:pubkey_ed25519` record is unset. Distinct
+            // from UnknownPeer below — same FQDN, different recovery
+            // ("ask the agent owner to set the record").
+            Ok(None) => PubkeyLookup::PubkeyMissing,
+            // ENS Registry says no resolver for this FQDN at all.
+            // Surface the dedicated UnknownPeer signal so the verifier
+            // can distinguish it from "name in ENS but pubkey absent"
+            // — this is the codex P1 from #167 (without this mapping a
+            // verifier crashes when it should refuse cleanly).
+            Err(crate::ens::ResolveError::UnknownName(_)) => PubkeyLookup::UnknownPeer,
+            Err(e) => PubkeyLookup::Error(format!("ENS resolver: {e}")),
         }
     }
 }
@@ -255,16 +292,31 @@ pub fn verify_challenge<R: PubkeyResolver>(
         ));
     }
 
-    // Resolve peer pubkey via ENS.
-    let pubkey_hex = match resolver.resolve_pubkey(&signed.challenge.agent_fqdn)? {
-        Some(p) => p,
-        None => {
+    // Resolve peer pubkey via ENS. Three-way map:
+    //   Found(hex)        → continue to signature verify
+    //   UnknownPeer       → reject with peer_fqdn_not_in_ens
+    //   PubkeyMissing     → reject with sbo3l_pubkey_ed25519_record_missing
+    //   Error(msg)        → propagate as CrossAgentError::EnsResolve
+    let pubkey_hex = match resolver.resolve_pubkey(&signed.challenge.agent_fqdn) {
+        PubkeyLookup::Found(p) => p,
+        PubkeyLookup::UnknownPeer => {
+            return Ok(reject(
+                signed,
+                "",
+                verified_at_ms,
+                CrossAgentReject::UnknownPeer,
+            ));
+        }
+        PubkeyLookup::PubkeyMissing => {
             return Ok(reject(
                 signed,
                 "",
                 verified_at_ms,
                 CrossAgentReject::PubkeyRecordMissing,
             ));
+        }
+        PubkeyLookup::Error(msg) => {
+            return Err(CrossAgentError::EnsResolve(msg));
         }
     };
 
@@ -391,8 +443,27 @@ mod tests {
     }
 
     impl PubkeyResolver for FakePubkeyResolver {
-        fn resolve_pubkey(&self, fqdn: &str) -> Result<Option<String>, CrossAgentError> {
-            Ok(self.map.get(fqdn).cloned())
+        fn resolve_pubkey(&self, fqdn: &str) -> PubkeyLookup {
+            // The fake resolver knows nothing about ENS Registry
+            // semantics, so a missing fqdn surfaces as UnknownPeer
+            // (matching the LiveEnsResolver shape). Tests that want
+            // the PubkeyMissing path register the fqdn explicitly
+            // with an empty value via `insert_missing`.
+            match self.map.get(fqdn) {
+                Some(value) if value.is_empty() => PubkeyLookup::PubkeyMissing,
+                Some(value) => PubkeyLookup::Found(value.clone()),
+                None => PubkeyLookup::UnknownPeer,
+            }
+        }
+    }
+
+    impl FakePubkeyResolver {
+        /// Register an FQDN as "in ENS but pubkey record absent" so
+        /// tests can drive the `PubkeyRecordMissing` rejection path
+        /// distinct from `UnknownPeer`.
+        #[allow(dead_code)]
+        fn insert_missing(&mut self, fqdn: &str) {
+            self.map.insert(fqdn.to_string(), String::new());
         }
     }
 
@@ -466,6 +537,32 @@ mod tests {
 
         // Resolver has no entry for this fqdn.
         let resolver = FakePubkeyResolver::new();
+
+        let trust = verify_challenge(&signed, &resolver, now).unwrap();
+        assert!(!trust.valid);
+        // FQDN not in ENS at all → the dedicated UnknownPeer signal,
+        // not the misleading PubkeyRecordMissing. Pre-fix this test
+        // expected `sbo3l_pubkey_ed25519_record_missing`; the new
+        // distinction makes the operator's recovery path obvious.
+        assert_eq!(
+            trust.rejection_reason.as_deref(),
+            Some("peer_fqdn_not_in_ens")
+        );
+    }
+
+    #[test]
+    fn pubkey_record_missing_distinct_from_unknown_peer() {
+        // Same FQDN registered in ENS but with no sbo3l:pubkey_ed25519
+        // record set yet — reject with PubkeyRecordMissing, NOT
+        // UnknownPeer. Operator fix is "set the record", not
+        // "register the FQDN".
+        let a_key = fixed_key(&[19u8; 32]);
+        let now: u64 = 1_700_000_000_000;
+        let challenge = make_challenge("research-agent.sbo3lagent.eth", now);
+        let signed = sign_challenge(&challenge, &a_key).unwrap();
+
+        let mut resolver = FakePubkeyResolver::new();
+        resolver.insert_missing("research-agent.sbo3lagent.eth");
 
         let trust = verify_challenge(&signed, &resolver, now).unwrap();
         assert!(!trust.valid);

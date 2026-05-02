@@ -35,6 +35,7 @@ pub use cross_agent::{
     build_challenge, sign_challenge, verify_challenge, CrossAgentChallenge, CrossAgentError,
     CrossAgentReject, CrossAgentTrust, PubkeyResolver, SignedChallenge, CHALLENGE_SCHEMA,
     FRESHNESS_WINDOW_MS, PUBKEY_RECORD_KEY, TRUST_SCHEMA,
+};
 pub use cross_chain::{
     build_set_attestation_calldata, commit_report, compute_eip712_digest, from_text_record,
     sign_attestation, to_text_record, verify_attestation, verify_attestation_with_context,
