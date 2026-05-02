@@ -140,8 +140,8 @@ fn build_resource(service_name: &str) -> Resource {
 pub fn init_tracer() -> Option<SdkTracerProvider> {
     let exporter = parse_exporter(env::var(ENV_EXPORTER).ok().as_deref());
     let service_name = service_name_from_env();
-    match exporter {
-        Exporter::None => None,
+    let provider = match exporter {
+        Exporter::None => return None,
         Exporter::Stdout => Some(build_stdout_provider(&service_name)),
         Exporter::Otlp => match build_otlp_provider(&service_name) {
             Ok(p) => Some(p),
@@ -152,7 +152,22 @@ pub fn init_tracer() -> Option<SdkTracerProvider> {
                 None
             }
         },
+    };
+
+    // Codex P1 (#330): register the W3C TraceContext propagator
+    // globally so the request-tracing middleware can extract inbound
+    // `traceparent` / `tracestate` and stitch the new request span as
+    // a child of the upstream's span. Without this, every request
+    // becomes a disconnected root and cross-service traces break.
+    // Registered AFTER the provider is built so a propagator-only
+    // setup is impossible (otel.rs's contract: provider Some ⇒
+    // propagator set).
+    if provider.is_some() {
+        opentelemetry::global::set_text_map_propagator(
+            opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+        );
     }
+    provider
 }
 
 fn build_stdout_provider(service_name: &str) -> SdkTracerProvider {

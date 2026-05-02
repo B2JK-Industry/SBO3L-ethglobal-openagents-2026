@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use openraft::storage::{RaftSnapshotBuilder, RaftStateMachine};
 use openraft::{
-    Entry, EntryPayload, LogId, OptionalSend, RaftTypeConfig, Snapshot, SnapshotMeta, StorageError,
-    StoredMembership,
+    AnyError, Entry, EntryPayload, LogId, OptionalSend, RaftTypeConfig, Snapshot, SnapshotMeta,
+    StorageError, StorageIOError, StoredMembership,
 };
 use tokio::sync::Mutex;
 
@@ -168,9 +168,21 @@ impl RaftStateMachine<ClusterTypeConfig> for AuditStateMachine {
                     // engine lock briefly so the SQLite `INSERT` doesn't
                     // hold the SmState mutex for any longer than needed.
                     drop(state);
+                    // Codex P1 fix (#323): propagate the storage failure
+                    // as `StorageIOError::apply(log_id, …)` so openraft
+                    // surfaces it as a fatal apply error. The previous
+                    // impl swallowed Err and returned a synthetic
+                    // success-shaped response (seq=0), which advanced
+                    // `last_applied` past a write that never landed —
+                    // permanent silent divergence between the consensus
+                    // log and the local SQLite state machine on a
+                    // transient SQLite failure (disk-full, lock).
                     let resp =
                         apply_audit_append(self.storage.clone(), self.audit_signer.clone(), req)
-                            .await;
+                            .await
+                            .map_err(|e| StorageError::IO {
+                                source: StorageIOError::apply(entry.log_id, AnyError::error(&e)),
+                            })?;
                     state = self.state.lock().await;
                     responses.push(resp);
                 }
@@ -237,11 +249,23 @@ impl RaftStateMachine<ClusterTypeConfig> for AuditStateMachine {
 ///
 /// Pulled out as a free function so it can be unit-tested without
 /// running an openraft engine (see `tests::state_machine_apply_*`).
+/// Apply one `AuditAppend` log entry to local storage.
+///
+/// **Codex P1 fix (#323):** propagates `audit_append_for_tenant`
+/// failures as `Err(sbo3l_storage::StorageError)` instead of
+/// swallowing them and returning a synthetic success. The previous
+/// behaviour silently advanced `last_applied` past a write that
+/// never persisted, permanently diverging the local state machine
+/// from the consensus log on a transient SQLite failure (disk-full,
+/// lock contention). The caller (`RaftStateMachine::apply`) wraps
+/// the error into `openraft::StorageIOError::apply(log_id, …)`,
+/// which openraft treats as a fatal apply error — node restart +
+/// log re-apply is the right recovery path.
 pub async fn apply_audit_append(
     storage: Arc<Mutex<Storage>>,
     audit_signer: Arc<DevSigner>,
     req: AuditAppend,
-) -> AuditAppendResponse {
+) -> Result<AuditAppendResponse, sbo3l_storage::StorageError> {
     let new_event = NewAuditEvent {
         event_type: req.event_type,
         actor: req.actor,
@@ -254,24 +278,9 @@ pub async fn apply_audit_append(
         ts: chrono::Utc::now(),
     };
     let mut s = storage.lock().await;
-    match s.audit_append_for_tenant(&req.tenant_id, new_event, audit_signer.as_ref()) {
-        Ok(signed) => AuditAppendResponse {
-            seq: signed.event.seq,
-            event_hash: signed.event_hash,
-        },
-        Err(e) => {
-            tracing::error!(error = ?e, "audit_append_for_tenant failed in raft state machine");
-            // We deliberately don't propagate the error as a
-            // `StorageError` because `RaftStateMachine::apply` errors
-            // are Fatal-only in openraft's contract — a SQLite write
-            // failure here would tear down the whole cluster.
-            // Returning a sentinel response with empty event_hash lets
-            // the cluster keep replicating; tests check the SQLite
-            // count to verify the row landed.
-            AuditAppendResponse {
-                seq: 0,
-                event_hash: String::new(),
-            }
-        }
-    }
+    let signed = s.audit_append_for_tenant(&req.tenant_id, new_event, audit_signer.as_ref())?;
+    Ok(AuditAppendResponse {
+        seq: signed.event.seq,
+        event_hash: signed.event_hash,
+    })
 }
