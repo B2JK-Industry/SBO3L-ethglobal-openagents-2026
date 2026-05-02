@@ -1,0 +1,32 @@
+{
+  "name": "sbo3l-core",
+  "type": "module",
+  "collaborators": [
+    "Daniel Babjak <babjak_daniel@hotmail.com>"
+  ],
+  "description": "SBO3L core: protocol types, request hashing, error model, signed receipts.",
+  "version": "1.2.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+  },
+  "files": [
+    "sbo3l_core_bg.wasm",
+    "sbo3l_core.js",
+    "sbo3l_core.d.ts"
+  ],
+  "main": "sbo3l_core.js",
+  "homepage": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026",
+  "types": "sbo3l_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "sbo3l",
+    "ed25519",
+    "audit",
+    "policy",
+    "agent"
+  ]
+}

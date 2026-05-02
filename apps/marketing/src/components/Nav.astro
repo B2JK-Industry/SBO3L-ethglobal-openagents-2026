@@ -1,6 +1,8 @@
 ---
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
-const docsUrl = "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/docs/";
+// Docs site lives on Vercel via apps/docs (Starlight). Fallback to GitHub
+// repo /docs tree when sbo3l-docs.vercel.app isn't yet deployed by Daniel.
+const docsUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/docs";
 ---
 <header role="banner">
   <nav aria-label="Primary">
