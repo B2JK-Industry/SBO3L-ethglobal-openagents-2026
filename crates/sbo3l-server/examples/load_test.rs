@@ -55,6 +55,10 @@ struct Args {
     duration_secs: u64,
     concurrency: usize,
     report_path: Option<String>,
+    /// Salt mixed into every nonce so back-to-back invocations
+    /// against the same DB don't collide on `(worker_id, seq)`.
+    /// Default is wall-clock ns at startup.
+    run_salt: u64,
 }
 
 fn parse_args() -> Args {
@@ -63,6 +67,7 @@ fn parse_args() -> Args {
         duration_secs: DEFAULT_DURATION_SECS,
         concurrency: DEFAULT_CONCURRENCY,
         report_path: None,
+        run_salt: default_salt(),
     };
     let mut iter = std::env::args().skip(1);
     while let Some(flag) = iter.next() {
@@ -83,9 +88,16 @@ fn parse_args() -> Args {
                     .expect("--concurrency must be usize")
             }
             "--report" => args.report_path = Some(iter.next().expect("--report path")),
+            "--run-salt" => {
+                args.run_salt = iter
+                    .next()
+                    .expect("--run-salt value")
+                    .parse()
+                    .expect("--run-salt must be u64");
+            }
             "--help" | "-h" => {
                 println!(
-                    "usage: load_test [--target URL] [--duration SECS] [--concurrency N] [--report PATH]"
+                    "usage: load_test [--target URL] [--duration SECS] [--concurrency N] [--report PATH] [--run-salt N]"
                 );
                 std::process::exit(0);
             }
@@ -102,17 +114,28 @@ fn parse_args() -> Args {
 const CROCKFORD: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 /// Construct a unique nonce of the schema-required shape
-/// `^[0-7][0-9A-HJKMNP-TV-Z]{25}$` from a worker id + sequence
-/// number. Deterministic per (worker, seq), distinct across the
-/// whole run — avoids `nonce_replay` errors that would otherwise
-/// dominate the failure stats.
-fn make_nonce(worker_id: usize, seq: u64) -> String {
+/// `^[0-7][0-9A-HJKMNP-TV-Z]{25}$` from a process-startup salt +
+/// worker id + sequence number. The salt makes successive
+/// invocations of `load_test` against the same daemon DB use
+/// disjoint nonce spaces — without it, rung-2 / rung-3 in
+/// `scripts/perf/load-test.sh` would collide with rung-1's
+/// already-claimed nonces and report phantom `409 nonce_replay`
+/// errors that look like server-side overload but are
+/// load-harness bookkeeping artifacts.
+fn make_nonce(salt: u64, worker_id: usize, seq: u64) -> String {
     let mut out = String::with_capacity(26);
-    // First char: 0-7 (3 bits).
+    // First char: 0-7 (3 bits) — keep it deterministic on
+    // worker_id so a single invocation's nonces are still locally
+    // ordered, useful for debugging.
     let head = (worker_id & 0x7) as u8;
     out.push(CROCKFORD[head as usize] as char);
-    // Pack worker_id (high) + seq (low) into 25 base-32 digits.
-    let mut value: u128 = ((worker_id as u128) << 64) | (seq as u128);
+    // Pack salt (high 64) ⊕ (worker_id || seq) (low 64) into 25
+    // base-32 digits. XORing the salt into the bottom half spreads
+    // it across all 25 tail digits via the radix-32 expansion, so
+    // two invocations with different salts produce nonces with
+    // no overlap on any (worker_id, seq) pair.
+    let bottom = ((worker_id as u128) << 64) | (seq as u128);
+    let mut value: u128 = ((salt as u128) << 64) ^ bottom;
     let mut tail = [0u8; 25];
     for slot in tail.iter_mut() {
         *slot = (value & 0x1f) as u8;
@@ -122,6 +145,19 @@ fn make_nonce(worker_id: usize, seq: u64) -> String {
         out.push(CROCKFORD[*digit as usize] as char);
     }
     out
+}
+
+/// Per-process nonce-space salt. Defaults to wall-clock
+/// nanoseconds since UNIX epoch (truncated to 32 bits — collision
+/// odds across two invocations within the same second are
+/// negligible) so `bash scripts/perf/load-test.sh` rungs each get
+/// disjoint nonce spaces without needing to plumb a flag.
+fn default_salt() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0)
 }
 
 /// Build a unique APRP body per request. Same shape as
@@ -256,17 +292,20 @@ async fn main() {
     let (tx, mut rx) = mpsc::unbounded_channel::<Sample>();
     let deadline = Instant::now() + Duration::from_secs(args.duration_secs);
 
+    println!("load_test run_salt={}", args.run_salt);
+
     let started = Instant::now();
     let mut handles = Vec::with_capacity(args.concurrency);
     for worker_id in 0..args.concurrency {
         let client = client.clone();
         let target = args.target.clone();
         let tx = tx.clone();
+        let run_salt = args.run_salt;
         handles.push(tokio::spawn(async move {
             let mut seq: u64 = 0;
             while Instant::now() < deadline {
                 seq += 1;
-                let nonce = make_nonce(worker_id, seq);
+                let nonce = make_nonce(run_salt, worker_id, seq);
                 let body = build_aprp(&nonce);
                 let req_started = Instant::now();
                 match client
@@ -359,7 +398,7 @@ mod tests {
 
     #[test]
     fn make_nonce_matches_aprp_schema_pattern() {
-        let n = make_nonce(0, 1);
+        let n = make_nonce(0, 0, 1);
         assert_eq!(n.len(), 26);
         let head = n.chars().next().unwrap();
         assert!('0' <= head && head <= '7');
@@ -372,12 +411,29 @@ mod tests {
 
     #[test]
     fn make_nonce_distinct_across_workers_and_seqs() {
-        let a = make_nonce(0, 1);
-        let b = make_nonce(0, 2);
-        let c = make_nonce(1, 1);
+        let a = make_nonce(0, 0, 1);
+        let b = make_nonce(0, 0, 2);
+        let c = make_nonce(0, 1, 1);
         assert_ne!(a, b);
         assert_ne!(a, c);
         assert_ne!(b, c);
+    }
+
+    /// Different salts → disjoint nonce spaces. Without this,
+    /// successive `load_test` invocations against the same daemon
+    /// DB report phantom 409 nonce_replay errors that look like
+    /// server overload but are actually load-harness bookkeeping.
+    #[test]
+    fn make_nonce_distinct_across_run_salts() {
+        // Same (worker_id, seq) under two different salts must
+        // produce two distinct nonces.
+        let a = make_nonce(0xDEAD_BEEF, 5, 42);
+        let b = make_nonce(0xCAFE_F00D, 5, 42);
+        assert_ne!(
+            a, b,
+            "salts {:x} and {:x} produced the same nonce",
+            0xDEAD_BEEFu64, 0xCAFE_F00Du64
+        );
     }
 
     #[test]
