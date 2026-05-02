@@ -7,6 +7,7 @@ use sbo3l_core::audit_bundle::{self, AuditBundle};
 use sbo3l_core::receipt::PolicyReceipt;
 use sbo3l_core::{schema, SchemaError};
 
+mod admin_backup;
 mod agent;
 #[cfg(feature = "eth_broadcast")]
 mod agent_broadcast;
@@ -142,6 +143,69 @@ enum Command {
     Agent {
         #[command(subcommand)]
         op: AgentCmd,
+    },
+    /// Operator-level admin commands: backup, restore, export, verify
+    /// (R14 P2). Compression + encryption are gated behind
+    /// `--features admin_backup` to keep the default CLI binary small.
+    /// See `docs/cli/admin-backup.md`.
+    Admin {
+        #[command(subcommand)]
+        op: AdminCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AdminCmd {
+    /// Snapshot the SBO3L SQLite DB to a tar.zst archive (optionally
+    /// age-encrypted). Uses SQLite VACUUM INTO for a consistent
+    /// snapshot without holding a write lock — safe against a live
+    /// daemon.
+    Backup {
+        /// Source SQLite DB path.
+        #[arg(long)]
+        db: PathBuf,
+        /// Destination archive (local path or `file://` URI). `s3://`
+        /// is parsed but not yet implemented; use a local path.
+        #[arg(long)]
+        to: String,
+        /// Optional: age recipient string (e.g. `age1...`) or path to
+        /// a recipients file. Wraps the archive in an age envelope.
+        #[arg(long)]
+        encrypt_with: Option<String>,
+    },
+    /// Restore an archive into a fresh SQLite DB path. Refuses to
+    /// overwrite an existing file at `--db`.
+    Restore {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        db: PathBuf,
+        /// Path to an age identity file. Required when the archive
+        /// is age-encrypted.
+        #[arg(long)]
+        decrypt_with: Option<PathBuf>,
+    },
+    /// Export the audit chain. `--format json` emits one JSON object
+    /// per line (JSONL) to `--to`, suitable for downstream pipelines.
+    /// `--format parquet` is reserved but errors today (arrow-rs adds
+    /// a 50+ crate dep tree; deferred).
+    Export {
+        #[arg(long)]
+        db: PathBuf,
+        #[arg(long)]
+        to: String,
+        /// `json` | `parquet` (`parquet` errors today). Use `-` as
+        /// `--to` to write to stdout.
+        #[arg(long, default_value = "json")]
+        format: String,
+    },
+    /// Verify an archive: walk the audit chain and assert every
+    /// `prev_event_hash` link is intact. Read-only; doesn't restore.
+    Verify {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        decrypt_with: Option<PathBuf>,
     },
 }
 
@@ -1132,6 +1196,36 @@ fn main() -> ExitCode {
         } => agent_reputation_aggregate::cmd_agent_reputation_aggregate(
             agent_reputation_aggregate::ReputationAggregateArgs { input, out },
         ),
+        Command::Admin {
+            op:
+                AdminCmd::Backup {
+                    db,
+                    to,
+                    encrypt_with,
+                },
+        } => admin_backup::cmd_backup(admin_backup::BackupArgs {
+            db,
+            to,
+            encrypt_with,
+        }),
+        Command::Admin {
+            op:
+                AdminCmd::Restore {
+                    from,
+                    db,
+                    decrypt_with,
+                },
+        } => admin_backup::cmd_restore(admin_backup::RestoreArgs {
+            from,
+            db,
+            decrypt_with,
+        }),
+        Command::Admin {
+            op: AdminCmd::Export { db, to, format },
+        } => admin_backup::cmd_export(admin_backup::ExportArgs { db, to, format }),
+        Command::Admin {
+            op: AdminCmd::Verify { from, decrypt_with },
+        } => admin_backup::cmd_verify(admin_backup::VerifyArgs { from, decrypt_with }),
     }
 }
 
