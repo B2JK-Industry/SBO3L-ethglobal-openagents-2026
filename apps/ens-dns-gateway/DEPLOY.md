@@ -1,7 +1,7 @@
 # ENS DNS gateway — deploy guide
 
-**Status:** scaffold (P3 from round 10). Domain wiring +
-Vercel deploy gated on operator decision.
+**Status:** codec wired (R11 P3). Domain wiring + Vercel deploy
+gated on operator decision.
 **Source:** [`apps/ens-dns-gateway/`](.)
 **Companion:** [`apps/ccip-gateway/DEPLOY.md`](../ccip-gateway/DEPLOY.md) — same
 patterns, different gateway.
@@ -39,9 +39,37 @@ Three reasons to ship the scaffold rather than a finished gateway:
    operator who already deployed the CCIP-Read gateway can stand
    this one up by mirroring the steps.
 
-## Finish the scaffold (3 things to wire)
+## R11 P3: codec finished
 
-### 1. DNS-message codec
+The codec is now wired (R11 P3). The route at `/dns-query`:
+
+- Accepts GET (\`?dns=<base64url>\`) and POST (\`Content-Type:
+  application/dns-message\`) DoH transports per RFC 8484.
+- Decodes the binary message via \`dns-packet\`, dispatches to
+  \`resolveTxt\` / \`resolveAddress\` based on the question type, and
+  encodes the response back to binary.
+- Returns NOERROR + empty answers for non-\`.eth\` names (clients
+  use their regular DoH upstream), SERVFAIL for RPC errors, NOERROR
+  with answers for resolved records.
+- \`Cache-Control: public, max-age=300, stale-while-revalidate=3600\`
+  per the round 11 spec (5-minute fresh, 1-hour stale).
+
+Resolution logic at \`src/lib/dns-resolve.ts\` is fully tested with
+16 vitest cases covering 5 mock ENS names + edge cases (missing
+endpoint, IPv6, partial records, non-ENS rejection, trailing-dot
+normalisation).
+
+Run tests:
+
+```bash
+cd apps/ens-dns-gateway
+npm install
+npm test
+```
+
+## Operator-side: 2 things to wire pre-deploy
+
+### 1. DNS-message codec (DONE — kept here for reference)
 
 ```bash
 cd apps/ens-dns-gateway
