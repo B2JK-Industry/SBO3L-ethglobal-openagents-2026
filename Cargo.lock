@@ -3419,6 +3419,7 @@ dependencies = [
  "hex",
  "jsonschema",
  "k256",
+ "proptest",
  "rand 0.8.6",
  "rust_decimal",
  "serde",
