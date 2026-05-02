@@ -120,14 +120,14 @@
 
 | Surface | Status |
 |---|---|
-| **Crates (9)** | 9/9 ✅ at 1.2.0 on crates.io |
+| **Crates (10)** | 10/10 ✅ at 1.2.0 on crates.io (incl. sbo3l-anchor) |
 | **PyPI (top-5)** | 5/5 ✅ at 1.2.0 (sdk + langchain + crewai + llamaindex + langgraph) |
-| **npm core (3)** | ✅ langchain + autogen + elizaos at 1.2.0 |
-| **npm SDK base** | 🟡 @sbo3l/sdk still at 1.0.0 |
-| **Sepolia contracts** | 6/6 ✅ deployed (OffchainResolver, AnchorRegistry, SubnameAuction, ReputationBond, ReputationRegistry, + read-side QuoterV2) |
+| **npm (25)** | **25/25 ✅ at 1.2.0** — sdk + marketplace + 23 framework adapters (langchain, autogen, elizaos, vercel-ai, anthropic, anthropic-computer-use, openai-assistants, mastra, vellum, inngest, langflow, letta, superagi, autogpt, babyagi, cohere-tools, together, perplexity, replicate, modal, e2b, agentforce, copilot-studio) |
+| **npm internal** | @sbo3l/design-tokens — intentionally PRIVATE (workspace-internal, not published) |
+| **Sepolia contracts** | 5/5 ✅ deployed (OffchainResolver, AnchorRegistry, SubnameAuction, ReputationBond, ReputationRegistry) |
 | **Mainnet ENS** | ✅ `sbo3lagent.eth` with 5 records on chain |
 | **Web surfaces** | 11/12 ✅ on Vercel (only trust-dns-viz 404; deploy gated on Daniel) |
-| **Tests** | ✅ 777/777 on main |
+| **Tests** | ✅ 868/868 on main |
 | **Chaos** | ✅ 5/5 PASS |
 | **GitHub Release** | ✅ v1.2.0 as Latest |
 
