@@ -34,7 +34,7 @@ This doc covers what we'd build, the trust model, the integration
 points, and the honest scope-trim. The Rust verifier scaffold lived
 at [`crates/sbo3l-core/src/zk_capsule.rs`](../../crates/sbo3l-core/src/zk_capsule.rs) — feature-gated, no real cryptography
 yet, ready to consume real proofs once the circuit lands.
-**Companion:** [`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md) —
+**Companion:** [`docs/concepts/trust-dns-manifesto.md`](../concepts/trust-dns-manifesto.md) —
 ENS as the **public** identity surface; ZK is the optional
 **private** complement.
 
