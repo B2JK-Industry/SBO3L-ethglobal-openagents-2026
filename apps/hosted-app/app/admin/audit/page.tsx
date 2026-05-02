@@ -19,12 +19,14 @@ export default function AdminAuditPage() {
         </nav>
       </header>
       <p style={{ color: "var(--muted)", marginBottom: "1.5em", maxWidth: 760 }}>
-        Live tail of the daemon's <code>/v1/events</code> WebSocket bus.
-        Every <code>policy.decision</code>, <code>execution.confirmed</code>,
-        <code>flag.changed</code>, and <code>audit.checkpoint</code> appears here in
-        real time. Filter inline; export the buffered window as JSONL for
-        post-hoc analysis. Buffered window holds the last 200 events; older
-        events scroll off (full chain remains in the daemon's audit DB).
+        Live tail of the daemon's <code>/v1/admin/events</code> WebSocket bus.
+        Each <code>kind: "decision"</code> frame carries the agent's
+        decision, deny code (if any), severity, audit-event hash, and
+        chain seq; <code>kind: "operational"</code> covers signer rotations
+        + flag changes. Filter inline; export the buffered window as
+        JSONL or CSV for post-hoc analysis. Buffered window holds the
+        last 500 events; older events scroll off (full chain remains in
+        the daemon's audit DB).
       </p>
 
       <DecisionChart wsUrl={wsUrl} />

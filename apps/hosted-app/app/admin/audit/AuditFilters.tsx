@@ -35,13 +35,26 @@ const inputStyle = {
   fontSize: "0.85em",
 } as const;
 
+// Codex review fix (PR #317): `<input type="datetime-local">` displays
+// values as the user's local wall-clock time, but `toISOString()` always
+// renders UTC. Slicing to YYYY-MM-DDTHH:MM gave the input a timestamp
+// that looks like local time but is actually UTC, shifting the apparent
+// hour by the user's offset. Format the local-clock fields by hand so
+// the input shows the same time the user picked.
+function pad(n: number): string { return n.toString().padStart(2, "0"); }
+
 function tsToInputValue(ts: number | null): string {
   if (ts === null) return "";
-  return new Date(ts).toISOString().slice(0, 16);
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function inputValueToTs(s: string): number | null {
   if (!s) return null;
+  // datetime-local strings are local time without offset; Date.parse on
+  // a string of the form "YYYY-MM-DDTHH:MM" interprets as local time on
+  // every modern engine, so this is the correct inverse of tsToInputValue.
   const t = Date.parse(s);
   return Number.isFinite(t) ? t : null;
 }
@@ -87,12 +100,8 @@ export function AuditFilters({ value, onChange, matchedCount, totalCount }: Prop
           style={inputStyle}
         >
           <option value="">all kinds</option>
-          <option value="decision.made">decision.made</option>
-          <option value="execution.confirmed">execution.confirmed</option>
-          <option value="audit.checkpoint">audit.checkpoint</option>
-          <option value="flag.changed">flag.changed</option>
-          <option value="agent.discovered">agent.discovered</option>
-          <option value="attestation.signed">attestation.signed</option>
+          <option value="decision">decision</option>
+          <option value="operational">operational</option>
         </select>
         <input
           aria-label="From timestamp"
@@ -115,15 +124,17 @@ export function AuditFilters({ value, onChange, matchedCount, totalCount }: Prop
 
 export function eventMatchesFilters(e: TimelineEvent, f: FilterState): boolean {
   if (f.kind && e.kind !== f.kind) return false;
-  if (f.decision && (e.kind !== "decision.made" || e.decision !== f.decision)) return false;
+  if (f.decision && (e.kind !== "decision" || e.decision !== f.decision)) return false;
   if (f.fromTs !== null && e.ts_ms < f.fromTs) return false;
   if (f.toTs !== null && e.ts_ms > f.toTs) return false;
   if (f.agentSubstring) {
     const needle = f.agentSubstring.toLowerCase();
-    const haystacks: string[] = [];
-    if ("agent_id" in e && e.agent_id) haystacks.push(e.agent_id.toLowerCase());
-    if (e.kind === "attestation.signed") haystacks.push(e.from.toLowerCase(), e.to.toLowerCase());
-    if (!haystacks.some((s) => s.includes(needle))) return false;
+    if (e.kind === "decision") {
+      if (!e.agent_id.toLowerCase().includes(needle)) return false;
+    } else {
+      // Operational events have no agent_id; agent-filter excludes them.
+      return false;
+    }
   }
   return true;
 }

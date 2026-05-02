@@ -22,14 +22,22 @@ export function DecisionChart({ wsUrl }: Props): JSX.Element {
   const reconnectTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    // Codex review fix (PR #288): the previous close handler scheduled
+    // a reconnect unconditionally, including when the component
+    // unmounted or wsUrl changed. That left a background reconnect
+    // loop after unmount and re-opened sockets to stale URLs after
+    // prop changes. `shouldReconnect` flag gates reconnects to
+    // unexpected disconnects only.
+    let shouldReconnect = true;
     const connect = (): void => {
+      if (!shouldReconnect) return;
       setState("connecting");
       let ws: WebSocket;
       try {
         ws = new WebSocket(wsUrl);
       } catch {
         setState("offline");
-        reconnectTimer.current = window.setTimeout(connect, 3000);
+        if (shouldReconnect) reconnectTimer.current = window.setTimeout(connect, 3000);
         return;
       }
       wsRef.current = ws;
@@ -42,6 +50,7 @@ export function DecisionChart({ wsUrl }: Props): JSX.Element {
         } catch { /* ignore malformed */ }
       });
       ws.addEventListener("close", () => {
+        if (!shouldReconnect) return;
         setState("offline");
         reconnectTimer.current = window.setTimeout(connect, 3000);
       });
@@ -49,6 +58,7 @@ export function DecisionChart({ wsUrl }: Props): JSX.Element {
     };
     connect();
     return () => {
+      shouldReconnect = false;
       if (reconnectTimer.current !== null) window.clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
@@ -57,7 +67,7 @@ export function DecisionChart({ wsUrl }: Props): JSX.Element {
   const decisionData = useMemo(() => {
     let allow = 0, deny = 0;
     for (const e of events) {
-      if (e.kind !== "decision.made") continue;
+      if (e.kind !== "decision") continue;
       if (e.decision === "allow") allow += 1;
       else deny += 1;
     }
@@ -70,7 +80,7 @@ export function DecisionChart({ wsUrl }: Props): JSX.Element {
   const denyCodeData = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of events) {
-      if (e.kind !== "decision.made" || e.decision !== "deny" || !e.deny_code) continue;
+      if (e.kind !== "decision" || e.decision !== "deny" || !e.deny_code) continue;
       counts.set(e.deny_code, (counts.get(e.deny_code) ?? 0) + 1);
     }
     return [...counts.entries()]

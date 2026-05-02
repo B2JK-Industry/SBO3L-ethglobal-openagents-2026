@@ -41,11 +41,20 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 }
 
+// Codex review fix (PR #311): the previous handlers returned HTTP 400
+// when tenant_uuid metadata was missing, which makes Stripe retry the
+// event up to ~3 days. Real subscriptions created outside our exact
+// Checkout flow (manual ones, legacy ones, ones from a different
+// app sharing the Stripe account) lack our metadata and would loop
+// indefinitely. Treat missing metadata as "ignored" with a 2xx so
+// Stripe drops the event from its retry queue instead.
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<NextResponse> {
   const tenantUuid = session.metadata?.tenant_uuid;
   const targetTier = session.metadata?.target_tier;
   if (!tenantUuid || !targetTier) {
-    return NextResponse.json({ error: "missing_metadata" }, { status: 400 });
+    console.warn("[stripe] checkout.session.completed missing metadata — ignored", { sessionId: session.id });
+    return NextResponse.json({ received: true, ignored: true, reason: "missing_metadata" });
   }
   // TODO: POST to daemon /v1/tenants/<uuid>/billing with
   // { tier: targetTier, stripe_customer: session.customer, stripe_subscription: session.subscription }
@@ -56,17 +65,26 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
 async function handleSubscriptionChange(sub: Stripe.Subscription): Promise<NextResponse> {
   const tenantUuid = sub.metadata?.tenant_uuid;
-  if (!tenantUuid) return NextResponse.json({ error: "missing_tenant_metadata" }, { status: 400 });
+  if (!tenantUuid) {
+    console.warn("[stripe] subscription change missing tenant_uuid metadata — ignored", { subId: sub.id });
+    return NextResponse.json({ received: true, ignored: true, reason: "missing_tenant_metadata" });
+  }
   const priceId = sub.items.data[0]?.price.id;
   const tier = priceId ? tierFromPriceId(priceId) : null;
-  if (!tier) return NextResponse.json({ error: "unknown_price", priceId }, { status: 400 });
+  if (!tier) {
+    console.warn("[stripe] subscription change with unknown price — ignored", { tenantUuid, priceId });
+    return NextResponse.json({ received: true, ignored: true, reason: "unknown_price", priceId });
+  }
   console.log("[stripe] subscription.changed", { tenantUuid, tier, status: sub.status });
   return NextResponse.json({ received: true, tenant: tenantUuid, tier });
 }
 
 async function handleSubscriptionDeleted(sub: Stripe.Subscription): Promise<NextResponse> {
   const tenantUuid = sub.metadata?.tenant_uuid;
-  if (!tenantUuid) return NextResponse.json({ error: "missing_tenant_metadata" }, { status: 400 });
+  if (!tenantUuid) {
+    console.warn("[stripe] subscription.deleted missing tenant_uuid metadata — ignored", { subId: sub.id });
+    return NextResponse.json({ received: true, ignored: true, reason: "missing_tenant_metadata" });
+  }
   // Downgrade to free on deletion. Daemon enforces the new quota
   // immediately; if the user reactivates, the next subscription.created
   // event upgrades them back.

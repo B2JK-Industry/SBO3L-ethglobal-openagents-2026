@@ -17,14 +17,10 @@ const CSV_HEADERS = [
 ] as const;
 
 function describe(e: TimelineEvent): string {
-  switch (e.kind) {
-    case "agent.discovered":    return `${e.agent_id} (${e.ens_name})`;
-    case "attestation.signed":  return `${e.from} → ${e.to} ${e.attestation_id}`;
-    case "decision.made":       return e.intent ?? "";
-    case "audit.checkpoint":    return `chain_length=${e.chain_length} root=${e.root_hash.slice(0, 14)}…`;
-    case "execution.confirmed": return `→ ${e.sponsor} ref=${e.execution_ref}`;
-    case "flag.changed":        return `${e.flag_name} → ${e.enabled ? "on" : "off"} (by ${e.changed_by})`;
+  if (e.kind === "decision") {
+    return `chain_seq=${e.chain_seq} hash=${e.audit_event_hash.slice(0, 14)}…`;
   }
+  return `${e.op_kind}: ${e.message}`;
 }
 
 function escapeCsvField(value: string): string {
@@ -36,9 +32,9 @@ function escapeCsvField(value: string): string {
 
 export function eventsToCsv(events: TimelineEvent[]): string {
   const rows = events.map((e) => {
-    const agentId = "agent_id" in e ? e.agent_id : e.kind === "attestation.signed" ? `${e.from}→${e.to}` : "";
-    const decision = e.kind === "decision.made" ? e.decision : "";
-    const denyCode = e.kind === "decision.made" ? e.deny_code ?? "" : "";
+    const agentId = e.kind === "decision" ? e.agent_id : "";
+    const decision = e.kind === "decision" ? e.decision : "";
+    const denyCode = e.kind === "decision" ? (e.deny_code ?? "") : "";
     return [
       new Date(e.ts_ms).toISOString(),
       String(e.ts_ms),
