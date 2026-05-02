@@ -8,7 +8,7 @@ ENSIPs SBO3L exercises, where the tradeoffs lie, and what we'd
 formalise as a future ENSIP if pushed forward.
 **Length:** ~3000 words. Reading time ~20 minutes.
 **Companion artefacts:**
-[`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md)
+[`docs/concepts/trust-dns-manifesto.md`](../concepts/trust-dns-manifesto.md)
 (the conceptual framing for non-ENS-native readers),
 [`docs/proof/ens-narrative.md`](ens-narrative.md) (the bounty
 judges' walkthrough with live mainnet receipts),

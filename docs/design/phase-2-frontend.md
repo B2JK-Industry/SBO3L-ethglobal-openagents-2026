@@ -236,7 +236,7 @@ apps/marketing/
 │   ├── content/               (typed collections)
 │   │   ├── config.ts          (zod schemas for blog + case-studies)
 │   │   ├── blog/
-│   │   │   ├── trust-dns-essay.md     (T-3-6)
+│   │   │   ├── trust-dns-manifesto.md     (T-3-6)
 │   │   │   └── trust-dns-manifesto.md (ENS-MC-A2)
 │   │   └── case-studies/
 │   ├── layouts/

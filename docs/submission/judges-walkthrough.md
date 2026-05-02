@@ -93,7 +93,7 @@ Each one-pager is ~500 words, evidence-linked, sponsor-specific:
 
 ### Trust DNS essay (1851 words)
 
-[`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md) — Frank-style audience+outcome, literal DNS analogy table, why ENS specifically (5 properties no competing system gives at once), static-vs-dynamic records via CCIP-Read, the 60-agent fleet that validates scale, honest scope (4 things SBO3L is NOT), reproducibility table.
+[`docs/concepts/trust-dns-manifesto.md`](../concepts/trust-dns-manifesto.md) — Frank-style audience+outcome, literal DNS analogy table, why ENS specifically (5 properties no competing system gives at once), static-vs-dynamic records via CCIP-Read, the 60-agent fleet that validates scale, honest scope (4 things SBO3L is NOT), reproducibility table.
 
 ### Long-form ENS narrative (~400 lines)
 
@@ -175,7 +175,7 @@ docs/submission/
 └── partner-onepagers/{keeperhub,ens,uniswap}.md  ← submission-shaped install-first
 
 docs/concepts/
-└── trust-dns-essay.md                     ← long-form Trust DNS essay (T-3-6)
+└── trust-dns-manifesto.md                     ← long-form Trust DNS essay (T-3-6)
 
 docs/proof/
 ├── ens-narrative.md                       ← long-form ENS deep-dive

@@ -92,7 +92,7 @@ verify-ens: sbo3lagent.eth  (network: mainnet)
 
 ### Q: Why ENS, not a token registry?
 
-> ENS is the public, censorship-resistant, human-readable name layer Ethereum already has. We don't need a new registry — we just need one text-record per agent (`sbo3l:policy_hash`) and a single mainnet apex (`sbo3lagent.eth`). The trust DNS analogy in [`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md) explains why this beats every alternative.
+> ENS is the public, censorship-resistant, human-readable name layer Ethereum already has. We don't need a new registry — we just need one text-record per agent (`sbo3l:policy_hash`) and a single mainnet apex (`sbo3lagent.eth`). The trust DNS analogy in [`docs/concepts/trust-dns-manifesto.md`](../concepts/trust-dns-manifesto.md) explains why this beats every alternative.
 
 ### Q: Is the audit chain quantum-resistant?
 

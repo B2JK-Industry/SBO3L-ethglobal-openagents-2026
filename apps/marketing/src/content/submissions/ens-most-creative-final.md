@@ -221,7 +221,7 @@ single index a reviewer can walk through in 10 minutes:
 | Artefact                                                                                                            | Purpose                                                       |
 |---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
 | [`docs/proof/ens-narrative.md`](../proof/ens-narrative.md)                                                          | Long-form judge walkthrough with live mainnet receipts        |
-| [`docs/concepts/trust-dns-essay.md`](../concepts/trust-dns-essay.md)                                                | Conceptual framing — "ENS as trust DNS" (1500 words)          |
+| [`docs/concepts/trust-dns-manifesto.md`](../concepts/trust-dns-manifesto.md)                                                | Conceptual framing — "ENS as trust DNS" (1500 words)          |
 | [`docs/proof/ens-technical-paper.md`](../proof/ens-technical-paper.md)                                              | ENS Labs / ENSIP-author audience (3000 words, deeper)         |
 | [`docs/proof/ensip-draft-reputation.md`](../proof/ensip-draft-reputation.md)                                        | Pre-submission ENSIP for `reputation_score`                   |
 | [`docs/proof/etherscan-link-pack.md`](../proof/etherscan-link-pack.md)                                              | One-page Etherscan index of every on-chain claim              |
