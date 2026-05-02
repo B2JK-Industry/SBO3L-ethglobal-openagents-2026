@@ -183,7 +183,11 @@ impl Aggregator {
 
     fn report(&mut self, args: &Args, total_secs: f64) -> Report {
         let total = self.samples.len();
-        let success = self.samples.iter().filter(|s| (200..300).contains(&s.status)).count();
+        let success = self
+            .samples
+            .iter()
+            .filter(|s| (200..300).contains(&s.status))
+            .count();
         let mut by_status: std::collections::BTreeMap<u16, usize> =
             std::collections::BTreeMap::new();
         for s in &self.samples {
@@ -236,7 +240,10 @@ struct Report {
 #[tokio::main]
 async fn main() {
     let args = parse_args();
-    println!("load_test target={} duration={}s concurrency={}", args.target, args.duration_secs, args.concurrency);
+    println!(
+        "load_test target={} duration={}s concurrency={}",
+        args.target, args.duration_secs, args.concurrency
+    );
 
     let client = Arc::new(
         reqwest::Client::builder()

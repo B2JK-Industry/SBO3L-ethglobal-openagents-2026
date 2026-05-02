@@ -37,6 +37,7 @@ pub use contracts::{
     addr_eq, all_pins, is_placeholder, resolver_for, universal_resolver_for, ContractPin, Network,
     ENS_REGISTRY, ERC8004_SEPOLIA_PLACEHOLDER, OFFCHAIN_RESOLVER_SEPOLIA, PLACEHOLDER_ZERO,
     PUBLIC_RESOLVER_MAINNET, PUBLIC_RESOLVER_SEPOLIA,
+};
 pub use cross_agent::{
     build_challenge, sign_challenge, verify_challenge, CrossAgentChallenge, CrossAgentError,
     CrossAgentReject, CrossAgentTrust, PubkeyResolver, SignedChallenge, CHALLENGE_SCHEMA,

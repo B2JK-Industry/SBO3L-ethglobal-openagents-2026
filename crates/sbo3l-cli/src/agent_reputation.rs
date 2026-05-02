@@ -55,6 +55,17 @@ pub struct ReputationPublishArgs {
     /// Override the env var that holds the 32-byte hex private key
     /// (default `SBO3L_SIGNER_KEY`). Same pattern T-3-1 broadcast uses.
     pub private_key_env_var: Option<String>,
+    /// Comma-separated list of target chain labels for multi-chain
+    /// broadcast (R11 P2). When set, the CLI broadcasts the same
+    /// score to every chain in the list. Per-chain RPC URLs come
+    /// from `SBO3L_RPC_URL_<UPPERCASE_LABEL>` env vars; mainnet
+    /// chains require `SBO3L_ALLOW_MAINNET_TX=1`. Read by the
+    /// multi-chain orchestrator only — without `--features
+    /// eth_broadcast` this field is captured from the CLI but
+    /// never read (the dispatch errors out at the no-feature stub
+    /// before reaching the orchestrator).
+    #[cfg_attr(not(feature = "eth_broadcast"), allow(dead_code))]
+    pub multi_chain: Option<String>,
 }
 
 pub fn cmd_agent_reputation_publish(args: ReputationPublishArgs) -> ExitCode {
@@ -74,6 +85,25 @@ pub fn cmd_agent_reputation_publish(args: ReputationPublishArgs) -> ExitCode {
 fn broadcast_dispatch(args: ReputationPublishArgs) -> ExitCode {
     #[cfg(feature = "eth_broadcast")]
     {
+        // Multi-chain mode (R11 P2): if --multi-chain is set, route
+        // to the per-chain orchestrator instead of the single-chain
+        // path. The orchestrator handles the mainnet double-gate
+        // itself per-chain.
+        if args.multi_chain.is_some() {
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(e) => {
+                    eprintln!(
+                        "sbo3l agent reputation-publish --multi-chain: tokio runtime init failed: {e}"
+                    );
+                    return ExitCode::from(1);
+                }
+            };
+            return rt.block_on(crate::agent_reputation_multichain::cmd_broadcast_multi(
+                args,
+            ));
+        }
+
         let network = match args.network.as_str() {
             "mainnet" => sbo3l_identity::ens_anchor::EnsNetwork::Mainnet,
             "sepolia" => sbo3l_identity::ens_anchor::EnsNetwork::Sepolia,
@@ -246,6 +276,7 @@ mod tests {
             broadcast: false,
             rpc_url: None,
             private_key_env_var: None,
+            multi_chain: None,
         });
         assert!(res.is_ok());
     }
@@ -262,6 +293,7 @@ mod tests {
             broadcast: false,
             rpc_url: None,
             private_key_env_var: None,
+            multi_chain: None,
         });
         assert!(res.is_err());
     }
@@ -278,6 +310,7 @@ mod tests {
             broadcast: false,
             rpc_url: None,
             private_key_env_var: None,
+            multi_chain: None,
         });
         assert!(res.is_err());
     }
@@ -296,6 +329,7 @@ mod tests {
             broadcast: false,
             rpc_url: None,
             private_key_env_var: None,
+            multi_chain: None,
         });
         assert!(res.is_ok());
         let written = std::fs::read_to_string(out.path()).unwrap();
@@ -317,6 +351,7 @@ mod tests {
             broadcast: true,
             rpc_url: Some("https://example.invalid".to_string()),
             private_key_env_var: None,
+            multi_chain: None,
         });
         // ExitCode doesn't expose its inner u8 in stable Rust; format
         // and inspect via Debug. The contract is "non-zero, specifically

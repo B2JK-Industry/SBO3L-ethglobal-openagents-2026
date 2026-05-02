@@ -130,7 +130,10 @@ pub async fn cmd_broadcast(args: ReputationPublishArgs, network: EnsNetwork) -> 
     println!("sbo3l agent reputation-publish --broadcast");
     println!("  network:        {}", network.as_str());
     println!("  fqdn:           {}", args.fqdn);
-    println!("  score:          {} (from {} events)", envelope.score, envelope.event_count);
+    println!(
+        "  score:          {} (from {} events)",
+        envelope.score, envelope.event_count
+    );
     println!("  signer:         {signer_address:?}");
     println!("  resolver:       0x{}", hex::encode(resolver));
     println!("  text key:       {REPUTATION_TEXT_KEY}");
@@ -189,8 +192,17 @@ pub async fn cmd_broadcast(args: ReputationPublishArgs, network: EnsNetwork) -> 
     );
 
     println!("---");
-    println!("published:     {} → {} on {}", REPUTATION_TEXT_KEY, envelope.score, network.as_str());
-    println!("verify:        sbo3l agent verify-ens {} --network {}", args.fqdn, network.as_str());
+    println!(
+        "published:     {} → {} on {}",
+        REPUTATION_TEXT_KEY,
+        envelope.score,
+        network.as_str()
+    );
+    println!(
+        "verify:        sbo3l agent verify-ens {} --network {}",
+        args.fqdn,
+        network.as_str()
+    );
     ExitCode::SUCCESS
 }
 
@@ -264,9 +276,7 @@ fn parse_address_str(s: &str, label: &str) -> Result<[u8; 20], ExitCode> {
     let bytes = match hex::decode(stripped) {
         Ok(b) => b,
         Err(e) => {
-            eprintln!(
-                "sbo3l agent reputation-publish --broadcast: {label} address not hex: {e}"
-            );
+            eprintln!("sbo3l agent reputation-publish --broadcast: {label} address not hex: {e}");
             return Err(ExitCode::from(2));
         }
     };

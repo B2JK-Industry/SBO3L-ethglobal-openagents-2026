@@ -10,9 +10,11 @@ use sbo3l_core::{schema, SchemaError};
 mod agent;
 #[cfg(feature = "eth_broadcast")]
 mod agent_broadcast;
+mod agent_reputation;
 #[cfg(feature = "eth_broadcast")]
 mod agent_reputation_broadcast;
-mod agent_reputation;
+#[cfg(feature = "eth_broadcast")]
+mod agent_reputation_multichain;
 mod agent_verify;
 mod audit_anchor;
 mod audit_anchor_ens;
@@ -319,6 +321,16 @@ enum AgentCmd {
         /// key for `--broadcast` (default `SBO3L_SIGNER_KEY`).
         #[arg(long)]
         private_key_env_var: Option<String>,
+
+        /// **Multi-chain broadcast (R11 P2).** Comma-separated list
+        /// of chain labels — e.g. `--multi-chain sepolia,optimism-sepolia,base-sepolia`.
+        /// When set, the same score is broadcast to every chain in
+        /// the list. Per-chain RPC URLs come from
+        /// `SBO3L_RPC_URL_<UPPERCASE_LABEL>` env vars (e.g.
+        /// `SBO3L_RPC_URL_SEPOLIA`). Mainnet entries require
+        /// `SBO3L_ALLOW_MAINNET_TX=1`. Implies `--broadcast`.
+        #[arg(long)]
+        multi_chain: Option<String>,
     },
 }
 
@@ -1032,6 +1044,7 @@ fn main() -> ExitCode {
                     broadcast,
                     rpc_url,
                     private_key_env_var,
+                    multi_chain,
                 },
         } => agent_reputation::cmd_agent_reputation_publish(
             agent_reputation::ReputationPublishArgs {
@@ -1040,9 +1053,14 @@ fn main() -> ExitCode {
                 network,
                 resolver,
                 out,
-                broadcast,
+                // --multi-chain implies --broadcast (a multi-chain
+                // dry-run wouldn't add anything beyond the single-
+                // chain dry-run since the calldata doesn't change
+                // per-chain at the setText path).
+                broadcast: broadcast || multi_chain.is_some(),
                 rpc_url,
                 private_key_env_var,
+                multi_chain,
             },
         ),
     }
