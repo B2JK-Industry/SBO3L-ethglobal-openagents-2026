@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sbo3l.fullname" . }}
+  labels:
+    {{- include "sbo3l.labels" . | nindent 4 }}
+  {{- with (include "sbo3l.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- if and .Values.persistence.enabled (eq .Values.updateStrategy.type "RollingUpdate") }}
+    # PVC is RWO; rolling update would deadlock attaching the volume to
+    # two pods. Force Recreate when persistence is on.
+    type: Recreate
+    {{- else }}
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+    {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sbo3l.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sbo3l.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "sbo3l.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: sbo3l-server
+          image: {{ include "sbo3l.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8730
+              protocol: TCP
+          env:
+            - name: SBO3L_LISTEN
+              value: {{ .Values.env.listen | quote }}
+            - name: SBO3L_DB
+              value: {{ .Values.env.db | quote }}
+            - name: SBO3L_SIGNER_BACKEND
+              value: {{ .Values.signer.backend | quote }}
+            {{- if .Values.env.allowUnauthenticated }}
+            - name: SBO3L_ALLOW_UNAUTHENTICATED
+              value: "1"
+            {{- end }}
+            {{- if .Values.env.devOnlySigner }}
+            - name: SBO3L_DEV_ONLY_SIGNER
+              value: "1"
+            {{- end }}
+            {{- if not (kindIs "invalid" .Values.env.allowUnsafePublicBind) }}
+            - name: SBO3L_ALLOW_UNSAFE_PUBLIC_BIND
+              value: {{ .Values.env.allowUnsafePublicBind | quote }}
+            {{- end }}
+            {{- if .Values.env.policy }}
+            - name: SBO3L_POLICY
+              value: {{ .Values.env.policy | quote }}
+            {{- end }}
+            {{- if eq .Values.signer.backend "aws_kms" }}
+            - name: SBO3L_AWS_KMS_KEY_ARN
+              value: {{ .Values.signer.awsKmsKeyArn | quote }}
+            {{- end }}
+            {{- if eq .Values.signer.backend "gcp_kms" }}
+            - name: SBO3L_GCP_KMS_KEY_NAME
+              value: {{ .Values.signer.gcpKmsKeyName | quote }}
+            {{- end }}
+            {{- range $k, $v := .Values.env.extra }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          {{- $secretName := include "sbo3l.secretName" . }}
+          {{- if $secretName }}
+          envFrom:
+            - secretRef:
+                name: {{ $secretName }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              {{- toYaml .Values.startupProbe.httpGet | nindent 14 }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/sbo3l
+            {{- if .Values.configMap.create }}
+            - name: config
+              mountPath: /etc/sbo3l
+              readOnly: true
+            {{- end }}
+            # readOnlyRootFilesystem requires writable scratch space for
+            # tracing-subscriber temp files + tokio runtime artifacts.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "sbo3l.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.configMap.create }}
+        - name: config
+          configMap:
+            name: {{ include "sbo3l.fullname" . }}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if .Values.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "sbo3l.fullname" . }}-data
+  labels:
+    {{- include "sbo3l.labels" . | nindent 4 }}
+  {{- with .Values.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+{{- end }}

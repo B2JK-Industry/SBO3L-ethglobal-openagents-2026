@@ -1,0 +1,67 @@
+SBO3L server has been installed (chart version {{ .Chart.Version }}, app version {{ .Chart.AppVersion }}).
+
+⚠ EXPERIMENTAL CHART ⚠
+This chart is a SCAFFOLD. It lints and templates clean, but has not been
+validated end-to-end on a live cluster. Operators should review every
+default in values.yaml before deploying to production.
+
+1. Service URL inside the cluster:
+{{- if contains "ClusterIP" .Values.service.type }}
+   sbo3l.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+   (Service type is ClusterIP — not reachable from outside the cluster.
+    Use port-forward or enable ingress to expose externally.)
+{{- else if contains "NodePort" .Values.service.type }}
+   Run:
+     kubectl get svc -n {{ .Release.Namespace }} {{ include "sbo3l.fullname" . }} -o jsonpath='{.spec.ports[0].nodePort}'
+{{- else if contains "LoadBalancer" .Values.service.type }}
+   Run (may take a minute for the LB to provision):
+     kubectl get svc -n {{ .Release.Namespace }} {{ include "sbo3l.fullname" . }} -w
+{{- end }}
+
+2. Port-forward for local smoke test:
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sbo3l.fullname" . }} 8730:{{ .Values.service.port }}
+   curl http://127.0.0.1:8730/v1/healthz
+
+3. Health endpoints exposed by the daemon:
+   GET /v1/health    → "ok" (plaintext)
+   GET /v1/healthz   → structured JSON (used by liveness/readiness probes)
+   GET /v1/metrics   → Prometheus text exposition
+
+{{- if .Values.env.allowUnauthenticated }}
+
+⚠ DEV BYPASS ENABLED ⚠
+   env.allowUnauthenticated=true → POST /v1/payment-requests will accept
+   unauthenticated requests. NEVER use this in production. Disable by
+   removing the override or setting env.allowUnauthenticated=false.
+{{- end }}
+
+{{- if .Values.env.devOnlySigner }}
+
+⚠ DEV SIGNER ENABLED ⚠
+   env.devOnlySigner=true → audit + receipt signatures are produced
+   with a publicly-known dev seed. NEVER use this in production. Pair
+   with signer.backend=aws_kms (or gcp_kms / phala_tee) and set
+   env.devOnlySigner=false once the F-5 trait refactor is wired.
+{{- end }}
+
+{{- if eq .Values.signer.backend "dev" }}
+{{- if not .Values.env.devOnlySigner }}
+
+NOTE: signer.backend=dev REQUIRES env.devOnlySigner=true. The daemon
+will refuse to start until both are set together (or you switch to a
+production backend). See crates/sbo3l-server/src/main.rs for the
+startup gate.
+{{- end }}
+{{- end }}
+
+{{- if and (ne .Values.signer.backend "dev") (not (or .Values.signer.awsKmsKeyArn .Values.signer.gcpKmsKeyName)) }}
+
+WARNING: signer.backend={{ .Values.signer.backend }} but no KMS key reference is
+configured (signer.awsKmsKeyArn / signer.gcpKmsKeyName). The current
+binary refuses to start with a non-dev backend until the F-5 AppState
+refactor lands; expect CrashLoopBackOff until that ships or until you
+flip back to signer.backend=dev.
+{{- end }}
+
+4. For KMS, ingress, monitoring, and persistence configuration, see:
+     deploy/helm/sbo3l/README.md
