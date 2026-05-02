@@ -31,6 +31,13 @@ export default defineConfig({
         },
       ],
       customCss: ["./src/styles/custom.css"],
+      components: {
+        // Mounts the VersionSelector at the top of the sidebar; the
+        // override re-renders the default Sidebar via <slot /> so all
+        // other nav behaviour is unchanged. See
+        // src/components/VersionSelectorWrapper.astro for the wiring.
+        Sidebar: "./src/components/VersionSelectorWrapper.astro",
+      },
       sidebar: [
         { label: "Quickstart", link: "/quickstart" },
         {
