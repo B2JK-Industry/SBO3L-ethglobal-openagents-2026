@@ -1,0 +1,47 @@
+---
+interface Props {
+  current: 1 | 2 | 3 | 4;
+}
+const { current } = Astro.props;
+const steps = [
+  { n: 1, label: "Meet the agents", href: "/demo/1-meet-the-agents" },
+  { n: 2, label: "Watch a decision", href: "/demo/2-watch-a-decision" },
+  { n: 3, label: "Verify yourself", href: "/demo/3-verify-yourself" },
+  { n: 4, label: "Explore the graph", href: "/demo/4-explore-the-trust-graph" },
+];
+const prev = current > 1 ? steps[current - 2] : undefined;
+const next = current < 4 ? steps[current] : undefined;
+---
+<nav class="demo-nav" aria-label="Demo step navigation">
+  <ol>
+    {steps.map((s) => (
+      <li class={s.n === current ? "active" : ""}>
+        <a href={s.href}>{s.n}. {s.label}</a>
+      </li>
+    ))}
+  </ol>
+  <div class="ends">
+    {prev ? <a href={prev.href} class="btn ghost">← {prev.label}</a> : <span></span>}
+    {next ? <a href={next.href} class="btn primary">{next.label} →</a> : <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026" class="btn primary">View source →</a>}
+  </div>
+</nav>
+
+<style>
+  .demo-nav { max-width: var(--max); margin: 0 auto 2em; padding: 0 1.5em; }
+  .demo-nav ol {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    padding: 0;
+    margin: 0 0 1em;
+    color: var(--muted);
+    font-size: 0.9em;
+  }
+  .demo-nav li::after { content: "·"; margin-left: 0.4em; color: var(--muted); }
+  .demo-nav li:last-child::after { content: ""; }
+  .demo-nav li a { color: var(--muted); }
+  .demo-nav li.active a { color: var(--accent); font-weight: 600; }
+  .demo-nav .ends { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wrap; }
+  @media (max-width: 640px) { .demo-nav ol { font-size: 0.85em; } }
+</style>
