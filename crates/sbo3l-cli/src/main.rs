@@ -10,6 +10,8 @@ use sbo3l_core::{schema, SchemaError};
 mod agent;
 #[cfg(feature = "eth_broadcast")]
 mod agent_broadcast;
+#[cfg(feature = "eth_broadcast")]
+mod agent_reputation_broadcast;
 mod agent_reputation;
 mod agent_verify;
 mod audit_anchor_ens;
@@ -263,7 +265,7 @@ enum AgentCmd {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
-    /// Compute and publish an agent's reputation score (T-4-6).
+    /// Compute and publish an agent's reputation score (T-4-6 / T-4-7).
     ///
     /// Reads audit events from `--events <file.json>` (a JSON array
     /// of {decision, executor_confirmed, age_secs} objects), computes
@@ -271,8 +273,11 @@ enum AgentCmd {
     /// and emits a setText envelope publishing the score to the agent's
     /// `sbo3l:reputation_score` ENS text record.
     ///
-    /// **Dry-run only in this build.** Broadcast wires through F-5
-    /// EthSigner once that lands.
+    /// **Dry-run by default.** Pass `--broadcast` (requires
+    /// `--features eth_broadcast` at build time) to actually sign +
+    /// send the setText tx via the alloy harness shared with T-3-1
+    /// agent-register broadcast. Mainnet path additionally requires
+    /// `SBO3L_ALLOW_MAINNET_TX=1` and an explicit `--network mainnet`.
     ReputationPublish {
         /// FQDN of the agent (e.g. `research-agent.sbo3lagent.eth`).
         #[arg(long)]
@@ -296,6 +301,23 @@ enum AgentCmd {
         /// Write the envelope JSON to `<path>` in addition to printing.
         #[arg(long)]
         out: Option<PathBuf>,
+
+        /// **Sign + send the setText tx** instead of just printing
+        /// the envelope. Requires the `eth_broadcast` Cargo feature;
+        /// without it the dispatch falls through to a clear "rebuild
+        /// with --features eth_broadcast" error (exit code 3).
+        #[arg(long, default_value_t = false)]
+        broadcast: bool,
+
+        /// JSON-RPC URL for `--broadcast`. Falls back to
+        /// `SBO3L_RPC_URL` env. Validated http/https.
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        /// Override the env var that holds the 32-byte hex private
+        /// key for `--broadcast` (default `SBO3L_SIGNER_KEY`).
+        #[arg(long)]
+        private_key_env_var: Option<String>,
     },
 }
 
@@ -929,6 +951,9 @@ fn main() -> ExitCode {
                     network,
                     resolver,
                     out,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
                 },
         } => agent_reputation::cmd_agent_reputation_publish(
             agent_reputation::ReputationPublishArgs {
@@ -937,6 +962,9 @@ fn main() -> ExitCode {
                 network,
                 resolver,
                 out,
+                broadcast,
+                rpc_url,
+                private_key_env_var,
             },
         ),
     }
