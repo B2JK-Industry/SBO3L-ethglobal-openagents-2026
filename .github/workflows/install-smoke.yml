@@ -152,9 +152,15 @@ jobs:
           # Mock-mode = SBO3L_ALLOW_UNAUTHENTICATED=1 (no bearer token / JWT
           # required). Bound to loopback only — the safety check inside the
           # daemon refuses non-loopback bind without SBO3L_ALLOW_UNSAFE_PUBLIC_BIND.
+          # SBO3L_DEV_ONLY_SIGNER=1 is the production-lockout escape hatch the
+          # dev signer requires (the daemon refuses to start without it when
+          # SBO3L_SIGNER_BACKEND=dev — guards against a prod deploy that
+          # forgets to swap the backend).
           SBO3L_ALLOW_UNAUTHENTICATED=1 \
           SBO3L_LISTEN_ADDR=127.0.0.1:8730 \
           SBO3L_DB="$RUNNER_TEMP/sbo3l-data/sbo3l.db" \
+          SBO3L_SIGNER_BACKEND=dev \
+          SBO3L_DEV_ONLY_SIGNER=1 \
             ./daemon/sbo3l-server > "$RUNNER_TEMP/sbo3l-server.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/sbo3l.pid"
           # Wait up to 30s for the daemon to come up.
@@ -256,9 +262,15 @@ jobs:
           set -euo pipefail
           chmod +x ./daemon/sbo3l-server
           mkdir -p "$RUNNER_TEMP/sbo3l-data"
+          # SBO3L_DEV_ONLY_SIGNER=1 is the production-lockout escape hatch the
+          # dev signer requires (the daemon refuses to start without it when
+          # SBO3L_SIGNER_BACKEND=dev — guards against a prod deploy that
+          # forgets to swap the backend).
           SBO3L_ALLOW_UNAUTHENTICATED=1 \
           SBO3L_LISTEN_ADDR=127.0.0.1:8730 \
           SBO3L_DB="$RUNNER_TEMP/sbo3l-data/sbo3l.db" \
+          SBO3L_SIGNER_BACKEND=dev \
+          SBO3L_DEV_ONLY_SIGNER=1 \
             ./daemon/sbo3l-server > "$RUNNER_TEMP/sbo3l-server.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/sbo3l.pid"
           for i in $(seq 1 30); do
