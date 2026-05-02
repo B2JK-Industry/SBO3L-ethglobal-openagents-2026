@@ -1,0 +1,12 @@
+.next/
+node_modules/
+.vercel/
+out/
+dist/
+*.log
+.DS_Store
+.env*
+!.env.example
+
+# Phase 3 artifacts — committed once Rust → wasm32-wasi build lands
+lib/sbo3l-core.wasm
