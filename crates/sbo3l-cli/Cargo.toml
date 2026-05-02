@@ -28,6 +28,11 @@ sbo3l-storage = { workspace = true }
 sbo3l-server = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }
+# T-3-2 sbo3l agent verify-ens: derive Ed25519 pubkey from a local
+# secret-seed file (--key-file) so operators can verify without
+# reading the seed manually. Already a transitive dep through
+# sbo3l-core; declared explicitly here for clarity.
+ed25519-dalek = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_json_canonicalizer = { workspace = true }
