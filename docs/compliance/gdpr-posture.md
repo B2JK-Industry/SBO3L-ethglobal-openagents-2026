@@ -53,11 +53,11 @@ SBO3L's design **minimizes** personal data — the capsule schema is structurall
 
 | Right | SBO3L support | Notes |
 |---|---|---|
-| Right of access (Art. 15) | ✅ via `sbo3l audit query --agent-id <id>` | Returns full audit history for that agent |
+| Right of access (Art. 15) | ⚠️ **roadmap** — no shipped CLI today; auditors query via direct SQLite (`SELECT … FROM audit_events WHERE agent_id = …`) or via `sbo3l audit export --receipt <r>` for the bundle around a specific receipt | A dedicated `sbo3l audit query --agent-id <id>` subcommand is on the roadmap (see `docs/dev3/scope-cut-report.md`) |
 | Right to rectification (Art. 16) | ⚠️ **structurally limited** — audit chain is append-only by design | Corrections appended as new audit rows referencing the prior; original NOT deleted (audit integrity) |
 | Right to erasure (Art. 17) | ⚠️ **structurally limited** — see "Right to be forgotten" below | |
 | Right to restriction (Art. 18) | ✅ — per-agent disable via PolicyReceipt revocation | |
-| Right to portability (Art. 20) | ✅ — capsule export via `sbo3l passport export` | JSON format; trivially portable |
+| Right to portability (Art. 20) | ✅ — capsule export via `sbo3l passport run` (which writes a `sbo3l.passport_capsule.v1` JSON for any past APRP), plus `sbo3l audit export` for the audit bundle | JSON format; trivially portable. There is no shipped `sbo3l passport export` subcommand — `passport run` produces the capsule + `audit export` packages the chain. |
 | Right to object (Art. 21) | ✅ via API access revocation | |
 | Automated decision-making (Art. 22) | ✅ — every policy decision is human-readable + appealable | The PolicyReceipt itself is the explanation; deny-codes are categorized |
 
