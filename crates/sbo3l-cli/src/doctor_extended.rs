@@ -44,7 +44,15 @@ use tiny_keccak::{Hasher, Keccak};
 const PROBES: &[ContractProbe] = &[
     ContractProbe {
         label: "OffchainResolver",
-        address: "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+        // Mirrors `OFFCHAIN_RESOLVER_SEPOLIA.address` in
+        // `crates/sbo3l-identity/src/contracts.rs`. Bumped 2026-05-03
+        // alongside #396 (T-4-1 redeploy that fixed Heidi UAT bug #2 —
+        // old `0x7c6913…A8c3` had the malformed URL template; the new
+        // deploy at `0x87e9…b1f6` ships canonical
+        // `{sender}/{data}.json`). Keep this address in lockstep with
+        // contracts.rs; the inlined copy avoids dragging the identity
+        // crate into cli's dep graph.
+        address: "0x87e99508C222c6E419734CACbb6781b8d282b1F6",
         view_signature: "urls(uint256)",
         view_arg: ProbeArg::Uint256(0),
         decode_kind: DecodeKind::DynamicString,
