@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 sbo3l-core = { workspace = true }
-sbo3l-policy = { workspace = true }
+sbo3l-policy = { workspace = true, features = ["budget"] }
 sbo3l-storage = { workspace = true }
 sbo3l-server = { path = "../../crates/sbo3l-server" }
 sbo3l-identity = { workspace = true }

@@ -1,0 +1,58 @@
+[package]
+name = "sbo3l-competitive-benchmarks"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# Criterion-based comparison harness for SBO3L vs in-process baselines
+# and competitor stubs. Not part of the production workspace — kept as
+# a separate package so judges can run `cargo bench --bench <name>`
+# without pulling production-build dependencies.
+
+[dependencies]
+sbo3l-core = { path = "../../crates/sbo3l-core" }
+sbo3l-policy = { path = "../../crates/sbo3l-policy" }
+serde_json = "1"
+# `audit_chain_append` constructs AuditEvent fixtures with chrono::Utc.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+# Competitor crates (R14 P2). Pulled only into the benchmark package;
+# production builds never see them.
+#
+# casbin: pure-Rust ABAC/RBAC enforcer. We load an equivalent
+# allowlist model and bench `enforce()`.
+#
+# regorus: pure-Rust Rego (OPA policy language) interpreter from
+# Microsoft. We load an equivalent allowlist policy and bench
+# `eval_query()`. Chosen over `opa-rs` (which calls into a C
+# binding) because regorus is pure-Rust and runs in CI without
+# extra system deps.
+casbin = "2"
+regorus = "0.2"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[[bench]]
+name = "policy_eval"
+harness = false
+
+[[bench]]
+name = "audit_chain_append"
+harness = false
+
+[[bench]]
+name = "capsule_verify"
+harness = false
+
+[[bench]]
+name = "request_hash"
+harness = false
+
+[[bench]]
+name = "competitor_comparison"
+harness = false
+
+[workspace]
+# Standalone workspace — same reasoning as fuzz/.

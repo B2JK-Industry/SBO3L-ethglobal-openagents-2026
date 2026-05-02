@@ -1,0 +1,35 @@
+{
+  "common": {
+    "tagline_part1": "Não dê uma carteira ao seu agente.",
+    "tagline_part2": "Dê um mandato.",
+    "cta_start": "Comece em 5 minutos",
+    "cta_view_source": "Ver o código",
+    "cta_walk_demo": "Percorrer o demo",
+    "cta_verify": "Verifique uma cápsula você mesmo",
+    "nav_features": "Recursos",
+    "nav_proof": "Prova",
+    "nav_demo": "Demo",
+    "nav_docs": "Documentação",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Início rápido",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — Submissão"
+  },
+  "index": {
+    "lede": "SBO3L é a camada de confiança criptograficamente verificável para agentes de IA autônomos. Toda ação que seu agente executa — pagar, trocar, armazenar, computar, coordenar — passa primeiro pela fronteira de policy do SBO3L.",
+    "section_what_is": "O que é SBO3L",
+    "section_what_blocks": "O que SBO3L bloqueia",
+    "section_evidence": "Evidência de integração ao vivo",
+    "section_arch": "Arquitetura",
+    "section_reproduce": "Reproduza você mesmo",
+    "section_resources": "Recursos",
+    "what_is_blurb": "Um workspace Rust implementando firewall local de policy + orçamento + recibo + auditoria para agentes IA. Permitir → roteia para o executor sponsor. Negar → o executor nunca é chamado."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Submissão",
+    "h1": "A camada de confiança criptograficamente verificável para agentes de IA autônomos."
+  },
+  "proof": {
+    "h1": "Verificar uma cápsula Passport",
+    "lede": "Cole ou arraste uma cápsula. As 6 verificações strict-mode rodam no seu navegador via sbo3l-core compilado em WASM."
+  }
+}

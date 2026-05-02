@@ -1,0 +1,16 @@
+{
+  "target": "http://127.0.0.1:18761/v1/payment-requests",
+  "duration_secs": 15.02451475,
+  "concurrency": 128,
+  "total_requests": 100133,
+  "successful_requests": 100133,
+  "error_rate": 0.0,
+  "requests_per_second": 6664.641199144218,
+  "p50_ms": 16.023,
+  "p95_ms": 38.903,
+  "p99_ms": 57.312,
+  "p999_ms": 366.158,
+  "status_breakdown": {
+    "200": 100133
+  }
+}

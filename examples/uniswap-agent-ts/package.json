@@ -1,0 +1,24 @@
+{
+  "name": "@sbo3l/example-uniswap-agent-ts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Uniswap demo agent (TS) — submits APRP to SBO3L, on allow constructs SwapRouter02 calldata for Sepolia and (live mode) broadcasts. Returns tx hash + Etherscan URL.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/sdk": "file:../../sdks/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

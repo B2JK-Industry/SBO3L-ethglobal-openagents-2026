@@ -5,8 +5,103 @@ audience: agent developer
 outcome: You'll have a running SBO3L daemon, post your first APRP envelope via curl, and receive an Ed25519-signed PolicyReceipt.
 ---
 
-## Coming soon
+import { Steps } from "@astrojs/starlight/components";
 
-This page will port [`QUICKSTART.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/QUICKSTART.md) verbatim, with each command paste-runnable against a fresh clone. Tracked in CTI-3-3 main.
+This is the five-minute path. By the end you have a running daemon, a signed receipt, and a Passport capsule you can verify offline.
 
-Until then, follow the README quickstart in the GitHub repo.
+<Steps>
+
+1. **Clone + build.**
+
+   ```bash
+   git clone https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
+   cd SBO3L-ethglobal-openagents-2026
+   cargo build --release --workspace
+   ```
+
+   First build is heavy (~5 min on a laptop). Cached builds are seconds.
+
+2. **Start the daemon.**
+
+   ```bash
+   cargo run --release -p sbo3l-server -- --listen 127.0.0.1:8730
+   ```
+
+   The daemon binds to `127.0.0.1` by default — public binds are gated behind `SBO3L_ALLOW_UNSAFE_PUBLIC_BIND=1` after PR #88's safety gate.
+
+3. **Post a payment intent.**
+
+   In a second terminal, send an APRP envelope:
+
+   ```bash
+   curl -sS -X POST http://127.0.0.1:8730/v1/payment-requests \
+     -H "Authorization: Bearer dev-token" \
+     -H "Idempotency-Key: $(uuidgen)" \
+     -H "Content-Type: application/json" \
+     -d @- <<'JSON'
+   {
+     "agent_id": "research-agent-01",
+     "intent": "swap",
+     "amount": "0.05",
+     "asset": "ETH",
+     "chain": "sepolia",
+     "expiry": "2026-12-31T23:59:59Z",
+     "risk_class": "low",
+     "nonce": "01HZRG..."
+   }
+   JSON
+   ```
+
+   Expected response (truncated):
+
+   ```json
+   {
+     "decision": "allow",
+     "policy_receipt": {
+       "agent_id": "research-agent-01",
+       "request_hash": "…",
+       "decision": "allow",
+       "signature": "…ed25519…"
+     },
+     "execution_ref": null
+   }
+   ```
+
+4. **Verify the audit chain.**
+
+   ```bash
+   cargo run --release -p sbo3l-cli -- audit verify
+   ```
+
+   Expected: `audit chain OK · n=1 · root=0x…`. Exit code 0.
+
+5. **Emit and verify a Passport capsule.**
+
+   ```bash
+   cargo run --release -p sbo3l-cli -- passport run --request-hash <hash> > capsule.json
+   cargo run --release -p sbo3l-cli -- passport verify --strict --path capsule.json
+   ```
+
+   Expected: `capsule OK · 6 strict checks passed`. Exit code 0.
+
+</Steps>
+
+## What just happened
+
+Your APRP envelope was schema-validated, JCS-canonical-hashed, nonce-checked, policy-decided, budget-committed, audit-appended, and Ed25519-signed. The Passport capsule embeds enough state that anyone with your agent's public key — and no other context — can reconstruct that authorisation chain offline.
+
+## Next steps
+
+- **Read the [APRP wire format](/concepts/aprp)** to understand the envelope.
+- **Read [self-contained capsule v2](/concepts/capsule)** to understand offline verification.
+- **Browse the [CLI reference](/cli)** for every subcommand and exit-code contract.
+- **Explore the [SDKs](/sdks)** if you'd rather not call the daemon over raw HTTP.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `cargo build` fails on `ed25519-dalek` | Old Rust toolchain | `rustup update stable` |
+| Daemon refuses to start | Port already bound | `lsof -i :8730` and kill stale daemon |
+| `HTTP 401` on `POST /v1/payment-requests` | Missing `Authorization` header (post PR #91) | Add `-H "Authorization: Bearer dev-token"` |
+| `HTTP 409 protocol.idempotency_conflict` | Re-using `Idempotency-Key` with different body | Generate a new key per logical operation |

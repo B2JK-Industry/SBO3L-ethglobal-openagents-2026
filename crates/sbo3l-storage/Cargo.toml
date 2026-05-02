@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L storage: SQLite persistence and audit hash chain."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L storage: SQLite persistence + hash-chained audit log."
+keywords = ["sbo3l", "audit", "sqlite", "policy", "storage"]
+categories = ["database", "cryptography"]
 
 [dependencies]
 sbo3l-core = { workspace = true }
@@ -21,6 +26,18 @@ ed25519-dalek = { workspace = true }
 ulid = { workspace = true }
 # F-2: USD-string → cents conversion lives at the policy/storage boundary.
 rust_decimal = { workspace = true }
+
+# Postgres backend (production deployment). Off by default so the
+# default `cargo build -p sbo3l-storage` stays sqlite-only and fast.
+# Enable with `--features postgres`. CI gates the feature behind a
+# matrix axis (postgres job pulls a postgres:16 service container).
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio", "macros", "json", "uuid", "chrono"], optional = true }
+uuid = { version = "1", features = ["v4"], optional = true }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"], optional = true }
+
+[features]
+default = []
+postgres = ["dep:sqlx", "dep:uuid", "dep:tokio"]
 
 [dev-dependencies]
 tempfile = { workspace = true }

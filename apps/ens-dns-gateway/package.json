@@ -1,0 +1,32 @@
+{
+  "name": "@sbo3l/ens-dns-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DNS-over-HTTPS bridge from legacy DNS clients to ENS text records. Resolves <agent>.sbo3lagent.eth via standard DoH (RFC 8484) by fetching the agent's sbo3l:endpoint text record on demand. Scaffold — domain wiring + Vercel deploy gated on operator decision.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dns-packet": "^5.6.1",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/dns-packet": "^5.6.5",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

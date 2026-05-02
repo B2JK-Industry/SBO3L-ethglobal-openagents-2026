@@ -5,7 +5,24 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
 description = "SBO3L core: protocol types, request hashing, error model, signed receipts."
+keywords = ["sbo3l", "ed25519", "audit", "policy", "agent"]
+categories = ["cryptography", "data-structures"]
+
+[lib]
+# wasm-pack consumes the cdylib output for the #110 marketing-site
+# verifier; the rlib is kept so workspace consumers (sbo3l-policy,
+# sbo3l-server, sbo3l-cli, etc.) link unchanged. Native builds never
+# produce the cdylib.
+crate-type = ["cdylib", "rlib"]
+
+# wasm-pack bundled wasm-opt rejects rustc's bulk-memory ops; disable
+# the post-processing step. Size hit ~10-20% (acceptable hackathon-scope).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
 
 [dependencies]
 serde = { workspace = true }
@@ -21,6 +38,58 @@ rust_decimal = { workspace = true }
 ulid = { workspace = true }
 jsonschema = { workspace = true }
 
+# F-5 EthSigner backends. Pulled only when `eth_signer` feature is
+# enabled; default sbo3l-core builds don't include them.
+# - `k256`: RustCrypto pure-Rust secp256k1 (signing + recovery id).
+# - `tiny-keccak`: keccak256 for EIP-55 address derivation.
+k256 = { version = "0.13", features = ["ecdsa"], optional = true }
+tiny-keccak = { version = "2", features = ["keccak"], optional = true }
+curve25519-dalek = { version = "4.1.3", features = ["rand_core", "digest"] }
+blake3 = "1.8.5"
+frost-ed25519 = { version = "3", features = ["serialization"] }
+
+# R14 P3 — live AWS KMS EthSigner backend (feature `eth_kms_aws`).
+# Pulls aws-sdk-kms (~80 transitive crates); kept behind a dedicated
+# feature so the existing `aws_kms` Ed25519 stub stays compile-only.
+# `aws-smithy-mocks` provides a Rule-based MockResponseInterceptor so
+# unit tests exercise the real client + interceptor stack without a
+# network round-trip. `aws-smithy-types` is needed for `Blob`.
+aws-sdk-kms = { version = "1", default-features = false, features = ["rt-tokio", "rustls"], optional = true }
+aws-config = { version = "1", default-features = false, features = ["rt-tokio", "rustls"], optional = true }
+aws-smithy-types = { version = "1", optional = true }
+aws-smithy-mocks = { version = "0.2", optional = true }
+aws-smithy-runtime-api = { version = "1", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+
+# R14 P3 — live GCP KMS EthSigner backend (feature `eth_kms_gcp`).
+# `google-cloud-kms` 0.6 ships an `eth` feature wiring secp256k1 +
+# k256 directly — that path bypasses the manual DER-decode dance
+# entirely. We use the lower-level `AsymmetricSign` + `GetPublicKey`
+# RPCs ourselves to keep the mock-test surface portable across
+# AWS/GCP and to avoid pulling ethers-* into the dep tree.
+google-cloud-kms = { version = "0.6", default-features = false, features = ["rustls-tls", "auth"], optional = true }
+google-cloud-auth = { version = "0.17", default-features = false, features = ["rustls-tls"], optional = true }
+google-cloud-googleapis = { version = "0.16", optional = true }
+async-trait = { version = "0.1", optional = true }
+
+# `base64` is only used to strip the PEM envelope GCP returns for
+# pubkeys; both KMS features pull base64 transitively (smithy / tonic),
+# so making it a direct optional dep doesn't grow the dep tree.
+base64 = { version = "0.22", optional = true }
+
+# wasm32 verifier slice (`scripts/build-wasm-verifier.sh`): pin
+# `getrandom = { version = "0.3", features = ["wasm_js"] }` for the
+# wasm target so OsRng has a JS-side entropy source. Native targets
+# don't need it (the default backend is /dev/urandom on Unix and
+# BCryptGenRandom on Windows). Per `rand`'s wasm32 docs.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+# wasm-pack JS bridge for the #110 marketing-site verifier. Keeping
+# wasm-bindgen as a wasm-only dep means native sbo3l-core builds
+# don't pull a JS-binding crate they never use.
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+
 # F-5: KMS backends are feature-gated. Each feature compiles a stub
 # module today; the actual SDK dependency is pulled in by a follow-up
 # nightly task once Daniel provisions a test key. Until then, daemon
@@ -32,4 +101,43 @@ default = []
 aws_kms = []
 gcp_kms = []
 phala_tee = []
-eth_signer = []
+# eth_signer pulls k256 + tiny-keccak. Adds ~80 transitive crates;
+# default off so KeeperHub-only consumers don't pay for the EVM
+# stack they don't use.
+eth_signer = ["dep:k256", "dep:tiny-keccak"]
+
+# R14 P3 — live cloud-KMS secp256k1 backends. Each pulls its own
+# vendor SDK only when the feature is enabled. `eth_signer` is an
+# implicit dep (you can't sign EVM digests without the trait).
+eth_kms_aws = [
+    "eth_signer",
+    "dep:aws-sdk-kms",
+    "dep:aws-config",
+    "dep:aws-smithy-types",
+    "dep:aws-smithy-mocks",
+    "dep:aws-smithy-runtime-api",
+    "dep:tokio",
+    "dep:async-trait",
+]
+eth_kms_gcp = [
+    "eth_signer",
+    "dep:google-cloud-kms",
+    "dep:google-cloud-auth",
+    "dep:google-cloud-googleapis",
+    "dep:async-trait",
+    "dep:tokio",
+    "dep:base64",
+]
+
+[dev-dependencies]
+# `local_file` signer tests write secrets to per-test temp files +
+# verify the loader handles hex/raw inputs identically. Dev-dep
+# only — release `sbo3l-core` builds don't pull `tempfile`.
+tempfile = { workspace = true }
+
+# Property-based testing (R13 P1). Drives `tests/proptest_invariants.rs`:
+# APRP wire-format roundtrip, JCS-canonical hash determinism, byte-flip
+# tamper-detection on chain hashes, audit-event linkage. Default 256
+# cases per property; `PROPTEST_CASES=100000` env var enables long-run
+# mode under nightly CI.
+proptest = { workspace = true }

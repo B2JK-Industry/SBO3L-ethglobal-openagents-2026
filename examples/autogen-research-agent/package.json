@@ -1,0 +1,26 @@
+{
+  "name": "@sbo3l/example-autogen-research-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end AutoGen function-calling agent with two tools (data_fetch + sbo3l_payment_request). Demonstrates the AutoGen function descriptor shape calling SBO3L for every payment, routed via KH workflow m4t4cnpmhv8qquce3bv3c.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/autogen": "file:../../integrations/autogen",
+    "@sbo3l/sdk": "^1.0.0",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

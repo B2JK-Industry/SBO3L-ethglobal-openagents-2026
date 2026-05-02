@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "SBO3L",
+    "slug": "sbo3l-mobile",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "sbo3l",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0e1a"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.sbo3l.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SBO3L scans Passport capsule QR codes for offline verification.",
+        "NSFaceIDUsageDescription": "SBO3L uses Face ID to confirm policy decision approvals."
+      }
+    },
+    "android": {
+      "package": "dev.sbo3l.mobile",
+      "permissions": ["CAMERA", "USE_BIOMETRIC"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0e1a"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-notifications", { "color": "#4ade80" }],
+      ["expo-camera", { "cameraPermission": "Allow $(PRODUCT_NAME) to scan Passport QR codes." }]
+    ],
+    "extra": {
+      "eas": { "projectId": "00000000-0000-0000-0000-000000000000" },
+      "apiBaseUrl": "https://sbo3l-app.vercel.app"
+    }
+  }
+}

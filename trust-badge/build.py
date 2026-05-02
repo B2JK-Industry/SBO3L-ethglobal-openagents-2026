@@ -29,7 +29,10 @@ EXPECTED_SCHEMA = "sbo3l-demo-summary-v1"
 # not gathered" placeholder. Tests pin the render path against the on-main
 # golden fixture in `test-corpus/passport/`.
 DEFAULT_CAPSULE = REPO_ROOT / "demo-scripts" / "artifacts" / "passport-allow.json"
+# Accept both v1 (Passport P2.1) and v2 (P6.1 schema bump that added
+# execution.executor_evidence). The viewer's read paths are forward-compatible.
 EXPECTED_CAPSULE_SCHEMA = "sbo3l.passport_capsule.v1"
+ACCEPTED_CAPSULE_SCHEMAS = {"sbo3l.passport_capsule.v1", "sbo3l.passport_capsule.v2"}
 
 
 def esc(value) -> str:
@@ -103,7 +106,7 @@ def load_capsule(path: Path) -> tuple[dict | None, str]:
         return None, "unreadable"
     except json.JSONDecodeError:
         return None, "parse_failed"
-    if not isinstance(doc, dict) or doc.get("schema") != EXPECTED_CAPSULE_SCHEMA:
+    if not isinstance(doc, dict) or doc.get("schema") not in ACCEPTED_CAPSULE_SCHEMAS:
         return None, "wrong_schema"
     if _capsule_structural_violation(doc) is not None:
         return None, "tampered"

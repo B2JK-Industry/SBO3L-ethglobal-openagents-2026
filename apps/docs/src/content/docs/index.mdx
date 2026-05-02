@@ -38,3 +38,30 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 SBO3L is the cryptographically verifiable trust layer for autonomous AI agents. Every action your agent takes — pay, swap, store, compute, coordinate — passes through SBO3L's policy boundary first: schema validation, deterministic policy decision, multi-scope budgeting, Ed25519-signed receipts, hash-chained audit log, sponsor adapter routing.
 
 Output: a self-contained Passport capsule anyone can verify offline against the agent's published Ed25519 pubkey alone — no daemon, no network, no RPC.
+
+## Phase 3 surfaces
+
+Phase 3 extends the trust boundary across protocols, chains, and tenants. New conceptual guides:
+
+<CardGrid>
+  <Card title="Audit anchoring" icon="seti:lock">
+    Merkle-root commits to L1 turn the local audit chain into ledger-verifiable proof.
+    [On-chain audit anchoring →](/concepts/audit-anchoring)
+  </Card>
+  <Card title="Multi-tenant" icon="seti:folder">
+    One daemon, N tenants, hard isolation across DB / signer / HTTP layers (V010 migration).
+    [Multi-tenant →](/concepts/multi-tenant)
+  </Card>
+  <Card title="Marketplace" icon="seti:json">
+    Content-addressed signed policies; reputation scored from real fleet observations.
+    [Marketplace →](/concepts/marketplace)
+  </Card>
+  <Card title="Token-gated identity" icon="seti:lock">
+    Bind agent authority to ERC-721 / 1155 ownership; AnyOf / AllOf composites; time windows.
+    [Token-gated identity →](/concepts/token-gated-identity)
+  </Card>
+  <Card title="Cross-protocol composition" icon="seti:plan">
+    14 framework adapters share one audit chain — wallet vs mandate, end-to-end.
+    [Cross-protocol composition →](/concepts/cross-protocol-composition)
+  </Card>
+</CardGrid>

@@ -4,3 +4,8 @@ node_modules/
 .env
 .env.production
 *.tsbuildinfo
+
+# Materialised at prebuild from docs/submission/bounty-*.md by
+# scripts/copy-bounty-pages.mjs — regenerated on every build, so
+# don't commit.
+src/content/submissions/

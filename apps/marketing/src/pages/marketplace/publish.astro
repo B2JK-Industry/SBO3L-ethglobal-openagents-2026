@@ -1,0 +1,79 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+---
+<BaseLayout
+  title="Publish a policy — Marketplace"
+  description="Submit your SBO3L policy to the marketplace. Audit + sign + reputation flow lives in the hosted app."
+  ogTitle="SBO3L Marketplace · Publish"
+>
+  <a href="/marketplace" class="back-cta">← Marketplace</a>
+
+  <section class="publish">
+    <p class="eyebrow">Phase 3 · Marketplace · Author flow</p>
+    <h1>Publish a policy</h1>
+    <p class="lede">
+      Authoring is a four-step flow: edit → sign → register → adopt. The first three steps live inside the hosted app — the marketing site doesn't accept private keys; nothing here ever sees your signing material.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h2>1. Edit</h2>
+        <p>
+          Open the policy editor in the hosted app. Monaco autocompletes against the <code>sbo3l.policy.v1</code> schema; inline diagnostics flag unknown fields. Test against any APRP envelope via the dry-run pane.
+        </p>
+        <a class="btn primary" href="https://sbo3l-hosted-app.vercel.app/policy/edit">Open editor →</a>
+      </li>
+
+      <li>
+        <h2>2. Sign</h2>
+        <p>
+          When the policy validates, sign it with your KMS-backed signer (in-memory, file, AWS KMS, GCP KMS, or Vault — see <a href="https://sbo3l-docs.vercel.app/concepts/signing">/concepts/signing</a>). Output: a signed JSON document with <code>issuer</code>, <code>policy_snapshot_hash</code>, and <code>signature</code> fields.
+        </p>
+      </li>
+
+      <li>
+        <h2>3. Register</h2>
+        <p>
+          POST the signed document to the marketplace registry endpoint. The registry verifies the signature, computes the <code>policy_id</code>, indexes the rules + budgets, and emits a <code>policy.published</code> audit event. Initial reputation score: 0.50 (community baseline); rises with adoption + observed decision outcomes.
+        </p>
+        <p class="mono note">
+          Endpoint: <code>POST sbo3l-app.vercel.app/api/marketplace/register</code> (admin-gated). Today this surface is private; ask Daniel for early-adopter access.
+        </p>
+      </li>
+
+      <li>
+        <h2>4. Adopt</h2>
+        <p>
+          Once registered, your policy appears in the public listing. Adopters pin it via <code>policy.toml</code> in their daemon (<code>id = "&lt;your-policy-id&gt;"</code>). Each adoption + each successful decision under your policy contributes to your reputation score.
+        </p>
+      </li>
+    </ol>
+
+    <aside class="phase3-banner">
+      <p>
+        <strong>Phase 3 status:</strong> the marketplace registry is live for daemon-side reads (browse + adopt). Author-side write is admin-gated until the reputation system finishes calibrating against the 60-agent fleet (<a href="/submission/ens-most-creative">ENS-AGENT-A1</a>). Email <code>marketplace@sbo3l.dev</code> for early-adopter access.
+      </p>
+    </aside>
+  </section>
+</BaseLayout>
+
+<style>
+  .back-cta { position: sticky; top: 0; z-index: 5; display: block; background: var(--code-bg); border-bottom: 1px solid var(--border); color: var(--accent); padding: 0.6em 1.5em; font-weight: 600; text-decoration: none; font-size: 0.9em; }
+  .back-cta:hover { background: var(--bg); text-decoration: none; }
+
+  .publish { max-width: var(--max); margin: 2em auto 4em; padding: 0 1.5em; }
+  .publish .eyebrow { color: var(--accent); font-family: var(--font-mono); font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5em; }
+  .publish h1 { font-size: var(--fs-3); margin-bottom: 0.5em; }
+  .publish .lede { color: var(--muted); font-size: var(--fs-2); max-width: 720px; margin-bottom: 2em; }
+
+  .steps { list-style: none; padding: 0; counter-reset: step; display: grid; gap: 1em; margin: 0 0 2em; }
+  .steps li { padding: 1.4em; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--code-bg); }
+  .steps h2 { font-size: 1.1em; font-weight: 700; margin-bottom: 0.5em; }
+  .steps p { color: var(--muted); margin-bottom: 0.6em; line-height: 1.6; }
+  .steps p:last-child { margin-bottom: 0; }
+  .steps .mono { font-family: var(--font-mono); font-size: 0.85em; }
+  .steps .note { color: var(--muted); margin-top: 0.4em; }
+
+  .phase3-banner { padding: 1.2em 1.4em; border-left: 3px solid var(--accent); background: var(--code-bg); border-radius: 0 var(--r-md) var(--r-md) 0; color: var(--muted); font-size: 0.92em; }
+  .phase3-banner strong { color: var(--fg); }
+</style>

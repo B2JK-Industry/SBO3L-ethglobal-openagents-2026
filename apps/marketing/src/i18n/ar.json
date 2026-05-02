@@ -1,0 +1,25 @@
+{
+  "_meta": { "rtl": true },
+  "common": {
+    "tagline_part1": "لا تعطِ وكيلك محفظة.",
+    "tagline_part2": "أعطه تفويضاً.",
+    "_TODO_AR_REVIEW_tagline": "Native Arabic reviewer: confirm 'تفويض' (delegation/mandate) vs 'وكالة' (agency); the former preserves the policy-authorization framing.",
+    "cta_start": "ابدأ في 5 دقائق",
+    "cta_view_source": "عرض الكود المصدري",
+    "cta_walk_demo": "تجربة العرض التوضيحي",
+    "cta_verify": "تحقق من الكبسولة بنفسك",
+    "nav_features": "الميزات",
+    "nav_proof": "الإثبات",
+    "nav_demo": "العرض التوضيحي",
+    "nav_docs": "التوثيق",
+    "nav_github": "GitHub",
+    "nav_quickstart": "البدء السريع",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — تقديم"
+  },
+  "index": {
+    "lede": "SBO3L هي طبقة الثقة القابلة للتحقق تشفيرياً لوكلاء الذكاء الاصطناعي المستقلين. كل إجراء يقوم به وكيلك — الدفع، التبادل، التخزين، الحساب، التنسيق — يمر أولاً عبر حدود سياسة SBO3L."
+  },
+  "submission": {
+    "h1": "طبقة الثقة القابلة للتحقق تشفيرياً لوكلاء الذكاء الاصطناعي المستقلين."
+  }
+}

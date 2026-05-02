@@ -7,14 +7,15 @@ use sha2::Digest;
 
 use crate::error::{StorageError, StorageResult};
 
-pub const V001_SQL: &str = include_str!("../../../migrations/V001__init.sql");
-pub const V002_SQL: &str = include_str!("../../../migrations/V002__nonce_replay.sql");
-pub const V004_SQL: &str = include_str!("../../../migrations/V004__idempotency_keys.sql");
-pub const V005_SQL: &str = include_str!("../../../migrations/V005__mock_kms_keys.sql");
-pub const V006_SQL: &str = include_str!("../../../migrations/V006__active_policy.sql");
-pub const V007_SQL: &str = include_str!("../../../migrations/V007__audit_checkpoints.sql");
-pub const V008_SQL: &str = include_str!("../../../migrations/V008__budget_state.sql");
-pub const V009_SQL: &str = include_str!("../../../migrations/V009__idempotency_atomicity.sql");
+pub const V001_SQL: &str = include_str!("../migrations/V001__init.sql");
+pub const V002_SQL: &str = include_str!("../migrations/V002__nonce_replay.sql");
+pub const V004_SQL: &str = include_str!("../migrations/V004__idempotency_keys.sql");
+pub const V005_SQL: &str = include_str!("../migrations/V005__mock_kms_keys.sql");
+pub const V006_SQL: &str = include_str!("../migrations/V006__active_policy.sql");
+pub const V007_SQL: &str = include_str!("../migrations/V007__audit_checkpoints.sql");
+pub const V008_SQL: &str = include_str!("../migrations/V008__budget_state.sql");
+pub const V009_SQL: &str = include_str!("../migrations/V009__idempotency_atomicity.sql");
+pub const V010_SQL: &str = include_str!("../migrations/V010__tenant_scoping.sql");
 
 // V003 reserved for an experiment that did not land. V004 = PSM-A2
 // (idempotency_keys, PR #23). V005 = PSM-A1.9 (mock_kms_keys, PR #28).
@@ -31,6 +32,7 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
     (7, "audit_checkpoints", V007_SQL),
     (8, "budget_state", V008_SQL),
     (9, "idempotency_atomicity", V009_SQL),
+    (10, "tenant_scoping", V010_SQL),
 ];
 
 pub struct Storage {

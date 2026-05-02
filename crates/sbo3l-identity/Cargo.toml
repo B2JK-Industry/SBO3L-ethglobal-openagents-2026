@@ -5,15 +5,32 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L identity: ENS agent identity resolution."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L identity: ENS-backed agent identity resolution (offline fixture + live RPC)."
+keywords = ["sbo3l", "ens", "identity", "agent", "ethereum"]
+categories = ["api-bindings"]
 
 [dependencies]
 sbo3l-core = { workspace = true }
+# T-4-6 reputation publisher: depends on policy::reputation::compute_reputation_v2.
+# No cycle (sbo3l-policy depends on sbo3l-core; identity also depends on core).
+sbo3l-policy = { workspace = true, features = ["budget"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# T-3-4 cross-agent: JCS canonicalisation for the signed-challenge
+# wire format so two agents on different stacks see byte-identical
+# signing input.
+serde_json_canonicalizer = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
+# T-3-4 cross-agent: Ed25519 sign / verify for peer challenges. The
+# CLI side uses sbo3l-core's signer infrastructure; this crate
+# verifies a peer's signature directly against the pubkey it pulls
+# via getEnsText, so dalek lives here too.
+ed25519-dalek = { workspace = true }
 # B3 anchor side + LiveEnsResolver: keccak256 for ENS namehash and
 # function selectors. Crate-local (not workspace) to keep blast
 # radius small — only the live-resolver and anchor-envelope paths
@@ -25,3 +42,5 @@ tiny-keccak = { version = "2", features = ["keccak"] }
 # scoped to this crate; CI tests use an in-process fake transport,
 # so the blocking client is only exercised in real runtime.
 reqwest = { workspace = true, features = ["blocking"] }
+# (T-3-8 cross-chain attestation reuses ed25519-dalek + serde_json_canonicalizer
+# already declared above for T-3-4.)

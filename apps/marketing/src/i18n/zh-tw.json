@@ -1,0 +1,23 @@
+{
+  "common": {
+    "tagline_part1": "不要給你的代理一個錢包。",
+    "tagline_part2": "給它一個授權。",
+    "cta_start": "5 分鐘開始",
+    "cta_view_source": "檢視原始碼",
+    "cta_walk_demo": "瀏覽展示",
+    "cta_verify": "親自驗證膠囊",
+    "nav_features": "功能",
+    "nav_proof": "證明",
+    "nav_demo": "展示",
+    "nav_docs": "文件",
+    "nav_github": "GitHub",
+    "nav_quickstart": "快速開始",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — 提交作品"
+  },
+  "index": {
+    "lede": "SBO3L 是面向自主 AI 代理的可密碼學驗證信任層。代理執行的每個操作 — 付款、交換、儲存、計算、協調 — 都先經過 SBO3L 的政策邊界。"
+  },
+  "submission": {
+    "h1": "面向自主 AI 代理的可密碼學驗證信任層。"
+  }
+}

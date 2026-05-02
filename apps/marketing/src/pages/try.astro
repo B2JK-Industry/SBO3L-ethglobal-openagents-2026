@@ -1,0 +1,226 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+// 8-section sticky-scroll walkthrough. Left column sticks the title +
+// progress as the user scrolls; right column reveals the code example
+// for each step. Pure CSS sticky positioning + scroll-driven section
+// reveals — no IntersectionObserver, no JS.
+
+const sections = [
+  {
+    n: 1,
+    title: "An agent wants to act",
+    blurb: "Whatever the action — swap, transfer, store, compute — the agent serializes the intent into an APRP envelope before executing.",
+    code: `{
+  "schema_version": 1,
+  "agent_id": "research-01",
+  "intent": {
+    "kind": "erc20.transfer",
+    "to": "0xabc...",
+    "token": "USDC",
+    "amount": 50000
+  },
+  "nonce": "01HZRG-7e8dC1...",
+  "timestamp_ms": 1714565000000
+}`,
+    lang: "json",
+    caption: "APRP — Agent Policy Request Protocol",
+  },
+  {
+    n: 2,
+    title: "SBO3L canonicalizes the request",
+    blurb: "JCS (RFC 8785) produces a byte-exact canonical JSON. Hashed with SHA-256 to get the request_hash that anchors every downstream step.",
+    code: `request_hash = sha256(jcs(aprp_envelope))
+                = 0xe044f1a7b9c2d385f602e1...`,
+    lang: "rs",
+    caption: "Same hash on every implementation — Rust, TypeScript, Python.",
+  },
+  {
+    n: 3,
+    title: "Nonce gate (replay defense)",
+    blurb: "If the same nonce was seen before, deny with HTTP 409 protocol.nonce_replay. Nonces are stored in a hash-chained table; clearing requires a deliberate audit op.",
+    code: `if nonce_seen(envelope.nonce) {
+  return Decision::deny("protocol.nonce_replay");
+}
+nonce_store.commit(envelope.nonce, request_hash)?;`,
+    lang: "rs",
+  },
+  {
+    n: 4,
+    title: "Policy evaluation",
+    blurb: "Deterministic top-down match against the tenant's policy. Every rule produces a verdict + matched_rule_id. Policy itself is hashed; the hash is part of the receipt so verifiers know which policy version decided.",
+    code: `[[intents]]
+kind = "erc20.transfer"
+where.to = { allowlist = ["acme-treasury", "payroll"] }
+where.token = { allowlist = ["USDC", "USDT", "DAI"] }
+where.amount = { lte_per_24h = 50000 }
+require = [{ human_2fa = true, when = { amount = { gt = 10000 } } }]`,
+    lang: "toml",
+    caption: "Policy override surface — inherits sbo3l.root@1",
+  },
+  {
+    n: 5,
+    title: "Budget commit",
+    blurb: "Multi-scope budget atomic update — per-day, per-month, per-counterparty. Lookups use rust_decimal for cent-exact USD math; no float drift.",
+    code: `let mut tx = budget_store.begin()?;
+let day = tx.spent_today(intent.token)?;
+if day + intent.amount > policy.lte_per_24h {
+  return Decision::deny("policy.budget_exceeded");
+}
+tx.commit_spend(intent.token, intent.amount)?;`,
+    lang: "rs",
+  },
+  {
+    n: 6,
+    title: "Audit append (hash-chained)",
+    blurb: "Every decision appends to a hash chain — `audit_event { prev: prev_hash, hash: sha256(prev || event_canonical) }`. A single byte-flip anywhere in history breaks the chain; verifier rejects with rc=1.",
+    code: `let prev = audit_store.tip()?;
+let event_canonical = jcs(audit_event)?;
+let hash = sha256_concat(prev.hash, event_canonical);
+audit_store.append(audit_event, hash)?;`,
+    lang: "rs",
+  },
+  {
+    n: 7,
+    title: "Receipt + capsule",
+    blurb: "The daemon signs the (request_hash, decision, policy_hash, audit_event_id) tuple with its Ed25519 key. The capsule packs receipt + policy + audit-chain proof into a self-contained JSON anyone can verify offline.",
+    code: `{
+  "schema": "sbo3l.passport_capsule.v1",
+  "receipt": {
+    "request_hash": "0xe044f1...",
+    "outcome": "deny",
+    "deny_code": "policy.budget_exceeded",
+    "policy_hash": "0x9bc7de...",
+    "audit_event_id": "01HZRG-D3F4...",
+    "signature": "ed25519:5f8A2B..."
+  },
+  "evidence": { ... },
+  "verifier_pubkey": "ed25519:5f8A2B..."
+}`,
+    lang: "json",
+    caption: "capsule.json — drop into /proof to verify",
+  },
+  {
+    n: 8,
+    title: "Verify offline anytime, anywhere",
+    blurb: "Anyone with the capsule + the agent's public key can verify all 6 strict-mode checks in WASM (browser), Node, Python, or Rust. Zero network calls, zero daemon dependency.",
+    code: `import { verifyCapsule } from "@sbo3l/wasm-verifier";
+
+const ok = verifyCapsule(JSON.parse(capsuleJson));
+//  → ✓ APRP signature
+//  → ✓ Policy hash matches signed_policy_store
+//  → ✓ Decision deterministic-replay matches
+//  → ✓ Audit chain link valid (prev_hash, sha256)
+//  → ✓ Public key is the registered ENS verifier
+//  → ✓ Strict-mode (no missing fields, no unknown fields)`,
+    lang: "ts",
+  },
+];
+---
+<BaseLayout
+  title="Try SBO3L — interactive walkthrough"
+  description="The 8-step path from agent intent to offline-verifiable capsule. Sticky-scroll walkthrough with the actual code at each step."
+>
+  <header class="hero">
+    <p class="eyebrow">Interactive walkthrough · 5-min read</p>
+    <h1>From intent to verifiable capsule, in 8 steps</h1>
+    <p class="lede">
+      Scroll to walk through the full SBO3L pipeline — every step shows
+      the code that runs at that point. By the end, you'll know what
+      ends up in a Passport capsule and why every byte is necessary.
+    </p>
+  </header>
+
+  <section class="walk">
+    {sections.map((s) => (
+      <div class="step">
+        <aside class="lhs">
+          <div class="step-num">{s.n} <span>/ 8</span></div>
+          <h2>{s.title}</h2>
+          <p>{s.blurb}</p>
+        </aside>
+        <div class="rhs">
+          <pre class="code"><code class={`language-${s.lang}`}>{s.code}</code></pre>
+          {s.caption && <p class="caption">{s.caption}</p>}
+        </div>
+      </div>
+    ))}
+  </section>
+
+  <footer class="cta">
+    <h2>Run it yourself</h2>
+    <p>
+      <a class="btn primary" href="/quickstart/nodejs">5-min Node.js quickstart</a>
+      <a class="btn ghost" href="/playground">WASM playground</a>
+      <a class="btn ghost" href="/proof">Drop a capsule on /proof to verify</a>
+    </p>
+  </footer>
+</BaseLayout>
+
+<style>
+  .hero { max-width: 760px; margin: 4em auto 2em; padding: 0 1.5em; }
+  .eyebrow { color: var(--accent); font-size: 0.85em; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.5em; font-family: var(--font-mono); }
+  .hero h1 { font-size: var(--fs-4); font-weight: 700; margin: 0 0 0.5em; line-height: 1.2; }
+  .hero .lede { font-size: var(--fs-2); color: var(--muted); max-width: 660px; }
+
+  .walk { max-width: 1200px; margin: 2em auto; padding: 0 1.5em; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 3em;
+    margin-bottom: 5em;
+    align-items: start;
+  }
+
+  .lhs {
+    position: sticky;
+    top: 6em;
+    align-self: start;
+  }
+  .step-num {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    margin-bottom: 0.6em;
+  }
+  .step-num span { color: var(--muted); }
+
+  .lhs h2 { font-size: 1.4em; font-weight: 700; margin: 0 0 0.6em; line-height: 1.3; }
+  .lhs p { color: var(--muted); line-height: 1.65; max-width: 50ch; }
+
+  .rhs { min-width: 0; }
+  .code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1.1em 1.3em;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .caption {
+    margin: 0.5em 0 0;
+    color: var(--muted);
+    font-size: 0.85em;
+    font-style: italic;
+  }
+
+  .cta {
+    max-width: 760px;
+    margin: 4em auto;
+    padding: 2em 1.5em;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  .cta h2 { font-size: 1.5em; font-weight: 600; margin-bottom: 0.7em; }
+  .cta .btn { margin: 0.3em; }
+
+  @media (max-width: 900px) {
+    .step { grid-template-columns: 1fr; gap: 1em; margin-bottom: 3em; }
+    .lhs { position: static; }
+  }
+</style>

@@ -1,16 +1,45 @@
 ---
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+const docsUrl = "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/docs/";
 ---
-<header>
-  <nav>
-    <a href="/" class="brand">SBO3L</a>
+<header role="banner">
+  <nav aria-label="Primary">
+    <a href="/" class="brand" aria-label="SBO3L home">SBO3L</a>
     <div class="links">
-      <a href={githubRepoUrl}>GitHub</a>
+      <a href={githubRepoUrl} rel="noopener">GitHub</a>
       <a href="/proof">Proof</a>
-      <a href={`${githubRepoUrl}/blob/main/QUICKSTART.md`}>Quickstart</a>
+      <a href={`${githubRepoUrl}/blob/main/QUICKSTART.md`} rel="noopener">Quickstart</a>
+      <a href={docsUrl} class="search-hint" data-docs-url={docsUrl} aria-label="Search docs (Cmd+K)">
+        <span aria-hidden="true">⌘K</span>
+        <span class="sr-only">Search docs</span>
+      </a>
     </div>
   </nav>
 </header>
+
+<script>
+  // Cmd+K (Mac) / Ctrl+K (others) → open docs site (Starlight has
+  // built-in pagefind search). On the docs site itself the same
+  // shortcut focuses Starlight's native search box.
+  //
+  // Self-review fix: dropped `is:inline` so Astro bundles this as a
+  // hashed static file. The marketing site's strict CSP
+  // (script-src 'self' 'wasm-unsafe-eval' per vercel.json) blocks
+  // inline scripts; the previous `is:inline` would have failed CSP
+  // in production, leaving Cmd+K silently broken on the deployed site.
+  function onKey(e: KeyboardEvent): void {
+    const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+    if (!isCmdK) return;
+    const target = e.target;
+    const isInput = target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+    if (isInput) return;
+    e.preventDefault();
+    const link = document.querySelector("a.search-hint");
+    const url = link instanceof HTMLAnchorElement ? link.getAttribute("data-docs-url") : null;
+    if (url) window.location.href = url;
+  }
+  document.addEventListener("keydown", onKey);
+</script>
 
 <style>
   header { border-bottom: 1px solid var(--border); padding: 1em 1.5em; }
@@ -25,9 +54,30 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
   }
   .brand { font-weight: 700; font-size: 1.2em; color: var(--fg); }
   .brand:hover { text-decoration: none; color: var(--accent); }
-  .links { display: flex; gap: 1.6em; flex-wrap: wrap; }
+  .links { display: flex; gap: 1.6em; flex-wrap: wrap; align-items: center; }
+  .search-hint {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 0.2em 0.5em;
+    color: var(--muted);
+  }
+  .search-hint:hover { color: var(--fg); border-color: var(--accent); text-decoration: none; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
   @media (max-width: 640px) {
     nav { gap: 1em; }
     .links { gap: 1em; font-size: 0.95em; }
+    .search-hint { display: none; }
   }
 </style>

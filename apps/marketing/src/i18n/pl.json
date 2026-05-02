@@ -1,0 +1,35 @@
+{
+  "common": {
+    "tagline_part1": "Nie dawaj agentowi portfela.",
+    "tagline_part2": "Daj mu mandat.",
+    "cta_start": "Zacznij w 5 minut",
+    "cta_view_source": "Zobacz kod źródłowy",
+    "cta_walk_demo": "Przejdź demo",
+    "cta_verify": "Zweryfikuj kapsułę samodzielnie",
+    "nav_features": "Funkcje",
+    "nav_proof": "Dowód",
+    "nav_demo": "Demo",
+    "nav_docs": "Dokumentacja",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Szybki start",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — Zgłoszenie"
+  },
+  "index": {
+    "lede": "SBO3L to kryptograficznie weryfikowalna warstwa zaufania dla autonomicznych agentów AI. Każda akcja Twojego agenta — płatność, wymiana, przechowywanie, obliczenia, koordynacja — najpierw przechodzi przez granicę policy SBO3L.",
+    "section_what_is": "Czym jest SBO3L",
+    "section_what_blocks": "Co SBO3L blokuje",
+    "section_evidence": "Dowody integracji na żywo",
+    "section_arch": "Architektura",
+    "section_reproduce": "Odtwórz samodzielnie",
+    "section_resources": "Zasoby",
+    "what_is_blurb": "Workspace Rust implementujący lokalną zaporę policy + budżet + paragon + audyt dla agentów AI. Zezwól → kieruje do executora sponsora. Odmów → executor nigdy nie jest wywoływany."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Zgłoszenie",
+    "h1": "Kryptograficznie weryfikowalna warstwa zaufania dla autonomicznych agentów AI."
+  },
+  "proof": {
+    "h1": "Weryfikuj kapsułę Passport",
+    "lede": "Wklej lub upuść kapsułę. Wszystkie 6 kontroli strict-mode działa w Twojej przeglądarce przez sbo3l-core skompilowany do WASM."
+  }
+}

@@ -1,0 +1,86 @@
+name: Proptest invariants
+
+# R13 P1 — property-based testing for sbo3l-core invariants.
+# - PR / push: default mode (256 cases per property; ~5s).
+# - Nightly: long-run mode (PROPTEST_CASES=100000; ~10-30 min).
+# - Manual dispatch: configurable case count.
+#
+# Properties verified (see crates/sbo3l-core/tests/proptest_invariants.rs):
+#   1. APRP wire-format roundtrip
+#   2. JCS-canonical hash determinism
+#   3. SHA-256 byte-flip avalanche
+#   4. Audit-event canonical-hash linkage non-collision
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "crates/sbo3l-core/**"
+      - ".github/workflows/proptest.yml"
+  pull_request:
+    paths:
+      - "crates/sbo3l-core/**"
+      - ".github/workflows/proptest.yml"
+  schedule:
+    # 03:30 UTC nightly — long-run mode.
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: "PROPTEST_CASES per property (default 256; nightly 100000)"
+        required: false
+        default: "10000"
+
+permissions:
+  contents: read
+
+jobs:
+  proptest:
+    name: Proptest invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: proptest-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+
+      - name: Determine PROPTEST_CASES
+        id: cases
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "cases=100000" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "cases=${{ inputs.cases }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "cases=256" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run proptest invariants
+        env:
+          PROPTEST_CASES: ${{ steps.cases.outputs.cases }}
+        run: |
+          echo "::notice::Running with PROPTEST_CASES=$PROPTEST_CASES"
+          cargo test \
+            --package sbo3l-core \
+            --test proptest_invariants \
+            --release \
+            -- --nocapture
+
+      - name: Save proptest regression files (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proptest-regressions
+          path: crates/sbo3l-core/proptest-regressions/
+          if-no-files-found: ignore

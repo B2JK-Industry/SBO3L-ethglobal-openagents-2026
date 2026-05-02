@@ -1,22 +1,33 @@
 ---
 import Nav from "~/components/Nav.astro";
 import Footer from "~/components/Footer.astro";
+import { isLocale, isRtlLocale, DEFAULT_LOCALE, type Locale } from "~/i18n";
 import "~/styles/global.css";
 
 interface Props {
   title: string;
   description?: string;
   ogTitle?: string;
+  lang?: string;
 }
 
 const {
   title,
   description = "SBO3L is the cryptographically verifiable trust layer for autonomous AI agents.",
   ogTitle = "SBO3L — Agent Trust Layer",
+  lang,
 } = Astro.props;
+
+// Self-review fix: derive lang + dir from Astro.currentLocale rather than
+// trusting the prop default. The previous default of `lang = "en"` meant
+// every locale rendered as `<html lang="en">` (wrong) and AR/HE never got
+// `dir="rtl"` despite isRtlLocale() existing in src/i18n.
+const currentLocale: Locale = isLocale(Astro.currentLocale) ? Astro.currentLocale : DEFAULT_LOCALE;
+const resolvedLang = lang ?? currentLocale;
+const dir = isRtlLocale(currentLocale) ? "rtl" : "ltr";
 ---
 <!doctype html>
-<html lang="en">
+<html lang={resolvedLang} dir={dir}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -25,13 +36,41 @@ const {
     <meta property="og:title" content={ogTitle} />
     <meta property="og:description" content="Don't give your agent a wallet. Give it a mandate." />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-default.svg" />
+    <meta property="og:image:alt" content="SBO3L — the cryptographically verifiable trust layer for autonomous AI agents." />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={ogTitle} />
+    <meta name="twitter:description" content="Don't give your agent a wallet. Give it a mandate." />
+    <meta name="twitter:image" content="/og-default.svg" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
+    <a href="#main" class="skip-link">Skip to main content</a>
     <Nav />
-    <main>
+    <main id="main" tabindex="-1">
       <slot />
     </main>
     <Footer />
+    <style is:global>
+      /* Skip-link — visually hidden until focused; first interactive
+         element on the page so keyboard users land on it after Tab. */
+      .skip-link {
+        position: absolute;
+        top: -3em;
+        left: 0;
+        padding: 0.6em 1em;
+        background: var(--accent);
+        color: var(--bg);
+        font-weight: 600;
+        z-index: 100;
+        text-decoration: none;
+        transition: top 0.15s;
+      }
+      .skip-link:focus { top: 0; outline: 2px solid var(--fg); outline-offset: 2px; }
+      main:focus { outline: none; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+    </style>
   </body>
 </html>

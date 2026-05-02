@@ -1,0 +1,19 @@
+{
+  "name": "@sbo3l/multi-confirm-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/autogen": "file:/workspace/integrations/autogen",
+    "@sbo3l/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}

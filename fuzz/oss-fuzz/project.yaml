@@ -1,0 +1,16 @@
+# OSS-Fuzz project descriptor.
+# Submit by PR to https://github.com/google/oss-fuzz adding a directory
+# `projects/sbo3l/` containing this file + Dockerfile + build.sh.
+
+homepage: "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+language: rust
+primary_contact: "security@sbo3l.dev"
+auto_ccs:
+  - "babjak_daniel@hotmail.com"
+sanitizers:
+  - address
+  - undefined
+fuzzing_engines:
+  - libfuzzer
+main_repo: "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+file_github_issue: true

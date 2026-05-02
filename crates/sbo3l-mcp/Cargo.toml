@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L MCP — stdio JSON-RPC server wrapping SBO3L primitives (Passport P3.1)."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L MCP — stdio JSON-RPC server wrapping SBO3L primitives (validate_aprp, decide, run_guarded_execution, verify_capsule, audit_lookup, explain_denial)."
+keywords = ["sbo3l", "mcp", "agent", "policy", "ai"]
+categories = ["command-line-utilities", "api-bindings"]
 
 [[bin]]
 name = "sbo3l-mcp"
@@ -16,11 +21,11 @@ path = "src/main.rs"
 # No new logic: validate_aprp / verify_capsule / build / verify in sbo3l-core,
 # AppState + router in sbo3l-server, executor mocks in sbo3l-execution.
 sbo3l-core = { workspace = true }
-sbo3l-policy = { workspace = true }
+sbo3l-policy = { workspace = true, features = ["budget"] }
 sbo3l-storage = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }
-sbo3l-server = { path = "../sbo3l-server" }
+sbo3l-server = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }

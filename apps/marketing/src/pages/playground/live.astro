@@ -1,0 +1,360 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import { SCENARIOS } from "~/lib/playground/scenarios";
+
+// Default API endpoint — override via PUBLIC_PLAYGROUND_API_URL when
+// developing against a local Tier-3. The deployed marketing build
+// bakes whichever URL is current at build time.
+const apiBase = import.meta.env.PUBLIC_PLAYGROUND_API_URL ?? "https://sbo3l-playground-api.vercel.app";
+const githubBaseUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+---
+<BaseLayout
+  title="SBO3L live playground — real signed receipts"
+  description="Tier-3 of the SBO3L playground. Submit an APRP + policy to a real Vercel-hosted daemon, get back a signed capsule with on-chain audit anchor."
+>
+  <article class="playground">
+    <div class="live-banner" role="status" data-api-base={apiBase}>
+      <strong>🌐 LIVE TIER.</strong>
+      Submissions hit a real <code>sbo3l-server</code> instance hosted on Vercel Functions.
+      Receipts are <strong>real Ed25519-signed capsules</strong>, the audit chain is anchored to Sepolia every 6 hours.
+      <span class="banner-actions">
+        <a href="/playground">↓ Same scenario in Tier 2 (mock)</a>
+        <a href="/learn/tier-architecture">What's a tier?</a>
+      </span>
+    </div>
+
+    <section
+      id="provision-status"
+      class="provision-banner"
+      role="alert"
+      data-api-base={apiBase}
+      hidden
+    >
+      <strong id="provision-headline">🚧 Tier-3 daemon not yet provisioned.</strong>
+      <p id="provision-body">Checking <code id="api-endpoint">{apiBase}/api/v1/healthz</code>…</p>
+    </section>
+
+    <header>
+      <h1>Live playground</h1>
+      <p class="lede">
+        Same shape as the mock playground — APRP on the left, policy on the right, decision below — but every submit hits a real daemon. Capsules carry a real signature. The audit chain is public and on-chain anchored.
+      </p>
+    </header>
+
+    <nav class="scenarios" aria-label="Pre-loaded scenarios">
+      {SCENARIOS.map((s, i) => (
+        <button
+          type="button"
+          class={`scenario-tab ${i === 0 ? "active" : ""}`}
+          data-scenario={s.id}
+          aria-pressed={i === 0 ? "true" : "false"}
+          title={s.blurb}
+        >
+          <span class="emoji" aria-hidden="true">{s.outcome_emoji}</span>
+          <span class="label">{s.label}</span>
+        </button>
+      ))}
+    </nav>
+
+    <p class="scenario-blurb" id="scenario-blurb">{SCENARIOS[0]!.blurb}</p>
+
+    <div class="grid">
+      <section class="pane">
+        <header>
+          <span class="pane-title">APRP REQUEST</span>
+          <span class="pane-meta">JSON</span>
+        </header>
+        <textarea id="aprp-input" aria-label="APRP request envelope" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">{SCENARIOS[0]!.aprp}</textarea>
+      </section>
+
+      <section class="pane">
+        <header>
+          <span class="pane-title">POLICY OVERRIDE</span>
+          <span class="pane-meta">TOML</span>
+        </header>
+        <textarea id="policy-input" aria-label="Policy TOML" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">{SCENARIOS[0]!.policy}</textarea>
+      </section>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="decide-btn" class="btn primary">▶ Decide on real daemon</button>
+      <button type="button" id="reset-btn" class="btn ghost">🔄 Reset to scenario</button>
+    </div>
+
+    <section class="result" id="result-panel" aria-live="polite">
+      <header>
+        <span class="result-title">REAL DECISION RESULT</span>
+        <span class="result-meta" id="result-meta">Click <em>Decide on real daemon</em></span>
+      </header>
+      <div class="result-body" id="result-body">
+        <p class="muted">No decision yet — submit the APRP + policy above.</p>
+      </div>
+    </section>
+
+    <aside class="teaching">
+      <h2>Cross-tier</h2>
+      <ul>
+        <li><a href="/playground">↓ Re-run in Tier 2 (browser mock)</a></li>
+        <li><a href="/proof">↓ Re-verify a capsule offline</a></li>
+        <li><a href="/learn/onchain-anchor">↗ How on-chain anchoring works</a></li>
+      </ul>
+
+      <h2>Daemon status</h2>
+      <ul>
+        <li><a href={`${apiBase}/api/v1/healthz`} rel="noopener" target="_blank">Health probe →</a></li>
+        <li><a href={`${apiBase}/api/v1/audit/chain`} rel="noopener" target="_blank">Public audit chain →</a></li>
+      </ul>
+
+      <h2>Source</h2>
+      <ul>
+        <li><a href={`${githubBaseUrl}/tree/main/apps/sbo3l-playground-api`} rel="noopener">API project source</a></li>
+        <li><a href={`${githubBaseUrl}/tree/main/crates/sbo3l-core`} rel="noopener">Decision engine (Rust)</a></li>
+      </ul>
+    </aside>
+  </article>
+</BaseLayout>
+
+<script>
+  import { SCENARIOS, findScenario } from "~/lib/playground/scenarios";
+
+  const banner = document.getElementById("provision-status") as HTMLElement | null;
+  const apiBase = banner?.dataset.apiBase ?? "https://sbo3l-playground-api.vercel.app";
+
+  const aprpInput = document.getElementById("aprp-input") as HTMLTextAreaElement | null;
+  const policyInput = document.getElementById("policy-input") as HTMLTextAreaElement | null;
+  const decideBtn = document.getElementById("decide-btn") as HTMLButtonElement | null;
+  const resetBtn = document.getElementById("reset-btn");
+  const resultBody = document.getElementById("result-body");
+  const resultMeta = document.getElementById("result-meta");
+  const blurbEl = document.getElementById("scenario-blurb");
+  const tabs = document.querySelectorAll<HTMLButtonElement>(".scenario-tab");
+
+  let currentScenarioId = SCENARIOS[0]?.id ?? "";
+
+  // Probe healthz on page load + show/hide the provision banner. The
+  // healthz route works even in skeleton mode, so this also tells us
+  // whether the project itself is deployed (vs CORS error / 404).
+  async function probeProvisionStatus(): Promise<void> {
+    if (!banner) return;
+    try {
+      const res = await fetch(`${apiBase}/api/v1/healthz`, { method: "GET", cache: "no-store" });
+      if (!res.ok) {
+        showBanner("🚧 Daemon unreachable.", `Healthz returned HTTP ${res.status}. The Vercel project may not be deployed yet.`);
+        return;
+      }
+      const body = (await res.json()) as { status?: string; env?: Record<string, boolean>; note?: string };
+      if (body.status === "ok") {
+        // Fully provisioned — hide banner.
+        banner.hidden = true;
+      } else {
+        const missing: string[] = [];
+        if (body.env) {
+          if (!body.env.has_postgres) missing.push("Postgres");
+          if (!body.env.has_kv) missing.push("KV");
+          if (!body.env.has_blob) missing.push("Blob");
+          if (!body.env.has_signing_key) missing.push("signing key");
+        }
+        showBanner("🚧 Tier-3 daemon not yet provisioned.", `Missing: ${missing.length ? missing.join(", ") : "unknown"}. Daniel's runbook: apps/sbo3l-playground-api/DEPLOY.md`);
+      }
+    } catch (e) {
+      showBanner("🚧 Daemon unreachable.", `Network or CORS error: ${(e as Error).message}. The Vercel project may not be deployed yet.`);
+    }
+  }
+
+  function showBanner(headline: string, body: string): void {
+    if (!banner) return;
+    const h = banner.querySelector("#provision-headline");
+    const b = banner.querySelector("#provision-body");
+    if (h) h.textContent = headline;
+    if (b) b.textContent = body;
+    banner.hidden = false;
+  }
+
+  function loadScenario(id: string): void {
+    const s = findScenario(id);
+    if (!s || !aprpInput || !policyInput) return;
+    aprpInput.value = s.aprp;
+    policyInput.value = s.policy;
+    if (blurbEl) blurbEl.textContent = s.blurb;
+    currentScenarioId = id;
+    tabs.forEach((t) => {
+      const active = t.dataset.scenario === id;
+      t.classList.toggle("active", active);
+      t.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    if (resultBody) resultBody.innerHTML = '<p class="muted">Inputs reset. Submit when ready.</p>';
+    if (resultMeta) resultMeta.textContent = "Click Decide on real daemon";
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.scenario;
+      if (id) loadScenario(id);
+    });
+  });
+
+  resetBtn?.addEventListener("click", () => loadScenario(currentScenarioId));
+
+  decideBtn?.addEventListener("click", async () => {
+    if (!aprpInput || !policyInput || !resultBody || !decideBtn) return;
+    decideBtn.disabled = true;
+    if (resultMeta) resultMeta.textContent = "submitting…";
+    resultBody.innerHTML = '<p class="muted">Submitting to ' + escapeHtml(apiBase) + '/api/v1/decide…</p>';
+
+    let aprpParsed: unknown;
+    try {
+      aprpParsed = JSON.parse(aprpInput.value);
+    } catch (e) {
+      resultBody.innerHTML = `<p class="error"><strong>JSON error:</strong> ${escapeHtml((e as Error).message)}</p>`;
+      decideBtn.disabled = false;
+      if (resultMeta) resultMeta.textContent = "ready";
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/v1/decide`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ aprp: aprpParsed, policy: policyInput.value }),
+      });
+      const body = (await res.json()) as Record<string, unknown>;
+
+      if (!res.ok) {
+        resultBody.innerHTML = `<p class="error"><strong>HTTP ${res.status}:</strong> ${escapeHtml(JSON.stringify(body))}</p>`;
+      } else if (body.status === "skeleton") {
+        resultBody.innerHTML = `
+          <p class="muted"><strong>API in skeleton mode.</strong> The Vercel project is deployed but the route handlers haven't been wired yet (Phase 3 of DEPLOY.md). Response body:</p>
+          <pre class="capsule-json">${escapeHtml(JSON.stringify(body, null, 2))}</pre>
+          <p class="next">↓ <a href="/playground">Run this same scenario in Tier 2 (mock) for an immediate decision</a></p>
+        `;
+      } else {
+        // Real decision response — render it. Body shape matches the
+        // contract documented in apps/sbo3l-playground-api/README.md.
+        resultBody.innerHTML = `
+          <p class="outcome">✅ Decision returned.</p>
+          <pre class="capsule-json">${escapeHtml(JSON.stringify(body, null, 2))}</pre>
+        `;
+      }
+      if (resultMeta) resultMeta.textContent = `${res.status} · ${(performance.now() | 0)}ms`;
+    } catch (e) {
+      resultBody.innerHTML = `<p class="error"><strong>Network error:</strong> ${escapeHtml((e as Error).message)}. The daemon may not be deployed.</p>`;
+      if (resultMeta) resultMeta.textContent = "error";
+    } finally {
+      decideBtn.disabled = false;
+    }
+  });
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  }
+
+  // Kick off the provision probe on page load.
+  probeProvisionStatus();
+</script>
+
+<style>
+  .playground {
+    max-width: var(--max);
+    margin: 2em auto 4em;
+    padding: 0 1.5em;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    grid-template-areas:
+      "live live"
+      "provision provision"
+      "header header"
+      "scenarios scenarios"
+      "blurb blurb"
+      "grid teaching"
+      "actions teaching"
+      "result teaching";
+    gap: 1.5em;
+  }
+
+  .live-banner {
+    grid-area: live;
+    padding: 0.85em 1.1em;
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--r-md);
+    color: var(--fg);
+    font-size: 0.92em;
+    line-height: 1.5;
+  }
+  .live-banner code { background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .banner-actions { display: inline-block; margin-left: 0.5em; }
+  .banner-actions a { margin-right: 0.8em; color: var(--accent); }
+
+  .provision-banner {
+    grid-area: provision;
+    padding: 0.85em 1.1em;
+    background: rgba(255, 206, 92, 0.08);
+    border: 1px solid rgba(255, 206, 92, 0.4);
+    border-left: 4px solid #ffce5c;
+    border-radius: var(--r-md);
+    color: var(--fg);
+    font-size: 0.92em;
+    line-height: 1.5;
+  }
+  .provision-banner p { margin: 0.4em 0 0; color: var(--muted); font-size: 0.88em; }
+  .provision-banner code { background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; font-size: 0.85em; }
+
+  .playground header { grid-area: header; }
+  .playground h1 { font-size: var(--fs-3); font-weight: 700; margin: 0 0 0.4em; }
+  .playground .lede { color: var(--muted); margin: 0; max-width: 760px; }
+
+  .scenarios { grid-area: scenarios; display: flex; flex-wrap: wrap; gap: 0.4em; }
+  .scenario-tab {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 0.45em 0.8em;
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+  }
+  .scenario-tab:hover { border-color: var(--accent); }
+  .scenario-tab.active { border-color: var(--accent); background: rgba(74, 222, 128, 0.08); color: var(--accent); }
+
+  .scenario-blurb { grid-area: blurb; color: var(--muted); margin: 0; font-size: 0.95em; }
+
+  .grid { grid-area: grid; display: grid; grid-template-columns: 1fr 1fr; gap: 1em; }
+  .pane { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; display: flex; flex-direction: column; }
+  .pane header { padding: 0.5em 0.9em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .pane-title { color: var(--accent); font-family: var(--font-mono); font-size: 0.78em; letter-spacing: 0.06em; }
+  .pane-meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.78em; }
+  .pane textarea { flex: 1; width: 100%; min-height: 280px; border: 0; background: transparent; color: var(--fg); padding: 0.9em 1em; font-family: var(--font-mono); font-size: 0.85em; line-height: 1.55; resize: vertical; outline: none; }
+  .pane textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .actions { grid-area: actions; display: flex; gap: 0.6em; flex-wrap: wrap; }
+
+  .result { grid-area: result; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+  .result header { padding: 0.6em 1em; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; }
+  .result-title { color: var(--accent); font-family: var(--font-mono); font-size: 0.82em; letter-spacing: 0.06em; }
+  .result-meta { color: var(--muted); font-size: 0.85em; font-family: var(--font-mono); }
+  .result-body { padding: 1em 1.2em; }
+  .result-body .muted { color: var(--muted); }
+  .result-body .error { color: #f87171; }
+  .result-body .outcome { font-size: 1.1em; margin: 0 0 0.8em; color: var(--accent); }
+  .capsule-json { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0.8em 1em; font-family: var(--font-mono); font-size: 0.8em; line-height: 1.5; overflow-x: auto; max-height: 400px; }
+  .next { margin-top: 1em; font-size: 0.92em; }
+  .next a { color: var(--accent); }
+
+  .teaching { grid-area: teaching; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 1em 1.2em; align-self: start; position: sticky; top: 1.5em; }
+  .teaching h2 { font-size: 0.85em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 0.6em; }
+  .teaching h2:not(:first-child) { margin-top: 1.4em; }
+  .teaching ul { list-style: none; padding: 0; margin: 0; }
+  .teaching li { margin-bottom: 0.4em; }
+  .teaching a { color: var(--accent); font-size: 0.9em; }
+
+  @media (max-width: 900px) {
+    .playground { grid-template-columns: 1fr; grid-template-areas: "live" "provision" "header" "scenarios" "blurb" "grid" "actions" "result" "teaching"; }
+    .grid { grid-template-columns: 1fr; }
+    .teaching { position: static; }
+  }
+</style>

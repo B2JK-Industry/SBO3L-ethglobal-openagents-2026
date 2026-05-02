@@ -1,0 +1,60 @@
+---
+title: Audit replay
+description: Reconstructing what was authorised, by whom, under which policy — from a Passport capsule alone.
+audience: auditors, security teams, judges
+outcome: You'll be able to take a single JSON file and reconstruct the full authorisation context offline.
+prereqs:
+  - capsule v2 read
+  - audit log read
+---
+
+**Audit replay** is the act of reconstructing an authorisation from its Passport capsule, with no daemon, no DB, and no network — only the agent's published Ed25519 pubkey. It is the single most important demonstration SBO3L makes.
+
+## The replay flow
+
+<ol>
+  <li>**Receive a capsule.** A JSON file (~10-15 KB), typically downloaded from the agent's published proof URL or shared by a counterparty.</li>
+  <li>**Look up the signing pubkey.** Resolve the agent's ENS name (e.g. `sbo3lagent.eth`) and read the `sbo3l:pubkey` text record. (Or read the capsule's embedded `agent_pubkey` field — the strict verifier confirms they match.)</li>
+  <li>**Run the strict verifier.** `sbo3l passport verify --strict --path capsule.json`. Six checks fire (see [capsule v2](/concepts/capsule#the-6-strict-mode-checks)).</li>
+  <li>**Inspect the embedded snapshot.** The capsule carries the full `policy_snapshot` and `audit_segment`. Open it in any JSON viewer.</li>
+  <li>**Compare against your expectations.** Was the request shape acceptable? Was the budget appropriate? Did the right policy fire? All visible without running the daemon.</li>
+</ol>
+
+## What the replay tells you
+
+Verbatim, no interpretation:
+
+| Question | Where in the capsule |
+|---|---|
+| Who acted? | `agent_id` + `agent_pubkey` |
+| What did they request? | `request` (full APRP envelope) |
+| When? | request `expiry`, audit event `ts_unix_ms` |
+| Under what policy? | `policy_snapshot` (the policy at decision time) |
+| What did the policy decide? | `policy_receipt.decision` |
+| If allow, what executed? | `execution_ref` + `executor_evidence` |
+| What audit events linked the decision? | `audit_segment` (chain slice from request to decision) |
+| Was anything tampered? | strict verifier rc — 0 means no tamper, 2 means yes |
+
+Anything outside this list is **not** in the capsule. SBO3L does not promise to tell you the agent's intent, the human operator behind the agent, or the off-chain context. It tells you exactly what was authorised and that the authorisation is intact.
+
+## Replay against the published example
+
+```bash
+curl -sO https://sbo3l-marketing.vercel.app/wasm/sample-capsule.json
+sbo3l passport verify --strict --path sample-capsule.json
+# Expected: capsule OK · 6 strict checks passed · rc=0
+```
+
+For an in-browser replay, paste the capsule into [/proof](https://sbo3l-marketing.vercel.app/proof) — the WASM-compiled verifier runs the same 6 checks client-side, no upload.
+
+## Replay vs anchoring
+
+Replay is offline-verifiable against a pubkey you already trust. **Anchoring** is the orthogonal concept: writing a capsule's hash onto a public ledger (EAS attestation, ENS text record, optionally on-chain) so that "I trust this pubkey" itself becomes verifiable against a chain history.
+
+SBO3L Phase 2 ships replay; anchoring is Phase 3 (`mock_anchor_ref` field is clearly labelled "mock anchoring, NOT onchain" today). Replay is the load-bearing claim; anchoring is the optional public-recordkeeping layer on top.
+
+## See also
+
+- [Self-contained capsule v2](/concepts/capsule) — what the verifier reads.
+- [`passport verify` CLI](/cli/passport-verify) — every flag and exit code.
+- [WASM verifier on /proof](https://sbo3l-marketing.vercel.app/proof) — in-browser replay UX.

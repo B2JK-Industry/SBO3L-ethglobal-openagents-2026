@@ -5,11 +5,23 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L policy: YAML/JSON policy parsing and rule evaluation."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L policy engine: YAML/JSON policy parsing + rule evaluation + persistent budget tracking."
+keywords = ["sbo3l", "policy", "agent", "rules", "yaml"]
+categories = ["config", "parser-implementations"]
 
 [dependencies]
 sbo3l-core = { workspace = true }
-sbo3l-storage = { workspace = true }
+# R17 P2: sbo3l-storage uses rusqlite (native sqlite3 FFI) and does
+# NOT build for `wasm32-unknown-unknown`. The budget module is the
+# only consumer; gate it behind the default-on `budget` feature so
+# `cargo build -p sbo3l-policy --no-default-features` produces a
+# wasm-clean library that exposes engine + model + expr + reputation
+# only. Workspace consumers (server, cli) keep the default features
+# and see no behaviour change.
+sbo3l-storage = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
@@ -19,6 +31,13 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 serde_json_canonicalizer = { workspace = true }
 chrono = { workspace = true }
+
+[features]
+default = ["budget"]
+# Compiles the persistent budget tracker that wraps sbo3l-storage
+# transactions. Disable for wasm targets — storage's rusqlite dep
+# pulls native sqlite3 FFI that doesn't build for wasm32.
+budget = ["dep:sbo3l-storage"]
 
 [dev-dependencies]
 tempfile = { workspace = true }

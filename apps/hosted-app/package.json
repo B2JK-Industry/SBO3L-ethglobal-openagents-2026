@@ -1,0 +1,36 @@
+{
+  "name": "@sbo3l/hosted-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SBO3L hosted preview (sbo3l-app.vercel.app, future app.sbo3l.dev). Next.js 15 App Router + NextAuth v5 GitHub OAuth.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@sbo3l/design-tokens": "file:../../packages/design-tokens",
+    "next": "^15.0.0",
+    "next-auth": "5.0.0-beta.20",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.13.0",
+    "stripe": "^17.4.0",
+    "swr": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

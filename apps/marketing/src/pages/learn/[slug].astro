@@ -1,0 +1,74 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import { ARTICLES, getArticle } from "~/data/learn-articles";
+
+export function getStaticPaths() {
+  return ARTICLES.map((a) => ({ params: { slug: a.slug } }));
+}
+
+const { slug } = Astro.params;
+const article = slug ? getArticle(slug) : undefined;
+if (!article) {
+  return Astro.redirect("/learn");
+}
+---
+<BaseLayout title={`${article.title} — SBO3L learn`} description={article.description}>
+  <article class="post">
+    <header>
+      <p class="audience">For: {article.audience}</p>
+      <h1>{article.title}</h1>
+      <p class="meta">~{article.reading_min} min read</p>
+      <p class="lede">{article.description}</p>
+    </header>
+    <div class="body" set:html={article.body_html}></div>
+
+    <footer>
+      <p><a href="/learn">← All articles</a></p>
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  .post { max-width: 720px; margin: 3em auto 4em; padding: 0 1.5em; }
+  .post header { margin-bottom: 2em; padding-bottom: 1.5em; border-bottom: 1px solid var(--border); }
+  .audience { color: var(--accent); font-size: 0.85em; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.4em; font-family: var(--font-mono); }
+  .post h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin: 0 0 0.4em; }
+  .post .meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.9em; margin: 0 0 0.7em; }
+  .post .lede { color: var(--muted); font-size: 1.05em; max-width: 60ch; }
+
+  .body { line-height: 1.7; color: var(--fg); }
+  .body :global(p) { margin: 0 0 1.1em; max-width: 65ch; }
+  .body :global(h2) { font-size: 1.35em; font-weight: 600; margin: 1.8em 0 0.6em; }
+  .body :global(ul), .body :global(ol) { margin: 0 0 1.1em; padding-left: 1.5em; max-width: 65ch; }
+  .body :global(li) { margin-bottom: 0.4em; }
+  .body :global(code) {
+    background: var(--code-bg);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+  }
+  .body :global(pre) {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 1em 1.2em;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+  .body :global(pre code) { background: none; padding: 0; }
+  .body :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.92em;
+  }
+  .body :global(th), .body :global(td) {
+    padding: 0.55em 0.8em;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .body :global(th) { color: var(--muted); font-weight: 600; }
+
+  footer { margin-top: 3em; padding-top: 1.5em; border-top: 1px solid var(--border); color: var(--muted); }
+</style>

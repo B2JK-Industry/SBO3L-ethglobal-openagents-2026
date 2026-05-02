@@ -44,7 +44,7 @@ pub enum SignerError {
     /// `SBO3L_SIGNER_BACKEND` was set to a string the factory doesn't
     /// recognise.
     #[error(
-        "unknown SBO3L_SIGNER_BACKEND='{0}'; expected one of dev / aws_kms / gcp_kms / phala_tee"
+        "unknown SBO3L_SIGNER_BACKEND='{0}'; expected one of dev / local_file / aws_kms / gcp_kms / phala_tee"
     )]
     UnknownBackend(String),
 
@@ -97,6 +97,7 @@ pub trait Signer: Send + Sync {
 }
 
 pub mod dev;
+pub mod local_file;
 
 #[cfg(feature = "aws_kms")]
 pub mod aws_kms;
@@ -109,8 +110,89 @@ pub mod phala_tee;
 
 #[cfg(feature = "eth_signer")]
 pub mod eth;
+#[cfg(feature = "eth_signer")]
+pub mod eth_kms;
+#[cfg(feature = "eth_signer")]
+pub mod eth_local;
+
+// R14 P3 — live cloud-KMS EthSigner backends. Each pulls a vendor SDK
+// only when its feature is enabled. `eth_kms_common` holds the shared
+// SPKI / DER / address helpers; gated to either feature so it's
+// available to whichever backend is active.
+#[cfg(feature = "eth_kms_aws")]
+pub mod eth_kms_aws_live;
+#[cfg(any(feature = "eth_kms_aws", feature = "eth_kms_gcp"))]
+pub mod eth_kms_common;
+#[cfg(feature = "eth_kms_gcp")]
+pub mod eth_kms_gcp_live;
 
 pub use dev::DevSignerLockedDown;
+pub use local_file::{KeyFileFormat, LocalFileSigner};
+
+#[cfg(feature = "eth_signer")]
+pub use eth::EthSigner;
+#[cfg(feature = "eth_signer")]
+pub use eth_local::{eip55_checksum, EthLocalFileSigner};
+
+/// EVM-side signer factory. Reads `SBO3L_ETH_SIGNER_BACKEND`
+/// (default `local_file`) and constructs the matching
+/// [`EthSigner`] for the given `role` ("audit", "receipt", or any
+/// caller-defined value). Mirrors the Ed25519
+/// [`signer_from_env`] surface.
+///
+/// Compiled only with `--features eth_signer` — the EVM stack
+/// (k256 + tiny-keccak) is heavy and KeeperHub-only deployments
+/// don't need it.
+#[cfg(feature = "eth_signer")]
+pub fn eth_signer_from_env(role: &str) -> Result<Box<dyn EthSigner>, SignerError> {
+    let backend =
+        std::env::var("SBO3L_ETH_SIGNER_BACKEND").unwrap_or_else(|_| "local_file".to_string());
+    match backend.as_str() {
+        "local_file" => Ok(Box::new(eth_local::EthLocalFileSigner::from_env(role)?)),
+
+        // R14 P3: live AWS KMS EthSigner is gated behind `eth_kms_aws`.
+        // The older `aws_kms` Ed25519 stub feature still exposes a
+        // compile-only stub via `eth_kms::aws` — kept for callers that
+        // pull the trait but not the SDK.
+        "aws_kms" => {
+            #[cfg(feature = "eth_kms_aws")]
+            {
+                Ok(Box::new(eth_kms_aws_live::AwsEthKmsLiveSigner::from_env(
+                    role,
+                )?))
+            }
+            #[cfg(all(feature = "aws_kms", not(feature = "eth_kms_aws")))]
+            {
+                Ok(Box::new(eth_kms::aws::AwsEthKmsSigner::from_env(role)?))
+            }
+            #[cfg(not(any(feature = "aws_kms", feature = "eth_kms_aws")))]
+            {
+                let _ = role;
+                Err(SignerError::BackendNotCompiled("aws_kms"))
+            }
+        }
+
+        "gcp_kms" => {
+            #[cfg(feature = "eth_kms_gcp")]
+            {
+                Ok(Box::new(eth_kms_gcp_live::GcpEthKmsLiveSigner::from_env(
+                    role,
+                )?))
+            }
+            #[cfg(all(feature = "gcp_kms", not(feature = "eth_kms_gcp")))]
+            {
+                Ok(Box::new(eth_kms::gcp::GcpEthKmsSigner::from_env(role)?))
+            }
+            #[cfg(not(any(feature = "gcp_kms", feature = "eth_kms_gcp")))]
+            {
+                let _ = role;
+                Err(SignerError::BackendNotCompiled("gcp_kms"))
+            }
+        }
+
+        other => Err(SignerError::UnknownBackend(other.to_string())),
+    }
+}
 
 /// Daemon startup factory. Reads `SBO3L_SIGNER_BACKEND` (default `dev`)
 /// and constructs the matching [`Signer`] for the given `role`
@@ -122,6 +204,8 @@ pub fn signer_from_env(role: &str) -> Result<Box<dyn Signer>, SignerError> {
     let backend = std::env::var("SBO3L_SIGNER_BACKEND").unwrap_or_else(|_| "dev".to_string());
     match backend.as_str() {
         "dev" => Ok(Box::new(DevSignerLockedDown::from_env(role)?)),
+
+        "local_file" => Ok(Box::new(LocalFileSigner::from_env(role)?)),
 
         "aws_kms" => {
             #[cfg(feature = "aws_kms")]

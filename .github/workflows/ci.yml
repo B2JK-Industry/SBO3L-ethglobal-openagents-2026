@@ -75,3 +75,80 @@ jobs:
             --input operator-console/fixtures/operator-summary.json \
             --evidence operator-console/fixtures/operator-evidence.json
           python operator-console/test_build.py
+
+  wasm-verifier-build:
+    name: WASM verifier build (#110 marketing /proof)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (with wasm32 target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM verifier
+        run: bash scripts/build-wasm-verifier.sh
+
+      - name: Assert artefacts exist
+        run: |
+          set -euo pipefail
+          for f in sbo3l_core.js sbo3l_core_bg.wasm sbo3l_core.d.ts package.json; do
+            if [ ! -f "apps/marketing/public/wasm/$f" ]; then
+              echo "::error::missing apps/marketing/public/wasm/$f"
+              exit 1
+            fi
+          done
+          wasm_size=$(wc -c <apps/marketing/public/wasm/sbo3l_core_bg.wasm | tr -d ' ')
+          echo "WASM size: $wasm_size bytes"
+          # Sanity bound — the unstripped build is ~2.3 MiB; gate at 5 MiB
+          # to catch a bloat regression without churning every PR.
+          if [ "$wasm_size" -gt 5242880 ]; then
+            echo "::error::WASM size $wasm_size > 5 MiB; investigate"
+            exit 1
+          fi
+
+  wasm-playground-build:
+    name: WASM playground build (R17 marketing /playground)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (with wasm32 target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM playground bundle
+        run: bash scripts/build-wasm-playground.sh
+
+      - name: Assert artefacts exist
+        run: |
+          set -euo pipefail
+          for f in sbo3l_playground.js sbo3l_playground_bg.wasm sbo3l_playground.d.ts package.json; do
+            if [ ! -f "apps/marketing/public/wasm/$f" ]; then
+              echo "::error::missing apps/marketing/public/wasm/$f"
+              exit 1
+            fi
+          done
+          wasm_size=$(wc -c <apps/marketing/public/wasm/sbo3l_playground_bg.wasm | tr -d ' ')
+          echo "WASM playground size: $wasm_size bytes"
+          # The playground bundle pulls sbo3l-policy + jsonschema +
+          # serde_yaml + frost-ed25519 (transitively) so it's larger
+          # than the verifier-only bundle. Honest budget: 6 MiB raw.
+          # The brief targeted 250 KB gzipped — we currently land at
+          # ~1 MB gzipped; documented in docs/dev1/wasm-playground.md.
+          if [ "$wasm_size" -gt 6291456 ]; then
+            echo "::error::WASM playground size $wasm_size > 6 MiB; investigate"
+            exit 1
+          fi

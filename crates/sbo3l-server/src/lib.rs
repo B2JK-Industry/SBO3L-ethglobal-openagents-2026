@@ -9,6 +9,7 @@
 //! return the cached envelope without re-running any side-effecting step.
 
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
@@ -34,6 +35,36 @@ use sbo3l_storage::Storage;
 pub mod auth;
 pub use auth::AuthConfig;
 
+pub mod executor_callback;
+
+pub mod feature_flags;
+pub use feature_flags::FlagStore;
+
+pub mod metrics;
+
+#[cfg(feature = "otel")]
+pub mod otel;
+
+#[cfg(feature = "otel")]
+pub mod otel_middleware;
+
+#[cfg(feature = "ws_events")]
+pub mod ws_events;
+
+#[cfg(feature = "ws_events")]
+pub mod admin_events;
+
+/// R14 P4 — 3-node Raft cluster scaffold (**EXPERIMENTAL**). Built only
+/// with `--features cluster`. See `crates/sbo3l-server/src/cluster/mod.rs`
+/// + `docs/cluster-mode.md` for what's wired vs what's TODO.
+#[cfg(feature = "cluster")]
+pub mod cluster;
+
+// R14 P1: tonic-based gRPC service. Compiled only with `--features grpc`
+// so HTTP-only builds don't pay the prost / tonic compile cost.
+#[cfg(feature = "grpc")]
+pub mod grpc;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
@@ -53,6 +84,40 @@ pub struct AppInner {
     pub audit_signer: DevSigner,
     pub receipt_signer: DevSigner,
     pub auth: AuthConfig,
+    /// Process start time. Surfaced via `/v1/healthz` so Dev 3's
+    /// hosted-app daemon-down detection can render a meaningful
+    /// `uptime_seconds`. Captured once at `AppState::full` time, never
+    /// reset — a daemon restart is a fresh `AppInner` with a fresh
+    /// `started_at`, which is exactly what we want.
+    pub started_at: Instant,
+    /// In-memory replay store for executor-callback nonces. Always
+    /// constructed (no feature gate) — the `/v1/executor-callback`
+    /// route is part of the base daemon surface.
+    pub callback_nonce_store: Arc<executor_callback::CallbackNonceStore>,
+    /// Hot-reloadable feature flags. Seeded from env at startup
+    /// (`SBO3L_FLAG_<KEY>=true|false`); admin POSTs to
+    /// `/v1/admin/flags` mutate it at runtime + append a
+    /// `flag_change` audit event. Cheap-clone Arc-backed.
+    pub feature_flags: feature_flags::FlagStore,
+    /// R13 P7: process-local Prometheus + JSON metrics registry.
+    /// Read by both `/v1/metrics` (Prometheus text exposition) and
+    /// `/v1/admin/metrics` (apps/observability JSON). Always present —
+    /// no feature gate. Atomic interior; cheap to clone via Arc.
+    pub metrics: Arc<metrics::MetricsRegistry>,
+    /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
+    /// only with `--features ws_events`. The publish path inside
+    /// `create_payment_request` checks `is_some()` and emits when
+    /// the bus is wired; existing daemon runs (without the feature)
+    /// see no behaviour change.
+    #[cfg(feature = "ws_events")]
+    pub ws_events: Option<std::sync::Arc<ws_events::WsEventsBus>>,
+    /// R13 P6: operator-facing event bus served at
+    /// `/v1/admin/events`. Sister to `ws_events` but with
+    /// server-side filter, cursor reconnect, and severity dimension.
+    /// Like `ws_events`, gated on the same feature flag and built
+    /// only when present.
+    #[cfg(feature = "ws_events")]
+    pub admin_events: Option<std::sync::Arc<admin_events::AdminEventsBus>>,
 }
 
 impl AppState {
@@ -119,19 +184,286 @@ impl AppState {
             audit_signer,
             receipt_signer,
             auth,
+            started_at: Instant::now(),
+            callback_nonce_store: Arc::new(executor_callback::CallbackNonceStore::new()),
+            feature_flags: feature_flags::FlagStore::from_env(),
+            metrics: Arc::new(metrics::MetricsRegistry::new()),
+            #[cfg(feature = "ws_events")]
+            ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
+            #[cfg(feature = "ws_events")]
+            admin_events: Some(std::sync::Arc::new(admin_events::AdminEventsBus::new())),
         }))
     }
 }
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
+    let r = Router::new()
         .route("/v1/health", get(health))
+        .route("/v1/healthz", get(healthz))
         .route("/v1/payment-requests", post(create_payment_request))
-        .with_state(state)
+        .route(
+            "/v1/executor-callback",
+            post(executor_callback::executor_callback_handler),
+        )
+        .route(
+            "/v1/admin/flags",
+            get(feature_flags::list_flags_handler).post(feature_flags::set_flag_handler),
+        )
+        .route("/v1/admin/metrics", get(admin_metrics))
+        .route("/v1/metrics", get(prometheus_metrics));
+    #[cfg(feature = "ws_events")]
+    let r = r.route("/v1/events", get(ws_events::ws_events_handler));
+    #[cfg(feature = "ws_events")]
+    let r = r.route("/v1/admin/events", get(admin_events::admin_events_handler));
+    let r = r.with_state(state);
+    // R14 P5: per-request OTEL span enrichment. Only attached when
+    // the `otel` feature is on, so the no-features build pays zero
+    // middleware overhead. The middleware opens an `http.request`
+    // span carrying `http.method`/`http.target`/`http.status_code`
+    // and reserves `Empty` placeholders for `sbo3l.tenant_id` and
+    // `sbo3l.audit_event_id` that handlers fill via
+    // `tracing::Span::current().record(...)`.
+    #[cfg(feature = "otel")]
+    let r = r.layer(axum::middleware::from_fn(otel_middleware::trace_request));
+    r
 }
 
+/// `GET /v1/metrics` — Prometheus text exposition format. Scraped
+/// every N seconds by a Prometheus / OTEL collector.
+async fn prometheus_metrics(State(state): State<AppState>) -> Response {
+    let body = state.0.metrics.render_prometheus();
+    (
+        StatusCode::OK,
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4",
+        )],
+        body,
+    )
+        .into_response()
+}
+
+/// Legacy liveness probe. Returns the literal string `ok`. Kept for
+/// callers that already shipped against the original `/v1/health`
+/// contract; new integrations should prefer [`healthz`] which carries
+/// version + audit-chain head + uptime.
 async fn health() -> &'static str {
     "ok"
+}
+
+/// Structured health response served at `GET /v1/healthz`. Designed
+/// for Dev 3's hosted-app daemon-down detection — one call covers
+/// "is the daemon up", "what version", "is the audit chain alive",
+/// and "for how long". Stable wire format; additive changes only.
+#[derive(Debug, Serialize)]
+pub struct HealthzResponse {
+    /// Always `"ok"` on a 200; on a 503 the body carries
+    /// `"storage_unreachable"` so failure mode is structured, not
+    /// just an HTTP code.
+    pub status: &'static str,
+    /// `Cargo.toml` version of the `sbo3l-server` crate at compile
+    /// time. Useful for confirming a new build actually deployed.
+    pub version: &'static str,
+    /// Hex-encoded `event_hash` of the latest audit event. `null`
+    /// when the chain is empty (fresh daemon, no requests yet).
+    /// Surfacing this lets a probe assert "audit chain advanced"
+    /// across two health calls.
+    pub audit_chain_head: Option<String>,
+    /// Seq number of the chain tip; pairs with `audit_chain_head`
+    /// for a unique identity (the hash alone is monotonic but a
+    /// length lets the probe also see growth).
+    pub audit_chain_length: u64,
+    /// Wall-clock seconds since `AppInner::started_at`. Reset by
+    /// daemon restart, which is the intended semantic.
+    pub uptime_seconds: u64,
+}
+
+/// `GET /v1/healthz` — full daemon health snapshot.
+///
+/// Returns 200 with [`HealthzResponse`] when storage is reachable
+/// (audit-chain head can be queried). Returns 503 with a problem-shape
+/// body when the storage mutex is poisoned or the audit query fails;
+/// either is a hard signal that the daemon can't serve traffic.
+async fn healthz(State(state): State<AppState>) -> Response {
+    let inner = &state.0;
+    let uptime_seconds = inner.started_at.elapsed().as_secs();
+
+    let (head, length) = {
+        let storage = match inner.storage.lock() {
+            Ok(s) => s,
+            Err(_) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": "storage mutex poisoned",
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "uptime_seconds": uptime_seconds,
+                    })),
+                )
+                    .into_response();
+            }
+        };
+        let length = match storage.audit_count() {
+            Ok(n) => n,
+            Err(e) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": format!("audit_count: {e}"),
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "uptime_seconds": uptime_seconds,
+                    })),
+                )
+                    .into_response();
+            }
+        };
+        let head = match storage.audit_last() {
+            Ok(opt) => opt.map(|ev| ev.event_hash),
+            Err(e) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": format!("audit_last: {e}"),
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "uptime_seconds": uptime_seconds,
+                    })),
+                )
+                    .into_response();
+            }
+        };
+        (head, length)
+    };
+
+    Json(HealthzResponse {
+        status: "ok",
+        version: env!("CARGO_PKG_VERSION"),
+        audit_chain_head: head,
+        audit_chain_length: length,
+        uptime_seconds,
+    })
+    .into_response()
+}
+
+// ---------------------------------------------------------------------------
+// /v1/admin/metrics — observability dashboard wire format (apps/observability).
+//
+// Returns ONE bucket containing the current audit_chain_length and
+// placeholder counters for requests / allows / denies / latency. The
+// dashboard renders cleanly with one bucket; future server-side request
+// instrumentation extends the bucket count without changing the wire
+// shape.
+//
+// Wire shape mirrors `apps/observability/src/lib/metrics.ts::MetricsSnapshot`
+// exactly so the dashboard flips from mock → live by setting `?endpoint=`
+// without any code change.
+
+#[derive(Debug, Serialize)]
+pub struct MetricsLatency {
+    pub p50: f64,
+    pub p95: f64,
+    pub p99: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsBucket {
+    pub ts: String,
+    pub requests: u64,
+    pub allows: u64,
+    pub denies: u64,
+    pub requires_human: u64,
+    pub audit_chain_length: u64,
+    pub latency_ms: MetricsLatency,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsDaemon {
+    pub endpoint: String,
+    pub version: &'static str,
+    pub started_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricsSnapshot {
+    pub bucket_seconds: u64,
+    pub buckets: Vec<MetricsBucket>,
+    pub daemon: MetricsDaemon,
+}
+
+async fn admin_metrics(State(state): State<AppState>) -> Response {
+    let inner = &state.0;
+
+    let length = match inner.storage.lock() {
+        Ok(s) => match s.audit_count() {
+            Ok(n) => n,
+            Err(e) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "status": "storage_unreachable",
+                        "reason": format!("audit_count: {e}"),
+                    })),
+                )
+                    .into_response();
+            }
+        },
+        Err(_) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "status": "storage_unreachable",
+                    "reason": "storage mutex poisoned",
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    // One-bucket snapshot. `requests` / `allows` / `denies` /
+    // `latency_ms` are placeholder zeros — adding real per-bucket
+    // instrumentation needs a counters map + a sliding-window collector
+    // that lives outside this minimal endpoint. Tracked as a follow-up
+    // in the observability dashboard PR (#252).
+    let now = Utc::now();
+    let started = inner.started_at;
+    let started_at_iso =
+        (Utc::now() - chrono::Duration::seconds(started.elapsed().as_secs() as i64)).to_rfc3339();
+
+    // R13 P7: pull live counters + latency quantiles from the
+    // process-local metrics registry. Pre-P7 this returned placeholder
+    // zeros — the dashboard appeared green even when the daemon was
+    // overloaded. Now both `/v1/metrics` (Prometheus) and this JSON
+    // endpoint read from the same source of truth.
+    let q = inner.metrics.latency_quantiles();
+    let allows = inner.metrics.decisions_allow();
+    let denies = inner.metrics.decisions_deny();
+    let requires_human = inner.metrics.decisions_requires_human();
+    let requests = inner.metrics.requests_total();
+
+    Json(MetricsSnapshot {
+        bucket_seconds: 60,
+        buckets: vec![MetricsBucket {
+            ts: now.to_rfc3339(),
+            requests,
+            allows,
+            denies,
+            requires_human,
+            audit_chain_length: length,
+            latency_ms: MetricsLatency {
+                p50: q.p50 * 1000.0,
+                p95: q.p95 * 1000.0,
+                p99: q.p99 * 1000.0,
+            },
+        }],
+        daemon: MetricsDaemon {
+            endpoint: "self".to_string(),
+            version: env!("CARGO_PKG_VERSION"),
+            started_at: started_at_iso,
+        },
+    })
+    .into_response()
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -444,10 +776,23 @@ fn handle_existing_claim(
     }
 }
 
-async fn run_pipeline(
+// R14 P1: visibility bumped from `fn` (private) to `pub(crate)` so the
+// gRPC module (`crate::grpc`) can call into the same pipeline that
+// backs the REST handler. The signature is unchanged; existing callers
+// inside this module are unaffected.
+pub(crate) async fn run_pipeline(
     inner: &Arc<AppInner>,
     body: Value,
 ) -> Result<PaymentRequestResponse, Problem> {
+    // R13 P7: stamp pipeline entry. Recorded into the metrics
+    // registry just before we return the success response, so the
+    // /v1/metrics histogram reflects schema-validate → policy →
+    // audit-append → receipt-sign latency. Excludes auth + idempotency
+    // claim (those run in the outer handler); that's the right
+    // boundary because the budget+audit transaction is the variable
+    // cost we're observing.
+    let pipeline_started = std::time::Instant::now();
+
     if let Err(e) = schema::validate_aprp(&body) {
         return Err(problem(
             e.code(),
@@ -465,6 +810,30 @@ async fn run_pipeline(
             e.to_string(),
         )
     })?;
+
+    // CHAOS-2 fix: APRP `expiry` enforcement. The chaos suite
+    // (scripts/chaos/05_clock_skew.sh) showed an expired APRP being
+    // approved + signed. Reject expired requests BEFORE claiming the
+    // nonce or invoking policy — same fail-closed posture the rest of
+    // the pipeline uses. A 60-second skew tolerance accommodates
+    // sender/receiver clock drift without opening a real-world replay
+    // window (NTP-synced hosts agree within ~100ms; we allow much
+    // more, but not unbounded).
+    const EXPIRY_SKEW_SECS: i64 = 60;
+    let now_ts = Utc::now();
+    let drift_secs = (now_ts - aprp.expiry).num_seconds();
+    if drift_secs > EXPIRY_SKEW_SECS {
+        return Err(problem(
+            "protocol.aprp_expired",
+            400,
+            "APRP expired",
+            format!(
+                "request.expiry {} is {drift_secs}s in the past (now={}, skew tolerance={EXPIRY_SKEW_SECS}s)",
+                aprp.expiry.to_rfc3339(),
+                now_ts.to_rfc3339(),
+            ),
+        ));
+    }
 
     // Replay protection — see `docs/spec/17_interface_contracts.md` §3.1
     // (`protocol.nonce_replay` → HTTP 409). The nonce is claimed against
@@ -644,6 +1013,69 @@ async fn run_pipeline(
         }
     };
 
+    // R13 P7: record the request in the metrics registry. Read by
+    // both /v1/metrics (Prometheus) and /v1/admin/metrics (JSON
+    // dashboard). Always recorded — no feature gate. The histogram
+    // captures end-to-end wall-clock from handler entry through
+    // signing, matching what an external Prometheus scrape would
+    // report against a load-test harness.
+    inner
+        .metrics
+        .record_request(pipeline_started.elapsed(), &receipt_decision);
+
+    // R14 P5: stamp the audit event id onto the per-request OTEL span
+    // (placeholder reserved by `otel_middleware::trace_request`).
+    // No-op when the `otel` feature is off OR when no OTEL exporter
+    // is configured — `tracing::Span::current().record(...)` is safe
+    // to call against a span that never had this field declared; the
+    // record is silently dropped.
+    tracing::Span::current().record("sbo3l.audit_event_id", signed_event.event.id.as_str());
+
+    // T-3-5 backend: fan out the request outcome to the trust-dns viz
+    // event bus. No-op when no subscribers are connected (broadcast
+    // channel returns SendError quietly). Compiled out entirely
+    // without `--features ws_events`.
+    #[cfg(feature = "ws_events")]
+    if let Some(bus) = inner.ws_events.as_ref() {
+        let viz_decision = match receipt_decision {
+            ReceiptDecision::Allow => ws_events::DecisionKind::Allow,
+            ReceiptDecision::Deny => ws_events::DecisionKind::Deny,
+            // requires_human is rejected upstream; defensive default.
+            ReceiptDecision::RequiresHuman => ws_events::DecisionKind::Deny,
+        };
+        ws_events::publish_pipeline_run(
+            bus,
+            &aprp.agent_id,
+            None, // ENS name lookup is upstream of this handler.
+            viz_decision,
+            final_deny_code.clone(),
+            signed_event.event.seq,
+            &signed_event.event_hash,
+        );
+    }
+
+    // R13 P6: same fan-out into the admin event stream (operator
+    // dashboards). Filtered + cursor-replay-capable; see
+    // `admin_events::admin_events_handler`. Tenant id defaults to the
+    // single-tenant `default` until per-request tenant headers land.
+    #[cfg(feature = "ws_events")]
+    if let Some(bus) = inner.admin_events.as_ref() {
+        let admin_decision = match receipt_decision {
+            ReceiptDecision::Allow => admin_events::AdminDecision::Allow,
+            ReceiptDecision::Deny => admin_events::AdminDecision::Deny,
+            ReceiptDecision::RequiresHuman => admin_events::AdminDecision::Deny,
+        };
+        admin_events::publish_decision(
+            bus,
+            sbo3l_storage::DEFAULT_TENANT_ID,
+            &aprp.agent_id,
+            admin_decision,
+            final_deny_code.clone(),
+            signed_event.event.seq,
+            &signed_event.event_hash,
+        );
+    }
+
     let receipt = UnsignedReceipt {
         agent_id: aprp.agent_id.clone(),
         decision: receipt_decision.clone(),
@@ -681,10 +1113,8 @@ async fn run_pipeline(
 /// Embedded reference policy for development/demo. Production callers should
 /// load from `/etc/sbo3l/policies/...`.
 pub fn reference_policy() -> Policy {
-    Policy::parse_json(include_str!(
-        "../../../test-corpus/policy/reference_low_risk.json"
-    ))
-    .expect("invariant: bundled reference policy parses")
+    Policy::parse_json(include_str!("../policies/reference_low_risk.json"))
+        .expect("invariant: bundled reference policy parses")
 }
 
 #[cfg(test)]

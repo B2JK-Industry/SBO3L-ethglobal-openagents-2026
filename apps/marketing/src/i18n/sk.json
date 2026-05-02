@@ -1,0 +1,37 @@
+{
+  "common": {
+    "tagline_part1": "Nedávajte agentovi peňaženku.",
+    "tagline_part2": "Dajte mu mandát.",
+    "cta_start": "Začnite za 5 minút",
+    "cta_view_source": "Pozrieť zdroj",
+    "cta_walk_demo": "Prejsť demo",
+    "cta_verify": "Overte si kapsulu",
+    "nav_features": "Funkcie",
+    "nav_proof": "Dôkaz",
+    "nav_demo": "Demo",
+    "nav_docs": "Dokumentácia",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Rýchly štart",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — odovzdaný projekt"
+  },
+  "index": {
+    "lede": "SBO3L je kryptograficky overiteľná dôveryhodná vrstva pre autonómnych AI agentov. Každá akcia, ktorú agent vykoná — platba, swap, uloženie, výpočet, koordinácia — najprv prejde cez politickú hranicu SBO3L. Výstup: samostatná Passport kapsula, ktorú ktokoľvek overí offline.",
+    "section_what_is": "Čo je SBO3L",
+    "section_what_blocks": "Čo SBO3L blokuje",
+    "section_evidence": "Dôkazy o živej integrácii",
+    "section_arch": "Architektúra",
+    "section_reproduce": "Reprodukujte si",
+    "section_resources": "Zdroje",
+    "what_is_blurb": "Rust workspace implementujúci lokálny firewall politika + rozpočet + potvrdenka + audit pre AI agentov. Povoliť → smerovanie na vykonávateľa sponzora (KeeperHub, Uniswap). Zamietnuť → vykonávateľ nikdy nie je volaný. Každé rozhodnutie môže byť zabalené do Passport kapsuly, ktorú overí ktokoľvek offline len pomocou agentom zverejneného Ed25519 verejného kľúča."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Odovzdaný projekt",
+    "h1": "Kryptograficky overiteľná dôveryhodná vrstva pre autonómnych AI agentov.",
+    "judge_test_h2": "Test pre porotcov",
+    "judge_test_body": "Neverte nám žiadne tvrdenie z tejto stránky. Pretiahnite kapsulu na /proof. WebAssembly overovač — rovnaký Rust kód, ktorý beží v daemone, skompilovaný do wasm32 — spustí všetkých 6 striktných kontrol vo vašom prehliadači. Žiadne uploady, žiadne API volania, žiadny daemon. Šesť zelených kontrol alebo konkrétny dôvod zamietnutia."
+  },
+  "proof": {
+    "h1": "Overiť Passport kapsulu",
+    "lede": "Vložte alebo pretiahnite kapsulu. Všetkých 6 striktných kontrol prebieha vo vašom prehliadači cez WASM-kompilovaný sbo3l-core. Žiadne dáta neopúšťajú stránku — bez uploadov, bez API volaní, bez analytiky."
+  }
+}

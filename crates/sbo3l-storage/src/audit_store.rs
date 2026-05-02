@@ -30,7 +30,33 @@ const SELECT_AUDIT_PREFIX_BY_SEQ: &str =
      policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
      signature_key_id, signature_hex FROM audit_events WHERE seq <= ?1 ORDER BY seq ASC";
 
+/// Pushed-down pagination for `audit_list_paginated`.
+const SELECT_AUDIT_AFTER_SEQ_PAGINATED: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events \
+     WHERE seq > ?1 ORDER BY seq ASC LIMIT ?2";
+
 const SELECT_AUDIT_SEQ_BY_ID: &str = "SELECT seq FROM audit_events WHERE id = ?1";
+
+/// Same column projection as [`SELECT_AUDIT_LAST`], filtered to a
+/// specific tenant. Used by `audit_last_for_tenant` to compute the
+/// `prev_event_hash` link for a per-tenant chain — events from
+/// other tenants don't appear and so can't poison the chain
+/// integrity of this tenant's verification.
+const SELECT_AUDIT_LAST_FOR_TENANT: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events \
+     WHERE tenant_id = ?1 ORDER BY seq DESC LIMIT 1";
+
+/// Per-tenant ordered listing — used by `audit_list_for_tenant`
+/// and the tenant-scoped chain verifier.
+const SELECT_AUDIT_ALL_FOR_TENANT_ORDERED: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events \
+     WHERE tenant_id = ?1 ORDER BY seq ASC";
 
 fn row_to_signed_audit_event(r: &rusqlite::Row<'_>) -> rusqlite::Result<SignedAuditEvent> {
     let metadata_json: String = r.get(7)?;
@@ -144,6 +170,32 @@ impl Storage {
         Ok(rows)
     }
 
+    /// Pushed-down pagination over the audit chain. Returns up to
+    /// `limit` events with `seq > since_seq`, in ascending seq order.
+    /// Use `since_seq = 0` to start from genesis.
+    ///
+    /// **Why this exists:** the gRPC `AuditChainStream` RPC and the
+    /// admin events ring-replay path were both implemented against
+    /// [`audit_list`], filtering after-the-fact in Rust. That meant a
+    /// request asking for "10 events after seq=99000" still loaded
+    /// the entire 100K-event chain into memory. With this primitive
+    /// the cost scales with the page, not the chain. Self-review
+    /// finding §Bug 2 in `docs/dev1/self-review-r14.md`.
+    pub fn audit_list_paginated(
+        &self,
+        since_seq: u64,
+        limit: u64,
+    ) -> StorageResult<Vec<SignedAuditEvent>> {
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_AFTER_SEQ_PAGINATED)?;
+        let rows = stmt
+            .query_map(
+                params![since_seq as i64, limit as i64],
+                row_to_signed_audit_event,
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
     /// Fetch the chain prefix from genesis (seq=1) up to and including the
     /// event with the given `event_id`, in seq order. Returns
     /// `StorageError::AuditEventNotFound` if no such event exists in the log.
@@ -251,6 +303,139 @@ impl Storage {
         let events = self.audit_list()?;
         verify_chain(&events, true, verifying_key_hex).map_err(StorageError::Chain)
     }
+
+    // ------------------------------------------------------------
+    // Per-tenant variants (T-3 / V010 multi-tenant scoping).
+    //
+    // The legacy methods above operate on the global table; per-tenant
+    // deployments call these instead. Each tenant's audit chain is
+    // the subsequence WHERE tenant_id=X with `prev_event_hash`
+    // linking only events within that tenant's subsequence.
+    // ------------------------------------------------------------
+
+    /// Count audit events for a specific tenant. Single-tenant
+    /// deployments pass [`crate::DEFAULT_TENANT_ID`] (or use the
+    /// non-suffixed `audit_count` which has the same effect when
+    /// V010 has run, since every row is `tenant_id='default'`).
+    pub fn audit_count_for_tenant(&self, tenant_id: &str) -> StorageResult<u64> {
+        let n: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM audit_events WHERE tenant_id = ?1",
+            params![tenant_id],
+            |r| r.get(0),
+        )?;
+        Ok(n as u64)
+    }
+
+    /// Last audit event for a specific tenant. The chain link
+    /// (`prev_event_hash`) points only to the previous event in
+    /// THIS tenant's subsequence, so per-tenant chain verification
+    /// is robust against tampering in other tenants' rows.
+    pub fn audit_last_for_tenant(
+        &self,
+        tenant_id: &str,
+    ) -> StorageResult<Option<SignedAuditEvent>> {
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_LAST_FOR_TENANT)?;
+        match stmt.query_row(params![tenant_id], row_to_signed_audit_event) {
+            Ok(row) => Ok(Some(row)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// All audit events for a specific tenant in seq order. A
+    /// caller that wants to verify the per-tenant chain calls this
+    /// then runs `verify_chain` against the result.
+    pub fn audit_list_for_tenant(&self, tenant_id: &str) -> StorageResult<Vec<SignedAuditEvent>> {
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_ALL_FOR_TENANT_ORDERED)?;
+        let rows = stmt.query_map(params![tenant_id], row_to_signed_audit_event)?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(StorageError::from)
+    }
+
+    /// Append an audit event scoped to a specific tenant. The
+    /// `prev_event_hash` is computed from the LAST event in this
+    /// tenant's subsequence — cross-tenant events don't link.
+    /// `seq` remains globally unique (preserves the existing
+    /// `INTEGER PRIMARY KEY` invariant); per-tenant ordering is
+    /// derivable via the (tenant_id, seq) index.
+    pub fn audit_append_for_tenant(
+        &mut self,
+        tenant_id: &str,
+        new_event: NewAuditEvent,
+        signer: &DevSigner,
+    ) -> StorageResult<SignedAuditEvent> {
+        // Global next seq (preserves the existing PRIMARY KEY
+        // monotonicity across tenants — two tenants writing
+        // concurrently can't collide on seq).
+        let global_last_seq: i64 = self
+            .conn
+            .query_row("SELECT COALESCE(MAX(seq), 0) FROM audit_events", [], |r| {
+                r.get(0)
+            })
+            .unwrap_or(0);
+        let next_seq = (global_last_seq as u64) + 1;
+        // Per-tenant prev_event_hash — only events in THIS
+        // tenant's subsequence link.
+        let tenant_last = self.audit_last_for_tenant(tenant_id)?;
+        let prev_hash = tenant_last
+            .map(|e| e.event_hash)
+            .unwrap_or_else(|| ZERO_HASH.to_string());
+        let event = AuditEvent {
+            version: 1,
+            seq: next_seq,
+            id: format!("evt-{}", ulid::Ulid::new()),
+            ts: new_event.ts,
+            event_type: new_event.event_type,
+            actor: new_event.actor,
+            subject_id: new_event.subject_id,
+            payload_hash: new_event.payload_hash,
+            metadata: new_event.metadata,
+            policy_version: new_event.policy_version,
+            policy_hash: new_event.policy_hash,
+            attestation_ref: new_event.attestation_ref,
+            prev_event_hash: prev_hash,
+        };
+        let signed = SignedAuditEvent::sign(event, signer)?;
+        self.conn.execute(
+            "INSERT INTO audit_events
+                (seq, id, ts, type, actor, subject_id, payload_hash, metadata_json,
+                 policy_version, policy_hash, attestation_ref, prev_event_hash,
+                 event_hash, signature_alg, signature_key_id, signature_hex, tenant_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            params![
+                signed.event.seq as i64,
+                signed.event.id,
+                signed.event.ts.to_rfc3339(),
+                signed.event.event_type,
+                signed.event.actor,
+                signed.event.subject_id,
+                signed.event.payload_hash,
+                serde_json::Value::Object(signed.event.metadata.clone()).to_string(),
+                signed.event.policy_version.map(|v| v as i64),
+                signed.event.policy_hash,
+                signed.event.attestation_ref,
+                signed.event.prev_event_hash,
+                signed.event_hash,
+                "ed25519",
+                signed.signature.key_id,
+                signed.signature.signature_hex,
+                tenant_id,
+            ],
+        )?;
+        Ok(signed)
+    }
+
+    // NOTE: `audit_verify_for_tenant` is intentionally deferred.
+    // The existing `verify_chain` requires contiguous seq values
+    // starting at 1, but per-tenant subsequences over a shared
+    // global `seq` PRIMARY KEY have gaps (other tenants' events
+    // occupy the global sequence). Closing this gap requires
+    // either (a) a per-tenant `tenant_seq` column carried in the
+    // chain hash, or (b) a tenant-aware verifier that re-indexes
+    // the events before walking. Both are larger than this PR's
+    // scope; this commit ships the cross-tenant ISOLATION property
+    // (read/write filtered by tenant_id) and the chain-verification
+    // story lands in a follow-up.
 }
 
 #[cfg(test)]
@@ -318,6 +503,38 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
         assert!(n >= 1, "at least one migration applied");
+    }
+
+    #[test]
+    fn audit_list_paginated_respects_since_seq_and_limit() {
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        // Seed a 5-event chain (seq 1..=5).
+        for i in 0..5 {
+            s.audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", format!("pr-{i}")),
+                &signer,
+            )
+            .unwrap();
+        }
+        // since_seq=2, limit=10 → events 3,4,5.
+        let page = s.audit_list_paginated(2, 10).unwrap();
+        let seqs: Vec<u64> = page.iter().map(|e| e.event.seq).collect();
+        assert_eq!(seqs, vec![3, 4, 5]);
+
+        // since_seq=0, limit=2 → events 1,2 (caps at limit).
+        let page = s.audit_list_paginated(0, 2).unwrap();
+        let seqs: Vec<u64> = page.iter().map(|e| e.event.seq).collect();
+        assert_eq!(seqs, vec![1, 2]);
+
+        // since_seq past chain head → empty page (no error).
+        let page = s.audit_list_paginated(99, 10).unwrap();
+        assert!(page.is_empty());
+
+        // limit=0 → empty page (no error). Edge case: callers that
+        // want the full chain should call audit_list() instead.
+        let page = s.audit_list_paginated(0, 0).unwrap();
+        assert!(page.is_empty());
     }
 
     #[test]

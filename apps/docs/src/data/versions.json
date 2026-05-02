@@ -1,0 +1,10 @@
+{
+  "$schema": "./versions.schema.json",
+  "current": "latest",
+  "versions": [
+    { "id": "latest",  "label": "latest (main)",  "tag": null,        "date": null,         "default": true,  "description": "Current main; rebuilt on every merge to main." },
+    { "id": "v1.2.0",  "label": "v1.2.0",         "tag": "v1.2.0",    "date": "2026-05-02", "default": false, "description": "Phase 2 frontend complete; Trust DNS essay; SDK refs; Redoc /api." },
+    { "id": "v1.0.1",  "label": "v1.0.1",         "tag": "v1.0.1",    "date": "2026-05-01", "default": false, "description": "Phase 2 ENS integration patch (#156)." },
+    { "id": "v1.0.0",  "label": "v1.0.0",         "tag": "v1.0.0",    "date": "2026-04-30", "default": false, "description": "Phase 1 closeout — production-shaped runner + KH live + ENS mainnet." }
+  ]
+}

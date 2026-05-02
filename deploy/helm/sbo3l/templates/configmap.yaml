@@ -1,0 +1,23 @@
+{{- /*
+Non-secret config (e.g. policy JSON content). Most operators will leave
+``configMap.create`` off and either:
+  * use the embedded reference policy (default), OR
+  * mount their own external ConfigMap / Secret and point ``env.policy``
+    at the mounted path.
+
+Rendered only when ``configMap.create: true`` AND ``configMap.data`` is
+non-empty — an empty ConfigMap is harmless but noisy.
+*/ -}}
+{{- if and .Values.configMap.create .Values.configMap.data -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sbo3l.fullname" . }}
+  labels:
+    {{- include "sbo3l.labels" . | nindent 4 }}
+data:
+  {{- range $k, $v := .Values.configMap.data }}
+  {{ $k }}: |-
+    {{- $v | nindent 4 }}
+  {{- end }}
+{{- end }}

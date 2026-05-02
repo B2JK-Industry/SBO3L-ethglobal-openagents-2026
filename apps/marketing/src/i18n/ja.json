@@ -1,0 +1,24 @@
+{
+  "common": {
+    "tagline_part1": "エージェントにウォレットを渡すな。",
+    "tagline_part2": "委任状を渡せ。",
+    "_TODO_JA_REVIEW_tagline": "Native Japanese reviewer: '委任状' (proxy/letter of attorney) preserves the noun-form mandate framing; alternative '権限' (authority) loses the parallel structure with ウォレット.",
+    "cta_start": "5分で始める",
+    "cta_view_source": "ソースを見る",
+    "cta_walk_demo": "デモを見る",
+    "cta_verify": "カプセルを自分で検証",
+    "nav_features": "機能",
+    "nav_proof": "証明",
+    "nav_demo": "デモ",
+    "nav_docs": "ドキュメント",
+    "nav_github": "GitHub",
+    "nav_quickstart": "クイックスタート",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — 提出作品"
+  },
+  "index": {
+    "lede": "SBO3L は自律型 AI エージェント向けの暗号学的に検証可能な信頼レイヤーです。エージェントが実行するすべてのアクション — 支払い、スワップ、ストレージ、計算、調整 — はまず SBO3L のポリシー境界を通過します。"
+  },
+  "submission": {
+    "h1": "自律型 AI エージェント向けの暗号学的に検証可能な信頼レイヤー。"
+  }
+}

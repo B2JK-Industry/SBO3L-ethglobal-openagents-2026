@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "SBO3L CLI: validate, decide, sign, verify-audit, demo helpers."
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "SBO3L CLI binary: validate, decide, sign, audit, passport run/verify/explain, doctor."
+keywords = ["sbo3l", "cli", "agent", "policy", "audit"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "sbo3l"
@@ -13,16 +18,28 @@ path = "src/main.rs"
 
 [dependencies]
 sbo3l-core = { workspace = true }
-sbo3l-policy = { workspace = true }
+sbo3l-policy = { workspace = true, features = ["budget"] }
 sbo3l-storage = { workspace = true }
 # Passport P2.1: `sbo3l passport run` orchestrates the existing
 # `POST /v1/payment-requests` pipeline in-process (research-agent
 # pattern). Pulling sbo3l-server / -identity / -execution + the
 # axum/tower/http stack here matches what research-agent's Cargo.toml
 # already does — no new transitives in the workspace.
-sbo3l-server = { path = "../sbo3l-server" }
+sbo3l-server = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }
+# Phase 3.1 — `sbo3l audit anchor` CLI uses the anchor crate's
+# digest builder + ABI calldata encoder. Lightweight (no SDK
+# transitive deps), so unconditional rather than feature-gated.
+sbo3l-anchor = { workspace = true }
+# `audit anchor` default tenant_id = keccak256("default"). Same
+# crate sbo3l-anchor already pulls; declare directly for clarity.
+tiny-keccak = { version = "2", features = ["keccak"] }
+# T-3-2 sbo3l agent verify-ens: derive Ed25519 pubkey from a local
+# secret-seed file (--key-file) so operators can verify without
+# reading the seed manually. Already a transitive dep through
+# sbo3l-core; declared explicitly here for clarity.
+ed25519-dalek = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_json_canonicalizer = { workspace = true }
@@ -40,6 +57,46 @@ ulid = { workspace = true }
 tempfile = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+# `audit verify-anchor` calls eth_getTransactionByHash via JSON-RPC.
+# Workspace reqwest already with rustls-tls + json features.
+reqwest = { workspace = true }
+# T-3-1 broadcast: optional alloy stack for `sbo3l agent register --broadcast`.
+# Feature-gated so default `cargo build -p sbo3l-cli` stays fast — alloy
+# pulls ~150 transitive crates. Operators wanting broadcast build with
+# `--features eth_broadcast`. The dry-run path is unaffected.
+alloy = { version = "0.6", default-features = false, features = [
+    "consensus",
+    "network",
+    "providers",
+    "provider-http",
+    "rpc-types-eth",
+    "signer-local",
+    "signers",
+    "transport-http",
+    "reqwest-rustls-tls",
+], optional = true }
+# R14 P2 — `sbo3l admin backup/restore/export`. Feature-gated to keep
+# the default cli small. Picked up only by --features admin_backup.
+tar = { version = "0.4", optional = true }
+zstd = { version = "0.13", optional = true }
+age = { version = "0.10", optional = true, default-features = false, features = ["armor"] }
+# `admin backup` calls SQLite's `VACUUM INTO` to produce a consistent
+# snapshot. rusqlite is already a dev-dep; promoting to optional under
+# the same feature so the snapshot path lives outside dev-only code.
+rusqlite = { workspace = true, optional = true }
+
+[features]
+default = []
+# Enables `sbo3l agent register --broadcast` to actually sign + send
+# the setSubnodeRecord + multicall(setText) txs over JSON-RPC. Without
+# this feature the broadcast flag still parses but errors out with a
+# clear "rebuild with --features eth_broadcast" message — matches the
+# pre-1.0.1 dry-run-only behaviour exactly.
+eth_broadcast = ["dep:alloy"]
+# Enables `sbo3l admin backup/restore/export` to actually compress, encrypt,
+# and write archives. Without this feature the subcommands parse but error
+# with "rebuild with --features admin_backup" — same pattern as eth_broadcast.
+admin_backup = ["dep:tar", "dep:zstd", "dep:age", "dep:rusqlite"]
 
 [dev-dependencies]
 rusqlite = { workspace = true }

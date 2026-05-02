@@ -1,0 +1,149 @@
+{
+  "schema": "sbo3l.sdk_conformance_manifest.v1",
+  "description": "SDK conformance corpus. Every entry below MUST produce the same verify outcome across the Rust, TypeScript, and Python SDKs — that's the conformance contract. CI runs each SDK's runner against this manifest; drift between SDKs (e.g., one accepts a tampered capsule the others reject) is the regression mode this catches.",
+  "vectors": [
+    {
+      "name": "v1_golden_001_allow_keeperhub_mock",
+      "fixture": "passport/golden_001_allow_keeperhub_mock.json",
+      "schema_version": 1,
+      "verify_ok": true,
+      "comment": "Canonical v1 allow path against KH mock — every SDK must accept."
+    },
+    {
+      "name": "v1_tampered_001_deny_with_execution_ref",
+      "fixture": "passport/tampered_001_deny_with_execution_ref.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "deny-decision capsule that nevertheless carries an execution_ref — violates the policy invariant. All SDKs must reject."
+    },
+    {
+      "name": "v1_tampered_002_mock_anchor_marked_live",
+      "fixture": "passport/tampered_002_mock_anchor_marked_live.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "mock-anchor reference mislabelled as live — bidirectional invariant violation."
+    },
+    {
+      "name": "v1_tampered_003_live_mode_without_evidence",
+      "fixture": "passport/tampered_003_live_mode_without_evidence.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "live-mode capsule missing live_evidence — incomplete attestation."
+    },
+    {
+      "name": "v1_tampered_004_request_hash_mismatch",
+      "fixture": "passport/tampered_004_request_hash_mismatch.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "request.request_hash != receipt.request_hash — primary integrity check fails."
+    },
+    {
+      "name": "v1_tampered_005_policy_hash_mismatch",
+      "fixture": "passport/tampered_005_policy_hash_mismatch.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "policy.policy_hash != receipt.policy_hash — same shape, policy side."
+    },
+    {
+      "name": "v1_tampered_006_malformed_checkpoint",
+      "fixture": "passport/tampered_006_malformed_checkpoint.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "audit.checkpoint structurally malformed."
+    },
+    {
+      "name": "v1_tampered_007_unknown_field",
+      "fixture": "passport/tampered_007_unknown_field.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "known_drift": ["python", "typescript"],
+      "comment": "Unknown top-level field — Rust strict schema rejects; Python SDK currently accepts (gap: Py's structural verifier doesn't enforce additionalProperties:false at the v1 layer). Conformance runners SKIP this vector for SDKs in known_drift; backlog: harden Py SDK to match Rust."
+    },
+    {
+      "name": "v1_tampered_008_live_mode_empty_evidence",
+      "fixture": "passport/tampered_008_live_mode_empty_evidence.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "comment": "live-mode with empty live_evidence object — minProperties violation."
+    },
+    {
+      "name": "v1_tampered_009_executor_evidence_empty_object",
+      "fixture": "passport/tampered_009_executor_evidence_empty_object.json",
+      "schema_version": 1,
+      "verify_ok": false,
+      "known_drift": ["python", "typescript"],
+      "comment": "executor_evidence empty object — Rust enforces minProperties:1, Python SDK currently accepts. Same backlog as #007."
+    },
+    {
+      "name": "v2_golden_001_minimal",
+      "fixture": "passport/v2_golden_001_minimal.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "comment": "Smallest v2 self-contained capsule — every SDK must accept."
+    },
+    {
+      "name": "v2_golden_002_keeperhub_mock",
+      "fixture": "passport/v2_golden_002_keeperhub_mock.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "comment": "v2 capsule against KH mock — accepts."
+    },
+    {
+      "name": "v2_golden_003_keeperhub_mock",
+      "fixture": "passport/v2_golden_003_keeperhub_mock.json",
+      "schema_version": 2,
+      "verify_ok": true
+    },
+    {
+      "name": "v2_golden_004_keeperhub_mock",
+      "fixture": "passport/v2_golden_004_keeperhub_mock.json",
+      "schema_version": 2,
+      "verify_ok": true
+    },
+    {
+      "name": "v2_golden_005_keeperhub_mock",
+      "fixture": "passport/v2_golden_005_keeperhub_mock.json",
+      "schema_version": 2,
+      "verify_ok": true
+    },
+    {
+      "name": "v2_tampered_001_policy_snapshot_drift",
+      "fixture": "passport/v2_tampered_001_policy_snapshot_drift.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "Structurally well-formed; embedded policy_snapshot doesn't hash to claimed policy_hash. Caught by STRICT (cryptographic) verify, passes structural verify."
+    },
+    {
+      "name": "v2_tampered_002_audit_segment_chain_break",
+      "fixture": "passport/v2_tampered_002_audit_segment_chain_break.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "Structurally well-formed; audit_segment has prev_event_hash linkage break. Caught by strict-mode chain verify."
+    },
+    {
+      "name": "v2_tampered_003_audit_segment_link_mismatch",
+      "fixture": "passport/v2_tampered_003_audit_segment_link_mismatch.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "Structurally well-formed; summary.audit_event_id ≠ capsule audit.audit_event_id. Caught by strict-mode audit_event_link check."
+    },
+    {
+      "name": "v2_tampered_004_audit_segment_too_large",
+      "fixture": "passport/v2_tampered_004_audit_segment_too_large.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "Structurally well-formed at the surface; audit_segment exceeds the 1MB envelope cap (DoS guard)."
+    }
+  ],
+  "notes": [
+    "Every fixture path is relative to test-corpus/.",
+    "schema_version reflects the capsule's `schema` field — 1 for sbo3l.passport_capsule.v1, 2 for sbo3l.passport_capsule.v2.",
+    "verify_ok is the SDK's structural verify result. Strict (cryptographic) verify is exercised separately in each SDK's strict-mode tests; this manifest stays at the structural layer because that surface exists in all three SDKs today.",
+    "known_drift: optional array of SDK names where the current implementation disagrees with verify_ok. Runners SKIP the vector for SDKs in this list and emit a `pending` marker. The Rust SDK is treated as the canonical reference; entries here are backlog items to harden the listed SDK.",
+    "When adding a new fixture, write the .json file under test-corpus/passport/ AND append an entry here with the outcome the Rust verifier produces. CI catches drift if a future SDK change disagrees with the manifest."
+  ]
+}
