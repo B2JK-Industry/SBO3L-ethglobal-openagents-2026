@@ -1,0 +1,9 @@
+[03-partition] start 2026-05-02T05:41:58Z
+[chaos] first POST with idempotency key (expect partition / sponsor failure)
+  HTTP=200
+  idempotency state after partition: succeeded
+PASS: idempotency state = succeeded (transition recorded)
+[chaos] second POST same key (expect 409 idempotency_in_flight)
+  HTTP=200
+PASS: idempotency replay returned cached body (acceptable)
+[03-partition] end 2026-05-02T05:42:00Z; failed=0
