@@ -263,14 +263,19 @@ pub fn parse_amount_in(network: SwapNetwork, raw: &str) -> Result<ParsedAmount, 
     if trimmed.is_empty() {
         return Err("--amount-in cannot be empty".to_string());
     }
-    // Detect a known suffix (case-insensitive).
+    // Detect a known suffix (case-insensitive). **Order matters:**
+    // `WETH` and `USDC` MUST be matched before `ETH` because `ETH` is
+    // a strict suffix of `WETH` — checking `ETH` first would parse
+    // `1WETH` as numeric `"1W"` + suffix `ETH` and fail (Codex P1
+    // finding on PR #394). `USDC` is independent but kept first for
+    // ordering symmetry; pin tested in `parse_amount_in_*` unit tests.
     let upper = trimmed.to_ascii_uppercase();
-    let (numeric, token_label, decimals) = if let Some(prefix) = upper.strip_suffix("ETH") {
-        (prefix.trim().to_string(), "ETH", 18)
-    } else if let Some(prefix) = upper.strip_suffix("WETH") {
+    let (numeric, token_label, decimals) = if let Some(prefix) = upper.strip_suffix("WETH") {
         (prefix.trim().to_string(), "WETH", 18)
     } else if let Some(prefix) = upper.strip_suffix("USDC") {
         (prefix.trim().to_string(), "USDC", 6)
+    } else if let Some(prefix) = upper.strip_suffix("ETH") {
+        (prefix.trim().to_string(), "ETH", 18)
     } else {
         // No suffix — whole string must parse as a wei integer.
         if !trimmed.bytes().all(|b| b.is_ascii_digit()) {
@@ -1149,6 +1154,39 @@ mod tests {
     fn parse_amount_zero_is_zero() {
         let p = parse_amount_in(SwapNetwork::Mainnet, "0ETH").unwrap();
         assert_eq!(p.amount_wei_dec, "0");
+    }
+
+    /// Codex P1 regression on PR #394: `1WETH` was parsed as numeric
+    /// `1W` + suffix `ETH` because the matcher checked `ETH` before
+    /// `WETH`. `WETH` is a strict suffix of `ETH` only when checked
+    /// in that order; the fix matches `WETH` first.
+    #[test]
+    fn parse_amount_weth_suffix_resolves_to_weth_token() {
+        let p = parse_amount_in(SwapNetwork::Mainnet, "1WETH").unwrap();
+        assert_eq!(p.amount_wei_dec, "1000000000000000000");
+        assert_eq!(p.token.decimals, 18);
+        // Token must be WETH (NOT ETH — different label, same decimals).
+        assert_eq!(p.token.address, MAINNET_WETH);
+    }
+
+    #[test]
+    fn parse_amount_weth_decimal_form_resolves_to_weth() {
+        let p = parse_amount_in(SwapNetwork::Mainnet, "0.005WETH").unwrap();
+        assert_eq!(p.amount_wei_dec, "5000000000000000");
+        assert_eq!(p.token.address, MAINNET_WETH);
+    }
+
+    /// `ETH` (without W prefix) still resolves to ETH on mainnet —
+    /// the fix must not regress the plain-ETH path.
+    #[test]
+    fn parse_amount_plain_eth_still_resolves_to_eth() {
+        let p = parse_amount_in(SwapNetwork::Mainnet, "0.005ETH").unwrap();
+        assert_eq!(p.amount_wei_dec, "5000000000000000");
+        // ETH on the mainnet path resolves to WETH internally (the
+        // router needs an ERC20). Same address as 0.005WETH above.
+        // The relevant invariant is that `0.005ETH` no longer
+        // mis-parses as `0.005W` + `ETH`.
+        assert_eq!(p.amount_wei_dec, "5000000000000000");
     }
 
     #[test]

@@ -361,23 +361,153 @@ fn render_human(report: &DoctorReport) -> String {
 /// extended probes wins. `0` if every section is `ok` (or skip);
 /// `1` if any local check or any extended probe fails; `2` if the
 /// local DB couldn't even be opened.
+///
+/// **Codex P1+P2 fixes on PR #384:**
+/// - Exit code is tracked as a `u8` end-to-end now. The previous
+///   `ExitCode::Debug` round-trip (`format!("{code:?}").parse::<u8>()`)
+///   relied on an unstable Debug shape — current Rust prints
+///   `ExitCode(unix_exit_status(N))` and the parse fell back to `1`
+///   on every run, masking real exit codes.
+/// - When both `--extended` and `--json` are set, a single combined
+///   envelope is emitted (`{ "report_type": "sbo3l.doctor.combined.v1",
+///   local: {...}, extended: {...} }`) instead of two concatenated
+///   top-level JSON documents that broke single-document parsers.
 pub fn run_with_extended(
     db: Option<&Path>,
     json: bool,
     extended: bool,
     rpc_url: Option<&str>,
 ) -> ExitCode {
-    let local_exit = run(db, json);
     if !extended {
-        return local_exit;
+        return run(db, json);
     }
     let resolved_url = resolve_extended_rpc_url(rpc_url);
-    let extended_exit = crate::doctor_extended::run_extended(&resolved_url, json);
-    // Worst exit wins: 2 > 1 > 0.
-    let local_code = exit_code_to_u8(local_exit);
-    let ext_code = exit_code_to_u8(extended_exit);
-    let worst = local_code.max(ext_code);
+
+    if json {
+        // Combined-envelope path: gather both reports without
+        // printing, then emit ONE JSON document carrying both.
+        let local = gather_local_outcome(db);
+        let ext = crate::doctor_extended::gather_extended_probes(&resolved_url);
+        let local_json = match &local.report {
+            Some(r) => serde_json::to_value(r).unwrap_or(serde_json::Value::Null),
+            None => serde_json::Value::Null,
+        };
+        let envelope = serde_json::json!({
+            "report_type": "sbo3l.doctor.combined.v1",
+            "local": local_json,
+            "extended": crate::doctor_extended::build_extended_json(&ext),
+            // Operator-friendly aggregate: worst-of (local, extended).
+            "overall": match worst_of(local.exit_byte, ext_byte(&ext)) {
+                0 => "ok",
+                1 => "fail",
+                _ => "error",
+            },
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope).unwrap());
+        return ExitCode::from(worst_of(local.exit_byte, ext_byte(&ext)));
+    }
+
+    // Human-text path: keep two-section output (local then
+    // extended). Each section already has its own header.
+    // We deliberately gather once + print + reuse the byte rather
+    // than calling `run` and then re-gathering: ExitCode's Debug
+    // shape is unstable across Rust toolchains (Codex P1 finding),
+    // and `gather_local_outcome` is the cheap inspection-only path.
+    let local = gather_local_outcome(db);
+    if let Some(report) = &local.report {
+        print!("{}", render_human(report));
+    }
+    let ext_outcome = crate::doctor_extended::gather_extended_probes(&resolved_url);
+    crate::doctor_extended::render_extended_outcome(&ext_outcome, &resolved_url, false);
+    let worst = worst_of(local.exit_byte, ext_byte(&ext_outcome));
     ExitCode::from(worst)
+}
+
+fn ext_byte(out: &crate::doctor_extended::ExtendedOutcome) -> u8 {
+    if out.client_build_error.is_some() {
+        2
+    } else if out.any_failed {
+        1
+    } else {
+        0
+    }
+}
+
+fn worst_of(a: u8, b: u8) -> u8 {
+    a.max(b)
+}
+
+/// Snapshot of the local-storage doctor pass. Exposed to
+/// `run_with_extended` so the combined-JSON path can build one
+/// envelope instead of printing two.
+struct LocalOutcome {
+    exit_byte: u8,
+    report: Option<DoctorReport>,
+}
+
+/// Inspect the local DB without printing anything. Mirrors `run`
+/// but returns the structured `DoctorReport` + a u8 exit code so
+/// the caller chooses how to render. The bare `run` builds + prints
+/// directly; this is the parallel surface for combined-envelope use.
+fn gather_local_outcome(db: Option<&Path>) -> LocalOutcome {
+    if let Some(p) = db {
+        // Only Ok(false) is an early return; Ok(true) and Err(_)
+        // both fall through to Storage::open (which surfaces
+        // permission/metadata errors verbatim via storage_open).
+        if let Ok(false) = p.try_exists() {
+            let path = p.display().to_string();
+            return LocalOutcome {
+                exit_byte: 2,
+                report: Some(DoctorReport {
+                    report_type: "sbo3l.doctor.v1",
+                    overall: "fail",
+                    db_path: path.clone(),
+                    checks: vec![fail(
+                        "storage_open",
+                        format!("doctor target DB does not exist: {path}"),
+                    )],
+                }),
+            };
+        }
+    }
+    let storage_result = match db {
+        Some(p) => Storage::open(p),
+        None => Storage::open_in_memory(),
+    };
+    let storage = match storage_result {
+        Ok(s) => s,
+        Err(e) => {
+            let path = db
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| ":memory:".to_string());
+            return LocalOutcome {
+                exit_byte: 2,
+                report: Some(DoctorReport {
+                    report_type: "sbo3l.doctor.v1",
+                    overall: "fail",
+                    db_path: path,
+                    checks: vec![fail("storage_open", e.to_string())],
+                }),
+            };
+        }
+    };
+    let checks = run_checks(&storage);
+    let overall = overall_verdict(&checks);
+    let exit_byte = match overall {
+        "fail" => 1,
+        _ => 0,
+    };
+    LocalOutcome {
+        exit_byte,
+        report: Some(DoctorReport {
+            report_type: "sbo3l.doctor.v1",
+            overall,
+            db_path: db
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| ":memory:".to_string()),
+            checks,
+        }),
+    }
 }
 
 /// Build the Sepolia RPC URL for `--extended` probes. Precedence:
@@ -415,18 +545,12 @@ fn resolve_extended_rpc_url(flag: Option<&str>) -> String {
     fallback.to_string()
 }
 
-fn exit_code_to_u8(code: ExitCode) -> u8 {
-    // `ExitCode` doesn't expose the inner code on stable Rust, so we
-    // round-trip through Debug. Format is `ExitCode(<u8>)` for both
-    // `ExitCode::SUCCESS` (0) and `ExitCode::from(n)`. This is brittle
-    // but stable across the Rust versions in our toolchain pin
-    // (1.80+); the doctor's exit-code logic is the only place that
-    // needs to compare codes, and a spurious Debug change would be
-    // caught by the unit tests below.
-    let s = format!("{code:?}");
-    let inner = s.trim_start_matches("ExitCode(").trim_end_matches(')');
-    inner.parse::<u8>().unwrap_or(1)
-}
+// `exit_code_to_u8` removed — relied on `format!("{code:?}")` parsing
+// which is unstable across Rust versions (current toolchains print
+// `ExitCode(unix_exit_status(N))` rather than `ExitCode(N)`, causing
+// every parse to fall back to `1`). All exit-code arithmetic now goes
+// through u8 directly via `gather_local_outcome` + `ext_byte`. Codex
+// P1 finding on PR #384.
 
 /// Entry point for `sbo3l doctor`. Returns a process exit code:
 /// `0` on `ok` / `warn`, `1` if any check failed, `2` if the database

@@ -120,11 +120,16 @@ pub struct ZeroGStorageBackend {
 
 impl ZeroGStorageBackend {
     /// Build a backend pointed at the supplied indexer URL with sensible
-    /// defaults: a 30s request timeout and the documented 1s/3s retry
-    /// schedule. Use `with_*` builders for test overrides.
+    /// defaults: an 8s per-request timeout and the documented 1s/3s
+    /// retry schedule. Use `with_*` builders for test overrides.
+    ///
+    /// Per-attempt timeout is intentionally short — the worst-case total
+    /// is `8 + 1 + 8 + 3 + 8 = 28s`, vs ~94s with a 30s per-attempt
+    /// budget. Codex finding on PR #391: the long budget undermined the
+    /// fast-fallback path on flaky 0G testnet uploads.
     pub fn new(endpoint: impl Into<String>) -> Self {
         let http = reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(8))
             .build()
             .expect("reqwest blocking client builds with default config");
         Self {

@@ -201,16 +201,33 @@ struct RpcError {
     message: String,
 }
 
-/// Run all 6 probes against `rpc_url`. Returns the per-contract
-/// reports and an aggregate exit code (0 if every probe is
-/// `ProbeStatus::Ok`, 1 otherwise). When `json` is true, prints the
-/// JSON envelope; otherwise pretty-prints a human-readable table.
-pub fn run_extended(rpc_url: &str, json: bool) -> ExitCode {
+/// Outcome of `run_extended_inner` — exposed so the parent
+/// `doctor::run_with_extended` can emit a single combined JSON
+/// envelope (Codex P2 finding on PR #384: previously emitted two
+/// concatenated JSON documents when `--extended --json`).
+pub struct ExtendedOutcome {
+    pub reports: Vec<ContractProbeReport>,
+    pub rpc_url_kind: &'static str,
+    pub any_failed: bool,
+    /// Set on RPC client init failure (separate from probe-level
+    /// failure — `client_build_error` means we never got far enough
+    /// to fire any probe).
+    pub client_build_error: Option<String>,
+}
+
+/// Run all 6 probes against `rpc_url`. Returns the structured outcome
+/// without printing anything — caller decides how to render. Used by
+/// `doctor::run_with_extended` to merge into one JSON envelope.
+pub(crate) fn gather_extended_probes(rpc_url: &str) -> ExtendedOutcome {
     let client = match build_client() {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("sbo3l doctor --extended: build http client: {e}");
-            return ExitCode::from(2);
+            return ExtendedOutcome {
+                reports: Vec::new(),
+                rpc_url_kind: rpc_url_kind(rpc_url),
+                any_failed: true,
+                client_build_error: Some(e),
+            };
         }
     };
 
@@ -221,19 +238,66 @@ pub fn run_extended(rpc_url: &str, json: bool) -> ExitCode {
 
     let any_failed = reports.iter().any(|r| r.status != ProbeStatus::Ok);
 
+    ExtendedOutcome {
+        reports,
+        rpc_url_kind: rpc_url_kind(rpc_url),
+        any_failed,
+        client_build_error: None,
+    }
+}
+
+/// Render the extended probe outcome in the chosen format. Split out
+/// from `run_extended` so the combined-JSON path in
+/// `doctor::run_with_extended` can call `gather_extended_probes` →
+/// merge → print once.
+pub(crate) fn render_extended_outcome(outcome: &ExtendedOutcome, rpc_url: &str, json: bool) {
     if json {
-        let envelope = serde_json::json!({
-            "report_type": "sbo3l.doctor.extended.v1",
-            "rpc_url_kind": rpc_url_kind(rpc_url),
-            "overall": if any_failed { "fail" } else { "ok" },
-            "sepolia_contracts": reports,
-        });
+        let envelope = build_extended_json(outcome);
         println!("{}", serde_json::to_string_pretty(&envelope).unwrap());
     } else {
-        print_human(&reports, rpc_url, any_failed);
+        if let Some(err) = &outcome.client_build_error {
+            eprintln!("sbo3l doctor --extended: build http client: {err}");
+            return;
+        }
+        print_human(&outcome.reports, rpc_url, outcome.any_failed);
     }
+}
 
-    if any_failed {
+pub(crate) fn build_extended_json(outcome: &ExtendedOutcome) -> serde_json::Value {
+    if let Some(err) = &outcome.client_build_error {
+        return serde_json::json!({
+            "report_type": "sbo3l.doctor.extended.v1",
+            "rpc_url_kind": outcome.rpc_url_kind,
+            "overall": "fail",
+            "client_build_error": err,
+            "sepolia_contracts": [],
+        });
+    }
+    serde_json::json!({
+        "report_type": "sbo3l.doctor.extended.v1",
+        "rpc_url_kind": outcome.rpc_url_kind,
+        "overall": if outcome.any_failed { "fail" } else { "ok" },
+        "sepolia_contracts": outcome.reports,
+    })
+}
+
+/// Standalone entry retained for callers that want to invoke just
+/// the extended doctor path and exit on its result. Wraps the
+/// gather + render + exit-code computation.
+///
+/// The combined-doctor path in `doctor::run_with_extended` calls
+/// `gather_extended_probes` + `render_extended_outcome` directly so
+/// it can merge into one JSON envelope, but this entrypoint stays
+/// for surface symmetry with `doctor::run` (and for any future
+/// `sbo3l doctor extended-only` invocation).
+#[allow(dead_code)]
+pub fn run_extended(rpc_url: &str, json: bool) -> ExitCode {
+    let outcome = gather_extended_probes(rpc_url);
+    render_extended_outcome(&outcome, rpc_url, json);
+    if outcome.client_build_error.is_some() {
+        return ExitCode::from(2);
+    }
+    if outcome.any_failed {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
