@@ -129,12 +129,17 @@ def sbo3l_payment_request_func(
 
         body: dict[str, Any] = parsed
         kwargs: dict[str, Any] = {}
-        if idempotency_key is not None:
-            kwargs["idempotency_key"] = idempotency_key(body)
 
+        # The user-supplied idempotency_key callback runs INSIDE the same
+        # try block as client.submit so an exception from the callback
+        # (e.g. KeyError from a missing field) surfaces as a structured
+        # tool error envelope instead of escaping into Agno's loop and
+        # crashing the run. The tool's contract promises "never raises".
         try:
+            if idempotency_key is not None:
+                kwargs["idempotency_key"] = idempotency_key(body)
             raw = client.submit(body, **kwargs)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — surface anything to the LLM
             code = getattr(e, "code", None)
             return json.dumps(
                 {

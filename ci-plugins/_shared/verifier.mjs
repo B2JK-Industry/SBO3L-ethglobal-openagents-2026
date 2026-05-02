@@ -39,39 +39,78 @@ try {
   process.exit(1);
 }
 
+// Hex regex shared by request_hash + policy_hash checks (64 hex chars).
+const HEX64 = /^[0-9a-f]{64}$/;
+
 function verifyInline(c) {
   const checks = [];
   const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
   checks.push({ name: "capsule.is_object", ok: isObj(c) });
-  if (!isObj(c)) return { decision: "deny", checks };
-  const ctype = c.capsule_type ?? c.receipt_type ?? "";
+  if (!isObj(c)) return { decision: "deny", audit_event_id: null, checks };
+
+  // Real Passport capsules use `schema` at the root (per
+  // sdks/typescript/src/passport.ts + test-corpus/passport/v2_*.json).
+  // The legacy fallback to `capsule_type`/`receipt_type` lets a
+  // bare-receipt envelope still verify — we accept either shape.
+  const ctype = c.schema ?? c.capsule_type ?? c.receipt_type ?? "";
   checks.push({
     name: "capsule.type_recognised",
     ok: typeof ctype === "string" && ctype.startsWith("sbo3l."),
     detail: ctype,
   });
-  const decision = c.decision ?? c.receipt?.decision ?? "unknown";
+
+  // Real capsules store the verdict at `decision.result`; the inner
+  // `decision.receipt.decision` is the same value mirrored. Bare-
+  // receipt envelopes carry the verdict at top-level `decision`. Fall
+  // through all three so we accept any canonical shape.
+  const decision =
+    c.decision?.result ??
+    c.decision?.receipt?.decision ??
+    (typeof c.decision === "string" ? c.decision : undefined) ??
+    c.receipt?.decision ??
+    "unknown";
   checks.push({
     name: "capsule.decision_set",
     ok: ["allow", "deny", "requires_human"].includes(decision),
     detail: decision,
   });
-  const auditId = c.audit_event_id ?? c.receipt?.audit_event_id ?? null;
+
+  // audit_event_id lives at top level on v2 capsules (`audit.audit_event_id`),
+  // and on bare receipts at the receipt root.
+  const auditId =
+    c.audit?.audit_event_id ??
+    c.decision?.receipt?.audit_event_id ??
+    c.audit_event_id ??
+    c.receipt?.audit_event_id ??
+    null;
   checks.push({
     name: "capsule.audit_event_id_present",
     ok: typeof auditId === "string" && /^evt-/.test(auditId),
     detail: auditId,
   });
-  const requestHash = c.request_hash ?? c.receipt?.request_hash ?? null;
+
+  const requestHash =
+    c.request?.request_hash ??
+    c.decision?.receipt?.request_hash ??
+    c.request_hash ??
+    c.receipt?.request_hash ??
+    null;
   checks.push({
     name: "capsule.request_hash_present",
-    ok: typeof requestHash === "string" && requestHash.length === 64,
+    ok: typeof requestHash === "string" && HEX64.test(requestHash),
   });
-  const policyHash = c.policy_hash ?? c.receipt?.policy_hash ?? null;
+
+  const policyHash =
+    c.policy?.policy_hash ??
+    c.decision?.receipt?.policy_hash ??
+    c.policy_hash ??
+    c.receipt?.policy_hash ??
+    null;
   checks.push({
     name: "capsule.policy_hash_present",
-    ok: typeof policyHash === "string" && policyHash.length === 64,
+    ok: typeof policyHash === "string" && HEX64.test(policyHash),
   });
+
   return { decision, audit_event_id: auditId, checks };
 }
 

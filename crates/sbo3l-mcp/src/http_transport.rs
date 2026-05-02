@@ -55,7 +55,31 @@ async fn mcp_handler(State(ctx): State<Arc<ServerContext>>, body: String) -> imp
         Ok(r) => r,
         Err(resp) => return Json(serde_json::to_value(resp).unwrap_or(Value::Null)),
     };
-    let resp = dispatch_to_response(&req, &ctx);
+    // dispatch_to_response is BLOCKING. For tools like `sbo3l.decide` and
+    // `sbo3l.run_guarded_execution` it walks the daemon pipeline which
+    // internally spins a Tokio runtime + `block_on`. Calling that
+    // directly from this async handler runs on a Tokio worker thread and
+    // panics with "Cannot start a runtime from within a runtime".
+    // `spawn_blocking` moves the work to a dedicated blocking thread so
+    // the nested `block_on` is safe.
+    let resp = match tokio::task::spawn_blocking(move || dispatch_to_response(&req, &ctx)).await {
+        Ok(r) => r,
+        Err(join_err) => {
+            // Dispatcher panicked OR task was cancelled. Surface as a
+            // JSON-RPC tool-error envelope rather than letting axum
+            // turn it into an opaque HTTP 500.
+            let id = Value::Null;
+            let resp = jsonrpc::Response::err(
+                id,
+                jsonrpc::ErrorObject {
+                    code: crate::TOOL_ERROR_CODE,
+                    message: format!("dispatcher task failed: {join_err}"),
+                    data: None,
+                },
+            );
+            return Json(serde_json::to_value(resp).unwrap_or(Value::Null));
+        }
+    };
     Json(serde_json::to_value(resp).unwrap_or(Value::Null))
 }
 

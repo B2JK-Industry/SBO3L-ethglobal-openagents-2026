@@ -120,8 +120,38 @@ export async function run(argv: string[]): Promise<number> {
  *      operator wires real keys; clear failure mode > silent trust)
  */
 async function loadIssuerRegistry(flag: string | undefined): Promise<IssuerRegistry> {
+  // When `--issuers <path>` is explicitly provided, fail loudly on
+  // read/parse error instead of silently falling through to the
+  // discovery candidates. A typo or malformed JSON in the explicit
+  // trust store would otherwise route verification through a
+  // different (and potentially permissive) registry — that is
+  // exactly the silent-substitution failure mode we want to avoid.
+  if (flag !== undefined) {
+    let raw: string;
+    try {
+      raw = await readFile(flag, "utf-8");
+    } catch (e) {
+      throw new Error(
+        `--issuers ${flag} could not be read: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    let parsed: Record<string, string>;
+    try {
+      parsed = JSON.parse(raw) as Record<string, string>;
+    } catch (e) {
+      throw new Error(
+        `--issuers ${flag} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    const r = new IssuerRegistry();
+    for (const [issuer_id, pubkey_hex] of Object.entries(parsed)) {
+      r.trust(issuer_id, pubkey_hex);
+    }
+    return r;
+  }
+
+  // No explicit flag — try the standard discovery paths in order.
   const candidates: string[] = [];
-  if (flag !== undefined) candidates.push(flag);
   if (process.env["XDG_CONFIG_HOME"] !== undefined) {
     candidates.push(`${process.env["XDG_CONFIG_HOME"]}/sbo3l/trusted-issuers.json`);
   }
@@ -140,11 +170,11 @@ async function loadIssuerRegistry(flag: string | undefined): Promise<IssuerRegis
       // try the next candidate
     }
   }
-  // No issuers file → bootstrap with the official issuer + a placeholder
-  // pubkey. Verify will fail with issuer_pubkey_mismatch until the
-  // operator drops a real trusted-issuers.json in place. Surfacing this
-  // as a clear deny is preferable to silently trusting nothing or
-  // (worse) trusting everything.
+  // No issuers file found → bootstrap with the official issuer + a
+  // placeholder pubkey. Verify will fail with `issuer_pubkey_mismatch`
+  // until the operator drops a real trusted-issuers.json in place.
+  // Surfacing this as a clear deny is preferable to silently trusting
+  // nothing or (worse) trusting everything.
   return bootstrapOfficialRegistry("00".repeat(32));
 }
 
@@ -180,7 +210,19 @@ async function cmdAdopt(flags: Record<string, string>): Promise<number> {
   }
 
   const transport = new HttpTransport(registry);
-  const bundle = await fetchPolicy(transport, policyId);
+  let bundle;
+  try {
+    bundle = await fetchPolicy(transport, policyId);
+  } catch (e) {
+    // HttpTransport.get throws on non-404 HTTP / network failures
+    // (5xx, connection refused, DNS failure, etc). Surface as exit 1
+    // with a clear message rather than letting the unhandled rejection
+    // print a stack trace from main()'s top-level await.
+    process.stderr.write(
+      `adopt: fetch from ${registry} failed: ${e instanceof Error ? e.message : String(e)}\n`,
+    );
+    return 1;
+  }
   if (bundle === undefined) {
     process.stderr.write(`adopt: registry has no bundle for ${policyId}\n`);
     return 1;
@@ -197,7 +239,13 @@ async function cmdAdopt(flags: Record<string, string>): Promise<number> {
     return 1;
   }
 
-  const registryIss = await loadIssuerRegistry(flags["issuers"]);
+  let registryIss;
+  try {
+    registryIss = await loadIssuerRegistry(flags["issuers"]);
+  } catch (e) {
+    process.stderr.write(`adopt: ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
   const result = await verifyBundle(bundle, registryIss);
   if (!result.ok) {
     process.stderr.write(`adopt: verify failed (${result.code}): ${result.detail}\n`);
@@ -244,7 +292,13 @@ async function cmdVerify(flags: Record<string, string>): Promise<number> {
     return 1;
   }
 
-  const registry = await loadIssuerRegistry(flags["issuers"]);
+  let registry;
+  try {
+    registry = await loadIssuerRegistry(flags["issuers"]);
+  } catch (e) {
+    process.stderr.write(`verify: ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
   const result = await verifyBundle(bundle, registry);
   if (!result.ok) {
     process.stderr.write(`verify: failed (${result.code}): ${result.detail}\n`);

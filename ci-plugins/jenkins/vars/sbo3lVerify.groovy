@@ -34,7 +34,12 @@ def call(Map config = [:]) {
   def reportDir = config.reportDir ?: 'sbo3l-output'
 
   sh """
-    set -e
+    # `pipefail` is critical here: without it, `node ... | tee` would
+    # mask a non-zero exit from the verifier (tee returns 0). Jenkins
+    # would then continue past a failed verification, contradicting the
+    # documented fail-on-deny behaviour. set -e alone doesn't catch
+    # mid-pipe failures.
+    set -eo pipefail
     mkdir -p ${reportDir}
     # Pull the shared verifier (zero-dep). Pinning to main is fine —
     # the verifier is intentionally tiny + zero-dep.
@@ -43,12 +48,14 @@ def call(Map config = [:]) {
         https://raw.githubusercontent.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/main/ci-plugins/_shared/verifier.mjs
     fi
 
-    # Markdown report
+    # Markdown report — exits non-zero on verifier failure or deny
+    # (when failOnDeny=true). pipefail above propagates it to the shell.
     SBO3L_CAPSULE_PATH='${capsule}' SBO3L_FAIL_ON_DENY='${failOnDeny}' SBO3L_REPORT_FORMAT=markdown \
       node /tmp/sbo3l-verifier.mjs | tee ${reportDir}/capsule-report.md
 
     # JSON for downstream steps (don't fail this one — exit code already
-    # decided by the markdown step above)
+    # decided by the markdown step above; we want the JSON written
+    # regardless of decision so the env vars below populate).
     SBO3L_CAPSULE_PATH='${capsule}' SBO3L_FAIL_ON_DENY='false' SBO3L_REPORT_FORMAT=json \
       node /tmp/sbo3l-verifier.mjs > ${reportDir}/capsule-result.json
   """

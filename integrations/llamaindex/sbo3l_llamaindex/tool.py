@@ -113,6 +113,19 @@ def sbo3l_tool(
         try:
             result = client.submit(body, **kwargs)
             if hasattr(result, "__await__"):
+                # Async client passed to a sync tool. Close the coroutine
+                # before returning so Python's GC doesn't emit
+                # `RuntimeWarning: coroutine ... was never awaited` —
+                # which fails any test runner using -W error::RuntimeWarning.
+                close = getattr(result, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:  # noqa: BLE001
+                        # Closing a half-started coroutine can raise;
+                        # we have no recovery path and the caller already
+                        # gets a structured error envelope, so swallow.
+                        pass
                 return json.dumps(
                     {
                         "error": "transport.async_client_in_sync_tool",
