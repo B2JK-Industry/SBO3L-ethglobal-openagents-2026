@@ -551,7 +551,7 @@ fn non_empty_or_dash(s: &str) -> &str {
 }
 
 // ===========================================================================
-// `sbo3l passport run` — orchestration (P2.1)
+// `sbo3l passport run` — orchestration
 // ===========================================================================
 
 /// Configuration for `cmd_run`. One struct so `main.rs` can map clap
@@ -643,10 +643,11 @@ impl ModeChoice {
 /// - 0 — capsule emitted to `--out`.
 /// - 1 — IO / parse failure (file missing, bad JSON, executor backend
 ///   IO error, capsule write failure).
-/// - 2 — invalid input (bad APRP, ENS resolution failed, mode=live
-///   rejected by P2.1, executor refused, capsule self-verify failed
-///   — i.e. we somehow built a capsule that wouldn't pass our own
-///   verifier; that's a hard refuse, not a "ship anyway").
+/// - 2 — invalid input (bad APRP, ENS resolution failed, `--mode live`
+///   rejected by the offline CLI, executor refused, capsule
+///   self-verify failed — i.e. we somehow built a capsule that
+///   wouldn't pass our own verifier; that's a hard refuse, not a
+///   "ship anyway").
 pub fn cmd_run(args: RunArgs) -> ExitCode {
     // Live mode is rejected here: the CLI must not produce a capsule
     // that *claims* live mode without real credentials + live evidence
@@ -676,8 +677,10 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
         },
         ResolverChoice::LiveEns => {
             eprintln!(
-                "sbo3l passport run: --resolver live-ens is reserved for P4.1 \
-                 (live ENS resolver). Use --resolver offline-fixture in P2.1."
+                "sbo3l passport run: --resolver live-ens is not supported by the \
+                 offline CLI; live ENS resolution flows through \
+                 `sbo3l agent verify-ens` against a configured RPC. Use \
+                 --resolver offline-fixture for the offline capsule path."
             );
             return ExitCode::from(2);
         }
@@ -1083,7 +1086,7 @@ fn call_mock_executor(
     );
     block.insert("status".into(), Value::String("submitted".to_string()));
     block.insert("sponsor_payload_hash".into(), Value::Null);
-    // P6.1: `live_evidence` stays Null in mock mode — the verifier's
+    // `live_evidence` stays Null in mock mode — the verifier's
     // bidirectional invariant (mock ⇒ no `live_evidence`, live ⇒
     // `live_evidence` populated with a concrete transport/response/
     // block ref) is unchanged by this round of work. Sponsor-specific
