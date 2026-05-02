@@ -237,6 +237,7 @@ pub fn sepolia_etherscan_tx_url(tx_hash_hex: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::uniswap_live::SEPOLIA_CHAIN_ID;
     use tiny_keccak::{Hasher, Keccak};
 
     #[test]
