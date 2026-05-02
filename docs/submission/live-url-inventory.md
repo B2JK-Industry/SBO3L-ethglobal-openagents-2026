@@ -42,7 +42,7 @@ Web pages on `crates.io` and `npmjs.com` are JS-rendered SPAs that return 404/40
 | `/features` page | `https://sbo3l.dev/features` 🔴 | same Vercel preview | 🟡 same as above |
 | `/submission` page | `https://sbo3l.dev/submission` 🔴 | same | 🟡 |
 | Documentation | `https://docs.sbo3l.dev` 🔴 | _no Vercel preview URL discovered_ | 🔴 |
-| Hosted preview | `https://app.sbo3l.dev` 🔴 | _no Vercel preview URL discovered_ | 🔴 |
+| Hosted preview | `https://app.sbo3l.dev` 🔴 | https://sbo3l-hosted-app.vercel.app | 🟡 deploy workflow shipped (`.github/workflows/hosted-app.yml`); waits on Daniel's Vercel project + secrets setup (see `apps/hosted-app/DEPLOY.md`) |
 | Trust-DNS visualization | `https://app.sbo3l.dev/trust-dns` 🔴 | `https://sbo3l-trust-dns-viz.vercel.app` 🔴 (404) | 🔴 — viz package main not yet deployed; T-3-5 in flight |
 | CCIP-Read gateway | `https://ccip.sbo3l.dev` 🔴 | https://sbo3l-ccip.vercel.app ✅ 200; long preview https://sbo3l-ccip-i05tmr4jc-babjak-daniel-5461s-projects.vercel.app ✅ 200 | ✅ via Vercel preview |
 

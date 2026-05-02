@@ -1,0 +1,94 @@
+name: Hosted-app deploy + smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/hosted-app/**"
+      - "packages/design-tokens/**"
+      - ".github/workflows/hosted-app.yml"
+  pull_request:
+    paths:
+      - "apps/hosted-app/**"
+      - ".github/workflows/hosted-app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        working-directory: apps/hosted-app
+        run: npm install --no-fund --no-audit
+      - name: Typecheck
+        working-directory: apps/hosted-app
+        run: npm run typecheck
+      - name: Build (no env — verifies build graph; auth deactivated at runtime)
+        working-directory: apps/hosted-app
+        env:
+          AUTH_SECRET: dev-only-build-secret-not-for-runtime
+          AUTH_URL: http://localhost:3000
+        run: npm run build
+
+  deploy:
+    needs: build-typecheck
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: hosted-app-prod
+      url: https://sbo3l-hosted-app.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_HOSTED_APP_PROJECT_ID }}
+        working-directory: apps/hosted-app
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN not set — skipping deploy. Daniel needs to:"
+            echo "  1. Create Vercel project 'sbo3l-hosted-app' linked to apps/hosted-app/"
+            echo "  2. Set repo secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_HOSTED_APP_PROJECT_ID"
+            echo "  3. Set Vercel env vars: AUTH_SECRET, AUTH_URL, AUTH_GITHUB_ID/SECRET, SBO3L_DAEMON_URL"
+            exit 0
+          fi
+          npx vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+          npx vercel@latest build --prod --token "$VERCEL_TOKEN"
+          npx vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Wait for deploy DNS
+        run: sleep 12
+      - name: Smoke test — landing renders
+        run: |
+          status=$(curl -sS -o /dev/null -w "%{http_code}" https://sbo3l-hosted-app.vercel.app/ || echo "fail")
+          echo "Landing: $status"
+          test "$status" = "200"
+      - name: Smoke test — /login renders
+        run: |
+          status=$(curl -sS -o /dev/null -w "%{http_code}" https://sbo3l-hosted-app.vercel.app/login || echo "fail")
+          echo "Login: $status"
+          test "$status" = "200"
+      - name: Smoke test — protected route redirects
+        run: |
+          # Auth-gated routes return 200 with the NextAuth login redirect or
+          # 307 → /login depending on Vercel edge config. Both are healthy.
+          status=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-redirs 0 https://sbo3l-hosted-app.vercel.app/dashboard || echo "0")
+          echo "Dashboard (unauth): $status"
+          test "$status" = "200" -o "$status" = "307" -o "$status" = "302"
