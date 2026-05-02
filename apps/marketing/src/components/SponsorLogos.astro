@@ -1,18 +1,27 @@
 ---
 // Sponsor track strip — links each ETHGlobal sponsor to our submission
-// page for that bounty. Image-free + text-only on purpose: the marketing
-// site's CSP doesn't allow third-party img domains, and judges don't
-// need to see a logo to know what KeeperHub is.
+// page for that bounty.
+//
+// R19 Wave 2 Task C: replaced the prior text-only grid (4 plain
+// <a><strong/>name) with 4 SponsorCard SVG cards (240×140 each, brand
+// motif on the right, accent stripe on the left). Cards are still
+// inline-SVG, no third-party images — keeps the marketing CSP clean
+// (img-src 'self'). Adoption matches the brief ordering.
+//
+// Sponsor list deliberately matches the same 4 tracks the previous
+// component shipped — KH, ENS-Most-Creative, Uniswap, Anthropic.
+// Other tracks (0G, ENS-AI-Agents) live on their own /submission
+// pages but are intentionally not in this surface; that decision
+// was made when this component first shipped to avoid implying
+// coverage where the integration is documentation-only.
 
-// Sponsor tracks with shipped + verified live integrations only. Tracks
-// without a shipped integration are documented in
-// docs/submission/PHASE-3-FINAL-STATUS.md and not surfaced here to avoid
-// implying false coverage.
-const sponsors = [
-  { name: "KeeperHub",  href: "/submission/keeperhub",         role: "Live workflow + signed receipts" },
-  { name: "ENS",        href: "/submission/ens-most-creative", role: "sbo3lagent.eth + Trust DNS" },
-  { name: "Uniswap",    href: "/submission/uniswap",           role: "Sepolia QuoterV2 + MEV guard" },
-  { name: "Anthropic",  href: "/submission/anthropic",         role: "Claude tool-use receipts" },
+import SponsorCard from "~/components/SponsorCard.astro";
+
+const sponsors: { track: string; subtitle: string; motif: "keeperhub" | "ens" | "uniswap" | "anthropic"; href: string }[] = [
+  { track: "KeeperHub", subtitle: "Live workflow + signed receipts",  motif: "keeperhub", href: "/submission/keeperhub" },
+  { track: "ENS",       subtitle: "sbo3lagent.eth + Trust DNS",       motif: "ens",       href: "/submission/ens-most-creative" },
+  { track: "Uniswap",   subtitle: "Sepolia QuoterV2 + MEV guard",     motif: "uniswap",   href: "/submission/uniswap" },
+  { track: "Anthropic", subtitle: "Claude tool-use receipts",         motif: "anthropic", href: "/submission/anthropic" },
 ];
 ---
 <section class="sponsors" aria-label="ETHGlobal Open Agents 2026 sponsor tracks">
@@ -21,16 +30,11 @@ const sponsors = [
     Each track has a working production-shape integration with signed
     receipts. Click through for the per-track submission narrative + live URLs.
   </p>
-  <ul class="grid">
+  <div class="grid">
     {sponsors.map((s) => (
-      <li>
-        <a href={s.href}>
-          <strong>{s.name}</strong>
-          <span class="role">{s.role}</span>
-        </a>
-      </li>
+      <SponsorCard track={s.track} subtitle={s.subtitle} motif={s.motif} href={s.href} />
     ))}
-  </ul>
+  </div>
 </section>
 
 <style>
@@ -38,24 +42,8 @@ const sponsors = [
   .title { font-size: var(--fs-3); font-weight: 700; margin: 0 0 0.3em; }
   .subtitle { color: var(--muted); margin: 0 0 1.2em; max-width: 700px; font-size: 0.95em; }
   .grid {
-    list-style: none;
-    padding: 0;
-    margin: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 0.8em;
   }
-  .grid a {
-    display: block;
-    padding: 1em 1.2em;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    color: var(--fg);
-    text-decoration: none;
-    transition: border-color 0.15s, transform 0.15s;
-  }
-  .grid a:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
-  .grid strong { display: block; font-size: 1.05em; margin-bottom: 0.25em; }
-  .grid .role { color: var(--muted); font-size: 0.85em; }
 </style>
