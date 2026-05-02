@@ -10,3 +10,4 @@ dist/
 
 # Phase 3 artifacts — committed once Rust → wasm32-wasi build lands
 lib/sbo3l-core.wasm
+.vercel
