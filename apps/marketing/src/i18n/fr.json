@@ -1,0 +1,35 @@
+{
+  "common": {
+    "tagline_part1": "Ne donnez pas de portefeuille à votre agent.",
+    "tagline_part2": "Donnez-lui un mandat.",
+    "cta_start": "Commencer en 5 minutes",
+    "cta_view_source": "Voir le code source",
+    "cta_walk_demo": "Parcourir la démo",
+    "cta_verify": "Vérifier une capsule vous-même",
+    "nav_features": "Fonctionnalités",
+    "nav_proof": "Preuve",
+    "nav_demo": "Démo",
+    "nav_docs": "Documentation",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Démarrage rapide",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — Soumission"
+  },
+  "index": {
+    "lede": "SBO3L est la couche de confiance vérifiable cryptographiquement pour les agents IA autonomes. Chaque action de votre agent — payer, échanger, stocker, calculer, coordonner — passe d'abord par la frontière de policy de SBO3L.",
+    "section_what_is": "Qu'est-ce que SBO3L",
+    "section_what_blocks": "Ce que SBO3L bloque",
+    "section_evidence": "Preuves d'intégration en direct",
+    "section_arch": "Architecture",
+    "section_reproduce": "Reproduisez vous-même",
+    "section_resources": "Ressources",
+    "what_is_blurb": "Un workspace Rust implémentant un pare-feu local de policy + budget + reçu + audit pour agents IA. Autoriser → routage vers l'exécuteur sponsor. Refuser → l'exécuteur n'est jamais appelé."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Soumission",
+    "h1": "La couche de confiance vérifiable cryptographiquement pour les agents IA autonomes."
+  },
+  "proof": {
+    "h1": "Vérifier une capsule Passport",
+    "lede": "Collez ou déposez une capsule. Les 6 vérifications strict-mode s'exécutent dans votre navigateur via sbo3l-core compilé en WASM."
+  }
+}

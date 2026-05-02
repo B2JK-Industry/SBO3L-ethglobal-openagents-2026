@@ -1,0 +1,35 @@
+{
+  "common": {
+    "tagline_part1": "Ne adj pénztárcát az ügynöködnek.",
+    "tagline_part2": "Adj neki mandátumot.",
+    "cta_start": "Indulj el 5 perc alatt",
+    "cta_view_source": "Forráskód megtekintése",
+    "cta_walk_demo": "Demó végigjárása",
+    "cta_verify": "Kapszula ellenőrzése magad",
+    "nav_features": "Funkciók",
+    "nav_proof": "Bizonyíték",
+    "nav_demo": "Demó",
+    "nav_docs": "Dokumentáció",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Gyors kezdés",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — Beadvány"
+  },
+  "index": {
+    "lede": "Az SBO3L kriptográfiailag ellenőrizhető bizalmi réteg autonóm AI ügynökök számára. Az ügynök minden művelete — fizetés, csere, tárolás, számítás, koordináció — először az SBO3L policy határán halad át.",
+    "section_what_is": "Mi az SBO3L",
+    "section_what_blocks": "Mit blokkol az SBO3L",
+    "section_evidence": "Élő integrációs bizonyíték",
+    "section_arch": "Architektúra",
+    "section_reproduce": "Magad reprodukálod",
+    "section_resources": "Források",
+    "what_is_blurb": "Rust workspace, amely lokális policy + költségvetés + nyugta + audit tűzfalat valósít meg AI ügynököknek. Engedélyezés → szponzor végrehajtóhoz irányít. Megtagadás → a végrehajtó soha nincs meghívva."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Beadvány",
+    "h1": "A kriptográfiailag ellenőrizhető bizalmi réteg autonóm AI ügynökök számára."
+  },
+  "proof": {
+    "h1": "Passport kapszula ellenőrzése",
+    "lede": "Illessz be vagy húzz egy kapszulát. Mind a 6 strict-mode ellenőrzés a böngészőben fut a WASM-re fordított sbo3l-core-on keresztül."
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "common": {
+    "tagline_part1": "Geben Sie Ihrem Agenten keine Wallet.",
+    "tagline_part2": "Geben Sie ihm ein Mandat.",
+    "_TODO_DE_REVIEW_tagline": "Native German reviewer: 'Mandat' preserves the legal-authorization wordplay; alternative 'Vollmacht' is more idiomatic but loses the en/fr/it cognate set.",
+    "cta_start": "In 5 Minuten starten",
+    "cta_view_source": "Quellcode anzeigen",
+    "cta_walk_demo": "Demo durchgehen",
+    "cta_verify": "Kapsel selbst verifizieren",
+    "nav_features": "Funktionen",
+    "nav_proof": "Beweis",
+    "nav_demo": "Demo",
+    "nav_docs": "Dokumentation",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Schnellstart",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — Einreichung"
+  },
+  "index": {
+    "lede": "SBO3L ist die kryptografisch verifizierbare Vertrauensschicht für autonome KI-Agenten. Jede Aktion Ihres Agenten — bezahlen, tauschen, speichern, berechnen, koordinieren — durchläuft zuerst die Policy-Grenze von SBO3L.",
+    "section_what_is": "Was ist SBO3L",
+    "section_what_blocks": "Was SBO3L blockiert",
+    "section_evidence": "Live-Integrationsnachweis",
+    "section_arch": "Architektur",
+    "section_reproduce": "Selbst reproduzieren",
+    "section_resources": "Ressourcen",
+    "what_is_blurb": "Ein Rust-Workspace, der eine lokale Policy + Budget + Quittungs + Audit-Firewall für KI-Agenten implementiert. Erlauben → an Sponsor-Executor weiterleiten. Verweigern → Executor wird nie aufgerufen."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Einreichung",
+    "h1": "Die kryptografisch verifizierbare Vertrauensschicht für autonome KI-Agenten."
+  },
+  "proof": {
+    "h1": "Passport-Kapsel verifizieren",
+    "lede": "Fügen Sie eine Kapsel ein oder ziehen Sie sie hierher. Alle 6 Strict-Mode-Prüfungen laufen in Ihrem Browser via WASM-kompiliertem sbo3l-core."
+  }
+}

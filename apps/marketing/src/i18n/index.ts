@@ -1,38 +1,40 @@
-// Tiny i18n helper. Loads en + sk + ko JSON and exposes a `t(key, locale)`
-// function. Astro pages read `locale` from `Astro.currentLocale`
-// (set by the i18n config in astro.config.mjs) and pass it through.
+// i18n helper. Loads all locale JSON files and exposes `t(key, locale)`.
+// Astro pages read `locale` from `Astro.currentLocale` (set by the
+// i18n config in astro.config.mjs) and pass it through.
 //
-// Korean (ko) ships in v1.2.0 with brand-critical phrases marked
-// `_TODO_KO_REVIEW_*` for native-speaker review on next pass; the
-// `t()` lookup ignores keys starting with underscore so the markers
-// don't leak into rendered UI. Translations elsewhere were drafted
-// against DeepL and proofread for fluency.
+// Brand-critical phrases in non-EN locales carry `_TODO_<LOCALE>_REVIEW_*`
+// markers for native-speaker review. The `t()` lookup ignores keys
+// starting with underscore so markers stay in JSON without leaking
+// into rendered UI. Drafts via DeepL + manual fluency pass.
 
 import en from "./en.json";
 import sk from "./sk.json";
 import ko from "./ko.json";
+import de from "./de.json";
+import fr from "./fr.json";
+import it from "./it.json";
+import es from "./es.json";
+import ptBr from "./pt-br.json";
+import pl from "./pl.json";
+import cs from "./cs.json";
+import hu from "./hu.json";
 
-export const LOCALES = ["en", "sk", "ko"] as const;
+export const LOCALES = ["en", "sk", "ko", "de", "fr", "it", "es", "pt-br", "pl", "cs", "hu"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
-const dictionaries = { en, sk, ko } as const;
+const dictionaries = { en, sk, ko, de, fr, it, es, "pt-br": ptBr, pl, cs, hu } as const;
 
 function lookup(dict: unknown, path: string[]): string | undefined {
   let cursor: unknown = dict;
   for (const segment of path) {
     if (typeof cursor !== "object" || cursor === null) return undefined;
-    // Skip `_TODO_KO_REVIEW_*` review markers — they're translator
-    // notes, not user-visible strings.
     if (segment.startsWith("_")) return undefined;
     cursor = (cursor as Record<string, unknown>)[segment];
   }
   return typeof cursor === "string" ? cursor : undefined;
 }
 
-// `t("section.key", "sk")` → string. Falls back to en if the key is
-// missing in the requested locale, then returns the dotted path so
-// missing-key bugs are visible in the UI rather than silently empty.
 export function t(key: string, locale: Locale = DEFAULT_LOCALE): string {
   const path = key.split(".");
   return lookup(dictionaries[locale], path) ?? lookup(dictionaries[DEFAULT_LOCALE], path) ?? key;

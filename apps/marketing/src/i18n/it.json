@@ -1,0 +1,35 @@
+{
+  "common": {
+    "tagline_part1": "Non date un portafoglio al vostro agente.",
+    "tagline_part2": "Dategli un mandato.",
+    "cta_start": "Inizia in 5 minuti",
+    "cta_view_source": "Vedi il codice",
+    "cta_walk_demo": "Percorri la demo",
+    "cta_verify": "Verifica una capsula tu stesso",
+    "nav_features": "Funzionalità",
+    "nav_proof": "Prova",
+    "nav_demo": "Demo",
+    "nav_docs": "Documentazione",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Avvio rapido",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — Candidatura"
+  },
+  "index": {
+    "lede": "SBO3L è il livello di trust verificabile crittograficamente per agenti IA autonomi. Ogni azione del tuo agente — pagare, scambiare, archiviare, calcolare, coordinare — passa prima per il confine di policy di SBO3L.",
+    "section_what_is": "Cos'è SBO3L",
+    "section_what_blocks": "Cosa blocca SBO3L",
+    "section_evidence": "Prove di integrazione live",
+    "section_arch": "Architettura",
+    "section_reproduce": "Riproduci tu stesso",
+    "section_resources": "Risorse",
+    "what_is_blurb": "Un workspace Rust che implementa un firewall locale di policy + budget + ricevuta + audit per agenti IA. Permetti → instrada all'esecutore sponsor. Nega → l'esecutore non viene mai chiamato."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Candidatura",
+    "h1": "Il livello di trust verificabile crittograficamente per agenti IA autonomi."
+  },
+  "proof": {
+    "h1": "Verifica una capsula Passport",
+    "lede": "Incolla o trascina una capsula. Tutti i 6 controlli strict-mode girano nel tuo browser tramite sbo3l-core compilato in WASM."
+  }
+}
