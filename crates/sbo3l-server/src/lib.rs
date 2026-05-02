@@ -613,6 +613,30 @@ async fn run_pipeline(
         )
     })?;
 
+    // CHAOS-2 fix: APRP `expiry` enforcement. The chaos suite
+    // (scripts/chaos/05_clock_skew.sh) showed an expired APRP being
+    // approved + signed. Reject expired requests BEFORE claiming the
+    // nonce or invoking policy — same fail-closed posture the rest of
+    // the pipeline uses. A 60-second skew tolerance accommodates
+    // sender/receiver clock drift without opening a real-world replay
+    // window (NTP-synced hosts agree within ~100ms; we allow much
+    // more, but not unbounded).
+    const EXPIRY_SKEW_SECS: i64 = 60;
+    let now_ts = Utc::now();
+    let drift_secs = (now_ts - aprp.expiry).num_seconds();
+    if drift_secs > EXPIRY_SKEW_SECS {
+        return Err(problem(
+            "protocol.aprp_expired",
+            400,
+            "APRP expired",
+            format!(
+                "request.expiry {} is {drift_secs}s in the past (now={}, skew tolerance={EXPIRY_SKEW_SECS}s)",
+                aprp.expiry.to_rfc3339(),
+                now_ts.to_rfc3339(),
+            ),
+        ));
+    }
+
     // Replay protection — see `docs/spec/17_interface_contracts.md` §3.1
     // (`protocol.nonce_replay` → HTTP 409). The nonce is claimed against
     // the persistent `nonce_replay` SQLite table (migration V002) *before*
