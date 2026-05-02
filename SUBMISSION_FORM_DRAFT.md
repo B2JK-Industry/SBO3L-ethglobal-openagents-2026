@@ -166,6 +166,14 @@ What is intentionally adoption-ready on the KeeperHub side: five concrete integr
 Stacking them gives end-to-end offline auditability of every KeeperHub execution that flowed through SBO3L: an auditor with the right keys can reconstruct what was authorised, who authorised it, which policy applied, and where the audit chain says it sits — without trusting any single party.
 
 In this hackathon build, the demo default constructs `KeeperHubExecutor::local_mock()` (clearly disclosed as `mock: true` in every demo output line, with a deterministic `kh-<ULID>` execution_ref). The live arm — `KeeperHubExecutor::execute` with `submit_live_to` — is **shipped and verified end-to-end against a real KeeperHub workflow during the submission window** (env-gated on `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN`, returns a real `executionId`). The bare back-compat `KeeperHubExecutor::live()` ctor (no transport, no config) returns `BackendOffline` at runtime. There is no silent fallback from mock to live, and no KeeperHub credentials anywhere in the repo (verifiable by `git grep`).
+
+**Framework plugin (TS + Python parity).** Beyond the Rust adapter, we ship two LangChain framework plugins as drop-in tools:
+  - `@sbo3l/langchain-keeperhub` (npm)
+  - `sbo3l-langchain-keeperhub` (PyPI)
+
+Both expose a `Sbo3lKeeperHubTool` / `sbo3lKeeperHubTool({client})` that gates KeeperHub workflow execution through the SBO3L policy boundary. Wire path: agent → tool → SBO3L decides → (on allow) daemon's KH adapter executes → tool returns `kh_execution_ref` + signed audit envelope.
+
+This sits **next to** Devendra's `langchain-keeperhub` (PyPI), not replacing it. Devendra's plugin ships an execution wrapper (KH webhook + ENS resolution + Turnkey TEE signing + MCP bridge); ours ships a **policy-guarded** execution wrapper (SBO3L decide → on allow → KH execution). The two are **composable** — a developer can use Devendra's tool for the raw KH binding and ours as the policy gate that decides whether the raw call should fire at all. Or use ours alone for the full gate-then-execute path. Side-by-side runnable demo lives at `examples/langchain-keeperhub-policy-guarded/` (Python `agent.py` + TS `agent.mjs`, identical wire path, different language ergonomics).
 ```
 
 ### Uniswap — Best Uniswap API Integration (stretch)

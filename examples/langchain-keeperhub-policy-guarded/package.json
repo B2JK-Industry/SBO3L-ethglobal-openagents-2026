@@ -1,0 +1,13 @@
+{
+  "name": "@sbo3l/example-langchain-keeperhub-policy-guarded",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "demo": "node agent.mjs"
+  },
+  "dependencies": {
+    "@sbo3l/langchain-keeperhub": "file:../../integrations/langchain-keeperhub-ts",
+    "@sbo3l/sdk": "file:../../sdks/typescript"
+  }
+}

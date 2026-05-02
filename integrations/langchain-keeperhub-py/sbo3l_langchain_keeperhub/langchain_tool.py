@@ -1,0 +1,100 @@
+"""Typed `langchain.tools.BaseTool` subclass for the SBO3L → KeeperHub path.
+
+Drops directly into a LangChain `AgentExecutor`. Requires `langchain-core`
+as a runtime dep — install via `pip install sbo3l-langchain-keeperhub[langchain]`.
+
+For framework-agnostic use, prefer the plain descriptor returned by
+`sbo3l_keeperhub_tool()` from `tool.py`.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+
+from .tool import (
+    DEFAULT_KH_WORKFLOW_ID,
+    SBO3LClientLike,
+    sbo3l_keeperhub_tool,
+)
+
+
+class _Sbo3lKeeperHubInput(BaseModel):
+    """Schema LangChain shows the LLM for tool args."""
+
+    aprp_json: str = Field(
+        ...,
+        description=(
+            "JSON-stringified APRP (Agent Payment Request Protocol) object. "
+            "Required fields: agent_id, task_id, intent, amount, token, "
+            "destination, payment_protocol, chain, provider_url, expiry, "
+            "nonce, risk_class. See https://sbo3l.dev/aprp for the schema."
+        ),
+    )
+
+
+class Sbo3lKeeperHubTool(BaseTool):
+    """LangChain BaseTool that gates KeeperHub execution through SBO3L.
+
+    Construct with an SBO3L client (`SBO3LClientSync` recommended for
+    sync agent loops). The tool's `_run` accepts a JSON-stringified APRP
+    and returns a JSON envelope with `kh_execution_ref` populated when
+    the policy decision is `allow`.
+
+    Example:
+
+        from sbo3l_sdk import SBO3LClientSync
+        from sbo3l_langchain_keeperhub import Sbo3lKeeperHubTool
+
+        client = SBO3LClientSync("http://localhost:8730")
+        tool = Sbo3lKeeperHubTool(client=client)
+        # pass `tool` into your AgentExecutor's tool list
+    """
+
+    name: str = "sbo3l_keeperhub_payment_request"
+    description: str = (
+        "Submit an Agent Payment Request Protocol (APRP) JSON object to SBO3L "
+        "for policy decision. On allow, the SBO3L daemon's KeeperHub adapter "
+        "executes the payment by POSTing the IP-1 envelope to a KeeperHub "
+        "workflow webhook and returns the captured executionId as "
+        "kh_execution_ref. Returns a JSON envelope; on deny, branch on "
+        "deny_code to self-correct or escalate."
+    )
+    args_schema: type[BaseModel] = _Sbo3lKeeperHubInput
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    _func: Any = PrivateAttr()
+
+    def __init__(
+        self,
+        *,
+        client: SBO3LClientLike,
+        workflow_id: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if name is not None:
+            kwargs["name"] = name
+        if description is not None:
+            kwargs["description"] = description
+        super().__init__(**kwargs)
+        descriptor = sbo3l_keeperhub_tool(
+            client=client,
+            workflow_id=workflow_id or DEFAULT_KH_WORKFLOW_ID,
+        )
+        self._func = descriptor.func
+
+    def _run(self, aprp_json: str, **_: Any) -> str:
+        return str(self._func(aprp_json))
+
+    async def _arun(self, aprp_json: str, **_: Any) -> str:
+        # The underlying SBO3LClientSync is sync; invoking from async
+        # contexts is fine because LangChain's BaseTool wraps in a
+        # threadpool when no native _arun exists. We provide _arun
+        # explicitly so async agents don't need to fall through to the
+        # sync path via run_in_executor (slightly cleaner semantics).
+        return str(self._func(aprp_json))

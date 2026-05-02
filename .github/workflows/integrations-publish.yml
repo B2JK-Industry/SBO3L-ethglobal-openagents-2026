@@ -62,6 +62,9 @@ jobs:
           - id: langchain-ts
             dir: integrations/langchain-typescript
             pkg: "@sbo3l/langchain"
+          - id: langchain-keeperhub-ts
+            dir: integrations/langchain-keeperhub-ts
+            pkg: "@sbo3l/langchain-keeperhub"
           - id: autogen
             dir: integrations/autogen
             pkg: "@sbo3l/autogen"
@@ -127,13 +130,17 @@ jobs:
       # falls back to system Python). Listing both axes explicitly keeps
       # all 12 combos visible in the run summary.
       matrix:
-        id: [langchain-py, crewai-py, llamaindex-py, langgraph-py]
+        id: [langchain-py, langchain-keeperhub-py, crewai-py, llamaindex-py, langgraph-py]
         python: ["3.10", "3.11", "3.12"]
         include:
           - id: langchain-py
             dir: integrations/langchain-python
             pkg: sbo3l-langchain
             module: sbo3l_langchain
+          - id: langchain-keeperhub-py
+            dir: integrations/langchain-keeperhub-py
+            pkg: sbo3l-langchain-keeperhub
+            module: sbo3l_langchain_keeperhub
           - id: crewai-py
             dir: integrations/crewai
             pkg: sbo3l-crewai
@@ -193,6 +200,7 @@ jobs:
     needs: npm-build-test
     if: |
       startsWith(github.ref, 'refs/tags/langchain-ts-v') ||
+      startsWith(github.ref, 'refs/tags/langchain-keeperhub-ts-v') ||
       startsWith(github.ref, 'refs/tags/autogen-v') ||
       startsWith(github.ref, 'refs/tags/elizaos-v') ||
       startsWith(github.ref, 'refs/tags/vercel-ai-v')
@@ -203,6 +211,9 @@ jobs:
           - id: langchain-ts
             tag_prefix: langchain-ts-v
             dir: integrations/langchain-typescript
+          - id: langchain-keeperhub-ts
+            tag_prefix: langchain-keeperhub-ts-v
+            dir: integrations/langchain-keeperhub-ts
           - id: autogen
             tag_prefix: autogen-v
             dir: integrations/autogen
@@ -272,6 +283,7 @@ jobs:
     needs: pypi-build-test
     if: |
       startsWith(github.ref, 'refs/tags/langchain-py-v') ||
+      startsWith(github.ref, 'refs/tags/langchain-keeperhub-py-v') ||
       startsWith(github.ref, 'refs/tags/crewai-py-v') ||
       startsWith(github.ref, 'refs/tags/llamaindex-py-v') ||
       startsWith(github.ref, 'refs/tags/langgraph-py-v')
@@ -286,6 +298,10 @@ jobs:
             tag_prefix: langchain-py-v
             dir: integrations/langchain-python
             pkg: sbo3l-langchain
+          - id: langchain-keeperhub-py
+            tag_prefix: langchain-keeperhub-py-v
+            dir: integrations/langchain-keeperhub-py
+            pkg: sbo3l-langchain-keeperhub
           - id: crewai-py
             tag_prefix: crewai-py-v
             dir: integrations/crewai
