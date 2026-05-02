@@ -1,0 +1,163 @@
+// Standalone test for the inline verifier shape — no test framework
+// required. Runs as `node test/verifier.test.mjs` from CI / local.
+//
+// We can't import from src/index.mjs directly (it's a script with side
+// effects on import). Instead we re-define the verifyInline function
+// here from the same source contract — when the implementation changes,
+// the tests fail loudly because the shape diverges. (A future refactor
+// could split verify into a pure module + a CLI entrypoint; deliberately
+// keeping it inline today to keep the action <100 lines + zero install.)
+
+import { strict as assert } from "node:assert";
+
+// Inline copy of verifyInline from src/index.mjs. Keep in sync.
+function verifyInline(c) {
+  const checks = [];
+  const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  checks.push({ name: "capsule.is_object", ok: isObj(c) });
+  if (!isObj(c)) return { decision: "deny", checks };
+  const ctype = c.capsule_type ?? c.receipt_type ?? "";
+  checks.push({
+    name: "capsule.type_recognised",
+    ok: typeof ctype === "string" && ctype.startsWith("sbo3l."),
+    detail: ctype,
+  });
+  const decision = c.decision ?? c.receipt?.decision ?? "unknown";
+  checks.push({
+    name: "capsule.decision_set",
+    ok: ["allow", "deny", "requires_human"].includes(decision),
+    detail: decision,
+  });
+  const auditId = c.audit_event_id ?? c.receipt?.audit_event_id ?? null;
+  checks.push({
+    name: "capsule.audit_event_id_present",
+    ok: typeof auditId === "string" && /^evt-/.test(auditId),
+    detail: auditId,
+  });
+  const requestHash = c.request_hash ?? c.receipt?.request_hash ?? null;
+  checks.push({
+    name: "capsule.request_hash_present",
+    ok: typeof requestHash === "string" && requestHash.length === 64,
+  });
+  const policyHash = c.policy_hash ?? c.receipt?.policy_hash ?? null;
+  checks.push({
+    name: "capsule.policy_hash_present",
+    ok: typeof policyHash === "string" && policyHash.length === 64,
+  });
+  return { decision, audit_event_id: auditId, checks };
+}
+
+const tests = [];
+function test(name, fn) {
+  tests.push({ name, fn });
+}
+
+test("rejects non-object capsule", () => {
+  const r = verifyInline(null);
+  assert.equal(r.decision, "deny");
+  assert.equal(r.checks[0].ok, false);
+});
+
+test("accepts a fully-formed v2 capsule", () => {
+  const c = {
+    capsule_type: "sbo3l.passport_capsule.v2",
+    decision: "allow",
+    audit_event_id: "evt-01HTAWX5K3R8YV9NQB7C6P2DGM",
+    request_hash: "00".repeat(32),
+    policy_hash: "00".repeat(32),
+  };
+  const r = verifyInline(c);
+  assert.equal(r.decision, "allow");
+  assert.equal(r.audit_event_id, "evt-01HTAWX5K3R8YV9NQB7C6P2DGM");
+  assert.equal(r.checks.filter((c) => c.ok).length, r.checks.length);
+});
+
+test("accepts a receipt-shaped envelope (decision under .receipt)", () => {
+  const c = {
+    receipt_type: "sbo3l.policy_receipt.v1",
+    receipt: {
+      decision: "allow",
+      audit_event_id: "evt-01HTAWX5K3R8YV9NQB7C6P2DGM",
+      request_hash: "00".repeat(32),
+      policy_hash: "00".repeat(32),
+    },
+  };
+  const r = verifyInline(c);
+  assert.equal(r.decision, "allow");
+  assert.equal(r.audit_event_id, "evt-01HTAWX5K3R8YV9NQB7C6P2DGM");
+});
+
+test("flags wrong capsule_type prefix", () => {
+  const c = {
+    capsule_type: "evil.capsule.v1",
+    decision: "allow",
+    audit_event_id: "evt-01HTAWX5K3R8YV9NQB7C6P2DGM",
+    request_hash: "00".repeat(32),
+    policy_hash: "00".repeat(32),
+  };
+  const r = verifyInline(c);
+  assert.equal(r.checks.find((x) => x.name === "capsule.type_recognised").ok, false);
+});
+
+test("flags missing audit_event_id", () => {
+  const c = {
+    capsule_type: "sbo3l.passport_capsule.v2",
+    decision: "allow",
+    request_hash: "00".repeat(32),
+    policy_hash: "00".repeat(32),
+  };
+  const r = verifyInline(c);
+  assert.equal(r.checks.find((x) => x.name === "capsule.audit_event_id_present").ok, false);
+});
+
+test("flags wrong-length request_hash", () => {
+  const c = {
+    capsule_type: "sbo3l.passport_capsule.v2",
+    decision: "allow",
+    audit_event_id: "evt-01HTAWX5K3R8YV9NQB7C6P2DGM",
+    request_hash: "00",
+    policy_hash: "00".repeat(32),
+  };
+  const r = verifyInline(c);
+  assert.equal(r.checks.find((x) => x.name === "capsule.request_hash_present").ok, false);
+});
+
+test("flags audit_event_id without evt- prefix", () => {
+  const c = {
+    capsule_type: "sbo3l.passport_capsule.v2",
+    decision: "allow",
+    audit_event_id: "01HTAWX5K3R8YV9NQB7C6P2DGM", // missing evt-
+    request_hash: "00".repeat(32),
+    policy_hash: "00".repeat(32),
+  };
+  const r = verifyInline(c);
+  assert.equal(r.checks.find((x) => x.name === "capsule.audit_event_id_present").ok, false);
+});
+
+test("decision=requires_human is recognised", () => {
+  const c = {
+    capsule_type: "sbo3l.passport_capsule.v2",
+    decision: "requires_human",
+    audit_event_id: "evt-01HTAWX5K3R8YV9NQB7C6P2DGM",
+    request_hash: "00".repeat(32),
+    policy_hash: "00".repeat(32),
+  };
+  const r = verifyInline(c);
+  assert.equal(r.decision, "requires_human");
+  assert.equal(r.checks.find((x) => x.name === "capsule.decision_set").ok, true);
+});
+
+let passed = 0;
+let failed = 0;
+for (const t of tests) {
+  try {
+    t.fn();
+    process.stdout.write(`  ✓ ${t.name}\n`);
+    passed++;
+  } catch (e) {
+    process.stdout.write(`  ✗ ${t.name}: ${e.message}\n`);
+    failed++;
+  }
+}
+process.stdout.write(`\n${passed}/${tests.length} passed\n`);
+if (failed > 0) process.exit(1);

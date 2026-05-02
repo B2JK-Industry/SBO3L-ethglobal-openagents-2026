@@ -1,0 +1,44 @@
+{
+  "name": "@sbo3l/letta",
+  "version": "1.2.0",
+  "description": "Letta agent adapter for SBO3L — wrap an APRP submit as a Letta tool with structured input + audit-aware output.",
+  "license": "MIT",
+  "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
+  "homepage": "https://sbo3l.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git",
+    "directory": "sdks/typescript/integrations/letta"
+  },
+  "keywords": ["sbo3l", "letta", "agent", "policy", "tool"],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@sbo3l/sdk": "^1.0.0 || ^1.2.0"
+  },
+  "devDependencies": {
+    "@sbo3l/sdk": "file:../..",
+    "@types/node": "^20.11.5",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "publishConfig": { "access": "public" }
+}
