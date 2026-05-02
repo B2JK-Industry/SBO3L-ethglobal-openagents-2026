@@ -23,6 +23,7 @@ mod audit_anchor_ens;
 mod audit_checkpoint;
 mod audit_verify_anchor;
 mod doctor;
+mod doctor_extended;
 mod key;
 mod passport;
 mod policy;
@@ -95,6 +96,25 @@ enum Command {
         /// Emit JSON instead of human-readable text.
         #[arg(long, default_value_t = false)]
         json: bool,
+        /// Extended mode: also probe the 6 SBO3L Sepolia contracts
+        /// (`OffchainResolver`, `AnchorRegistry`, `SubnameAuction`,
+        /// `ReputationBond`, `ReputationRegistry`,
+        /// `ERC8004 IdentityRegistry`) — runs `eth_getCode` plus one
+        /// view call per contract. The OffchainResolver probe also
+        /// validates the URL template carries `{sender}` + `{data}`
+        /// (the shape Heidi's Bug #2 broke at submission time).
+        ///
+        /// RPC URL resolution: `--rpc-url` flag, then
+        /// `SBO3L_SEPOLIA_RPC_URL` env, then `SBO3L_RPC_URL` env, then
+        /// PublicNode public endpoint as last-resort. Alchemy
+        /// preferred per `memory:alchemy_rpc_endpoints.md`.
+        #[arg(long, default_value_t = false)]
+        extended: bool,
+        /// Sepolia JSON-RPC URL for `--extended` probes. When omitted,
+        /// the resolver falls back through `SBO3L_SEPOLIA_RPC_URL` →
+        /// `SBO3L_RPC_URL` → PublicNode. Ignored without `--extended`.
+        #[arg(long)]
+        rpc_url: Option<String>,
     },
     /// Mock KMS keyring commands (PSM-A1.9).
     ///
@@ -1039,7 +1059,12 @@ fn main() -> ExitCode {
             db,
             rpc_url,
         }),
-        Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
+        Command::Doctor {
+            db,
+            json,
+            extended,
+            rpc_url,
+        } => doctor::run_with_extended(db.as_deref(), json, extended, rpc_url.as_deref()),
         Command::Key {
             op:
                 KeyCmd::Init {
