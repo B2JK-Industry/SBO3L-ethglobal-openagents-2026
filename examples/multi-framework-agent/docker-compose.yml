@@ -30,6 +30,13 @@ services:
       # acknowledges the non-loopback bind (the F-4 safety gate).
       SBO3L_LISTEN: "0.0.0.0:8730"
       SBO3L_ALLOW_UNSAFE_PUBLIC_BIND: "1"
+      # F-5 signer-factory gate: the `dev` backend (default) refuses to
+      # start unless this is explicitly set. Without it the server
+      # exits with code 2 ("DEV signer requires SBO3L_DEV_ONLY_SIGNER=1
+      # to be set"). Demo containers ship with public dev seeds — fine
+      # for the cross-framework smoke; production should configure a
+      # real KMS backend instead.
+      SBO3L_DEV_ONLY_SIGNER: "1"
     ports:
       - "8730:8730"
     healthcheck:
