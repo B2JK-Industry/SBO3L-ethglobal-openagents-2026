@@ -24,6 +24,7 @@ pub mod ens_anchor;
 pub mod ens_live;
 pub mod erc8004;
 pub mod reputation_publisher;
+pub mod time_window_gate;
 pub mod token_gate;
 pub mod universal;
 
@@ -69,6 +70,10 @@ pub use erc8004::{
 pub use reputation_publisher::{
     build_publish_envelope, PublishMode, ReputationEventInput, ReputationPublishEnvelope,
     ReputationPublishParams, REPUTATION_ENVELOPE_SCHEMA_ID, REPUTATION_TEXT_KEY,
+};
+pub use time_window_gate::{
+    day_of_week_from_unix, evaluate as time_window_evaluate, TimeWindowGate, TimeWindowMode,
+    Weekday,
 };
 pub use token_gate::{
     risk_class_high, risk_class_low, risk_class_medium, AllOfGates, AnyOfGates, Erc1155Gate,
