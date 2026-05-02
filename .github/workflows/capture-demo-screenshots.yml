@@ -1,0 +1,117 @@
+name: Capture /demo screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Marketing base URL to screenshot (defaults to deployed)"
+        type: string
+        default: "https://sbo3l-marketing.vercel.app"
+      open_pr:
+        description: "Open auto-PR with the captured PNGs + .svg→.png swap"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --no-save playwright@^1.48
+          npx playwright install --with-deps chromium
+
+      - name: Capture screenshots
+        env:
+          DEMO_BASE_URL: ${{ inputs.target_url }}
+        run: node apps/marketing/scripts/capture-demo-screenshots.mjs
+
+      - name: Verify all 8 PNGs landed
+        run: |
+          missing=0
+          for n in 1 2 3 4; do
+            for variant in "" "-mobile"; do
+              f="apps/marketing/public/demo/step-${n}${variant}.png"
+              if [ ! -s "$f" ]; then
+                echo "::error::missing or empty: $f"
+                missing=$((missing + 1))
+              else
+                printf "%-55s %s bytes\n" "$f" "$(wc -c < "$f")"
+              fi
+            done
+          done
+          test "$missing" = "0"
+
+      - name: Sed swap .svg → .png in 3 demo pages
+        if: inputs.open_pr == true
+        run: |
+          sed -i 's/\.svg/\.png/g' \
+            apps/marketing/src/pages/demo/index.astro \
+            apps/marketing/src/pages/demo/1-meet-the-agents.astro \
+            apps/marketing/src/pages/demo/4-explore-the-trust-graph.astro
+
+      - name: Remove now-unused .svg placeholders
+        if: inputs.open_pr == true
+        run: |
+          rm -f apps/marketing/public/demo/step-*.svg
+          # Keep the .placeholder-step.svg artist source — useful if a
+          # future re-run regenerates with the script.
+
+      - name: Configure git + create branch
+        if: inputs.open_pr == true
+        id: branch
+        run: |
+          git config user.name "sbo3l-bot"
+          git config user.email "bot@sbo3l.dev"
+          ts=$(date -u +%Y%m%d-%H%M%S)
+          branch="bot/demo-screenshots-${ts}"
+          git checkout -b "$branch"
+          git add apps/marketing/public/demo/ apps/marketing/src/pages/demo/
+          if git diff --cached --quiet; then
+            echo "no changes — skipping commit"
+            echo "made_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "chore(marketing): refresh /demo screenshots from ${{ inputs.target_url }}"
+          git push --set-upstream origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "made_changes=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open auto-PR
+        if: inputs.open_pr == true && steps.branch.outputs.made_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "${{ steps.branch.outputs.branch }}" \
+            --title "chore(marketing): refresh /demo screenshots" \
+            --body "Auto-captured by \`.github/workflows/capture-demo-screenshots.yml\` against \`${{ inputs.target_url }}\`.
+
+          - 8 PNGs in \`apps/marketing/public/demo/\` (step-{1,2,3,4}{,-mobile}.png)
+          - \`.svg\` placeholder references swapped to \`.png\` in 3 demo pages
+          - \`.svg\` placeholder files removed; \`.placeholder-step.svg\` (artist source) kept
+
+          Triggered by @${{ github.actor }} via \`workflow_dispatch\`.
+
+          Auto-merge enabled below."
+          pr_number=$(gh pr list --head "${{ steps.branch.outputs.branch }}" --json number -q '.[0].number')
+          gh pr merge "$pr_number" --auto --squash --delete-branch
+
+      - name: Upload screenshots as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-screenshots-${{ github.run_id }}
+          path: apps/marketing/public/demo/step-*.png
+          retention-days: 30

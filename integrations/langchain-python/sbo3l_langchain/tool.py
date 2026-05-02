@@ -1,0 +1,188 @@
+"""LangChain Python tool factory for SBO3L.
+
+The tool descriptor (returned by `sbo3l_tool(...)`) plugs into:
+
+  - `langchain_core.tools.StructuredTool.from_function(func=..., name=..., description=...)`
+  - `langchain.tools.Tool` (legacy)
+  - any framework primitive that accepts (name, description, callable).
+
+We do NOT import from `langchain_core` here — that would make it a hard
+dep. Instead we expose a plain Python descriptor; consumers wire it into
+their preferred LangChain primitive.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any, Protocol, TypedDict
+
+
+class SBO3LSubmitResult(TypedDict):
+    """Subset of the SBO3L response envelope this tool returns to the LLM."""
+
+    decision: str  # "allow" | "deny" | "requires_human"
+    deny_code: str | None
+    matched_rule_id: str | None
+    request_hash: str
+    policy_hash: str
+    audit_event_id: str
+    receipt: dict[str, Any]
+
+
+class SBO3LClientLike(Protocol):
+    """Minimum surface this tool needs from an SBO3L client.
+
+    `sbo3l_sdk.SBO3LClient` (async) and `sbo3l_sdk.SBO3LClientSync` both
+    match nominally. Any mock/fake implementing `submit` works for tests.
+    """
+
+    def submit(
+        self,
+        request: dict[str, Any],
+        *,
+        idempotency_key: str | None = ...,
+    ) -> SBO3LSubmitResult | Awaitable[SBO3LSubmitResult]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SBO3LToolDescriptor:
+    """Plain descriptor that consumers wire into a LangChain tool factory."""
+
+    name: str
+    description: str
+    func: Callable[[str], str]
+
+
+_DEFAULT_NAME = "sbo3l_payment_request"
+_DEFAULT_DESCRIPTION = (
+    "Submit an Agent Payment Request Protocol (APRP) JSON object to SBO3L for policy "
+    "decision. Input MUST be a JSON-stringified APRP object containing fields: agent_id, "
+    "task_id, intent, amount, token, destination, payment_protocol, chain, provider_url, "
+    "expiry, nonce, risk_class. Returns a JSON object with decision (allow|deny|"
+    "requires_human), execution_ref (when allowed), and audit_event_id. On deny, branch "
+    "on deny_code to self-correct or escalate."
+)
+
+
+def sbo3l_tool(
+    *,
+    client: SBO3LClientLike,
+    name: str = _DEFAULT_NAME,
+    description: str = _DEFAULT_DESCRIPTION,
+    idempotency_key: Callable[[dict[str, Any]], str] | None = None,
+) -> SBO3LToolDescriptor:
+    """Build the SBO3L LangChain tool descriptor.
+
+    Wire it into LangChain via:
+
+        from langchain_core.tools import StructuredTool
+        from sbo3l_sdk import SBO3LClientSync
+        from sbo3l_langchain import sbo3l_tool
+
+        client = SBO3LClientSync("http://localhost:8730")
+        descriptor = sbo3l_tool(client=client)
+        tool = StructuredTool.from_function(
+            func=descriptor.func,
+            name=descriptor.name,
+            description=descriptor.description,
+        )
+
+    On `deny`, the LLM sees `deny_code` (e.g. `policy.budget_exceeded`) and
+    can self-correct or escalate. Transport / auth failures surface as a
+    JSON envelope with `error` (RFC 7807 domain code).
+
+    The tool callback is sync — async clients are awaited inline via
+    `asyncio.run` only if the client returns an awaitable. Inside an
+    existing event loop, prefer the sync SBO3L client (`SBO3LClientSync`).
+    """
+
+    def _func(input_str: str) -> str:
+        # 1. Parse + validate input
+        try:
+            parsed: object = json.loads(input_str)
+        except json.JSONDecodeError as e:
+            return json.dumps({"error": "input is not valid JSON", "detail": str(e)})
+
+        if not isinstance(parsed, dict):
+            ty = (
+                "null"
+                if parsed is None
+                else "array"
+                if isinstance(parsed, list)
+                else type(parsed).__name__
+            )
+            return json.dumps(
+                {"error": "input must be a JSON object (APRP)", "input_received_type": ty}
+            )
+
+        body: dict[str, Any] = parsed
+
+        # 2. Build kwargs (only pass idempotency_key when provided)
+        kwargs: dict[str, Any] = {}
+        if idempotency_key is not None:
+            kwargs["idempotency_key"] = idempotency_key(body)
+
+        # 3. Submit
+        try:
+            result = client.submit(body, **kwargs)
+            if hasattr(result, "__await__"):
+                # Awaitable result — caller must run sync. We don't spin up
+                # an event loop here; instruct the user instead.
+                return json.dumps(
+                    {
+                        "error": "transport.async_client_in_sync_tool",
+                        "detail": (
+                            "client.submit returned an awaitable; pass a sync client "
+                            "(SBO3LClientSync) to the LangChain tool, or invoke from "
+                            "the async StructuredTool variant."
+                        ),
+                    }
+                )
+            r = _coerce_to_dict(result)
+        except Exception as e:
+            code = getattr(e, "code", None)
+            status = getattr(e, "status", None)
+            return json.dumps(
+                {
+                    "error": code if isinstance(code, str) else "transport.failed",
+                    "status": status if isinstance(status, int) else None,
+                    "detail": str(e),
+                }
+            )
+
+        # 4. Reduce to LLM-friendly envelope
+        receipt = r["receipt"] if isinstance(r.get("receipt"), dict) else {}
+        return json.dumps(
+            {
+                "decision": r["decision"],
+                "deny_code": r.get("deny_code"),
+                "matched_rule_id": r.get("matched_rule_id"),
+                "execution_ref": receipt.get("execution_ref"),
+                "audit_event_id": r["audit_event_id"],
+                "request_hash": r["request_hash"],
+                "policy_hash": r["policy_hash"],
+            }
+        )
+
+    return SBO3LToolDescriptor(name=name, description=description, func=_func)
+
+
+def _coerce_to_dict(result: Any) -> dict[str, Any]:
+    """Accept either a TypedDict-style dict or a Pydantic BaseModel.
+
+    `sbo3l_sdk.SBO3LClientSync.submit()` returns the Pydantic
+    `PaymentRequestResponse`; mock clients in tests may return plain dicts
+    matching `SBO3LSubmitResult`. Both are valid wire shapes for this
+    integration; coerce to a dict so the caller's `r["..."]` access works.
+    """
+
+    if isinstance(result, dict):
+        return result
+    dump = getattr(result, "model_dump", None)
+    if callable(dump):
+        return dump(mode="json", by_alias=True)  # type: ignore[no-any-return]
+    raise TypeError(
+        f"client.submit returned {type(result).__name__}; expected dict or Pydantic BaseModel"
+    )

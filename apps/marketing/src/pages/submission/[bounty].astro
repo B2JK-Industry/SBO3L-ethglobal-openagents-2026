@@ -1,0 +1,131 @@
+---
+import { getCollection, getEntry, render } from "astro:content";
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+export async function getStaticPaths() {
+  const all = await getCollection("submissions");
+  return all.map((entry) => ({
+    params: { bounty: entry.data.slug },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+
+// All other bounty entries — for the "view another" footer.
+const all = await getCollection("submissions");
+const others = all.filter((e) => e.data.slug !== entry.data.slug);
+
+const shareUrl = `https://sbo3l-marketing.vercel.app/submission/${entry.data.slug}`;
+const shareText = `${entry.data.title} — SBO3L · ETHGlobal Open Agents 2026`;
+---
+<BaseLayout
+  title={`${entry.data.title} — SBO3L submission`}
+  description={`SBO3L's submission narrative for ${entry.data.title}. ${entry.data.audience ?? ""}`}
+  ogTitle={entry.data.title}
+>
+  <a href="/submission" class="back-cta" aria-label="Back to submission landing">← Submission landing</a>
+
+  <article class="bounty">
+    <header>
+      <p class="eyebrow">{entry.data.audience ?? "ETHGlobal Open Agents 2026 · Submission"}</p>
+      <h1>{entry.data.title}</h1>
+      <p class="provenance">
+        Source: <code>{entry.data.source_file}</code>
+      </p>
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <footer class="share">
+      <p>Share this page:</p>
+      <a class="btn ghost" href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener">Twitter / X</a>
+      <a class="btn ghost" href={`mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(shareUrl)}`}>Email</a>
+      <a class="btn ghost copy-link" data-share-url={shareUrl}>Copy link</a>
+    </footer>
+
+    {others.length > 0 && (
+      <aside class="other-bounties">
+        <h2>Other bounty submissions</h2>
+        <ul>
+          {others.map((o) => (
+            <li><a href={`/submission/${o.data.slug}`}>{o.data.title}</a></li>
+          ))}
+        </ul>
+      </aside>
+    )}
+  </article>
+</BaseLayout>
+
+<script>
+  // Tiny clipboard handler for the "Copy link" button. Inline so it
+  // ships with the page; same-origin so CSP `default-src 'self'`
+  // already covers it.
+  document.querySelectorAll<HTMLAnchorElement>("a.copy-link").forEach((el) => {
+    el.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const url = el.dataset.shareUrl;
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        el.textContent = "Copied!";
+        setTimeout(() => { el.textContent = "Copy link"; }, 1500);
+      } catch {
+        el.textContent = "Failed";
+      }
+    });
+  });
+</script>
+
+<style>
+  .back-cta {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: block;
+    background: var(--code-bg);
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+    padding: 0.6em 1.5em;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.9em;
+  }
+  .back-cta:hover { background: var(--bg); text-decoration: none; }
+
+  article.bounty { max-width: var(--max); margin: 2em auto 4em; padding: 0 1.5em; }
+  article.bounty header { margin-bottom: 2em; }
+  article.bounty .eyebrow {
+    color: var(--accent); font-family: var(--font-mono); font-size: 0.85em;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5em;
+  }
+  article.bounty h1 { font-size: var(--fs-3); font-weight: 700; line-height: 1.2; margin-bottom: 0.5em; }
+  article.bounty .provenance { color: var(--muted); font-size: 0.85em; }
+
+  .prose :global(h2) { font-size: 1.4em; margin: 1.5em 0 0.6em; }
+  .prose :global(h3) { font-size: 1.15em; margin: 1.2em 0 0.5em; }
+  .prose :global(p) { color: var(--muted); margin-bottom: 1em; line-height: 1.6; }
+  .prose :global(p strong), .prose :global(li strong) { color: var(--fg); }
+  .prose :global(ul), .prose :global(ol) { color: var(--muted); margin: 0 0 1em 1.5em; }
+  .prose :global(li) { margin-bottom: 0.4em; }
+  .prose :global(blockquote) {
+    border-left: 3px solid var(--accent);
+    padding: 0.6em 1em; margin: 1em 0;
+    background: var(--code-bg); border-radius: 0 var(--r-md) var(--r-md) 0;
+    color: var(--muted);
+  }
+  .prose :global(table) { width: 100%; border-collapse: collapse; margin: 1em 0; }
+  .prose :global(th), .prose :global(td) { padding: 0.5em 0.7em; border-bottom: 1px solid var(--border); text-align: left; }
+  .prose :global(th) { color: var(--muted); font-weight: 600; }
+
+  .share { display: flex; gap: 0.5em; align-items: center; flex-wrap: wrap; padding: 1.5em 0; border-top: 1px solid var(--border); margin-top: 3em; }
+  .share p { margin: 0 0.5em 0 0; color: var(--muted); font-size: 0.9em; }
+
+  .other-bounties { margin-top: 3em; padding: 1.5em; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--code-bg); }
+  .other-bounties h2 { font-size: 1em; color: var(--muted); margin-bottom: 0.7em; font-weight: 600; }
+  .other-bounties ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4em; }
+  .other-bounties a { color: var(--accent); }
+</style>

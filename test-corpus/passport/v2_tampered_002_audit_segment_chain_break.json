@@ -1,0 +1,269 @@
+{
+  "agent": {
+    "agent_id": "research-agent-01",
+    "ens_name": "research-agent.team.eth",
+    "records": {
+      "sbo3l:agent_id": "research-agent-01",
+      "sbo3l:audit_root": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sbo3l:endpoint": "http://127.0.0.1:8730/v1",
+      "sbo3l:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+      "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json"
+    },
+    "resolver": "offline-fixture"
+  },
+  "audit": {
+    "audit_event_id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+    "audit_segment": {
+      "audit_chain_segment": [
+        {
+          "event": {
+            "actor": "policy_engine",
+            "id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+            "metadata": {
+              "decision": "allow",
+              "matched_rule_id": "allow-small-x402-api-call"
+            },
+            "payload_hash": "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+            "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+            "policy_version": 1,
+            "prev_event_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "seq": 1,
+            "subject_id": "pr-01KQGHR5WBMN296B7SNNV7K2DH",
+            "ts": "2026-05-01T01:16:47.883595Z",
+            "type": "policy_decided",
+            "version": 1
+          },
+          "event_hash": "ff712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+          "signature": {
+            "algorithm": "ed25519",
+            "key_id": "audit-signer-v1",
+            "signature_hex": "7903f96cc70f1a8bd1227ec2477d116b7279a7479c9a2935f32357bc9c2cd0e5900959e8f4bbf19b5bfa04ad370d5348cf8381756f2684595e03a80111cd8003"
+          }
+        }
+      ],
+      "audit_event": {
+        "event": {
+          "actor": "policy_engine",
+          "id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+          "metadata": {
+            "decision": "allow",
+            "matched_rule_id": "allow-small-x402-api-call"
+          },
+          "payload_hash": "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+          "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+          "policy_version": 1,
+          "prev_event_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "seq": 1,
+          "subject_id": "pr-01KQGHR5WBMN296B7SNNV7K2DH",
+          "ts": "2026-05-01T01:16:47.883595Z",
+          "type": "policy_decided",
+          "version": 1
+        },
+        "event_hash": "45712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+        "signature": {
+          "algorithm": "ed25519",
+          "key_id": "audit-signer-v1",
+          "signature_hex": "7903f96cc70f1a8bd1227ec2477d116b7279a7479c9a2935f32357bc9c2cd0e5900959e8f4bbf19b5bfa04ad370d5348cf8381756f2684595e03a80111cd8003"
+        }
+      },
+      "bundle_type": "sbo3l.audit_bundle.v1",
+      "exported_at": "2026-05-01T01:16:47.889836Z",
+      "receipt": {
+        "agent_id": "research-agent-01",
+        "audit_event_id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+        "decision": "allow",
+        "issued_at": "2026-05-01T01:16:47.883595Z",
+        "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+        "policy_version": 1,
+        "receipt_type": "sbo3l.policy_receipt.v1",
+        "request_hash": "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+        "signature": {
+          "algorithm": "ed25519",
+          "key_id": "decision-signer-v1",
+          "signature_hex": "111d1488b3b7742e2c2f9cdba5f5f1e2f8b38c0afa2d9ecc5926fa93deafafb48e6e35849573325d36d27cbe45d2df3be2dfe8a20884d1eadd85f08735cded0b"
+        },
+        "version": 1
+      },
+      "summary": {
+        "audit_chain_latest": "45712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+        "audit_chain_root": "45712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+        "audit_event_hash": "45712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+        "audit_event_id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+        "decision": "allow",
+        "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+        "request_hash": "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db"
+      },
+      "verification_keys": {
+        "audit_signer_pubkey_hex": "66be7e332c7a453332bd9d0a7f7db055f5c5ef1a06ada66d98b39fb6810c473a",
+        "receipt_signer_pubkey_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+      },
+      "version": 1
+    },
+    "bundle_ref": "sbo3l.audit_bundle.v1",
+    "checkpoint": {
+      "chain_digest": "58612c3548bd63f0d598c0829e05436662e2595c9d767eb3c536f1dc4f969a60",
+      "created_at": "2026-05-01T01:16:47.886599+00:00",
+      "latest_event_hash": "45712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+      "latest_event_id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+      "mock_anchor": true,
+      "mock_anchor_ref": "local-mock-anchor-c5e464103591ebc2",
+      "schema": "sbo3l.audit_checkpoint.v1",
+      "sequence": 1
+    },
+    "event_hash": "45712d0b90eeaf4051b18e4e696f30e9d8954378ce0848b9d73e4a849b0b50c2",
+    "prev_event_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "decision": {
+    "deny_code": null,
+    "matched_rule": "allow-small-x402-api-call",
+    "receipt": {
+      "agent_id": "research-agent-01",
+      "audit_event_id": "evt-01KQGHR5WCX75DGP8190YNDDMK",
+      "decision": "allow",
+      "issued_at": "2026-05-01T01:16:47.883595Z",
+      "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+      "policy_version": 1,
+      "receipt_type": "sbo3l.policy_receipt.v1",
+      "request_hash": "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db",
+      "signature": {
+        "algorithm": "ed25519",
+        "key_id": "decision-signer-v1",
+        "signature_hex": "111d1488b3b7742e2c2f9cdba5f5f1e2f8b38c0afa2d9ecc5926fa93deafafb48e6e35849573325d36d27cbe45d2df3be2dfe8a20884d1eadd85f08735cded0b"
+      },
+      "version": 1
+    },
+    "receipt_signature": "111d1488b3b7742e2c2f9cdba5f5f1e2f8b38c0afa2d9ecc5926fa93deafafb48e6e35849573325d36d27cbe45d2df3be2dfe8a20884d1eadd85f08735cded0b",
+    "result": "allow"
+  },
+  "execution": {
+    "execution_ref": "kh-01KQGHR5WDYBSMKK8Z185XR9V7",
+    "executor": "keeperhub",
+    "live_evidence": null,
+    "mode": "mock",
+    "sponsor_payload_hash": null,
+    "status": "submitted"
+  },
+  "generated_at": "2026-05-01T01:16:47.890090+00:00",
+  "policy": {
+    "activated_at": "2026-05-01T01:16:47.844860+00:00",
+    "policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
+    "policy_snapshot": {
+      "agents": [
+        {
+          "agent_id": "research-agent-01",
+          "policy_role": "research",
+          "status": "active"
+        }
+      ],
+      "budgets": [
+        {
+          "agent_id": "research-agent-01",
+          "cap_usd": "0.50",
+          "scope": "per_tx"
+        },
+        {
+          "agent_id": "research-agent-01",
+          "cap_usd": "10.00",
+          "scope": "daily"
+        },
+        {
+          "agent_id": "research-agent-01",
+          "cap_usd": "5.00",
+          "scope": "per_provider",
+          "scope_key": "api.example.com"
+        }
+      ],
+      "default_decision": "deny",
+      "description": "Reference policy for demo and CI. Allows the research agent to buy small x402 API calls from approved providers; denies unknown recipients.",
+      "emergency": {
+        "freeze_all": false,
+        "paused_agents": []
+      },
+      "policy_id": "default-low-risk",
+      "providers": [
+        {
+          "id": "api.example.com",
+          "status": "trusted",
+          "url": "https://api.example.com"
+        }
+      ],
+      "recipients": [
+        {
+          "address": "0x1111111111111111111111111111111111111111",
+          "chain": "base",
+          "label": "example-api-x402-recipient",
+          "status": "allowed"
+        },
+        {
+          "address": "0x9999999999999999999999999999999999999999",
+          "chain": "base-sepolia",
+          "label": "ethprague-attacker-demo",
+          "status": "denied"
+        }
+      ],
+      "rules": [
+        {
+          "deny_code": "policy.deny_emergency_frozen",
+          "effect": "deny",
+          "id": "deny-emergency-freeze",
+          "when": "input.emergency.freeze_all == true"
+        },
+        {
+          "deny_code": "policy.deny_unknown_provider",
+          "effect": "deny",
+          "id": "deny-unknown-provider",
+          "when": "not input.provider.trusted"
+        },
+        {
+          "deny_code": "policy.deny_recipient_not_allowlisted",
+          "effect": "deny",
+          "id": "deny-recipient-not-allowlisted",
+          "when": "not input.recipient.allowed"
+        },
+        {
+          "effect": "allow",
+          "id": "allow-small-x402-api-call",
+          "when": "input.intent == \"purchase_api_call\" and input.payment_protocol == \"x402\" and input.amount_usd <= 0.50 and input.provider.trusted and input.recipient.allowed"
+        }
+      ],
+      "version": 1
+    },
+    "policy_version": 1,
+    "source": "operator-cli"
+  },
+  "request": {
+    "aprp": {
+      "agent_id": "research-agent-01",
+      "amount": {
+        "currency": "USD",
+        "value": "0.05"
+      },
+      "chain": "base",
+      "destination": {
+        "expected_recipient": "0x1111111111111111111111111111111111111111",
+        "method": "POST",
+        "type": "x402_endpoint",
+        "url": "https://api.example.com/v1/inference"
+      },
+      "expected_result": null,
+      "expiry": "2026-05-01T10:31:00Z",
+      "intent": "purchase_api_call",
+      "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGM",
+      "payment_protocol": "x402",
+      "provider_url": "https://api.example.com",
+      "risk_class": "low",
+      "task_id": "demo-task-1",
+      "token": "USDC",
+      "x402_payload": null
+    },
+    "idempotency_key": null,
+    "nonce": "01HTAWX5K3R8YV9NQB7C6P2DGM",
+    "request_hash": "c0bd2fab4a7d4686d686edcc9c8356315cd66b820a2072493bf758a1eeb500db"
+  },
+  "schema": "sbo3l.passport_capsule.v2",
+  "verification": {
+    "doctor_status": "not_run",
+    "live_claims": [],
+    "offline_verifiable": true
+  }
+}

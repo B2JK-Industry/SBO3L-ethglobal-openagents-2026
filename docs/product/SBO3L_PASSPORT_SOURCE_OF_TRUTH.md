@@ -539,3 +539,50 @@ The Passport MVP is complete when a judge can do this:
 8. See that all mock/live labels are honest.
 9. Understand in under one minute why SBO3L is infrastructure, not just
    another agent demo.
+
+## Capsule v1 ↔ v2 compatibility (F-6)
+
+`sbo3l.passport_capsule.v2` is **additive on v1**: same shape, same
+required fields, plus two optional embedded fields. A v2 capsule is
+backwards-compatible with v1's structural reasoning; the verifier
+dispatches on `capsule.schema` and routes to the correct JSON Schema.
+
+| Field | v1 | v2 | Effect when populated |
+|---|---|---|---|
+| `policy.policy_snapshot` | absent | OPTIONAL `object` | `policy_hash_recompute` runs without `--policy <path>` |
+| `audit.audit_segment` | absent | OPTIONAL `object` (`sbo3l.audit_bundle.v1`) | `receipt_signature`, `audit_chain`, `audit_event_link` run without `--audit-bundle` / `--receipt-pubkey` |
+
+| Mode | v1 capsule | v2 capsule (both embedded) | v2 capsule (neither embedded) |
+|---|---|---|---|
+| `passport verify` (structural) | PASSES | PASSES | PASSES |
+| `passport verify --strict` (no aux) | structural + request_hash_recompute PASSED, others SKIPPED | **all 6 PASSED, none SKIPPED** | structural + request_hash_recompute PASSED, others SKIPPED |
+| `passport explain` line | `verifier-mode: aux-required` | `verifier-mode: self-contained` | `verifier-mode: aux-required` |
+
+### v1 capsules continue to verify
+
+Every v1 capsule that verified pre-F-6 continues to verify post-F-6.
+The only new failure modes belong exclusively to v2 capsules that
+embed `audit_segment`:
+
+* `capsule.audit_segment_too_large` — segment > 1 MiB (anti-DoS).
+* The strict `audit_chain` / `audit_event_link` checks run against
+  the embedded segment instead of `--audit-bundle <path>`; tampering
+  the embedded segment surfaces here.
+
+### Emit / verify recipes
+
+```bash
+# Emit a v2 capsule (default since F-6)
+sbo3l passport run <APRP> --db <PATH> --agent <ENS> \
+  --resolver offline-fixture --ens-fixture demo-fixtures/ens-records.json \
+  --executor keeperhub --mode mock --out capsule-v2.json
+
+# Verify end-to-end with NO aux inputs:
+sbo3l passport verify --strict --path capsule-v2.json
+# expect: all 6 checks PASSED
+
+# Force a legacy v1 emit:
+sbo3l passport run <APRP> ... --schema-version v1 --out capsule-v1.json
+sbo3l passport verify --strict --path capsule-v1.json
+# expect: structural + request_hash_recompute PASSED, others SKIPPED
+```

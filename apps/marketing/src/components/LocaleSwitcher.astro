@@ -1,0 +1,45 @@
+---
+import { LOCALES, type Locale, localizedPath } from "~/i18n";
+
+interface Props {
+  current: Locale;
+  // Path WITHOUT the locale prefix so the switcher routes correctly.
+  basePath: string;
+}
+const { current, basePath } = Astro.props;
+
+const labels: Record<Locale, string> = {
+  en: "English",
+  sk: "Slovenčina",
+  ko: "한국어",
+};
+---
+<nav class="locale-switcher" aria-label="Language selection">
+  {LOCALES.map((loc) => (
+    <a
+      href={localizedPath(basePath, loc)}
+      class={loc === current ? "active" : ""}
+      hreflang={loc}
+      aria-current={loc === current ? "true" : undefined}
+    >
+      {labels[loc]}
+    </a>
+  ))}
+</nav>
+
+<style>
+  .locale-switcher {
+    display: inline-flex;
+    gap: 0.5em;
+    font-size: 0.85em;
+  }
+  .locale-switcher a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 0.2em 0.5em;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+  }
+  .locale-switcher a:hover { color: var(--fg); border-color: var(--border); text-decoration: none; }
+  .locale-switcher a.active { color: var(--fg); border-color: var(--accent); }
+</style>

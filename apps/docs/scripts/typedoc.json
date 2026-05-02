@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "SBO3L TypeScript SDK reference",
+  "readme": "none",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "skipErrorChecking": true,
+  "hideGenerator": true,
+  "githubPages": false,
+  "navigationLinks": {
+    "SBO3L Docs": "https://sbo3l-docs.vercel.app",
+    "GitHub": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+  }
+}

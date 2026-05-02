@@ -7,6 +7,14 @@ use sbo3l_core::audit_bundle::{self, AuditBundle};
 use sbo3l_core::receipt::PolicyReceipt;
 use sbo3l_core::{schema, SchemaError};
 
+mod agent;
+#[cfg(feature = "eth_broadcast")]
+mod agent_broadcast;
+#[cfg(feature = "eth_broadcast")]
+mod agent_reputation_broadcast;
+mod agent_reputation;
+mod agent_verify;
+mod audit_anchor;
 mod audit_anchor_ens;
 mod audit_checkpoint;
 mod doctor;
@@ -117,6 +125,201 @@ enum Command {
         #[command(subcommand)]
         op: PassportCmd,
     },
+    /// Agent ENS lifecycle (T-3-1).
+    ///
+    /// Currently ships `register` for issuing a Durin subname under
+    /// a parent (default `sbo3lagent.eth` mainnet) plus a
+    /// `multicall(setText × N)` to set every `sbo3l:*` text record
+    /// in one tx. T-3-1 main PR ships the `--dry-run` path; broadcast
+    /// is gated and lands in a follow-up that wires
+    /// `sbo3l_core::signers::eth::EthSigner`.
+    ///
+    /// See `docs/cli/agent.md`.
+    Agent {
+        #[command(subcommand)]
+        op: AgentCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AgentCmd {
+    /// Issue an ENS subname `<name>.<parent>` and pre-pack a
+    /// `multicall(setText × N)` to set every `sbo3l:*` record.
+    ///
+    /// Default `--parent sbo3lagent.eth` (mainnet). Default
+    /// `--network sepolia`; mainnet requires `SBO3L_ALLOW_MAINNET_TX=1`
+    /// and an explicit `--network mainnet`.
+    Register {
+        /// Single DNS label (no `.`). E.g. `research-agent`.
+        #[arg(long)]
+        name: String,
+
+        /// Parent ENS name. Default `sbo3lagent.eth`.
+        #[arg(long, default_value = agent::DEFAULT_PARENT)]
+        parent: String,
+
+        /// `mainnet` or `sepolia`. Default `sepolia`.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+
+        /// JSON object mapping `sbo3l:<key>` → value. Non-`sbo3l:*`
+        /// keys are refused.
+        #[arg(long)]
+        records: String,
+
+        /// On-chain owner of the subname after issuance. EIP-55 hex
+        /// with `0x` prefix. Required in this build; defaults to the
+        /// signer address once the EthSigner factory wires up.
+        #[arg(long)]
+        owner: Option<String>,
+
+        /// Override the resolver address. Default = the network's
+        /// canonical PublicResolver.
+        #[arg(long)]
+        resolver: Option<String>,
+
+        /// **Not implemented in this build.** Stub returns a clear
+        /// error. Future broadcast path requires `--rpc-url` and
+        /// `--private-key-env-var`.
+        #[arg(long, default_value_t = false)]
+        broadcast: bool,
+
+        /// Explicitly request dry-run (no broadcast). Dry-run is
+        /// already the default, but passing `--dry-run` surfaces
+        /// intent — automation scripts pass it as defense-in-depth so
+        /// a future flip of the CLI default to broadcast won't
+        /// silently turn an envelope-build invocation into a real tx.
+        /// Mutually exclusive with `--broadcast`.
+        #[arg(long, default_value_t = false, conflicts_with = "broadcast")]
+        dry_run: bool,
+
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        #[arg(long)]
+        private_key_env_var: Option<String>,
+
+        /// Write the dry-run envelope to `<path>` as JSON in addition
+        /// to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+
+    /// Verify the ENS records of an SBO3L agent (pair to `register`).
+    ///
+    /// Resolves all canonical `sbo3l:*` text records for the supplied
+    /// FQDN via `LiveEnsResolver` and asserts each present record
+    /// matches the operator's expectations.
+    ///
+    /// Pass `--expected-pubkey 0x<64-hex>` (or derive from
+    /// `--key-file <path>`) to assert the agent's
+    /// `sbo3l:pubkey_ed25519` record matches a known identity.
+    /// Pass `--expected-records '<json>'` for per-record assertions
+    /// against any `sbo3l:*` key.
+    ///
+    /// Exit codes: 0 PASS / 2 FAIL / 1 resolution error.
+    /// See `docs/cli/agent-verify.md`.
+    VerifyEns {
+        /// Fully-qualified ENS name (e.g.
+        /// `research-agent.sbo3lagent.eth`).
+        fqdn: String,
+
+        /// `mainnet` or `sepolia`. Default `mainnet` (the live name).
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Override the resolver RPC. Default = `SBO3L_ENS_RPC_URL`.
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        /// `0x` + 64 hex chars Ed25519 pubkey. Asserts against
+        /// `sbo3l:pubkey_ed25519`. Mutually exclusive with
+        /// `--key-file`.
+        #[arg(long)]
+        expected_pubkey: Option<String>,
+
+        /// Path to a local Ed25519 secret seed (32 raw bytes OR 64
+        /// hex chars in UTF-8). Pubkey is derived and asserted.
+        #[arg(long, conflicts_with = "expected_pubkey")]
+        key_file: Option<PathBuf>,
+
+        /// JSON object `{"sbo3l:agent_id":"...", ...}` of expected
+        /// records. Records not listed are reported but not failed.
+        ///
+        /// Default: **strict mode** — any key outside the canonical
+        /// `sbo3l:*` set causes verify-ens to refuse with exit code
+        /// 2, so a typo (`sbol3:agent_id`) doesn't silently turn
+        /// into a no-op expectation. Pass `--lenient` to opt back
+        /// into the legacy silent-ignore behaviour.
+        #[arg(long)]
+        expected_records: Option<String>,
+
+        /// Silently ignore unknown keys in `--expected-records`.
+        /// Disables the strict-mode default. Useful when an upstream
+        /// pipeline injects extra metadata that's not part of
+        /// SBO3L's canonical record set.
+        #[arg(long, default_value_t = false)]
+        lenient: bool,
+
+        /// Emit a `sbo3l.verify_ens_report.v1` JSON envelope instead
+        /// of human-readable text.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Compute and publish an agent's reputation score (T-4-6 / T-4-7).
+    ///
+    /// Reads audit events from `--events <file.json>` (a JSON array
+    /// of {decision, executor_confirmed, age_secs} objects), computes
+    /// the v2 weighted score (sbo3l_policy::reputation::compute_reputation_v2),
+    /// and emits a setText envelope publishing the score to the agent's
+    /// `sbo3l:reputation_score` ENS text record.
+    ///
+    /// **Dry-run by default.** Pass `--broadcast` (requires
+    /// `--features eth_broadcast` at build time) to actually sign +
+    /// send the setText tx via the alloy harness shared with T-3-1
+    /// agent-register broadcast. Mainnet path additionally requires
+    /// `SBO3L_ALLOW_MAINNET_TX=1` and an explicit `--network mainnet`.
+    ReputationPublish {
+        /// FQDN of the agent (e.g. `research-agent.sbo3lagent.eth`).
+        #[arg(long)]
+        fqdn: String,
+
+        /// Path to a JSON file: array of `ReputationEventInput`
+        /// (`{decision, executor_confirmed, age_secs}`).
+        #[arg(long)]
+        events: PathBuf,
+
+        /// `mainnet` or `sepolia`. Default `mainnet` since the
+        /// canonical reputation publishes are on `sbo3lagent.eth`.
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Override the resolver address. Default = the network's
+        /// canonical PublicResolver.
+        #[arg(long)]
+        resolver: Option<String>,
+
+        /// Write the envelope JSON to `<path>` in addition to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
+
+        /// **Sign + send the setText tx** instead of just printing
+        /// the envelope. Requires the `eth_broadcast` Cargo feature;
+        /// without it the dispatch falls through to a clear "rebuild
+        /// with --features eth_broadcast" error (exit code 3).
+        #[arg(long, default_value_t = false)]
+        broadcast: bool,
+
+        /// JSON-RPC URL for `--broadcast`. Falls back to
+        /// `SBO3L_RPC_URL` env. Validated http/https.
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        /// Override the env var that holds the 32-byte hex private
+        /// key for `--broadcast` (default `SBO3L_SIGNER_KEY`).
+        #[arg(long)]
+        private_key_env_var: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -207,6 +410,15 @@ enum PassportCmd {
         /// (tempfile + rename); never leaves a half-written file.
         #[arg(long)]
         out: PathBuf,
+        /// F-6: capsule schema version. `v2` (default) embeds
+        /// `policy.policy_snapshot` + `audit.audit_segment` so a
+        /// downstream `passport verify --strict` runs all 6
+        /// cryptographic checks WITHOUT auxiliary inputs. `v1` emits
+        /// the legacy shape (no embedded fields; strict mode requires
+        /// `--policy`, `--audit-bundle`, `--receipt-pubkey` to cover
+        /// the same ground).
+        #[arg(long = "schema-version", value_enum, default_value_t = SchemaVersionArg::V2)]
+        schema_version: SchemaVersionArg,
     },
     /// Verify a capsule and print a concise human (or `--json`)
     /// summary suitable for judges and operators.
@@ -236,6 +448,12 @@ enum ExecutorChoiceArg {
 enum ModeChoiceArg {
     Mock,
     Live,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum SchemaVersionArg {
+    V1,
+    V2,
 }
 
 #[derive(Subcommand, Debug)]
@@ -441,6 +659,59 @@ enum AuditCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+
+    /// On-chain audit-root anchor (Phase 3.1).
+    ///
+    /// Computes a 32-byte digest over the local audit chain head +
+    /// ABI-encodes a `publishAnchor(bytes32 tenantId, bytes32
+    /// auditRoot, uint64 chainHeadBlock)` call against Dev 4's
+    /// AnchorRegistry contract.
+    ///
+    /// `--dry-run` (default) prints the envelope. `--broadcast`
+    /// signs + sends the tx via alloy (requires `--features
+    /// eth_broadcast` at build time + a funded signer key).
+    Anchor {
+        /// SBO3L SQLite database path. The chain digest is computed
+        /// over the audit-chain head (latest event in the per-tenant
+        /// subsequence).
+        #[arg(long)]
+        db: PathBuf,
+        /// Tenant id, hex-encoded with optional `0x` prefix (32
+        /// bytes / 64 hex chars). Defaults to `keccak256("default")`
+        /// for single-tenant deployments.
+        #[arg(long)]
+        tenant_id: Option<String>,
+        /// `mainnet` | `sepolia`. Default `sepolia`. Mainnet
+        /// additionally requires `SBO3L_ALLOW_MAINNET_TX=1` in env.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+        /// Override the AnchorRegistry contract address. Default:
+        /// the network's well-known deployment (`0x0000…0000` until
+        /// Dev 4's deployment pins a real address).
+        #[arg(long)]
+        registry: Option<String>,
+        /// EVM block number the digest is being anchored against.
+        /// Surfaces in the on-chain `AnchorPublished` event.
+        /// Operators running the cron job typically pass
+        /// `eth_blockNumber` from the RPC at job start.
+        #[arg(long, default_value_t = 0)]
+        chain_head_block: u64,
+        /// Send the tx for real (otherwise dry-run only).
+        #[arg(long)]
+        broadcast: bool,
+        /// JSON-RPC endpoint (only consulted with `--broadcast`).
+        #[arg(long)]
+        rpc_url: Option<String>,
+        /// Name of the env var holding the operator's signing key.
+        /// Default `SBO3L_DEPLOYER_PRIVATE_KEY` (matches the GH
+        /// Actions secret name).
+        #[arg(long)]
+        private_key_env_var: Option<String>,
+        /// Write the envelope to `<path>` as JSON in addition to
+        /// printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -580,6 +851,30 @@ fn main() -> ExitCode {
             offline_fixture,
             out,
         }),
+        Command::Audit {
+            op:
+                AuditCmd::Anchor {
+                    db,
+                    tenant_id,
+                    network,
+                    registry,
+                    chain_head_block,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
+                    out,
+                },
+        } => audit_anchor::cmd_audit_anchor(audit_anchor::AuditAnchorArgs {
+            db,
+            tenant_id,
+            network,
+            registry,
+            chain_head_block,
+            broadcast,
+            rpc_url,
+            private_key_env_var,
+            out,
+        }),
         Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
         Command::Key {
             op:
@@ -642,6 +937,7 @@ fn main() -> ExitCode {
                     executor,
                     mode,
                     out,
+                    schema_version,
                 },
         } => passport::cmd_run(passport::RunArgs {
             aprp_path: aprp,
@@ -661,10 +957,94 @@ fn main() -> ExitCode {
                 ModeChoiceArg::Live => passport::ModeChoice::Live,
             },
             out_path: out,
+            schema_version: match schema_version {
+                SchemaVersionArg::V1 => passport::SchemaVersionChoice::V1,
+                SchemaVersionArg::V2 => passport::SchemaVersionChoice::V2,
+            },
         }),
         Command::Passport {
             op: PassportCmd::Explain { path, json },
         } => passport::cmd_explain(&path, json),
+        Command::Agent {
+            op:
+                AgentCmd::Register {
+                    name,
+                    parent,
+                    network,
+                    records,
+                    owner,
+                    resolver,
+                    broadcast,
+                    // `--dry-run` is acknowledged but doesn't change
+                    // behaviour: dry-run is the default, broadcast
+                    // is opt-in via `--broadcast`. Clap's
+                    // conflicts_with already enforces the mutex; we
+                    // accept the flag here so scripts that pass it
+                    // for defense-in-depth aren't rejected as
+                    // "unknown argument".
+                    dry_run: _,
+                    rpc_url,
+                    private_key_env_var,
+                    out,
+                },
+        } => agent::cmd_agent_register(agent::AgentRegisterArgs {
+            name,
+            parent,
+            network,
+            records_json: records,
+            owner,
+            resolver,
+            broadcast,
+            rpc_url,
+            private_key_env_var,
+            out,
+        }),
+        Command::Agent {
+            op:
+                AgentCmd::VerifyEns {
+                    fqdn,
+                    network,
+                    rpc_url,
+                    expected_pubkey,
+                    key_file,
+                    expected_records,
+                    lenient,
+                    json,
+                },
+        } => agent_verify::cmd_agent_verify_ens(agent_verify::AgentVerifyEnsArgs {
+            fqdn,
+            network,
+            rpc_url,
+            expected_pubkey,
+            key_file,
+            lenient,
+            expected_records,
+            json,
+        }),
+        Command::Agent {
+            op:
+                AgentCmd::ReputationPublish {
+                    fqdn,
+                    events,
+                    network,
+                    resolver,
+                    out,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
+                },
+        } => agent_reputation::cmd_agent_reputation_publish(
+            agent_reputation::ReputationPublishArgs {
+                fqdn,
+                events,
+                network,
+                resolver,
+                out,
+                broadcast,
+                rpc_url,
+                private_key_env_var,
+            },
+        ),
     }
 }
 

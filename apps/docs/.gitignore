@@ -1,0 +1,10 @@
+dist/
+.astro/
+node_modules/
+.env
+.env.production
+*.tsbuildinfo
+
+# Materialised at build time by scripts/copy-openapi.sh + scripts/fetch-redoc.sh
+public/openapi.yaml
+public/redoc/

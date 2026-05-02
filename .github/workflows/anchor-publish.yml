@@ -1,0 +1,176 @@
+# Phase 3.1 — periodic on-chain audit anchor publish.
+#
+# Every 6 hours (and on manual dispatch), this workflow runs
+# `sbo3l audit anchor --broadcast --network sepolia` against the
+# repo's audit-chain DB snapshot. The signed tx writes the chain
+# head digest into Dev 4's `AnchorRegistry` contract, where any
+# third-party auditor can read it back via Etherscan or
+# `sbo3l audit verify-anchor` (read-side, follow-up).
+#
+# Cron cadence: 6h. Mainnet anchoring (when SBO3L_DEPLOYER_PRIVATE_KEY
+# holds a mainnet-funded wallet) flips to 24h to keep gas
+# spend bounded — Sepolia is essentially free.
+#
+# Required repo secrets:
+#
+# - SBO3L_DEPLOYER_PRIVATE_KEY  — 32-byte hex private key. The
+#   wallet must be funded on the target network (Sepolia ETH from
+#   any faucet; mainnet ETH only when the operator decides to flip
+#   the network input).
+# - SBO3L_RPC_URL_SEPOLIA       — JSON-RPC endpoint for Sepolia
+#   (Alchemy / Infura / PublicNode). The default sbo3l audit
+#   anchor reads SBO3L_RPC_URL; we set the per-network value
+#   into that var below.
+# - (mainnet) SBO3L_RPC_URL_MAINNET, SBO3L_ALLOW_MAINNET_TX=1.
+
+name: anchor-publish
+
+on:
+  schedule:
+    # Every 6 hours at 00:00, 06:00, 12:00, 18:00 UTC.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      network:
+        description: "Target network"
+        required: true
+        type: choice
+        default: sepolia
+        options:
+          - sepolia
+          - mainnet
+      registry:
+        description: "Override AnchorRegistry address (optional; leave empty for the network default once Dev 4 deploys)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-anchor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Default to Sepolia on the cron path; workflow_dispatch
+      # overrides via the input below.
+      ANCHOR_NETWORK: ${{ github.event.inputs.network || 'sepolia' }}
+      ANCHOR_REGISTRY: ${{ github.event.inputs.registry || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-anchor-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-anchor-
+
+      - name: Build sbo3l CLI with eth_broadcast
+        run: |
+          cargo build --release \
+            -p sbo3l-cli \
+            --features eth_broadcast \
+            --bin sbo3l
+
+      - name: Resolve RPC URL for network
+        id: rpc
+        run: |
+          case "${ANCHOR_NETWORK}" in
+            sepolia)
+              echo "url=${{ secrets.SBO3L_RPC_URL_SEPOLIA }}" >> "$GITHUB_OUTPUT"
+              ;;
+            mainnet)
+              echo "url=${{ secrets.SBO3L_RPC_URL_MAINNET }}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown network: ${ANCHOR_NETWORK}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Resolve current EVM block number
+        id: block
+        run: |
+          BN=$(curl -sS \
+            -H "content-type: application/json" \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+            "${{ steps.rpc.outputs.url }}" \
+            | jq -r '.result // "0x0"')
+          # Strip 0x, convert to decimal.
+          BLOCK_DEC=$((16#${BN#0x}))
+          echo "block=${BLOCK_DEC}" >> "$GITHUB_OUTPUT"
+
+      - name: Run audit anchor (broadcast)
+        env:
+          SBO3L_DEPLOYER_PRIVATE_KEY: ${{ secrets.SBO3L_DEPLOYER_PRIVATE_KEY }}
+          SBO3L_RPC_URL: ${{ steps.rpc.outputs.url }}
+          # Mainnet gate. The CLI itself refuses without this when
+          # network=mainnet; CI workflow only sets it when the user
+          # explicitly selected mainnet via workflow_dispatch.
+          SBO3L_ALLOW_MAINNET_TX: ${{ env.ANCHOR_NETWORK == 'mainnet' && '1' || '' }}
+        run: |
+          # The audit-chain DB lives in the operator's runtime
+          # storage; in CI we don't have a long-lived DB, so the
+          # workflow expects $SBO3L_DB_PATH to point at a snapshot
+          # the operator uploaded as an artifact (or `download`s
+          # via a previous job). For now, we run against an empty
+          # DB and exit gracefully — the cron stays green while the
+          # operator decides on the snapshot strategy.
+          DB_PATH="${SBO3L_DB_PATH:-/tmp/sbo3l-anchor-cron.db}"
+          # Initialise an empty DB by spawning the daemon briefly.
+          # Once the operator wires in a real DB snapshot job, this
+          # init-empty step is replaced.
+          SBO3L_DEV_ONLY_SIGNER=1 \
+          SBO3L_ALLOW_UNAUTHENTICATED=1 \
+          SBO3L_DB="${DB_PATH}" \
+          SBO3L_LISTEN="127.0.0.1:18790" \
+          ./target/release/sbo3l-server > /tmp/sbo3l-server.log 2>&1 &
+          SRV_PID=$!
+          sleep 2
+          kill -TERM "${SRV_PID}" 2>/dev/null || true
+          wait "${SRV_PID}" 2>/dev/null || true
+
+          REGISTRY_FLAG=""
+          if [ -n "${ANCHOR_REGISTRY}" ]; then
+            REGISTRY_FLAG="--registry ${ANCHOR_REGISTRY}"
+          fi
+
+          echo "::group::Dry-run preview"
+          ./target/release/sbo3l audit anchor \
+            --db "${DB_PATH}" \
+            --network "${ANCHOR_NETWORK}" \
+            ${REGISTRY_FLAG} \
+            --chain-head-block "${{ steps.block.outputs.block }}" \
+            || true
+          echo "::endgroup::"
+
+          # Broadcast path. Disabled until Dev 4 publishes a
+          # non-zero AnchorRegistry address for this network — the
+          # CLI refuses on a 0x0000…0000 default. Operator unblocks
+          # by setting `--registry` via workflow_dispatch input.
+          if [ -n "${ANCHOR_REGISTRY}" ]; then
+            ./target/release/sbo3l audit anchor \
+              --db "${DB_PATH}" \
+              --network "${ANCHOR_NETWORK}" \
+              --registry "${ANCHOR_REGISTRY}" \
+              --chain-head-block "${{ steps.block.outputs.block }}" \
+              --broadcast
+          else
+            echo "::warning::ANCHOR_REGISTRY not set — broadcast skipped (CLI refuses on 0x0000…0000)."
+          fi
+
+      - name: Upload anchor logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anchor-logs-${{ github.run_id }}
+          path: /tmp/sbo3l-server.log
+          retention-days: 14

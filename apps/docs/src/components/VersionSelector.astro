@@ -1,0 +1,102 @@
+---
+import versions from "~/data/versions.json";
+
+interface Version {
+  id: string;
+  label: string;
+  tag: string | null;
+  date: string | null;
+  default: boolean;
+  description: string;
+}
+
+// Detect the current version from the URL prefix. /v1.0.0/* → v1.0.0;
+// anything else → latest.
+const path = Astro.url.pathname;
+const matchedVersion = (versions.versions as Version[]).find((v) => v.id !== "latest" && path.startsWith(`/${v.id}/`));
+const current = matchedVersion?.id ?? versions.current;
+
+// Strip the leading /<version>/ when computing equivalent paths so the
+// switcher routes the user to the same logical doc on a different
+// version (e.g. /v1.0.0/concepts/aprp ↔ /v1.0.1/concepts/aprp).
+const pathWithoutVersion = matchedVersion ? path.replace(new RegExp(`^/${matchedVersion.id}/?`), "/") : path;
+---
+<details class="version-selector">
+  <summary aria-label={`Documentation version: ${current}`}>
+    <span class="dot" aria-hidden="true"></span>
+    <span class="label">{current}</span>
+    <span class="caret" aria-hidden="true">▾</span>
+  </summary>
+  <ul role="list">
+    {(versions.versions as Version[]).map((v) => {
+      const href = v.id === "latest" ? pathWithoutVersion : `/${v.id}${pathWithoutVersion}`;
+      return (
+        <li class={v.id === current ? "active" : ""}>
+          <a href={href} aria-current={v.id === current ? "true" : undefined}>
+            <span class="version-label">{v.label}</span>
+            {v.date && <span class="version-date">{v.date}</span>}
+            <span class="version-desc">{v.description}</span>
+          </a>
+        </li>
+      );
+    })}
+  </ul>
+</details>
+
+<style>
+  .version-selector {
+    position: relative;
+    margin-bottom: 1em;
+    font-size: 0.9em;
+  }
+  .version-selector summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0.8em;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 6px;
+    background: var(--sl-color-bg-inline-code);
+    color: var(--sl-color-text);
+    cursor: pointer;
+    list-style: none;
+  }
+  .version-selector summary::-webkit-details-marker { display: none; }
+  .version-selector summary:hover { border-color: var(--sl-color-accent); }
+  .version-selector .dot {
+    width: 0.5em; height: 0.5em; border-radius: 50%; background: var(--sl-color-accent);
+  }
+  .version-selector .caret { font-size: 0.7em; color: var(--sl-color-text); opacity: 0.7; }
+
+  .version-selector ul {
+    list-style: none;
+    margin: 0; padding: 0.4em 0;
+    position: absolute; top: 100%; left: 0;
+    min-width: 280px;
+    background: var(--sl-color-bg);
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    z-index: 20;
+  }
+  .version-selector li a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.3em 1em;
+    padding: 0.6em 1em;
+    color: var(--sl-color-text);
+    text-decoration: none;
+  }
+  .version-selector li a:hover { background: var(--sl-color-bg-inline-code); }
+  .version-selector li.active a { color: var(--sl-color-accent); font-weight: 600; }
+  .version-selector .version-label { font-family: var(--sl-font-mono); }
+  .version-selector .version-date {
+    color: var(--sl-color-text); opacity: 0.6;
+    font-family: var(--sl-font-mono); font-size: 0.85em;
+  }
+  .version-selector .version-desc {
+    grid-column: 1 / -1;
+    color: var(--sl-color-text); opacity: 0.7;
+    font-size: 0.82em;
+  }
+</style>

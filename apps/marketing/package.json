@@ -5,7 +5,8 @@
   "description": "SBO3L marketing site (sbo3l-marketing.vercel.app, future sbo3l.dev). Astro 5 static.",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "node scripts/copy-bounty-pages.mjs && astro dev",
+    "prebuild": "node scripts/copy-bounty-pages.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",

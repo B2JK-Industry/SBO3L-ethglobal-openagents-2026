@@ -1,0 +1,59 @@
+---
+title: Multi-scope budget
+description: Per-agent, per-vendor, and global budgets enforced atomically alongside the policy decision.
+audience: agent platform engineers, compliance teams, ops
+outcome: You'll know what scopes a budget covers, how the commit interacts with the audit chain, and how to handle budget reset semantics.
+prereqs:
+  - policy decision read
+---
+
+Budgets are SBO3L's answer to "this agent must spend at most X per day, Y per vendor, Z total this week". Multi-scope means **multiple budgets evaluated atomically** — if any fails, the whole decision flips to `deny` and nothing commits.
+
+## Budget scopes
+
+Three scopes ship out-of-the-box:
+
+| Scope | Key | Reset interval |
+|---|---|---|
+| **Per-agent** | `agent_id` | rolling daily |
+| **Per-vendor** | `agent_id × sponsor` | rolling weekly |
+| **Global** | `daemon_instance` | rolling monthly |
+
+Each budget has an `amount` (decimal string), an `asset` (e.g. `ETH`), and a `reset` strategy (`rolling` or `cron`). Custom scopes are pluggable; see `crates/sbo3l-policy/src/budget.rs` for the trait.
+
+## Commit semantics
+
+Budget commit is part of the same transaction as the audit append. Three outcomes:
+
+1. **Commit succeeds** → audit event written, decision is `allow`, response sent.
+2. **Commit fails** (any scope insufficient) → no state change, decision is `deny` with `deny_code: policy.budget_exceeded` + `deny_detail` listing the failing scope.
+3. **Atomicity violation** (concurrent commits race) → SQLite transaction retries; from the client's view, exactly one of the concurrent requests succeeds. PR #102 hardened this; see the [idempotency concept](/concepts/idempotency) for the related state-machine work.
+
+## Reading current usage
+
+```bash
+sbo3l budget show --agent-id research-01
+# stdout:
+# scope:agent       0.42 / 1.00 ETH    (resets in 14h)
+# scope:vendor:kh   0.10 / 0.50 ETH    (resets in 4d)
+# scope:global      4.83 / 50.00 ETH   (resets in 18d)
+```
+
+The CLI reads from the same SQLite tables the daemon commits into — it's not a separate cache. Snapshots taken via `--at <RFC3339>` reconstruct historical usage.
+
+## Reset strategy: rolling vs cron
+
+- **Rolling** — budget window slides; "last 24h", "last 7d", "last 30d". Most ergonomic for usage capping.
+- **Cron** — budget resets at fixed wall-clock boundaries (`0 0 * * *` for daily-at-midnight). Best when downstream invoicing follows the same calendar.
+
+Rolling is the default. Cron requires a `--cron-schedule` flag at daemon start; ambiguous schedules (DST transitions, leap seconds) fail-closed.
+
+## When budget commits and the policy decision disagree
+
+They can't, by construction. The policy decision is computed first; if `allow`, the budget commit attempts; if commit fails, the final decision flips to `deny` and the audit event records *both* the original policy decision AND the budget failure as `deny_detail`. This makes post-hoc analysis ("why was this denied") unambiguous.
+
+## See also
+
+- [Policy decision](/concepts/policy) — what runs before budget commit.
+- [Idempotency](/concepts/idempotency) — atomicity guarantees that wrap budget commits.
+- [Error codes reference](/reference/errors) — every budget-related deny code.

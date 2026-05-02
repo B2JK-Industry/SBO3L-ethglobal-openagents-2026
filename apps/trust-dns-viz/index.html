@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Trust DNS — SBO3L</title>
+    <meta name="description" content="Real-time visualization of autonomous agents discovering and verifying each other via ENS." />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header id="chrome">
+      <a class="brand" href="/">SBO3L · Trust DNS</a>
+      <span id="status" aria-live="polite">connecting</span>
+    </header>
+    <main>
+      <svg id="viz" role="img" aria-label="Force-directed graph of SBO3L agents and attestations"></svg>
+      <canvas id="viz-canvas" role="img" aria-label="Force-directed graph of SBO3L agents and attestations (canvas)"></canvas>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

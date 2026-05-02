@@ -1,0 +1,4 @@
+[01-crash] start 2026-05-02T07:18:30Z
+PASS: audit chain grew 1 → 2 after restart
+PASS: post-restart audit_events count == 2 (one per nonce submitted)
+[01-crash] end 2026-05-02T07:18:31Z; failed=0
