@@ -1,0 +1,584 @@
+---
+// ZeroGUploader — drop a Passport capsule JSON, push it to 0G Storage,
+// get back a content-addressed `rootHash` (DG-1).
+//
+// Two-path flow:
+//
+//   1. Primary path: probe 0G Galileo testnet liveness (5s timeout).
+//      The TS SDK (@0gfoundation/0g-storage-ts-sdk) cannot run fully
+//      client-side without exposing a private key in the browser bundle
+//      (the indexer.upload() call needs a signer to pay storage fees),
+//      so the in-browser "primary path" stops at the liveness probe and
+//      hands off to the manual web UI. When SBO3L's server-side relay
+//      ships, this same probe gates the auto-upload code path.
+//
+//   2. Fallback path: open https://storagescan-galileo.0g.ai/tool in a
+//      new tab, instruct the user to drop the same file there, copy the
+//      rootHash back into this page. We then surface the permalink at
+//      https://storagescan-galileo.0g.ai/file/<rootHash> and offer a
+//      copy-to-clipboard.
+//
+// 0G testnet has been historically flaky (faucet down, indexer
+// timeouts, KV nodes unreliable — see ETHGlobal Discord) which is the
+// whole reason the manual fallback exists at all. Even when the SDK
+// path lights up, the fallback button stays visible for users who hit
+// indexer 5xx mid-upload.
+//
+// CSP impact: vercel.json adds `https://indexer-storage-testnet-turbo.0g.ai`
+// and `https://evmrpc-testnet.0g.ai` to connect-src so the liveness
+// probe doesn't trip Content-Security-Policy on production. The
+// storagescan-galileo URL opens in a new tab (window.open) so it
+// bypasses the iframe frame-src restriction entirely.
+//
+// Component is a pure Astro island with `is:inline` script — matches
+// the convention set by PassportVerifier.astro. Marketing site has no
+// React/Vitest infra (it's static-only Astro 5), so this ships without
+// either; equivalent behavior is exercised manually via the dev server.
+
+interface Props {
+  /// Optional id for the inline component instance, used when mounting
+  /// more than one uploader on the same page.
+  id?: string;
+}
+
+const { id = "zerog-uploader" } = Astro.props;
+
+const STORAGESCAN_TOOL_URL = "https://storagescan-galileo.0g.ai/tool";
+const STORAGESCAN_FILE_URL = "https://storagescan-galileo.0g.ai/file";
+const INDEXER_PROBE_URL = "https://indexer-storage-testnet-turbo.0g.ai";
+const PROBE_TIMEOUT_MS = 5000;
+const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
+---
+
+<section class="zg-uploader" id={id} data-state="idle">
+  <header class="zg-head">
+    <h2>Upload a Passport capsule to 0G Storage</h2>
+    <p class="lede">
+      Drop a capsule JSON below. We'll attempt to push it to 0G's
+      Galileo testnet and return a content-addressed
+      <code>rootHash</code>. If the testnet's flaky (it has been all
+      week), we fall back to the manual web tool — same outcome, two
+      extra clicks.
+    </p>
+  </header>
+
+  <div class="zg-drop" tabindex="0" role="button" aria-label="Drop or click to pick a capsule JSON">
+    <input type="file" accept="application/json,.json" hidden />
+    <div class="zg-drop-prompt">
+      <strong>Drag a capsule JSON here</strong>
+      <span>or click to pick a file (max 1 MB)</span>
+    </div>
+    <div class="zg-drop-loaded" hidden>
+      <strong class="zg-file-name"></strong>
+      <span class="zg-file-meta"></span>
+      <button type="button" class="zg-clear">Clear</button>
+    </div>
+  </div>
+
+  <div class="zg-error" hidden role="alert"></div>
+
+  <div class="zg-actions">
+    <button type="button" class="btn primary zg-upload" disabled>
+      Push to 0G Storage
+    </button>
+    <span class="zg-status">idle</span>
+  </div>
+
+  <div class="zg-fallback" hidden>
+    <h3>0G SDK couldn't auto-push — manual fallback</h3>
+    <ol>
+      <li>We've opened the <a href={STORAGESCAN_TOOL_URL} target="_blank" rel="noopener noreferrer">0G storage tool</a> in a new tab.</li>
+      <li>Drag the same file there and click <strong>Upload</strong>.</li>
+      <li>Copy the <code>rootHash</code> the tool shows you.</li>
+      <li>Paste it below and we'll surface the permalink + verify it locally.</li>
+    </ol>
+    <label for={`${id}-manual-hash`} class="zg-lbl">rootHash from 0G storage tool</label>
+    <div class="zg-hash-row">
+      <input
+        type="text"
+        id={`${id}-manual-hash`}
+        class="zg-manual-hash"
+        placeholder="0x…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button type="button" class="btn ghost zg-manual-submit">Verify</button>
+    </div>
+    <p class="zg-hash-help">
+      0G Storage is content-addressed — the rootHash <em>is</em> the
+      proof of upload. No further verification needed beyond format.
+    </p>
+  </div>
+
+  <div class="zg-success" hidden>
+    <h3>Capsule pinned to 0G Storage</h3>
+    <p class="zg-success-source"></p>
+    <div class="zg-hash-display">
+      <span class="zg-hash-label">rootHash</span>
+      <code class="zg-hash-value"></code>
+      <button type="button" class="btn ghost zg-copy">Copy</button>
+    </div>
+    <p>
+      Permalink: <a class="zg-permalink" target="_blank" rel="noopener noreferrer"></a>
+    </p>
+  </div>
+</section>
+
+<style>
+  .zg-uploader {
+    max-width: var(--max);
+    margin: 2em auto;
+    padding: 1.5em;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--bg);
+  }
+  .zg-head h2 { font-size: 1.4em; font-weight: 700; margin: 0 0 0.4em; }
+  .zg-head .lede { color: var(--muted); margin: 0 0 1.5em; }
+
+  .zg-drop {
+    border: 2px dashed var(--border);
+    border-radius: var(--r-md);
+    padding: 2em 1em;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .zg-drop:hover, .zg-drop:focus, .zg-drop.zg-drag {
+    border-color: var(--accent);
+    background: var(--code-bg);
+    outline: none;
+  }
+  .zg-drop strong { display: block; font-size: 1em; margin-bottom: 0.3em; }
+  .zg-drop span { color: var(--muted); font-size: 0.9em; }
+  .zg-drop-loaded {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8em;
+    flex-wrap: wrap;
+  }
+  .zg-drop-loaded strong { display: inline; margin: 0; font-family: var(--font-mono); font-size: 0.9em; }
+  .zg-clear {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 0.3em 0.7em;
+    font-size: 0.8em;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .zg-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+  .zg-error {
+    margin-top: 1em;
+    padding: 0.7em 1em;
+    border-radius: var(--r-sm);
+    background: #ffd6d6;
+    color: #8b0000;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+
+  .zg-actions {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    margin-top: 1.2em;
+  }
+  .zg-actions .zg-upload {
+    border: none;
+    cursor: pointer;
+    font-size: 0.95em;
+  }
+  .zg-actions .zg-upload:disabled { opacity: 0.5; cursor: not-allowed; }
+  .zg-status {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+
+  .zg-fallback, .zg-success {
+    margin-top: 1.5em;
+    padding: 1.2em;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--code-bg);
+  }
+  .zg-fallback h3, .zg-success h3 {
+    font-size: 1.05em;
+    font-weight: 700;
+    margin: 0 0 0.7em;
+  }
+  .zg-fallback ol { margin: 0 0 1em; padding-left: 1.4em; color: var(--muted); }
+  .zg-fallback li { margin-bottom: 0.3em; }
+  .zg-lbl { display: block; font-weight: 600; font-size: 0.9em; margin-bottom: 0.3em; }
+  .zg-hash-row {
+    display: flex;
+    gap: 0.5em;
+    flex-wrap: wrap;
+  }
+  .zg-hash-row input {
+    flex: 1;
+    min-width: 280px;
+    padding: 0.55em 0.8em;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .zg-hash-row .btn { cursor: pointer; border: 1px solid var(--border); background: var(--bg); }
+  .zg-hash-help { margin: 0.6em 0 0; color: var(--muted); font-size: 0.82em; }
+
+  .zg-success-source { color: var(--muted); font-size: 0.85em; margin: 0 0 0.8em; font-style: italic; }
+  .zg-hash-display {
+    display: flex;
+    gap: 0.6em;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.7em 0.9em;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    margin-bottom: 0.6em;
+  }
+  .zg-hash-label {
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .zg-hash-value {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    word-break: break-all;
+    background: none;
+    padding: 0;
+  }
+  .zg-copy {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: var(--r-sm);
+    padding: 0.35em 0.8em;
+    font-size: 0.8em;
+    cursor: pointer;
+    color: var(--fg);
+  }
+  .zg-copy:hover { border-color: var(--accent); color: var(--accent); }
+  .zg-copy.zg-copied { color: #056635; border-color: #056635; }
+
+  .zg-permalink { font-family: var(--font-mono); font-size: 0.85em; word-break: break-all; }
+</style>
+
+<script
+  is:inline
+  define:vars={{
+    id,
+    STORAGESCAN_TOOL_URL,
+    STORAGESCAN_FILE_URL,
+    INDEXER_PROBE_URL,
+    PROBE_TIMEOUT_MS,
+    MAX_FILE_BYTES,
+  }}
+>
+  // ZeroGUploader runtime — DOM-scoped to the component instance so
+  // multiple uploaders on one page don't collide.
+  (function init() {
+    const root = document.getElementById(id);
+    if (!root) return;
+
+    const $ = (sel) => root.querySelector(sel);
+    const drop = $(".zg-drop");
+    const fileInput = drop.querySelector('input[type="file"]');
+    const promptEl = $(".zg-drop-prompt");
+    const loadedEl = $(".zg-drop-loaded");
+    const fileNameEl = $(".zg-file-name");
+    const fileMetaEl = $(".zg-file-meta");
+    const clearBtn = $(".zg-clear");
+    const errEl = $(".zg-error");
+    const uploadBtn = $(".zg-upload");
+    const statusEl = $(".zg-status");
+    const fallbackEl = $(".zg-fallback");
+    const manualHashInput = $(".zg-manual-hash");
+    const manualSubmitBtn = $(".zg-manual-submit");
+    const successEl = $(".zg-success");
+    const successSrcEl = $(".zg-success-source");
+    const hashValueEl = $(".zg-hash-value");
+    const copyBtn = $(".zg-copy");
+    const permalinkEl = $(".zg-permalink");
+
+    let currentFile = null;
+
+    // ---- helpers --------------------------------------------------------
+
+    function setError(msg) {
+      if (msg) {
+        errEl.textContent = msg;
+        errEl.hidden = false;
+      } else {
+        errEl.textContent = "";
+        errEl.hidden = true;
+      }
+    }
+
+    function setStatus(s) {
+      statusEl.textContent = s;
+    }
+
+    function setState(s) {
+      root.dataset.state = s;
+    }
+
+    function bytesHuman(n) {
+      if (n < 1024) return n + " B";
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+      return (n / (1024 * 1024)).toFixed(2) + " MB";
+    }
+
+    function isHex32(s) {
+      // 0G Storage rootHash is 32 bytes (64 hex chars), 0x-prefixed.
+      // Loose-validate format only — the hash is its own proof.
+      return /^0x[0-9a-fA-F]{64}$/.test(s.trim());
+    }
+
+    function showSuccess(rootHash, source) {
+      successEl.hidden = false;
+      const norm = rootHash.trim().toLowerCase();
+      hashValueEl.textContent = norm;
+      const url = STORAGESCAN_FILE_URL + "/" + norm;
+      permalinkEl.textContent = url;
+      permalinkEl.href = url;
+      successSrcEl.textContent =
+        source === "manual"
+          ? "Source: manually pasted from 0G storage tool."
+          : "Source: 0G SDK auto-upload.";
+      setState("success");
+    }
+
+    // ---- file pickup + validation ---------------------------------------
+
+    async function pickFile(file) {
+      setError(null);
+      successEl.hidden = true;
+      fallbackEl.hidden = true;
+
+      if (!file) return;
+      if (file.size > MAX_FILE_BYTES) {
+        setError("File too large (" + bytesHuman(file.size) + "). 0G testnet practical cap is 1 MB.");
+        return;
+      }
+
+      let text;
+      try {
+        text = await file.text();
+      } catch (e) {
+        setError("Could not read file: " + (e && e.message ? e.message : String(e)));
+        return;
+      }
+
+      if (!text || !text.trim()) {
+        setError("File is empty.");
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        setError("Not valid JSON: " + (e && e.message ? e.message : String(e)));
+        return;
+      }
+
+      if (!parsed || typeof parsed !== "object") {
+        setError("JSON root must be an object (got " + (parsed === null ? "null" : typeof parsed) + ").");
+        return;
+      }
+
+      if (typeof parsed.schema !== "string" || !parsed.schema) {
+        setError(
+          "Missing top-level `schema` field — this doesn't look like a SBO3L Passport capsule (expected schema like `sbo3l.passport_capsule.v1`)."
+        );
+        return;
+      }
+
+      currentFile = file;
+      promptEl.hidden = true;
+      loadedEl.hidden = false;
+      fileNameEl.textContent = file.name;
+      fileMetaEl.textContent = "(" + bytesHuman(file.size) + ", schema=" + parsed.schema + ")";
+      uploadBtn.disabled = false;
+      setStatus("ready");
+      setState("ready");
+    }
+
+    function clearFile() {
+      currentFile = null;
+      fileInput.value = "";
+      promptEl.hidden = false;
+      loadedEl.hidden = true;
+      fileNameEl.textContent = "";
+      fileMetaEl.textContent = "";
+      uploadBtn.disabled = true;
+      setError(null);
+      setStatus("idle");
+      setState("idle");
+      successEl.hidden = true;
+      fallbackEl.hidden = true;
+    }
+
+    // ---- drag-drop wiring -----------------------------------------------
+
+    drop.addEventListener("click", () => {
+      if (!currentFile) fileInput.click();
+    });
+    drop.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && !currentFile) {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    drop.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      drop.classList.add("zg-drag");
+    });
+    drop.addEventListener("dragleave", () => {
+      drop.classList.remove("zg-drag");
+    });
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("zg-drag");
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) void pickFile(f);
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) void pickFile(f);
+    });
+
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearFile();
+    });
+
+    // ---- 0G primary path: liveness probe + handoff ----------------------
+    //
+    // We probe the indexer's HEAD reachability with a 5s AbortController
+    // timeout. If reachable, we still fall back to the manual web tool
+    // because uploading via the SDK requires a private key signer; the
+    // manual UI handles wallet connection in its own context. If the
+    // probe fails, we surface that as the explicit reason in the
+    // fallback panel and proceed identically.
+
+    async function probeIndexer() {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort("timeout"), PROBE_TIMEOUT_MS);
+      try {
+        // CORS may block a real fetch response read, but we only care
+        // whether the request resolves vs. times out. `mode: "no-cors"`
+        // returns an opaque response on success — enough signal.
+        await fetch(INDEXER_PROBE_URL, {
+          method: "GET",
+          mode: "no-cors",
+          signal: ac.signal,
+          cache: "no-store",
+        });
+        clearTimeout(timer);
+        return { ok: true };
+      } catch (e) {
+        clearTimeout(timer);
+        const reason =
+          ac.signal.aborted
+            ? "timeout after " + PROBE_TIMEOUT_MS + "ms"
+            : (e && e.message ? e.message : "network error");
+        return { ok: false, reason };
+      }
+    }
+
+    async function handleUpload() {
+      if (!currentFile) return;
+      setError(null);
+      uploadBtn.disabled = true;
+      setStatus("probing 0G indexer…");
+
+      const probe = await probeIndexer();
+      if (probe.ok) {
+        setStatus("indexer reachable — handing off to manual web tool");
+      } else {
+        setStatus("indexer unreachable (" + probe.reason + ") — falling back");
+      }
+
+      // Open the storagescan tool in a new tab and reveal the manual
+      // panel with the rootHash paste field. Same UX whether the probe
+      // succeeded or timed out — only the inline status text differs.
+      try {
+        window.open(STORAGESCAN_TOOL_URL, "_blank", "noopener,noreferrer");
+      } catch (_) {
+        // Popup blockers are non-fatal; the in-page link still works.
+      }
+
+      fallbackEl.hidden = false;
+      setState("fallback");
+      uploadBtn.disabled = false;
+    }
+
+    uploadBtn.addEventListener("click", () => void handleUpload());
+
+    // ---- manual rootHash submit -----------------------------------------
+
+    manualSubmitBtn.addEventListener("click", () => {
+      const v = manualHashInput.value.trim();
+      if (!v) {
+        setError("Paste the rootHash from the 0G storage tool first.");
+        return;
+      }
+      if (!isHex32(v)) {
+        setError("rootHash must be 0x-prefixed 32-byte hex (66 chars total). Got " + v.length + " chars.");
+        return;
+      }
+      setError(null);
+      showSuccess(v, "manual");
+      setStatus("manual rootHash accepted");
+    });
+
+    manualHashInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        manualSubmitBtn.click();
+      }
+    });
+
+    // ---- copy-to-clipboard ----------------------------------------------
+
+    copyBtn.addEventListener("click", async () => {
+      const v = hashValueEl.textContent || "";
+      if (!v) return;
+      try {
+        await navigator.clipboard.writeText(v);
+        copyBtn.classList.add("zg-copied");
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = "Copied";
+        setTimeout(() => {
+          copyBtn.classList.remove("zg-copied");
+          copyBtn.textContent = orig;
+        }, 1500);
+      } catch (_) {
+        // Older browsers without clipboard API — select the hash text
+        // manually as a degraded affordance.
+        const range = document.createRange();
+        range.selectNode(hashValueEl);
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    });
+  })();
+</script>

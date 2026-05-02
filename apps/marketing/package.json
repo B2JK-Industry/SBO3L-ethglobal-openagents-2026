@@ -10,7 +10,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "test": "node --test src/lib/*.test.mjs"
   },
   "dependencies": {
     "@sbo3l/design-tokens": "file:../../packages/design-tokens",

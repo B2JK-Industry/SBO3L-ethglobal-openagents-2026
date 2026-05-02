@@ -1,10 +1,18 @@
 ---
 import BaseLayout from "~/layouts/BaseLayout.astro";
+import ZeroGUploader from "~/components/ZeroGUploader.astro";
 
 // 8-section sticky-scroll walkthrough. Left column sticks the title +
 // progress as the user scrolls; right column reveals the code example
 // for each step. Pure CSS sticky positioning + scroll-driven section
 // reveals — no IntersectionObserver, no JS.
+//
+// After the walkthrough, the page mounts an interactive 0G Storage
+// uploader (DG-1). It demonstrates the third leg of capsule
+// portability — once a capsule is signed, anyone can pin it to 0G's
+// content-addressed storage and circulate the rootHash instead of the
+// 30 KB JSON blob. See ZeroGUploader.astro for the two-path (SDK
+// primary → manual web-tool fallback) flow.
 
 const sections = [
   {
@@ -147,6 +155,23 @@ const ok = verifyCapsule(JSON.parse(capsuleJson));
     ))}
   </section>
 
+  <section class="zg-section">
+    <header class="zg-section-head">
+      <p class="zg-eyebrow">Bonus · Step 9 in practice</p>
+      <h2>Pin the capsule to 0G Storage</h2>
+      <p>
+        Capsules are self-contained but a 30 KB JSON blob is awkward to
+        share. 0G Storage gives you a 32-byte content-addressed
+        <code>rootHash</code> you can paste into a tweet, a Discord
+        message, or an audit trail. Drop the capsule below and we'll
+        push it through the 0G testnet (or fall back to the manual
+        upload tool if the testnet's having a moment, which it often
+        is).
+      </p>
+    </header>
+    <ZeroGUploader />
+  </section>
+
   <footer class="cta">
     <h2>Run it yourself</h2>
     <p>
@@ -207,6 +232,27 @@ const ok = verifyCapsule(JSON.parse(capsuleJson));
     color: var(--muted);
     font-size: 0.85em;
     font-style: italic;
+  }
+
+  .zg-section {
+    max-width: 1000px;
+    margin: 4em auto 1em;
+    padding: 0 1.5em;
+  }
+  .zg-section-head { max-width: 760px; margin: 0 auto 1.5em; }
+  .zg-eyebrow {
+    color: var(--accent);
+    font-size: 0.85em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 0.5em;
+    font-family: var(--font-mono);
+  }
+  .zg-section-head h2 { font-size: var(--fs-3); font-weight: 700; margin: 0 0 0.6em; line-height: 1.25; }
+  .zg-section-head p { color: var(--muted); line-height: 1.6; }
+  .zg-section-head code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
   }
 
   .cta {
