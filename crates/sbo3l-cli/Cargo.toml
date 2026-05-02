@@ -75,6 +75,15 @@ alloy = { version = "0.6", default-features = false, features = [
     "transport-http",
     "reqwest-rustls-tls",
 ], optional = true }
+# R14 P2 — `sbo3l admin backup/restore/export`. Feature-gated to keep
+# the default cli small. Picked up only by --features admin_backup.
+tar = { version = "0.4", optional = true }
+zstd = { version = "0.13", optional = true }
+age = { version = "0.10", optional = true, default-features = false, features = ["armor"] }
+# `admin backup` calls SQLite's `VACUUM INTO` to produce a consistent
+# snapshot. rusqlite is already a dev-dep; promoting to optional under
+# the same feature so the snapshot path lives outside dev-only code.
+rusqlite = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -84,6 +93,10 @@ default = []
 # clear "rebuild with --features eth_broadcast" message — matches the
 # pre-1.0.1 dry-run-only behaviour exactly.
 eth_broadcast = ["dep:alloy"]
+# Enables `sbo3l admin backup/restore/export` to actually compress, encrypt,
+# and write archives. Without this feature the subcommands parse but error
+# with "rebuild with --features admin_backup" — same pattern as eth_broadcast.
+admin_backup = ["dep:tar", "dep:zstd", "dep:age", "dep:rusqlite"]
 
 [dev-dependencies]
 rusqlite = { workspace = true }
