@@ -11,6 +11,7 @@ mod agent;
 #[cfg(feature = "eth_broadcast")]
 mod agent_broadcast;
 mod agent_reputation;
+mod agent_reputation_aggregate;
 #[cfg(feature = "eth_broadcast")]
 mod agent_reputation_broadcast;
 #[cfg(feature = "eth_broadcast")]
@@ -331,6 +332,32 @@ enum AgentCmd {
         /// `SBO3L_ALLOW_MAINNET_TX=1`. Implies `--broadcast`.
         #[arg(long)]
         multi_chain: Option<String>,
+    },
+
+    /// Aggregate cross-chain reputation snapshots into one score (R12 P3).
+    ///
+    /// Reads a JSON file describing per-chain snapshots
+    /// (`{chain_id, fqdn, score, observed_at}` plus a `now_secs`
+    /// timestamp) and prints the
+    /// `sbo3l.reputation_aggregate_report.v1` envelope. Pure-offline
+    /// reader: the operator gathers the per-chain scores ahead of
+    /// time (typically via N parallel `cast call`
+    /// `SBO3LReputationRegistry.reputationOf` reads) and feeds them
+    /// in.
+    ///
+    /// Aggregation logic lives in
+    /// `sbo3l_policy::cross_chain_reputation::aggregate_reputation`
+    /// (R10 #222). Default chain weights: mainnet 1.0, L2s 0.8, etc.
+    /// — see the policy crate doc for the full table.
+    ReputationAggregate {
+        /// Path to a JSON file with `now_secs` + `snapshots: [...]`.
+        #[arg(long)]
+        input: PathBuf,
+
+        /// Write the aggregate-report JSON to `<path>` in addition
+        /// to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
 }
 
@@ -1062,6 +1089,11 @@ fn main() -> ExitCode {
                 private_key_env_var,
                 multi_chain,
             },
+        ),
+        Command::Agent {
+            op: AgentCmd::ReputationAggregate { input, out },
+        } => agent_reputation_aggregate::cmd_agent_reputation_aggregate(
+            agent_reputation_aggregate::ReputationAggregateArgs { input, out },
         ),
     }
 }
