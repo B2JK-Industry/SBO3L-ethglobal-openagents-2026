@@ -91,7 +91,7 @@ def test_allow_envelope_surfaces_kh_execution_ref(httpx_mock: HTTPXMock) -> None
 
     assert out["decision"] == "allow"
     assert out["kh_execution_ref"] == KH_EXECUTION_REF
-    assert out["kh_workflow_id"] == DEFAULT_KH_WORKFLOW_ID
+    assert out["kh_workflow_id_advisory"] == DEFAULT_KH_WORKFLOW_ID
     assert out["audit_event_id"] == "evt-01HTAWX5K3R8YV9NQB7C6P2DGR"
     assert out["request_hash"] == "c0bd2fab" * 8
     assert out["deny_code"] is None
@@ -108,9 +108,9 @@ def test_deny_envelope_does_not_surface_execution_ref(httpx_mock: HTTPXMock) -> 
     assert out["decision"] == "deny"
     # execution_ref must be None on deny — daemon never asks the KH adapter to run.
     assert out["kh_execution_ref"] is None
-    # workflow_id is still surfaced for context (the agent needs to know which
-    # workflow was *attempted* even though execution didn't happen).
-    assert out["kh_workflow_id"] == DEFAULT_KH_WORKFLOW_ID
+    # advisory workflow id is still surfaced for context (the agent needs to
+    # know which workflow was *intended* even though execution didn't happen).
+    assert out["kh_workflow_id_advisory"] == DEFAULT_KH_WORKFLOW_ID
     assert out["deny_code"] == "policy.amount_over_limit"
 
 
@@ -123,7 +123,7 @@ def test_workflow_id_override(httpx_mock: HTTPXMock) -> None:
         descriptor = keeperhub_tool(client=c, workflow_id=custom_workflow)
         out = json.loads(descriptor.func(json.dumps(aprp)))
 
-    assert out["kh_workflow_id"] == custom_workflow
+    assert out["kh_workflow_id_advisory"] == custom_workflow
 
 
 def test_invalid_input_returns_error_envelope() -> None:
