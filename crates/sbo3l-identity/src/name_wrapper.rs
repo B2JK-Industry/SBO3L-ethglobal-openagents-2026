@@ -356,8 +356,7 @@ mod tests {
 
     #[test]
     fn fuses_bitmask_handles_parent_fuses() {
-        let bits =
-            fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::PARENT_CANNOT_CONTROL]).unwrap();
+        let bits = fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::PARENT_CANNOT_CONTROL]).unwrap();
         assert_eq!(bits, 0x0001 | 0x10000);
     }
 
@@ -367,7 +366,10 @@ mod tests {
         // reverts at broadcast. We surface the rejection at calldata
         // build time so misuse is caught before any tx is sent.
         let err = fuses_bitmask(&[Fuse::CANNOT_UNWRAP, Fuse::IS_DOT_ETH]).unwrap_err();
-        assert!(matches!(err, NameWrapperError::InternalFuseNotSettable("IS_DOT_ETH")));
+        assert!(matches!(
+            err,
+            NameWrapperError::InternalFuseNotSettable("IS_DOT_ETH")
+        ));
     }
 
     #[test]
