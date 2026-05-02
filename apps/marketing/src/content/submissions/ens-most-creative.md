@@ -17,7 +17,7 @@ source_file: docs/submission/bounty-ens-most-creative.md
 
 The "Most Creative" framing rewards using ENS for something *only ENS makes possible*. Our claim: a global, censorship-resistant, cryptographically-anchored namespace that maps human-meaningful agent names (`research-agent.sbo3lagent.eth`) to a complete trust profile (Ed25519 pubkey, policy hash, audit root, capability set, dynamic reputation). ENS isn't standing in for an alternative; ENS *is* the design choice that makes the rest of the protocol cryptographically grounded without us running any infrastructure.
 
-The mainnet apex `sbo3lagent.eth` resolves five `sbo3l:*` text records on chain today (Phase 2 adds two more for seven total). Anyone with an Ethereum RPC can verify the agent's `policy_hash` byte-matches the offline fixture in CI — no SBO3L-specific client code, no SBO3L-hosted endpoint, no trusted intermediary. **The trust profile lives in ENS itself.**
+The mainnet apex `sbo3lagent.eth` resolves **five `sbo3l:*` text records on chain today** (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`). Anyone with an Ethereum RPC can verify the agent's `policy_hash` byte-matches the offline fixture in CI — no SBO3L-specific client code, no SBO3L-hosted endpoint, no trusted intermediary. **The trust profile lives in ENS itself.** Two additional records (`capability`, `reputation`) are designed + spec'd; mainnet write is gated on operator wallet PK + ~$5 gas (post-submission scope).
 
 ## Technical depth
 
@@ -28,8 +28,8 @@ The mainnet apex `sbo3lagent.eth` resolves five `sbo3l:*` text records on chain 
 | `sbo3l:policy_hash` | JCS+SHA-256 of the canonical policy snapshot — the exact hash the daemon uses internally |
 | `sbo3l:audit_root` | Latest audit-chain head, rolled forward via on-chain checkpoints |
 | `sbo3l:proof_uri` | Stable URL where the latest Passport capsule for this agent lives |
-| `sbo3l:capability` | Phase 2 — comma-separated capability tags (`x402-purchase`, `uniswap-swap`, `delegation-target`) |
-| `sbo3l:reputation` | Phase 2 — `<score>/100` computed from the audit chain (4-criteria scoring) |
+| `sbo3l:capability` | **Designed + spec'd** — comma-separated capability tags (`x402-purchase`, `uniswap-swap`, `delegation-target`); mainnet write post-submission |
+| `sbo3l:reputation` | **Designed + spec'd** — `<score>/100` computed from the audit chain (4-criteria scoring, `crates/sbo3l-policy/src/reputation.rs` LIVE); mainnet write post-submission |
 
 **Subname registration is direct ENS Registry.** Daniel owns `sbo3lagent.eth`, so `setSubnodeRecord` registers `<name>.sbo3lagent.eth` directly via the canonical `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` registry contract on mainnet + Sepolia. No third-party registrar abstraction (we evaluated Durin and dropped it on 2026-05-01: direct registry has fewer moving parts, no new contracts to deploy, more verifiable on Etherscan).
 
