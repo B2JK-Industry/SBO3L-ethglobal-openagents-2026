@@ -49,7 +49,9 @@ services:
       SBO3L_ALLOW_UNAUTHENTICATED: "1"
       # F-5 dev signer flag — AppState uses DevSigner today; explicit flag
       # prevents false-security where a non-dev backend label could mask
-      # public-dev-key signing.
+      # public-dev-key signing. Both env vars required by the
+      # production-mode lockout in eth_signer/factory.rs.
+      SBO3L_SIGNER_BACKEND: "dev"
       SBO3L_DEV_ONLY_SIGNER: "1"
       # Embedded migrations + image-default SBO3L_DB path are sufficient.
       # Override SBO3L_DB to ":memory:" if you don't want a host volume.
