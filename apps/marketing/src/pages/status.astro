@@ -66,6 +66,12 @@ const sections: { title: string; rows: Row[] }[] = [
         mock: "`sbo3l audit checkpoint create` (without `--anchor`) does mock anchoring — no chain TX, deterministic checkpoint.",
         notyet: "Mainnet anchor (waiting for production-grade signer; KMS work-in-progress).",
       },
+      {
+        surface: "0G Storage backend (`sbo3l audit export --backend 0g-storage`)",
+        live: "0G Galileo testnet upload via the indexer at `https://indexer-storage-testnet-turbo.0g.ai/file/upload`. Captures `rootHash` + wraps the bundle in an export envelope carrying a `live_evidence` block. 6 documented invariants covered by `httpmock` unit tests; `live_testnet_upload` integration test gated behind `ZEROG_TESTNET_LIVE=1` so CI doesn't flake on the upstream (#391).",
+        mock: "Default backend stays `local` — zero behaviour change for existing callers. `--backend mock` available for offline tests.",
+        notyet: "Mainnet 0G deploy (gated on ≥30d testnet dual-anchor soak per `docs/cli/0g-backend.md`). Browser-upload fallback on /proof for the SDK chunk-merge timeout (Dev 2 Task C).",
+      },
     ],
   },
   {
@@ -137,15 +143,15 @@ const sections: { title: string; rows: Row[] }[] = [
       },
       {
         surface: "Sepolia OffchainResolver → ENS chain",
-        live: null,
+        live: "Redeployed at `0x87e9…b1f6` with canonical URL template (#383). `sbo3lagent.eth` registered on Sepolia ENS + `research-agent.sbo3lagent.eth` subname wired to the new OR (#390). `OR.resolve(dnsEncode(...), text(node, sbo3l:agent_id))` reverts with `OffchainLookup` carrying canonical URL — verified end-to-end against `cargo test -p sbo3l-identity --test sepolia_or_live -- --ignored`.",
         mock: null,
-        notyet: "Contract deployed (`0x7c69…8c3`) but orphan (no Sepolia subname has it as resolver). Also: baked URL template is malformed (`{sender/{data}.json}`). Redeploy needed before Sepolia ENS clients can use the flow end-to-end.",
+        notyet: "Production-grade subname registration UX (today: `cast send setSubnodeRecord` on every new agent). Roadmap, not v1.",
       },
       {
         surface: "Mainnet OffchainResolver → sbo3lagent.eth",
         live: null,
         mock: null,
-        notyet: "Currently sbo3lagent.eth points at PublicResolver with regular text records. Mainnet OR deploy ~$10. Operator-gated (needs primary wallet PK).",
+        notyet: "Currently sbo3lagent.eth points at PublicResolver with regular text records. Mainnet OR deploy ~$10 ETH. Operator-gated (needs primary wallet PK + record-migration risk on the existing live records).",
       },
     ],
   },
