@@ -7,6 +7,10 @@
 
 **ENS is not the integration. ENS is the trust DNS.** SBO3L doesn't *use* ENS as a feature; SBO3L turns ENS into the load-bearing identity layer for autonomous AI agents. Two agents who only know each other's ENS name can authenticate, attest, and refuse each other — without a CA, an enrolment server, or a shared session token.
 
+## Why this isn't another self-claimed text record
+
+Kevin (ENS team) recently flagged the obvious risk for any agent-identity-via-ENS scheme: a user can set whatever text record they want. SBO3L's `sbo3l:policy_hash` is the rebuttal — it's not a user claim, it's a JCS+SHA-256 commitment to the canonical policy snapshot the live engine actually enforces. The CLI command `sbo3l agent verify-ens <name>` performs a drift check on every call: if the published hash doesn't match the engine's runtime policy, the call fails closed with `policy_hash.drift_detected`. The text record is verifiable, not claimed. (Source-of-truth: [`crates/sbo3l-identity/src/verify_ens.rs::verify_policy_hash_drift`](../../crates/sbo3l-identity/src/verify_ens.rs).)
+
 ## Why this bounty
 
 The "Most Creative" framing rewards using ENS for something *only ENS makes possible*. Our claim: a global, censorship-resistant, cryptographically-anchored namespace that maps human-meaningful agent names (`research-agent.sbo3lagent.eth`) to a complete trust profile (Ed25519 pubkey, policy hash, audit root, capability set, dynamic reputation). ENS isn't standing in for an alternative; ENS *is* the design choice that makes the rest of the protocol cryptographically grounded without us running any infrastructure.
