@@ -16,12 +16,35 @@ const SIGNER_LOCKOUT_EXIT_CODE: i32 = 2;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
+    // R14 P5: install the OTEL provider BEFORE the tracing subscriber
+    // so the `tracing-opentelemetry` Layer can sit alongside the fmt
+    // layer. When `SBO3L_OTEL_EXPORTER=none` (default), `init_tracer()`
+    // returns `None` and we fall through to the legacy fmt-only path.
+    #[cfg(feature = "otel")]
+    let otel_provider = sbo3l_server::otel::init_tracer();
+
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+
+    #[cfg(feature = "otel")]
+    {
+        use tracing_subscriber::layer::SubscriberExt;
+        use tracing_subscriber::util::SubscriberInitExt;
+        let registry = tracing_subscriber::registry()
+            .with(env_filter)
+            .with(tracing_subscriber::fmt::layer());
+        if let Some(provider) = otel_provider.as_ref() {
+            registry
+                .with(sbo3l_server::otel::tracing_layer(provider))
+                .init();
+        } else {
+            registry.init();
+        }
+    }
+    #[cfg(not(feature = "otel"))]
+    {
+        tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    }
 
     let addr_str = std::env::var(ENV_LISTEN).unwrap_or_else(|_| DEFAULT_LISTEN.to_string());
     let resolved: Vec<SocketAddr> = tokio::net::lookup_host(addr_str.as_str())
@@ -108,8 +131,50 @@ async fn main() -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr_str).await?;
     tracing::info!(addr = %listener.local_addr()?, db = %storage_path, "sbo3l-server listening");
-    axum::serve(listener, app).await?;
+
+    // R14 P5: graceful shutdown signal — Ctrl-C in dev,
+    // `signal::unix::SIGTERM` in container deployments. We need a
+    // graceful-shutdown future so the OTEL provider gets flushed
+    // before the process exits; `axum::serve(...).await` alone
+    // never returns under normal operation.
+    let serve_result = axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await;
+
+    // R14 P5: flush + shut down the OTEL provider on graceful exit so
+    // any in-flight spans land in the collector. Best-effort; errors
+    // are logged inside `otel::shutdown` and do not propagate.
+    #[cfg(feature = "otel")]
+    if let Some(provider) = otel_provider {
+        sbo3l_server::otel::shutdown(provider);
+    }
+
+    serve_result?;
     Ok(())
+}
+
+/// Wait for a graceful-shutdown signal. Ctrl-C on every platform;
+/// SIGTERM on Unix as well (containers / systemd send SIGTERM, not
+/// SIGINT). The first signal to fire wins; the future resolves
+/// immediately and the axum server begins draining.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        if let Ok(mut sig) =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        {
+            let _ = sig.recv().await;
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
 
 fn is_all_loopback(addrs: &[SocketAddr]) -> bool {
