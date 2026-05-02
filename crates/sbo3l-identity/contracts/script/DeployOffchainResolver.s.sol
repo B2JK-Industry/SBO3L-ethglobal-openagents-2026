@@ -4,6 +4,23 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 import {OffchainResolver} from "../OffchainResolver.sol";
 
+// The canonical SBO3L CCIP-Read gateway URL template.
+//
+// Exact ENSIP-25 / EIP-3668 syntax: `{sender}` and `{data}` are
+// placeholder tokens the client substitutes. Hardcoded as a Solidity
+// string literal so `forge create --constructor-args` CLI tokenization
+// (which rebalances `{...}` patterns) never gets a chance to mangle
+// it. File-level so probe tests can `import {CANONICAL_URL_TEMPLATE}`
+// directly without instantiating the deploy script — single source of
+// truth, no drift possible.
+//
+// Heidi UAT 2026-05-03 caught the original Sepolia deploy storing
+// `"...{sender/{data}.json}"`. This constant is the post-fix canonical
+// form; probe tests in `test/DeployOffchainResolver.t.sol` pin it
+// byte-for-byte.
+string constant CANONICAL_URL_TEMPLATE =
+    "https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json";
+
 // Forge script wrapper around the OffchainResolver constructor.
 //
 // Replaces direct `forge create --constructor-args` invocation, which
@@ -28,15 +45,6 @@ import {OffchainResolver} from "../OffchainResolver.sol";
 //   forge script script/DeployOffchainResolver.s.sol \
 //     --rpc-url $SEPOLIA_RPC_URL --broadcast
 contract DeployOffchainResolver is Script {
-    /// @dev The canonical SBO3L CCIP-Read gateway URL template.
-    ///      Exact ENSIP-25 / EIP-3668 syntax: `{sender}` and `{data}`
-    ///      are placeholder tokens the client substitutes. Hardcoded
-    ///      here so a future operator can't accidentally pass a
-    ///      malformed template via env var (and so CLI tokenizers
-    ///      don't get a chance to rebalance the braces).
-    string internal constant CANONICAL_URL_TEMPLATE =
-        "https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json";
-
     function run() external returns (OffchainResolver resolver) {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address gatewaySigner = vm.envAddress("GATEWAY_SIGNER_ADDRESS");
