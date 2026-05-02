@@ -1,0 +1,227 @@
+---
+// HeroIllustration — animated agent → SBO3L gate → executor split.
+// R19 Wave 2 Task A. Converted from /tmp/sbo3l-design-kit/assets/hero.jsx.
+//
+// Pure inline SVG, viewBox 1200×500. Two animated paths via CSS
+// offset-distance — one allow flow (top), one deny flow (bottom),
+// plus a horizontal scan-line traversing the boundary membrane.
+//
+// `prefers-reduced-motion` removes the offset-distance animation
+// + hides the flow dots so the static composed final frame still
+// reads correctly.
+
+interface Props {
+  /** Constrains max-width when embedded inside narrow containers. Default unbounded. */
+  maxWidth?: number;
+}
+const { maxWidth } = Astro.props;
+---
+<figure class="hero-illustration" style={maxWidth ? `max-width: ${maxWidth}px` : undefined} aria-label="SBO3L policy gate visualisation">
+  <svg
+    viewBox="0 0 1200 500"
+    role="img"
+    aria-labelledby="heroTitle heroDesc"
+    preserveAspectRatio="xMidYMid meet"
+  >
+    <title id="heroTitle">SBO3L policy gate</title>
+    <desc id="heroDesc">An AI agent's intent passes through the SBO3L boundary, emerging as a signed passport capsule that routes to either an executor or a deny path.</desc>
+
+    <!-- Zone backdrops -->
+    <rect x="40" y="100" width="280" height="300" rx="8" fill="none" class="zone-rect zone-agent" />
+    <text x="56" y="92" class="zone-label muted">AGENT</text>
+
+    <rect x="380" y="100" width="440" height="300" rx="8" fill="none" class="zone-rect zone-boundary" />
+    <text x="396" y="92" class="zone-label accent">SBO3L BOUNDARY</text>
+
+    <rect x="880" y="100" width="280" height="300" rx="8" fill="none" class="zone-rect zone-executor" />
+    <text x="896" y="92" class="zone-label muted">EXECUTOR</text>
+
+    <!-- Left: Agent silhouette + thought bubble -->
+    <g transform="translate(140 200)">
+      <rect x="0" y="0" width="80" height="80" rx="6" fill="none" class="agent-body" />
+      <circle cx="24" cy="32" r="3" class="agent-eye" />
+      <circle cx="56" cy="32" r="3" class="agent-eye" />
+      <line x1="24" y1="56" x2="56" y2="56" class="agent-mouth" />
+      <text x="40" y="100" text-anchor="middle" class="agent-name muted">agent.eth</text>
+    </g>
+
+    <g transform="translate(40 130)">
+      <rect x="0" y="0" width="240" height="44" rx="6" class="bubble" />
+      <text x="14" y="19" class="bubble-label muted">intent</text>
+      <text x="14" y="35" class="bubble-text">swap 50K USDC → ETH</text>
+      <path d="M 110 44 L 100 56 L 120 44 Z" class="bubble-tail" />
+    </g>
+
+    <!-- "no key" indicator -->
+    <g transform="translate(240 290)">
+      <circle cx="0" cy="0" r="14" class="no-key-circle" />
+      <line x1="-9" y1="-9" x2="9" y2="9" class="no-key-slash" />
+      <text x="20" y="4" class="no-key-label muted">no key</text>
+    </g>
+
+    <!-- Center: Boundary gate posts -->
+    <rect x="478" y="140" width="6" height="220" class="gate-post" />
+    <rect x="716" y="140" width="6" height="220" class="gate-post" />
+
+    <!-- Scan membrane — 4 vertical light lines -->
+    <g class="membrane">
+      <line x1="528" y1="160" x2="528" y2="340" />
+      <line x1="588" y1="160" x2="588" y2="340" />
+      <line x1="648" y1="160" x2="648" y2="340" />
+      <line x1="708" y1="160" x2="708" y2="340" />
+    </g>
+
+    <!-- Animated horizontal scan bar -->
+    <rect class="scan-line" x="490" y="180" width="220" height="2" />
+
+    <!-- Pipeline labels -->
+    <text x="600" y="135" text-anchor="middle" class="pipeline-label muted">policy · spec · sign · audit</text>
+
+    <!-- Stamped envelope emerging on the right of the gate -->
+    <g transform="translate(740 218)">
+      <rect x="0" y="0" width="64" height="44" rx="2" class="envelope" />
+      <path d="M 0 0 L 32 24 L 64 0" class="envelope-fold" />
+      <circle cx="50" cy="34" r="8" class="envelope-seal pulse" />
+      <text x="50" y="37" text-anchor="middle" class="envelope-seal-num">3</text>
+      <text x="32" y="62" text-anchor="middle" class="envelope-cap accent">capsule signed</text>
+    </g>
+
+    <!-- Right: split paths -->
+    <!-- Allow (top, solid green) -->
+    <path d="M 820 250 L 880 250 L 920 200 L 1000 180" class="path-allow" />
+    <g transform="translate(990 160)">
+      <rect x="0" y="0" width="160" height="56" rx="6" class="dest-card-allow" />
+      <circle cx="16" cy="28" r="6" class="dest-tick-allow" />
+      <path d="M 13 28 L 15 30 L 19 26" class="dest-tick-glyph" />
+      <text x="30" y="24" class="dest-label">allow</text>
+      <text x="30" y="40" class="dest-detail muted">→ keeperhub.exec</text>
+    </g>
+
+    <!-- Deny (bottom, dashed muted) -->
+    <path d="M 820 250 L 880 250 L 920 300 L 1000 320" class="path-deny" />
+    <g transform="translate(990 300)">
+      <rect x="0" y="0" width="160" height="56" rx="6" class="dest-card-deny" />
+      <circle cx="16" cy="28" r="6" class="dest-cross-deny" />
+      <line x1="12" y1="24" x2="20" y2="32" class="dest-cross-glyph" />
+      <text x="30" y="24" class="dest-label muted">deny</text>
+      <text x="30" y="40" class="dest-detail muted">sponsor not called</text>
+    </g>
+
+    <!-- Base flow line (visible at low opacity) -->
+    <g class="flow-base">
+      <line x1="220" y1="250" x2="478" y2="250" />
+      <line x1="722" y1="250" x2="820" y2="250" />
+    </g>
+
+    <!-- Animated flow dots -->
+    <circle class="flow-dot flow-dot-allow" r="4" cx="0" cy="0" />
+    <circle class="flow-dot flow-dot-deny" r="3" cx="0" cy="0" />
+  </svg>
+</figure>
+
+<style>
+  .hero-illustration {
+    margin: 1.5em auto;
+    width: 100%;
+  }
+  .hero-illustration svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .zone-rect { stroke-width: 1; }
+  .zone-agent, .zone-executor { stroke: var(--border); stroke-dasharray: 2 4; }
+  .zone-boundary { stroke: var(--accent); stroke-width: 1.5; }
+  .zone-label {
+    font-family: var(--font-mono, ui-monospace);
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+  .muted { fill: var(--muted); }
+  .accent { fill: var(--accent); }
+
+  /* Agent */
+  .agent-body { stroke: var(--fg); stroke-width: 2; }
+  .agent-eye { fill: var(--fg); }
+  .agent-mouth { stroke: var(--fg); stroke-width: 2; stroke-linecap: round; }
+  .agent-name { font-family: var(--font-mono, ui-monospace); font-size: 10px; }
+
+  .bubble { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+  .bubble-label { font-family: var(--font-mono, ui-monospace); font-size: 11px; }
+  .bubble-text { font-family: var(--font-mono, ui-monospace); font-size: 13px; fill: var(--fg); }
+  .bubble-tail { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+
+  .no-key-circle { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+  .no-key-slash { stroke: var(--muted); stroke-width: 1.5; }
+  .no-key-label { font-family: var(--font-mono, ui-monospace); font-size: 10px; }
+
+  /* Gate */
+  .gate-post { fill: var(--accent); }
+  .membrane line { stroke: var(--accent); stroke-width: 0.5; stroke-dasharray: 2 4; opacity: 0.6; }
+  .pipeline-label { font-family: var(--font-mono, ui-monospace); font-size: 9px; letter-spacing: 1.2px; }
+
+  .scan-line {
+    fill: var(--accent);
+    opacity: 0.6;
+    animation: sbo3l-scan 3s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+  @keyframes sbo3l-scan {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50%      { transform: translateY(120px); opacity: 1; }
+  }
+
+  /* Envelope */
+  .envelope { fill: var(--bg); stroke: var(--accent); stroke-width: 2; }
+  .envelope-fold { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+  .envelope-seal { fill: var(--bg); stroke: var(--accent); stroke-width: 1.5; }
+  .envelope-seal-num { font-family: var(--font-mono, ui-monospace); font-size: 9px; font-weight: 700; fill: var(--accent); }
+  .envelope-cap { font-family: var(--font-mono, ui-monospace); font-size: 10px; }
+  .pulse { animation: sbo3l-pulse 2.4s ease-in-out infinite; }
+  @keyframes sbo3l-pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+  /* Allow / deny paths + cards */
+  .path-allow { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .path-deny  { fill: none; stroke: var(--muted);  stroke-width: 1.5; stroke-dasharray: 4 4; }
+
+  .dest-card-allow { fill: var(--bg); stroke: var(--accent); stroke-width: 1.5; }
+  .dest-card-deny  { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+  .dest-tick-allow { fill: var(--accent); }
+  .dest-tick-glyph { fill: none; stroke: var(--bg); stroke-width: 1.5; stroke-linecap: round; }
+  .dest-cross-deny { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+  .dest-cross-glyph { stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; }
+  .dest-label  { font-family: var(--font-mono, ui-monospace); font-size: 11px; fill: var(--fg); }
+  .dest-detail { font-family: var(--font-mono, ui-monospace); font-size: 9px; }
+
+  /* Flow line + dots */
+  .flow-base line { stroke: var(--accent); stroke-width: 1; }
+  .flow-base { opacity: 0.25; }
+
+  .flow-dot { fill: var(--accent); }
+  .flow-dot-allow {
+    offset-path: path('M 220 250 L 380 250 L 480 250 L 720 250 L 820 250 L 1010 180');
+    offset-rotate: 0deg;
+    animation: sbo3l-flow 5s linear infinite;
+  }
+  .flow-dot-deny {
+    fill: var(--muted);
+    opacity: 0.7;
+    offset-path: path('M 220 250 L 380 250 L 480 250 L 720 250 L 820 250 L 1010 320');
+    offset-rotate: 0deg;
+    animation: sbo3l-flow 5s linear infinite;
+    animation-delay: 2.5s;
+  }
+  @keyframes sbo3l-flow {
+    0%        { offset-distance: 0%;    opacity: 0; }
+    10%       { opacity: 1; }
+    90%       { opacity: 1; }
+    100%      { offset-distance: 100%; opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scan-line, .pulse { animation: none; }
+    .flow-dot-allow, .flow-dot-deny { animation: none; display: none; }
+  }
+</style>
