@@ -35,6 +35,11 @@ use sbo3l_storage::Storage;
 pub mod auth;
 pub use auth::AuthConfig;
 
+pub mod executor_callback;
+
+pub mod feature_flags;
+pub use feature_flags::FlagStore;
+
 #[cfg(feature = "ws_events")]
 pub mod ws_events;
 
@@ -63,6 +68,15 @@ pub struct AppInner {
     /// reset — a daemon restart is a fresh `AppInner` with a fresh
     /// `started_at`, which is exactly what we want.
     pub started_at: Instant,
+    /// In-memory replay store for executor-callback nonces. Always
+    /// constructed (no feature gate) — the `/v1/executor-callback`
+    /// route is part of the base daemon surface.
+    pub callback_nonce_store: Arc<executor_callback::CallbackNonceStore>,
+    /// Hot-reloadable feature flags. Seeded from env at startup
+    /// (`SBO3L_FLAG_<KEY>=true|false`); admin POSTs to
+    /// `/v1/admin/flags` mutate it at runtime + append a
+    /// `flag_change` audit event. Cheap-clone Arc-backed.
+    pub feature_flags: feature_flags::FlagStore,
     /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
     /// only with `--features ws_events`. The publish path inside
     /// `create_payment_request` checks `is_some()` and emits when
@@ -137,6 +151,8 @@ impl AppState {
             receipt_signer,
             auth,
             started_at: Instant::now(),
+            callback_nonce_store: Arc::new(executor_callback::CallbackNonceStore::new()),
+            feature_flags: feature_flags::FlagStore::from_env(),
             #[cfg(feature = "ws_events")]
             ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
         }))
@@ -147,7 +163,15 @@ pub fn router(state: AppState) -> Router {
     let r = Router::new()
         .route("/v1/health", get(health))
         .route("/v1/healthz", get(healthz))
-        .route("/v1/payment-requests", post(create_payment_request));
+        .route("/v1/payment-requests", post(create_payment_request))
+        .route(
+            "/v1/executor-callback",
+            post(executor_callback::executor_callback_handler),
+        )
+        .route(
+            "/v1/admin/flags",
+            get(feature_flags::list_flags_handler).post(feature_flags::set_flag_handler),
+        );
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
     r.with_state(state)
@@ -588,6 +612,30 @@ async fn run_pipeline(
             e.to_string(),
         )
     })?;
+
+    // CHAOS-2 fix: APRP `expiry` enforcement. The chaos suite
+    // (scripts/chaos/05_clock_skew.sh) showed an expired APRP being
+    // approved + signed. Reject expired requests BEFORE claiming the
+    // nonce or invoking policy — same fail-closed posture the rest of
+    // the pipeline uses. A 60-second skew tolerance accommodates
+    // sender/receiver clock drift without opening a real-world replay
+    // window (NTP-synced hosts agree within ~100ms; we allow much
+    // more, but not unbounded).
+    const EXPIRY_SKEW_SECS: i64 = 60;
+    let now_ts = Utc::now();
+    let drift_secs = (now_ts - aprp.expiry).num_seconds();
+    if drift_secs > EXPIRY_SKEW_SECS {
+        return Err(problem(
+            "protocol.aprp_expired",
+            400,
+            "APRP expired",
+            format!(
+                "request.expiry {} is {drift_secs}s in the past (now={}, skew tolerance={EXPIRY_SKEW_SECS}s)",
+                aprp.expiry.to_rfc3339(),
+                now_ts.to_rfc3339(),
+            ),
+        ));
+    }
 
     // Replay protection — see `docs/spec/17_interface_contracts.md` §3.1
     // (`protocol.nonce_replay` → HTTP 409). The nonce is claimed against
