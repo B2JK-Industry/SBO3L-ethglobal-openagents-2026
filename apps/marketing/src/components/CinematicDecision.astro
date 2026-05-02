@@ -118,6 +118,13 @@ const denied = s.outcome === "DENY";
 
   .stage { position: absolute; inset: 0; }
 
+  /* Per-scene keyframes so each scene is visible for its actual
+     duration (3s+3s+2s+3s+4s+2s = 17s total) without gaps between
+     scenes. Single shared keyframe with staggered animation-delay
+     was wrong — animation-delay shifts the whole cycle, so a 17s
+     animation with delay 11s only enters its 0% state at clock
+     11s; before that the element sits in its base CSS state, which
+     defaults to opacity 1 (visible when it should be hidden). */
   .scene {
     position: absolute;
     inset: 0;
@@ -125,19 +132,54 @@ const denied = s.outcome === "DENY";
     align-items: center;
     justify-content: center;
     opacity: 0;
-    animation: scene-cycle 17s cubic-bezier(.4,0,.2,1) infinite;
+    animation-duration: 17s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
   }
-  .scene-1 { animation-delay: 0s;    }
-  .scene-2 { animation-delay: 3s;    }
-  .scene-3 { animation-delay: 6s;    }
-  .scene-4 { animation-delay: 8s;    }
-  .scene-5 { animation-delay: 11s;   }
-  .scene-6 { animation-delay: 15s;   }
+  .scene-1 { animation-name: scene-1-cycle; }
+  .scene-2 { animation-name: scene-2-cycle; }
+  .scene-3 { animation-name: scene-3-cycle; }
+  .scene-4 { animation-name: scene-4-cycle; }
+  .scene-5 { animation-name: scene-5-cycle; }
+  .scene-6 { animation-name: scene-6-cycle; }
 
-  @keyframes scene-cycle {
-    0%, 14%   { opacity: 0; transform: translateY(8px); }
-    2%, 12%   { opacity: 1; transform: translateY(0); }
-    100%      { opacity: 0; transform: translateY(-8px); }
+  /* Timeline boundaries (rounded to 0.5%):
+       scene 1: 0-3s   = 0%-17.6%  → keyframe boundary 0/2/16/18
+       scene 2: 3-6s   = 17.6-35.3 → 16/18/34/36
+       scene 3: 6-8s   = 35.3-47.1 → 34/36/46/48
+       scene 4: 8-11s  = 47.1-64.7 → 46/48/64/66
+       scene 5: 11-15s = 64.7-88.2 → 64/66/87/89
+       scene 6: 15-17s = 88.2-100  → 87/89/99/100
+     1.5% cross-fade between adjacent scenes hides any frame seam. */
+  @keyframes scene-1-cycle {
+    0%, 2% { opacity: 1; }
+    16%    { opacity: 1; }
+    18%, 100% { opacity: 0; }
+  }
+  @keyframes scene-2-cycle {
+    0%, 16% { opacity: 0; }
+    18%, 34% { opacity: 1; }
+    36%, 100% { opacity: 0; }
+  }
+  @keyframes scene-3-cycle {
+    0%, 34% { opacity: 0; }
+    36%, 46% { opacity: 1; }
+    48%, 100% { opacity: 0; }
+  }
+  @keyframes scene-4-cycle {
+    0%, 46% { opacity: 0; }
+    48%, 64% { opacity: 1; }
+    66%, 100% { opacity: 0; }
+  }
+  @keyframes scene-5-cycle {
+    0%, 64% { opacity: 0; }
+    66%, 87% { opacity: 1; }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes scene-6-cycle {
+    0%, 87% { opacity: 0; }
+    89%, 99% { opacity: 1; }
+    100%     { opacity: 0; }
   }
 
   /* --- Scene 1 envelope --- */
@@ -175,16 +217,30 @@ const denied = s.outcome === "DENY";
     padding: 0.2em 0.4em;
     border-left: 2px solid transparent;
     opacity: 0;
-    animation: rule-light 17s linear infinite;
+    animation-duration: 17s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
   }
-  .rule-a { animation-delay: 3.2s; }
-  .rule-b { animation-delay: 3.8s; }
-  .rule-c { animation-delay: 4.4s; }
-  @keyframes rule-light {
-    0%, 17% { opacity: 0; }
-    20%, 28% { opacity: 1; }
-    35%      { opacity: 1; }
-    40%, 100%{ opacity: 0; }
+  /* Rules light up sequentially during scene 2 (clock 3.5s, 4.0s,
+     4.6s = 20.6%, 23.5%, 27.1% of 17s cycle). Each stays visible
+     until end of scene 2 (35%). */
+  .rule-a { animation-name: rule-a-light; }
+  .rule-b { animation-name: rule-b-light; }
+  .rule-c { animation-name: rule-c-light; }
+  @keyframes rule-a-light {
+    0%, 19% { opacity: 0; }
+    21%, 35% { opacity: 1; }
+    36%, 100%{ opacity: 0; }
+  }
+  @keyframes rule-b-light {
+    0%, 23% { opacity: 0; }
+    24%, 35% { opacity: 1; }
+    36%, 100%{ opacity: 0; }
+  }
+  @keyframes rule-c-light {
+    0%, 26% { opacity: 0; }
+    27%, 35% { opacity: 1; }
+    36%, 100%{ opacity: 0; }
   }
   .rule-violated { color: #f87171; border-left-color: #f87171; }
   .rule-passed { color: var(--accent); border-left-color: var(--accent); }
@@ -202,11 +258,13 @@ const denied = s.outcome === "DENY";
   .scene-3.allow .stamp { color: var(--accent); border-color: var(--accent); }
   .stamp-text { font-size: 2em; font-weight: 800; letter-spacing: 0.1em; display: block; }
   .stamp-code { font-size: 0.7em; color: var(--muted); display: block; margin-top: 0.3em; }
+  /* Stamp drops during scene 3 (35.3%-47.1%): bounce in at 36%,
+     hold at scene-3 end (46%), reset off-screen for next loop. */
   @keyframes stamp-down {
     0%, 35%  { transform: rotate(-12deg) scale(0); }
     37%      { transform: rotate(-6deg) scale(1.15); }
-    40%, 47% { transform: rotate(-6deg) scale(1); }
-    50%, 100%{ transform: rotate(-6deg) scale(1); opacity: 0; }
+    40%, 46% { transform: rotate(-6deg) scale(1); }
+    48%, 100%{ transform: rotate(-12deg) scale(0); }
   }
 
   /* --- Scene 4 chain --- */
@@ -247,18 +305,51 @@ const denied = s.outcome === "DENY";
     color: var(--accent);
     font-size: 0.8em;
     opacity: 0;
-    animation: check-pop 17s ease-out infinite;
+    animation-duration: 17s;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-out;
   }
-  .check-1 { animation-delay: 11.2s; }
-  .check-2 { animation-delay: 11.4s; }
-  .check-3 { animation-delay: 11.6s; }
-  .check-4 { animation-delay: 11.8s; }
-  .check-5 { animation-delay: 12.0s; }
-  .check-6 { animation-delay: 12.2s; }
-  @keyframes check-pop {
+  /* Checks pop in during scene 5 (64.7%-88.2%): six checks at
+     11.2s, 11.4s, 11.6s, 11.8s, 12.0s, 12.2s of cycle =
+     65.9%, 67.1%, 68.2%, 69.4%, 70.6%, 71.8%. Each holds visible
+     until scene 5 ends at 87%. animation-delay shifts the whole
+     cycle, breaking the math, so we use distinct keyframes per
+     check at absolute timeline percentages. */
+  .check-1 { animation-name: check-1-pop; }
+  .check-2 { animation-name: check-2-pop; }
+  .check-3 { animation-name: check-3-pop; }
+  .check-4 { animation-name: check-4-pop; }
+  .check-5 { animation-name: check-5-pop; }
+  .check-6 { animation-name: check-6-pop; }
+  @keyframes check-1-pop {
     0%, 65%   { opacity: 0; transform: translateX(-6px); }
-    68%, 86%  { opacity: 1; transform: translateX(0); }
-    90%, 100% { opacity: 0; }
+    66%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-2-pop {
+    0%, 66%   { opacity: 0; transform: translateX(-6px); }
+    67%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-3-pop {
+    0%, 67%   { opacity: 0; transform: translateX(-6px); }
+    68%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-4-pop {
+    0%, 68%   { opacity: 0; transform: translateX(-6px); }
+    69%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-5-pop {
+    0%, 69%   { opacity: 0; transform: translateX(-6px); }
+    70%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
+  }
+  @keyframes check-6-pop {
+    0%, 70%   { opacity: 0; transform: translateX(-6px); }
+    71%, 87%  { opacity: 1; transform: translateX(0); }
+    89%, 100% { opacity: 0; }
   }
 
   /* --- Scene 6 tagline --- */
@@ -288,12 +379,15 @@ const denied = s.outcome === "DENY";
   .caption .deny  { color: #f87171; }
   .caption .allow { color: var(--accent); }
 
-  /* --- Reduced motion: kill all keyframes, show scene-3 (decision) static --- */
+  /* Reduced motion: kill every animation, pin scene 3 (the decision)
+     visible with its stamp + deny/allow code so the scenario message
+     comes through statically. Other scenes stay opacity 0. */
   @media (prefers-reduced-motion: reduce) {
     .scene { animation: none; opacity: 0; }
     .scene-3 { opacity: 1; }
     .scene-3 .stamp { transform: rotate(-6deg) scale(1); animation: none; }
-    .rule, .check, .chain-link { animation: none; opacity: 1; }
+    .rule, .check, .chain-link, .envelope { animation: none; opacity: 1; }
+    .rule-violated, .rule-passed { opacity: 1; }
   }
 
   @media (max-width: 640px) {
