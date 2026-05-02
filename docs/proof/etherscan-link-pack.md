@@ -58,7 +58,10 @@ same; the loop just gets two more keys.
 
 | Contract | Address | Etherscan |
 |---|---|---|
-| **OffchainResolver** (T-4-1) | `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` | [sepolia.etherscan.io/address/0x7c69…8c3](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3) |
+| **OffchainResolver** (T-4-1, redeploy 2026-05-03 — Heidi UAT bug #2 fix) | `0x87e99508C222c6E419734CACbb6781b8d282b1F6` | [sepolia.etherscan.io/address/0x87e9…b1f6](https://sepolia.etherscan.io/address/0x87e99508C222c6E419734CACbb6781b8d282b1F6) |
+| OffchainResolver (T-4-1, ORIGINAL — superseded; URL template malformed, kept for history) | `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` | [sepolia.etherscan.io/address/0x7c69…8c3](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3) |
+| `sbo3lagent.eth` Sepolia apex (registered 2026-05-03) | owner = `0x50BA…7e9c` (driver wallet) | [register tx 0x655f2b78…1238783](https://sepolia.etherscan.io/tx/0x655f2b7860d7c435c28ab3904f4a151cf4f485cc90a5f420d307a084b1238783) |
+| `research-agent.sbo3lagent.eth` Sepolia subname | resolver = new OR | [setSubnodeRecord tx 0x71c7fd7b…95db1](https://sepolia.etherscan.io/tx/0x71c7fd7b2766783e76291060203f542c9df7f4b68d2463315281456bfcb95db1) |
 | **AnchorRegistry** (R9 P6) | `0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac` | [sepolia.etherscan.io/address/0x4C30…f4Ac](https://sepolia.etherscan.io/address/0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac) |
 | **SubnameAuction** (R13 P3) | `0x5dE75E64739A95701367F3Ad592e0b674b22114B` | [sepolia.etherscan.io/address/0x5dE7…114B](https://sepolia.etherscan.io/address/0x5dE75E64739A95701367F3Ad592e0b674b22114B) |
 | **ReputationBond** (R13 P7) | `0x75072217B43960414047c362198A428f0E9793dA` | [sepolia.etherscan.io/address/0x7507…93dA](https://sepolia.etherscan.io/address/0x75072217B43960414047c362198A428f0E9793dA) |
@@ -112,9 +115,14 @@ Pinned in code at:
 ### "Is the OffchainResolver deployed on Sepolia?"
 
 ```bash
-cast code 0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3 \
+cast code 0x87e99508C222c6E419734CACbb6781b8d282b1F6 \
   --rpc-url https://ethereum-sepolia-rpc.publicnode.com | head -c 200
 # → 0x6080604052... (non-empty bytecode, deploy confirmed)
+
+# Bonus — check the URL template is canonical (Heidi UAT bug #2 guard):
+cast call 0x87e99508C222c6E419734CACbb6781b8d282b1F6 "urls(uint256)(string)" 0 \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+# → "https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json"
 ```
 
 ### "Does `sbo3lagent.eth` resolve the canonical records?"

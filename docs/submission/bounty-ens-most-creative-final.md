@@ -32,8 +32,11 @@ The hero artefact: `sbo3lagent.eth` resolves seven canonical
 A judge with a public RPC and `cast` can independently verify
 every record. The same name's subnames are served via a deployed
 ENSIP-25 / EIP-3668 OffchainResolver
-([`0x7c6913…aCA8c3`](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3))
+([`0x87e9…b1f6`](https://sepolia.etherscan.io/address/0x87e99508C222c6E419734CACbb6781b8d282b1F6))
 on Sepolia, with the gateway live at `sbo3l-ccip.vercel.app`.
+Live wired: `research-agent.sbo3lagent.eth` is registered on
+Sepolia with the new OR as its resolver — viem.getEnsText returns
+`research-agent-01` end-to-end via CCIP-Read.
 
 ## Why this bounty
 
@@ -127,7 +130,7 @@ done
 
 ```bash
 # 1. Bytecode at the Sepolia OffchainResolver
-cast code 0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3 \
+cast code 0x87e99508C222c6E419734CACbb6781b8d282b1F6 \
   --rpc-url https://ethereum-sepolia-rpc.publicnode.com | head -c 200
 
 # 2. Run the viem E2E example (no SBO3L Rust dependency).
@@ -361,7 +364,8 @@ unblock the path when one triggers.
 | Repository   | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026                           |
 | Live demo    | https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/                           |
 | Mainnet apex | [`sbo3lagent.eth`](https://app.ens.domains/sbo3lagent.eth) (owner [`0xdc7EFA…D231`](https://etherscan.io/address/0xdc7EFA6b4Bd77d1a406DE4727F0DF567e597D231)) |
-| Sepolia OffchainResolver | [`0x7c6913…aCA8c3`](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3) |
+| Sepolia OffchainResolver (current — 2026-05-03 redeploy) | [`0x87e9…b1f6`](https://sepolia.etherscan.io/address/0x87e99508C222c6E419734CACbb6781b8d282b1F6) |
+| Sepolia `research-agent.sbo3lagent.eth` subname (live wired) | [setSubnodeRecord tx](https://sepolia.etherscan.io/tx/0x71c7fd7b2766783e76291060203f542c9df7f4b68d2463315281456bfcb95db1) |
 | Sepolia AnchorRegistry | [`0x4C302b…f4Ac`](https://sepolia.etherscan.io/address/0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac) |
 | Sepolia SubnameAuction | [`0x5dE75E…114B`](https://sepolia.etherscan.io/address/0x5dE75E64739A95701367F3Ad592e0b674b22114B) |
 | Sepolia ReputationBond | [`0x750722…93dA`](https://sepolia.etherscan.io/address/0x75072217B43960414047c362198A428f0E9793dA) |
