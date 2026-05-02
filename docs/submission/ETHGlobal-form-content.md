@@ -26,7 +26,7 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 >
 > **Live integrations.** All three sponsor live paths shipped + smoke-verified end-to-end. KeeperHub: real workflow webhook accepts the IP-1 envelope, returns a real `executionId` (`kh-172o77rxov7mhwvpssc3x`-shape). ENS: `sbo3lagent.eth` mainnet apex with 5 `sbo3l:*` records on chain (Phase 2 adds 2 more); subnames issued via direct ENS Registry. Uniswap: live `quoteExactInputSingle` against Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`); real swap captures `tx_hash` into the capsule.
 >
-> **What ships at v1.0.1.** Nine Rust crates on crates.io. TypeScript SDK on npm. Python SDK on PyPI. Eight framework integrations (LangChain TS/Py, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph). Docker compose. Marketing site, hosted preview, docs site, CCIP-Read gateway. ENS mainnet apex. Phase 1 exit gate green: 441/441 cargo tests, 13/13 demo gates, 26/0/1 production-shaped runner.
+> **What ships at v1.2.0.** Nine Rust crates on crates.io. TypeScript SDK on npm. Python SDK on PyPI. Eight framework integrations (LangChain TS/Py, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph). Docker compose. Marketing site, hosted preview, docs site, CCIP-Read gateway. ENS mainnet apex. Phase 1 exit gate green: 441/441 cargo tests, 13/13 demo gates, 26/0/1 production-shaped runner.
 
 **Tech stack:**
 - **Core:** Rust workspace, 9 published crates (`sbo3l-{core,storage,policy,identity,execution,keeperhub-adapter,server,mcp,cli}`)
@@ -48,7 +48,7 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **Demo video URL:** _populate after recording — see [`demo-video-script.md`](demo-video-script.md)_
 
-**Built during the hackathon? (yes/no):** Yes — entire codebase shipped within the 100-day window. Repo init at `9504fa7`; v1.0.1 release commit at `c90f571`.
+**Built during the hackathon? (yes/no):** Yes — entire codebase shipped within the 100-day window. Repo init at `9504fa7`; v1.2.0 release commit at `c90f571`.
 
 ## Bounty selections
 
@@ -95,7 +95,7 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **How does your project use ENS?**
 
-> SBO3L turns ENS into *the agent trust DNS*. Every named agent gets a subname under `sbo3lagent.eth` (mainnet apex Daniel owns) with `sbo3l:*` text records. v1.0.1 ships **5 records on chain** (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`); Phase 2 adds two more (`capability`, `reputation`) for the full 7-record profile. Subname registration uses **direct ENS Registry `setSubnodeRecord`** (Daniel is the parent owner) + PublicResolver `setText` per record — no third-party registrar abstraction needed (we evaluated Durin and dropped it 2026-05-01: direct registry is fewer moving parts, more verifiable on Etherscan, and zero new contracts to deploy).
+> SBO3L turns ENS into *the agent trust DNS*. Every named agent gets a subname under `sbo3lagent.eth` (mainnet apex Daniel owns) with `sbo3l:*` text records. v1.2.0 ships **5 records on chain** (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`); Phase 2 adds two more (`capability`, `reputation`) for the full 7-record profile. Subname registration uses **direct ENS Registry `setSubnodeRecord`** (Daniel is the parent owner) + PublicResolver `setText` per record — no third-party registrar abstraction needed (we evaluated Durin and dropped it 2026-05-01: direct registry is fewer moving parts, more verifiable on Etherscan, and zero new contracts to deploy).
 >
 > An agent resolves another agent by ENS name and gets back a complete trust profile — *without trusting any single party*. Cross-agent attestations are signed Ed25519 envelopes that pin the recipient's expected `policy_hash` and an `expires_at`; the receiving SBO3L instance verifies the chain (sender's pubkey → recipient's published policy → recipient's actual decision) before allowing the delegated action.
 >
@@ -121,7 +121,7 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 > SBO3L's `UniswapExecutor` is a `GuardedExecutor` over the Uniswap Trading API. Each swap intent runs through SBO3L's policy boundary before the swap is constructed. Slippage, MEV-protection (priority fee bounding, freshness), token-allowlist, and value-cap are all expressed as policy rules — not as bot logic. The policy decision is signed; the audit row links that decision to the eventual on-chain tx hash via the Passport capsule.
 >
-> v1.0.1 ships a working Sepolia QuoterV2 quote path, with the real swap construction landing in T-5-1..T-5-5. The capsule's `execution.live_evidence.tx_hash` is the canonical proof — drop it into a verifier and you can confirm the swap was bounded, authorised, and within slippage limits.
+> v1.2.0 ships a working Sepolia QuoterV2 quote path, with the real swap construction landing in T-5-1..T-5-5. The capsule's `execution.live_evidence.tx_hash` is the canonical proof — drop it into a verifier and you can confirm the swap was bounded, authorised, and within slippage limits.
 
 **Live Uniswap evidence:**
 - `crates/sbo3l-execution/src/uniswap.rs` — `live_from_env()` + Sepolia QuoterV2 quote
