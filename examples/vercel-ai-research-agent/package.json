@@ -1,0 +1,28 @@
+{
+  "name": "@sbo3l/example-vercel-ai-research-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end Vercel AI SDK research agent with two tools (data_fetch + sbo3l_pay), gating every payment through SBO3L's policy boundary. Routes to KeeperHub workflow m4t4cnpmhv8qquce3bv3c.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "~0.0.66",
+    "@sbo3l/sdk": "^1.0.0",
+    "@sbo3l/vercel-ai": "file:../../sdks/typescript/integrations/vercel-ai",
+    "ai": "~3.4.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

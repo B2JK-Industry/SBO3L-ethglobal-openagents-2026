@@ -28,6 +28,13 @@ sbo3l-storage = { workspace = true }
 sbo3l-server = { workspace = true }
 sbo3l-identity = { workspace = true }
 sbo3l-execution = { workspace = true }
+# Phase 3.1 — `sbo3l audit anchor` CLI uses the anchor crate's
+# digest builder + ABI calldata encoder. Lightweight (no SDK
+# transitive deps), so unconditional rather than feature-gated.
+sbo3l-anchor = { workspace = true }
+# `audit anchor` default tenant_id = keccak256("default"). Same
+# crate sbo3l-anchor already pulls; declare directly for clarity.
+tiny-keccak = { version = "2", features = ["keccak"] }
 # T-3-2 sbo3l agent verify-ens: derive Ed25519 pubkey from a local
 # secret-seed file (--key-file) so operators can verify without
 # reading the seed manually. Already a transitive dep through

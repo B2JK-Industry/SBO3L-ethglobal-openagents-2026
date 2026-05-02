@@ -25,7 +25,7 @@ export default async function DashboardPage() {
         <Link href="/agents">Agents</Link>
         <Link href="/audit">Audit log</Link>
         <Link href="/capsules">Capsule library</Link>
-        <Link href="/trust-dns">Trust DNS</Link>
+        <a href="https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/trust-dns-story" target="_blank" rel="noreferrer">Trust DNS</a>
       </nav>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1em" }}>

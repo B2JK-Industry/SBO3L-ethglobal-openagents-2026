@@ -1,0 +1,74 @@
+name: Quickstart validation
+
+# Static validation of docs/quickstart/*.md guides:
+#   - imports reference real SDK exports
+#   - APRP fixtures have all 12 v1 fields
+#   - no frozen nonces / expired expiries (round-4 codex P1 regression net)
+#   - dynamic nonce helper called (crypto.randomUUID / uuid.uuid4)
+#   - recipient matches reference policy allowlist
+#
+# Cheap (~1s) — runs on every push that touches the quickstart docs or
+# this workflow. Nightly schedule catches drift introduced by SDK
+# refactors that don't themselves touch the docs.
+#
+# What this does NOT check: runtime end-to-end. That's the
+# sdk-install-matrix workflow (PR #239) plus Heidi's manual smoke runs
+# (LLM-driven paths need API keys we don't run in CI).
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "docs/quickstart/**"
+      - "scripts/quickstart-validate.sh"
+      - ".github/workflows/quickstart-validation.yml"
+  pull_request:
+    paths:
+      - "docs/quickstart/**"
+      - "scripts/quickstart-validate.sh"
+      - ".github/workflows/quickstart-validation.yml"
+  schedule:
+    # Nightly at 04:30 UTC — 30 min after sdk-install-matrix so the two
+    # signals appear together in the morning's overnight digest.
+    - cron: "30 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quickstart-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate quickstart guides
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run static validator
+        run: |
+          chmod +x scripts/quickstart-validate.sh
+          # Don't fail the step here — we want the matrix file in the
+          # artifact + summary regardless. The aggregate-report step
+          # below decides pass/fail based on the matrix.
+          scripts/quickstart-validate.sh || true
+          cat docs/proof/quickstart-validation.md
+
+      - name: Render summary into the run page
+        run: cat docs/proof/quickstart-validation.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail the job if any guide drifted
+        run: |
+          # Re-run with strict exit; the body of the step above already
+          # captured the full report. This re-run is just for the gate.
+          scripts/quickstart-validate.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quickstart-validation-matrix
+          path: docs/proof/quickstart-validation.md
+          retention-days: 30

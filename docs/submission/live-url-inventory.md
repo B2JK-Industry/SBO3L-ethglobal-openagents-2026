@@ -12,15 +12,15 @@ Web pages on `crates.io` and `npmjs.com` are JS-rendered SPAs that return 404/40
 
 | Surface | URL | Status | Verify (machine API) |
 |---|---|---|---|
-| crates.io — sbo3l-core | https://crates.io/crates/sbo3l-core | 🟢 1.0.1 | `curl -sf https://crates.io/api/v1/crates/sbo3l-core \| jq -r .crate.max_version` |
-| crates.io — sbo3l-storage | https://crates.io/crates/sbo3l-storage | 🟢 1.0.1 | same pattern |
-| crates.io — sbo3l-policy | https://crates.io/crates/sbo3l-policy | 🟢 1.0.1 | |
-| crates.io — sbo3l-identity | https://crates.io/crates/sbo3l-identity | 🟢 1.0.1 | |
-| crates.io — sbo3l-execution | https://crates.io/crates/sbo3l-execution | 🟢 1.0.1 | |
-| crates.io — sbo3l-keeperhub-adapter | https://crates.io/crates/sbo3l-keeperhub-adapter | 🟢 1.0.1 | |
-| crates.io — sbo3l-server | https://crates.io/crates/sbo3l-server | 🟢 1.0.1 | |
-| crates.io — sbo3l-mcp | https://crates.io/crates/sbo3l-mcp | 🟢 1.0.1 | |
-| crates.io — sbo3l-cli | https://crates.io/crates/sbo3l-cli | 🟢 1.0.1 | `cargo install sbo3l-cli --version 1.0.1 && sbo3l --version` → `sbo3l 1.0.1` |
+| crates.io — sbo3l-core | https://crates.io/crates/sbo3l-core | 🟢 1.2.0 | `curl -sf https://crates.io/api/v1/crates/sbo3l-core \| jq -r .crate.max_version` |
+| crates.io — sbo3l-storage | https://crates.io/crates/sbo3l-storage | 🟢 1.2.0 | same pattern |
+| crates.io — sbo3l-policy | https://crates.io/crates/sbo3l-policy | 🟢 1.2.0 | |
+| crates.io — sbo3l-identity | https://crates.io/crates/sbo3l-identity | 🟢 1.2.0 | |
+| crates.io — sbo3l-execution | https://crates.io/crates/sbo3l-execution | 🟢 1.2.0 | |
+| crates.io — sbo3l-keeperhub-adapter | https://crates.io/crates/sbo3l-keeperhub-adapter | 🟢 1.2.0 | |
+| crates.io — sbo3l-server | https://crates.io/crates/sbo3l-server | 🟢 1.2.0 | |
+| crates.io — sbo3l-mcp | https://crates.io/crates/sbo3l-mcp | 🟢 1.2.0 | |
+| crates.io — sbo3l-cli | https://crates.io/crates/sbo3l-cli | 🟢 1.2.0 | `cargo install sbo3l-cli --version 1.2.0 && sbo3l --version` → `sbo3l 1.2.0` |
 | npm — @sbo3l/sdk | https://www.npmjs.com/package/@sbo3l/sdk | 🟢 1.0.0 | `npm view @sbo3l/sdk version` |
 | npm — @sbo3l/langchain | https://www.npmjs.com/package/@sbo3l/langchain | 🟢 | `npm view @sbo3l/langchain version` |
 | npm — @sbo3l/autogen | https://www.npmjs.com/package/@sbo3l/autogen | 🟢 | `npm view @sbo3l/autogen version` |
@@ -42,7 +42,7 @@ Web pages on `crates.io` and `npmjs.com` are JS-rendered SPAs that return 404/40
 | `/features` page | `https://sbo3l.dev/features` 🔴 | same Vercel preview | 🟡 same as above |
 | `/submission` page | `https://sbo3l.dev/submission` 🔴 | same | 🟡 |
 | Documentation | `https://docs.sbo3l.dev` 🔴 | _no Vercel preview URL discovered_ | 🔴 |
-| Hosted preview | `https://app.sbo3l.dev` 🔴 | _no Vercel preview URL discovered_ | 🔴 |
+| Hosted preview | `https://app.sbo3l.dev` 🔴 | https://sbo3l-hosted-app.vercel.app | 🟡 deploy workflow shipped (`.github/workflows/hosted-app.yml`); waits on Daniel's Vercel project + secrets setup (see `apps/hosted-app/DEPLOY.md`) |
 | Trust-DNS visualization | `https://app.sbo3l.dev/trust-dns` 🔴 | `https://sbo3l-trust-dns-viz.vercel.app` 🔴 (404) | 🔴 — viz package main not yet deployed; T-3-5 in flight |
 | CCIP-Read gateway | `https://ccip.sbo3l.dev` 🔴 | https://sbo3l-ccip.vercel.app ✅ 200; long preview https://sbo3l-ccip-i05tmr4jc-babjak-daniel-5461s-projects.vercel.app ✅ 200 | ✅ via Vercel preview |
 

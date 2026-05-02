@@ -1,0 +1,95 @@
+---
+title: Error codes
+description: Every domain error code SBO3L returns, sortable by category.
+audience: integration authors, runtime developers, alert authors
+outcome: You'll know which code maps to which condition, what HTTP status accompanies it, and where in the source it fires.
+---
+
+Every error SBO3L returns carries a **domain code** like `policy.budget_exceeded`. Codes are stable across patch releases; the human-readable `message` is not. Match on codes, not strings.
+
+## Code structure
+
+Domain codes are dotted: `<category>.<specific>`.
+
+| Category | What fires it |
+|---|---|
+| `schema.*` | Request body schema validation |
+| `protocol.*` | HTTP-level protocol (auth, idempotency, rate limit) |
+| `policy.*` | Policy decision engine deny |
+| `budget.*` | Budget commit failures |
+| `auth.*` | Authentication / authorisation |
+| `audit.*` | Audit chain integrity |
+| `capsule.*` | Capsule strict-verifier failures |
+| `signer.*` | Signing-key operations |
+
+## Schema
+
+| Code | HTTP | When |
+|---|---|---|
+| `schema.missing_field` | 400 | required field absent |
+| `schema.unknown_field` | 400 | unknown field present (`deny_unknown_fields`) |
+| `schema.type_mismatch` | 400 | wrong type for a field |
+| `schema.value_out_of_range` | 400 | numeric range exceeded |
+
+## Protocol
+
+| Code | HTTP | When |
+|---|---|---|
+| `protocol.nonce_replay` | 409 | APRP nonce already seen |
+| `protocol.idempotency_conflict` | 409 | same Idempotency-Key, different body |
+| `protocol.payload_too_large` | 413 | body > 100 KB |
+| `protocol.rate_limited` | 429 | per-token rate limit exceeded |
+
+## Auth
+
+| Code | HTTP | When |
+|---|---|---|
+| `auth.required` | 401 | missing Authorization header |
+| `auth.invalid_token` | 401 | malformed / unknown bearer token |
+| `auth.token_expired` | 401 | JWT past `exp` |
+| `auth.scope_mismatch` | 403 | token lacks the required scope |
+
+## Policy
+
+| Code | HTTP | When |
+|---|---|---|
+| `policy.deny_unknown_provider` | 200 + `decision=deny` | sponsor not registered |
+| `policy.expiry_in_past` | 200 + `decision=deny` | request `expiry` has passed |
+| `policy.risk_class_blocked` | 200 + `decision=deny` | operator policy blocks risk class |
+| `policy.asset_unknown` | 200 + `decision=deny` | asset not in allowed list |
+
+## Budget
+
+| Code | HTTP | When |
+|---|---|---|
+| `policy.budget_exceeded` | 200 + `decision=deny` | any scope insufficient |
+| `budget.scope_misconfigured` | 500 | invalid scope in policy file |
+
+## Audit
+
+| Code | HTTP | When |
+|---|---|---|
+| `audit.tamper_detected` | n/a (CLI rc=1) | strict verifier hash mismatch |
+| `audit.chain_gap` | n/a (CLI rc=2) | missing event in expected sequence |
+| `audit.signature_invalid` | n/a (CLI rc=2) | Ed25519 verification failed |
+
+## Capsule
+
+| Code | CLI rc | When |
+|---|---|---|
+| `capsule.request_hash_mismatch` | 2 | embedded request_hash ≠ recomputed |
+| `capsule.live_mode_empty_evidence` | 2 | `live_mode=true` but no `executor_evidence` |
+| `capsule.deny_with_execution_ref` | 2 | `decision=deny` but `execution_ref` present |
+| `capsule.snapshot_hash_mismatch` | 2 | embedded snapshot hash ≠ recomputed |
+
+## Signer
+
+| Code | HTTP | When |
+|---|---|---|
+| `signer.kms_unavailable` | 503 | KMS endpoint down or returning 5xx |
+| `signer.key_rotated` | 500 | configured key id no longer resolvable |
+
+## See also
+
+- [Schemas reference](/reference/schemas) — JSON Schema for every API response.
+- [Security notes](/reference/security) — production hardening + threat model.

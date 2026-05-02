@@ -3361,6 +3361,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd29631678d6fb0903b69223673e122c32e9ae559d0960a38d574695ebc0ea15"
 
 [[package]]
+name = "sbo3l-anchor"
+version = "1.2.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "sbo3l-core",
+ "sbo3l-storage",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2",
+ "thiserror 1.0.69",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "sbo3l-cli"
 version = "1.2.0"
 dependencies = [
@@ -3373,6 +3389,7 @@ dependencies = [
  "hex",
  "http-body-util",
  "rusqlite",
+ "sbo3l-anchor",
  "sbo3l-core",
  "sbo3l-execution",
  "sbo3l-identity",
@@ -3383,6 +3400,7 @@ dependencies = [
  "serde_json",
  "serde_json_canonicalizer",
  "tempfile",
+ "tiny-keccak",
  "tokio",
  "tower",
  "tracing",
@@ -3396,12 +3414,14 @@ version = "1.2.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
+ "getrandom 0.3.4",
  "hex",
  "jsonschema",
  "k256",
  "rand 0.8.6",
  "rust_decimal",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "serde_json_canonicalizer",
  "sha2",
@@ -3409,6 +3429,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tiny-keccak",
  "ulid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3433,12 +3454,14 @@ dependencies = [
 name = "sbo3l-identity"
 version = "1.2.0"
 dependencies = [
+ "ed25519-dalek",
  "hex",
  "reqwest",
  "sbo3l-core",
  "sbo3l-policy",
  "serde",
  "serde_json",
+ "serde_json_canonicalizer",
  "sha2",
  "thiserror 1.0.69",
  "tiny-keccak",
@@ -3621,6 +3644,17 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]

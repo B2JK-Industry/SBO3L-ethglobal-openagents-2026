@@ -7,6 +7,7 @@ a self-contained Passport capsule anyone can verify offline.
 
 from __future__ import annotations
 
+from . import uniswap
 from ._version import __version__
 from .auth import (
     AuthConfig,
@@ -133,4 +134,6 @@ __all__ = [
     "PassportCapsuleV1",
     "PassportCapsuleV2",
     "PassportCapsule",
+    # uniswap submodule
+    "uniswap",
 ]

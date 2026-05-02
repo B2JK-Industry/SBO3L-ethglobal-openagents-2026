@@ -1,0 +1,83 @@
+---
+title: Hash-chained audit log
+description: Tamper-evident Ed25519-signed event chain stored in local SQLite.
+audience: compliance reviewers, integration testers, security teams
+outcome: You'll know what each audit event contains, how the chain links events, and how a tamper attempt is caught.
+prereqs:
+  - quickstart completed
+  - APRP wire format read
+---
+
+The SBO3L audit log is the **single source of truth** for what was authorised, when, and under which policy. Every decision the daemon makes appends an event to a hash-chained, Ed25519-signed log persisted in local SQLite.
+
+## Event shape
+
+```json
+{
+  "event_id": "01HZRG...",
+  "ts_unix_ms": 1712345678901,
+  "event_type": "policy.decision",
+  "request_hash": "0x...",
+  "agent_id": "research-agent-01",
+  "decision": "allow",
+  "policy_snapshot_hash": "0x...",
+  "prev_event_hash": "0x...",
+  "payload_hash": "0x...",
+  "signature": "ed25519:..."
+}
+```
+
+`prev_event_hash` is the SHA-256 of the *previous* event's serialised form. `payload_hash` covers the body of the current event. `signature` covers `prev_event_hash || payload_hash` with the daemon's Ed25519 key.
+
+## Two verifier modes
+
+SBO3L ships two verifier modes with different cost / strictness trade-offs.
+
+### Structural verifier
+
+Walks the chain and confirms every `prev_event_hash` matches the previous serialised event. Cost: O(n) over chain length, no signature checks. Use for:
+
+- Fast integrity check during normal operation.
+- Continuous integrity polling in production.
+
+```bash
+sbo3l audit verify --mode structural
+```
+
+### Strict-hash verifier
+
+Walks the chain and additionally verifies every event's `signature` against the daemon's published Ed25519 pubkey. Use for:
+
+- Pre-merge gate before exporting an audit segment.
+- Compliance audits.
+- Investigating a suspected tamper.
+
+```bash
+sbo3l audit verify --mode strict
+```
+
+A passing strict-mode run is the strongest claim SBO3L makes about the audit chain.
+
+## Tamper detection — concrete example
+
+```bash
+# Flip one byte of a stored payload_hash
+sqlite3 ~/.sbo3l/audit.db \
+  "UPDATE audit_events SET payload_hash = REPLACE(payload_hash, '0x01', '0x02') LIMIT 1"
+
+# Re-run strict verifier
+sbo3l audit verify --mode strict
+# rc=1, error: audit.tamper_detected at event N
+```
+
+The structural verifier catches the same tamper (since `payload_hash` participates in the next event's `prev_event_hash`), so even without the signing key on the verifier's machine, integrity is verifiable. The signing key adds **non-repudiation**, not just integrity.
+
+## What the chain does NOT cover
+
+- **It is not on-chain.** The audit chain lives in local SQLite. Optional onchain anchoring (EAS, ENS text record) is a Phase 3 concern. See [identity anti-claim #4](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/win-backlog/01-identity.md#anti-claims-things-sbo3l-explicitly-is-not).
+- **It does not bind to mutual time.** Timestamps are best-effort wall-clock; consensus on time would require a roughtime-style protocol that SBO3L explicitly does not ship today.
+
+## See also
+
+- [Self-contained capsule v2](/concepts/capsule) — how an audit segment is exported into a portable capsule.
+- [APRP wire format](/concepts/aprp) — what `request_hash` references.
