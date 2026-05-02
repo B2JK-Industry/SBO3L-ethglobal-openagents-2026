@@ -51,6 +51,7 @@ use sbo3l_storage::Storage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
+pub mod http_transport;
 pub mod jsonrpc;
 
 pub use jsonrpc::{ErrorObject, Request, Response};
