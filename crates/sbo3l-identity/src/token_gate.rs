@@ -325,6 +325,7 @@ impl AllOfGates {
 impl TokenGate for AllOfGates {
     fn check(&self, owner: &str) -> Result<GateResult, GateError> {
         let mut summaries: Vec<String> = Vec::with_capacity(self.gates.len());
+        let mut contracts: Vec<String> = Vec::with_capacity(self.gates.len());
         let mut owner_normalised = owner.to_string();
         for gate in &self.gates {
             let r = gate.check(owner)?;
@@ -338,13 +339,20 @@ impl TokenGate for AllOfGates {
                     evidence: r.evidence,
                 });
             }
+            if !r.contract.is_empty() {
+                contracts.push(r.contract.clone());
+            }
             summaries.push(format!("{}: {}", r.gate_label, r.evidence));
         }
         Ok(GateResult {
             passed: true,
             gate_label: format!("{} ({} branches all passed)", self.label, self.gates.len()),
             owner: owner_normalised,
-            contract: String::new(),
+            // Aggregate every queried contract address so auditors
+            // re-verifying a high-risk multi-contract decision can see
+            // exactly which contracts were checked. Failure path
+            // already preserves the failing branch's contract above.
+            contract: contracts.join(", "),
             evidence: summaries.join("; "),
         })
     }

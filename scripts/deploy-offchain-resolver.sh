@@ -134,8 +134,7 @@ echo "  2. Set the resolver on sbo3lagent.eth so subnames inherit it:"
 echo
 echo "     cast send 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e \\"
 echo "       \"setResolver(bytes32,address)\" \\"
-echo "       \$(cast call 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e \\"
-echo "           \"resolver(bytes32)\" \$(cast namehash sbo3lagent.eth)) \\"
+echo "       \$(cast namehash sbo3lagent.eth) \\"
 echo "       $DEPLOYED_ADDRESS \\"
 echo "       --rpc-url \$RPC_URL --private-key \$SBO3L_DEPLOYER_PRIVATE_KEY"
 echo

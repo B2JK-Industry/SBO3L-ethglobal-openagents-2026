@@ -18,11 +18,13 @@ contract AnchorRegistryTest is Test {
 
     address internal alice;
     address internal bob;
+    address internal admin;
     bytes32 internal tenantA;
     bytes32 internal tenantB;
 
     function setUp() public {
-        registry = new AnchorRegistry();
+        admin = vm.addr(uint256(keccak256("admin")));
+        registry = new AnchorRegistry(admin);
         alice = vm.addr(uint256(keccak256("alice")));
         bob = vm.addr(uint256(keccak256("bob")));
         tenantA = keccak256("sbo3lagent.eth");
@@ -220,7 +222,11 @@ contract AnchorRegistryFuzzTest is Test {
     address internal owner;
 
     function setUp() public {
-        registry = new AnchorRegistry();
+        // Fuzz suite uses admin = address(0) to mean "no admin / fully
+        // trustless"; the squat-recovery path is unreachable here,
+        // which is appropriate for the append-only invariants under
+        // test.
+        registry = new AnchorRegistry(address(0));
         owner = vm.addr(uint256(keccak256("fuzz-owner")));
     }
 

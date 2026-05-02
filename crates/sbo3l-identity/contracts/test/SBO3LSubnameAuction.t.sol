@@ -260,7 +260,7 @@ contract SBO3LSubnameAuctionTest is Test {
     // settle
     // ============================================================
 
-    function test_settle_withWinnerPaysOperator() public {
+    function test_settle_withWinnerCreditsOperatorProceeds() public {
         uint256 id = _create();
         vm.prank(alice);
         auction.bid{value: 1 ether}(id);
@@ -268,12 +268,22 @@ contract SBO3LSubnameAuctionTest is Test {
         auction.bid{value: 2 ether}(id);
 
         vm.warp(block.timestamp + 1 days + 1);
-        uint256 opBefore = operator.balance;
+        // Pull-pattern proceeds — settle credits the operator's
+        // proceeds balance, operator pulls via withdrawOperatorProceeds.
+        // (Pre-fix this was a push transfer that bricked settle if the
+        // operator was a contract with a reverting `receive`.)
+        assertEq(auction.operatorProceeds(operator), 0);
         vm.expectEmit(true, true, false, true);
         emit AuctionSettled(id, bob, "premium-trader", 2 ether);
         auction.settle(id);
-        assertEq(operator.balance, opBefore + 2 ether);
+        assertEq(auction.operatorProceeds(operator), 2 ether);
         assertTrue(auction.getAuction(id).settled);
+
+        uint256 opBefore = operator.balance;
+        vm.prank(operator);
+        auction.withdrawOperatorProceeds();
+        assertEq(operator.balance, opBefore + 2 ether);
+        assertEq(auction.operatorProceeds(operator), 0);
     }
 
     function test_settle_withoutWinnerEmitsUnsold() public {
