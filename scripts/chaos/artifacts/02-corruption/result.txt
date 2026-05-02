@@ -1,0 +1,4 @@
+[02-corruption] start 2026-05-02T05:41:57Z
+[chaos] flipped seq=2 payload_hash 6ee091be5456b0ff8e9d72e1827e0c20b31fb095a4e980ef6551906dded05dce → eee091be5456b0ff8e9d72e1827e0c20b31fb095a4e980ef6551906dded05dce
+[chaos] sbo3l CLI not installed; skipping verifier checks
+[02-corruption] end 2026-05-02T05:41:57Z; failed=0
