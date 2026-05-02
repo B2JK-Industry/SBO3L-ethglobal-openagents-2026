@@ -1,0 +1,288 @@
+---
+// "Where keys live" architecture diagram.
+//
+// Reviewer feedback (2026-05-02): "Vyrobiť diagram 'where keys live'" —
+// many evaluators stop on the homepage thinking SBO3L hands a wallet
+// to the agent. This diagram inverts that on first glance: agent has
+// NO KEY; the signing key sits behind the daemon's policy boundary.
+//
+// Pure inline SVG, no external assets, CSP-clean (script-src 'self').
+// Uses currentColor + CSS variables so the dark theme inherits
+// naturally and a future light theme works without re-export.
+
+interface Props {
+  /** When the diagram is the page hero, scale it bigger. Default: false. */
+  variant?: "compact" | "hero";
+}
+const { variant = "compact" } = Astro.props;
+---
+<figure class={`keyflow ${variant}`} aria-label="Where keys live in SBO3L">
+  <figcaption class="title">Where the keys live</figcaption>
+
+  <svg
+    viewBox="0 0 880 360"
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    aria-labelledby="keyflow-title keyflow-desc"
+  >
+    <title id="keyflow-title">SBO3L key custody flow</title>
+    <desc id="keyflow-desc">
+      Four nodes left to right: the agent (no key), the SBO3L daemon
+      (Ed25519 signing key behind a KMS), the executor (called only on
+      allow), and beneath the daemon, the append-only hash-chained
+      audit log that every decision writes to.
+    </desc>
+
+    <defs>
+      <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      </marker>
+      <marker id="arrowhead-deny" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--deny, #f87171)" />
+      </marker>
+    </defs>
+
+    <!-- Row 1: agent → daemon → executor -->
+
+    <!-- Agent -->
+    <g transform="translate(20 60)">
+      <rect class="node node-agent" x="0" y="0" width="180" height="120" rx="8" />
+      <text class="node-label" x="90" y="28" text-anchor="middle">Agent</text>
+      <text class="node-detail" x="90" y="52" text-anchor="middle">LangChain · Claude</text>
+      <text class="node-detail" x="90" y="68" text-anchor="middle">AutoGen · KH cron</text>
+      <g transform="translate(40 82)">
+        <rect class="badge badge-no-key" x="0" y="0" width="100" height="22" rx="4" />
+        <text class="badge-text" x="50" y="15" text-anchor="middle">🔓 NO KEY</text>
+      </g>
+    </g>
+
+    <!-- Arrow agent → daemon (APRP) -->
+    <g transform="translate(200 120)">
+      <line class="edge" x1="0" y1="0" x2="120" y2="0" marker-end="url(#arrowhead)" />
+      <text class="edge-label" x="60" y="-10" text-anchor="middle">APRP</text>
+      <text class="edge-detail" x="60" y="20" text-anchor="middle">JSON · nonce · ts</text>
+    </g>
+
+    <!-- Daemon -->
+    <g transform="translate(330 30)">
+      <rect class="node node-daemon" x="0" y="0" width="220" height="180" rx="10" />
+      <text class="node-label" x="110" y="32" text-anchor="middle">SBO3L daemon</text>
+      <text class="node-detail" x="110" y="56" text-anchor="middle">policy · budget · audit</text>
+
+      <!-- inner signer block -->
+      <g transform="translate(35 78)">
+        <rect class="signer" x="0" y="0" width="150" height="70" rx="6" />
+        <text class="signer-label" x="75" y="22" text-anchor="middle">🔐 Ed25519 signer</text>
+        <text class="signer-detail" x="75" y="42" text-anchor="middle">KMS-wrapped</text>
+        <text class="signer-detail" x="75" y="58" text-anchor="middle">never leaves boundary</text>
+      </g>
+
+      <!-- policy gate label -->
+      <text class="gate-label" x="110" y="172" text-anchor="middle">policy boundary</text>
+    </g>
+
+    <!-- Arrow daemon → executor (allow) -->
+    <g transform="translate(550 100)">
+      <line class="edge edge-allow" x1="0" y1="0" x2="120" y2="0" marker-end="url(#arrowhead)" />
+      <text class="edge-label allow" x="60" y="-10" text-anchor="middle">allow</text>
+      <text class="edge-detail" x="60" y="20" text-anchor="middle">signed receipt</text>
+    </g>
+
+    <!-- Arrow daemon → ✗ (deny) -->
+    <g transform="translate(550 150)">
+      <line class="edge edge-deny" x1="0" y1="0" x2="80" y2="0" marker-end="url(#arrowhead-deny)" />
+      <text class="edge-label deny" x="40" y="-8" text-anchor="middle">deny</text>
+      <g transform="translate(85 -8)">
+        <text class="deny-stop" x="0" y="14">✗ no-op</text>
+      </g>
+    </g>
+
+    <!-- Executor -->
+    <g transform="translate(680 60)">
+      <rect class="node node-executor" x="0" y="0" width="180" height="120" rx="8" />
+      <text class="node-label" x="90" y="28" text-anchor="middle">Executor</text>
+      <text class="node-detail" x="90" y="52" text-anchor="middle">KeeperHub · Uniswap</text>
+      <text class="node-detail" x="90" y="68" text-anchor="middle">on-chain · off-chain</text>
+      <g transform="translate(20 82)">
+        <rect class="badge badge-allow-only" x="0" y="0" width="140" height="22" rx="4" />
+        <text class="badge-text" x="70" y="15" text-anchor="middle">called only on allow</text>
+      </g>
+    </g>
+
+    <!-- Row 2: daemon → audit log -->
+
+    <!-- Arrow daemon → audit (down) -->
+    <g transform="translate(440 210)">
+      <line class="edge" x1="0" y1="0" x2="0" y2="50" marker-end="url(#arrowhead)" />
+      <text class="edge-label" x="10" y="32">append</text>
+    </g>
+
+    <!-- Audit log -->
+    <g transform="translate(330 270)">
+      <rect class="node node-audit" x="0" y="0" width="220" height="80" rx="8" />
+      <text class="node-label" x="110" y="28" text-anchor="middle">Audit log</text>
+      <text class="node-detail" x="110" y="52" text-anchor="middle">append-only · hash-chained</text>
+      <text class="node-detail" x="110" y="68" text-anchor="middle">SHA-256 · JCS canonical</text>
+    </g>
+  </svg>
+
+  <ul class="legend">
+    <li>
+      <span class="dot dot-agent" aria-hidden="true"></span>
+      <strong>Agent</strong> never holds the signing key. Sends an APRP envelope to the daemon over local socket / HTTP.
+    </li>
+    <li>
+      <span class="dot dot-daemon" aria-hidden="true"></span>
+      <strong>Daemon</strong> evaluates policy + budget + audit. Signing key is KMS-wrapped (AWS KMS or GCP KMS in production; mock signer in dev).
+    </li>
+    <li>
+      <span class="dot dot-audit" aria-hidden="true"></span>
+      <strong>Audit log</strong> appends every decision regardless of allow/deny. Hash chain breaks on a single byte flip — strict-mode verifier rejects.
+    </li>
+    <li>
+      <span class="dot dot-executor" aria-hidden="true"></span>
+      <strong>Executor</strong> only gets called when the daemon emitted <code>allow</code>. Deny short-circuits before any side effect.
+    </li>
+  </ul>
+</figure>
+
+<style>
+  .keyflow {
+    margin: 1.5em auto;
+    padding: 1.2em 1.4em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    max-width: 920px;
+  }
+  .keyflow.hero { max-width: var(--max); margin: 2em auto; }
+
+  .keyflow .title {
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin: 0 0 0.8em;
+    font-family: var(--font-mono);
+  }
+
+  .keyflow svg { width: 100%; height: auto; display: block; color: var(--muted); }
+
+  /* Nodes */
+  .node {
+    stroke: var(--border);
+    stroke-width: 1.5;
+    fill: var(--bg);
+  }
+  .node-daemon {
+    stroke: var(--accent);
+    stroke-width: 2;
+    fill: rgba(74, 222, 128, 0.04);
+  }
+  .node-audit { stroke: var(--accent); stroke-dasharray: 4 3; }
+  .node-label {
+    fill: var(--fg);
+    font-size: 16px;
+    font-weight: 700;
+    font-family: var(--font-sans, system-ui);
+  }
+  .node-detail {
+    fill: var(--muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+
+  /* Signer block (inside daemon) */
+  .signer {
+    fill: rgba(74, 222, 128, 0.12);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+  .signer-label { fill: var(--accent); font-size: 12px; font-weight: 700; font-family: var(--font-sans, system-ui); }
+  .signer-detail { fill: var(--muted); font-size: 10px; font-family: var(--font-mono); }
+
+  .gate-label {
+    fill: var(--accent);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Badges */
+  .badge { stroke: none; }
+  .badge-no-key { fill: rgba(248, 113, 113, 0.15); }
+  .badge-allow-only { fill: rgba(74, 222, 128, 0.15); }
+  .badge-text {
+    fill: var(--fg);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  /* Edges */
+  .edge {
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+  .edge-allow { stroke: var(--accent); }
+  .edge-deny { stroke: #f87171; stroke-dasharray: 4 3; }
+  .edge-label {
+    fill: var(--muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .edge-label.allow { fill: var(--accent); font-weight: 700; }
+  .edge-label.deny { fill: #f87171; font-weight: 700; }
+  .edge-detail {
+    fill: var(--muted);
+    font-size: 10px;
+    font-family: var(--font-mono);
+  }
+  .deny-stop {
+    fill: #f87171;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  /* Legend */
+  .legend {
+    list-style: none;
+    padding: 0;
+    margin: 1em 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em 1em;
+    font-size: 0.88em;
+    color: var(--muted);
+  }
+  .legend li { padding-left: 1em; position: relative; line-height: 1.5; }
+  .legend strong { color: var(--fg); }
+  .legend code {
+    background: var(--bg);
+    padding: 0.05em 0.3em;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+  .dot {
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+  .dot-agent { background: var(--bg); }
+  .dot-daemon { background: rgba(74, 222, 128, 0.4); border-color: var(--accent); }
+  .dot-audit { background: var(--bg); border-color: var(--accent); border-style: dashed; }
+  .dot-executor { background: var(--bg); }
+
+  @media (max-width: 640px) {
+    .keyflow { padding: 0.9em 1em; }
+  }
+</style>

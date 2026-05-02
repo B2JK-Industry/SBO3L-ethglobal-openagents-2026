@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "~/layouts/BaseLayout.astro";
+import KeyFlowDiagram from "~/components/KeyFlowDiagram.astro";
 
 // Truth table: live vs mock vs not-yet across every claim the project
 // makes. Built per reviewer feedback (2026-05-02): "Urobiť jednu 'truth
@@ -197,6 +198,8 @@ const totalRows = sections.flatMap(s => s.rows).length;
         <strong>{liveCount}</strong> surfaces live · <strong>{mockCount}</strong> have a mock fallback · <strong>{notyetCount}</strong> documented as not-yet · {totalRows} rows total
       </p>
     </header>
+
+    <KeyFlowDiagram />
 
     {sections.map((section) => (
       <section class="section">
