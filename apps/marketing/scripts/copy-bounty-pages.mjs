@@ -50,10 +50,13 @@ async function main() {
     const title = bountyTitle(body);
     const audience = bountyAudience(body);
 
+    // Note: `slug` is reserved in Astro 5 (auto-derived from filename);
+    // do NOT include it in frontmatter or the content schema validation
+    // fails with InvalidContentEntryDataError. The output filename below
+    // (`<slug>.md`) becomes the auto-derived slug.
     const frontmatter =
       `---\n` +
       `title: "${escapeYaml(title)}"\n` +
-      `slug: ${slug}\n` +
       (audience ? `audience: "${escapeYaml(audience)}"\n` : "") +
       `source_file: docs/submission/${file}\n` +
       `---\n\n`;

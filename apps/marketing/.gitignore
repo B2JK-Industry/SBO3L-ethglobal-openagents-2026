@@ -6,6 +6,9 @@ node_modules/
 *.tsbuildinfo
 
 # Materialised at prebuild from docs/submission/bounty-*.md by
-# scripts/copy-bounty-pages.mjs — regenerated on every build, so
-# don't commit.
-src/content/submissions/
+# scripts/copy-bounty-pages.mjs. Files ARE committed: Vercel's build
+# rootDirectory is apps/marketing/, so docs/submission/ isn't visible
+# during its build → the script produces 0 pages on Vercel. Commit
+# the generated output so Vercel renders /submission/<slug> pages.
+# Re-run the script locally and commit any diff when bounty-*.md
+# sources change.
