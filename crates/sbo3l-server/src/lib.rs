@@ -48,6 +48,11 @@ pub mod ws_events;
 #[cfg(feature = "ws_events")]
 pub mod admin_events;
 
+// R14 P1: tonic-based gRPC service. Compiled only with `--features grpc`
+// so HTTP-only builds don't pay the prost / tonic compile cost.
+#[cfg(feature = "grpc")]
+pub mod grpc;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
@@ -749,7 +754,11 @@ fn handle_existing_claim(
     }
 }
 
-async fn run_pipeline(
+// R14 P1: visibility bumped from `fn` (private) to `pub(crate)` so the
+// gRPC module (`crate::grpc`) can call into the same pipeline that
+// backs the REST handler. The signature is unchanged; existing callers
+// inside this module are unaffected.
+pub(crate) async fn run_pipeline(
     inner: &Arc<AppInner>,
     body: Value,
 ) -> Result<PaymentRequestResponse, Problem> {

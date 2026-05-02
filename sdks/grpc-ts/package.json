@@ -1,0 +1,37 @@
+{
+  "name": "@sbo3l/grpc-client",
+  "version": "1.2.0",
+  "description": "TypeScript gRPC client for the SBO3L daemon. Wraps @grpc/grpc-js + @grpc/proto-loader for the Sbo3l service (Decide / Health / AuditChainStream).",
+  "license": "MIT",
+  "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "proto",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.10",
+    "@grpc/proto-loader": "^0.7.13"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "typescript": "^5.4.5"
+  }
+}

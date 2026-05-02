@@ -1,0 +1,23 @@
+{
+  "name": "@sbo3l/example-grpc-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quickstart example: connect to an SBO3L gRPC daemon, call Decide, log the receipt.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/grpc-client": "file:../../sdks/grpc-ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
