@@ -73,56 +73,75 @@
 
 ## Auditor walkthrough script
 
-This is the script we recommend an external auditor follow when validating SBO3L's audit posture for any of the four frameworks.
+This is the script we recommend an external auditor follow when validating SBO3L's audit posture for any of the four frameworks. Every command below maps to a real subcommand on the shipped `sbo3l` CLI (run `sbo3l --help` for the full surface).
 
 ### 1. Verify chain by construction
 
+The daemon stores its audit chain in a SQLite file plus exposes a JSONL export. To verify the entire chain:
+
 ```bash
-# Take any production daemon's audit DB (or the demo capsule)
-sbo3l verify-audit --strict-hash --db /path/to/sbo3l.db
-# Expected: exit 0; no errors; "verified N events, last chain_hash=..."
+# Step A: ask the daemon for a JSONL dump of the chain (or use a saved one)
+sbo3l audit export \
+  --receipt /path/to/some-receipt.json \
+  --db /path/to/sbo3l.db \
+  --receipt-pubkey <hex32> \
+  --audit-pubkey <hex32> \
+  --out /tmp/chain.jsonl-bundle.json
+
+# Step B: re-verify the bundle
+sbo3l audit verify-bundle --path /tmp/chain.jsonl-bundle.json
+# Expected: exit 0
 ```
 
-If verification fails, EITHER:
+Or for a standalone JSONL file (one `SignedAuditEvent` per line):
+
+```bash
+sbo3l verify-audit --path /path/to/chain.jsonl --pubkey <hex32>
+# Expected: exit 0
+```
+
+If verification fails:
 - The DB has been tampered with (cause for incident response), OR
 - A bug exists in the verifier (cause for `SECURITY.md` report)
 
 ### 2. Verify by spot-check
 
+The CLI does not currently expose a single-row inspector — `sbo3l audit show` and `sbo3l audit canonical-hash` are NOT shipped subcommands (verified in `crates/sbo3l-cli/src/main.rs::AuditCmd`). To spot-check one event:
+
 ```bash
-# Pick any audit row
-sbo3l audit show --seq 42 --db /path/to/sbo3l.db
-# Re-derive the payload_hash from the JSON
-echo "$payload_json" | sbo3l audit canonical-hash
-# Compare to the stored payload_hash — must match byte-for-byte
+# Use sqlite to read one row directly
+sqlite3 /path/to/sbo3l.db \
+  "SELECT seq, payload, chain_hash_v2 FROM audit_events WHERE seq = 42"
+# Then re-export the bundle prefix containing that seq via
+# sbo3l audit export and run sbo3l audit verify-bundle on it.
 ```
+
+A single-row CLI inspector + canonical-hash printer is on the
+roadmap in [`docs/dev3/scope-cut-report.md`](../dev3/scope-cut-report.md).
 
 ### 3. Verify by external proof
 
 ```bash
 # Drop the corresponding capsule into the /proof page WASM verifier
-# (https://sbo3l.dev/proof or local equivalent)
-# Confirm 6/6 ✅ checks pass
+# (https://sbo3l-marketing.vercel.app/proof or local equivalent)
+# Confirm all strict-mode checks pass
 ```
+
+The capsule itself is produced by `sbo3l passport run` and verified offline by `sbo3l passport verify --strict --receipt-pubkey <hex> --audit-bundle <bundle.json> --policy <policy.json>`.
 
 ### 4. Verify the policy boundary
 
 ```bash
-# Re-derive the policy hash from the live policy file
-sbo3l policy current --hash
-# Compare to the ENS text record on the agent's ENS name
-# Confirm byte-for-byte match
+# Re-derive the policy hash from a snapshot
+sbo3l audit export ... --out /tmp/bundle.json
+# Inspect bundle.policy.policy_hash; compare to ENS text record
 ```
+
+`sbo3l policy current` is not a shipped subcommand. The bundle exported in step 1 carries the active policy hash inline; that is the canonical surface.
 
 ### 5. Verify chain Ed25519 signature
 
-```bash
-# Extract the daemon's pubkey from sbo3l-identity
-sbo3l identity export-pubkey
-# Verify the chain_hash_v2 signature against this pubkey for any row
-sbo3l audit verify-row --seq 42 --pubkey <hex>
-# Expected: "valid"
-```
+`sbo3l verify-audit --pubkey <hex>` from step 1 already verifies every event's signature. There is no `sbo3l audit verify-row` subcommand.
 
 ### 6. Verify chain Ed25519 cannot be forged without the key
 

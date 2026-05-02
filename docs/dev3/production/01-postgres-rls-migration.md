@@ -62,9 +62,13 @@ CREATE TABLE audit_events (
   ts_ms         BIGINT NOT NULL,
   kind          TEXT NOT NULL,
   agent_id      TEXT,
-  payload_jsonb JSONB NOT NULL,
-  INDEX idx_audit_tenant_ts (tenant_uuid, ts_ms DESC)
+  payload_jsonb JSONB NOT NULL
 );
+-- Postgres takes indexes as separate statements (the inline INDEX
+-- clause above is MySQL-style and will fail to parse on PG). The
+-- shipped migration in V020__postgres_init.sql already does this
+-- correctly; this doc snippet is the example any engineer would copy.
+CREATE INDEX idx_audit_tenant_ts ON audit_events (tenant_uuid, ts_ms DESC);
 
 CREATE TABLE capsules (
   capsule_id    TEXT PRIMARY KEY,
@@ -99,8 +103,31 @@ Daemon sets the GUC at the start of every transaction:
 SET LOCAL app.tenant_uuid = '<resolved-from-jwt>';
 ```
 
-A bug in the daemon that leaks the wrong UUID is contained by the RLS
-fence; misconfiguration shows up as empty results, not data leakage.
+RLS contains the failure mode where the daemon **forgets to set**
+`app.tenant_uuid` at all — `current_setting` errors out (or, with the
+`missing_ok = true` form, returns NULL), and the policy denies. That
+case shows up as empty result sets, not data leakage.
+
+**RLS does NOT contain the failure mode where the daemon sets the
+GUC to the wrong tenant's UUID** (e.g. via a JWT-claim mix-up). The
+policy then evaluates true for that other tenant's rows and serves
+them. Defence requires an explicit *application-layer* membership
+check before setting the GUC, e.g.:
+
+```rust
+let user_id = jwt.sub;
+let claimed_tenant = jwt.tenant;
+let allowed = memberships
+    .has(user_id, claimed_tenant)
+    .await?;                               // explicit auth check
+if !allowed { return Err(Forbidden); }
+sqlx::raw_sql(&format!(
+    "SET LOCAL app.tenant_uuid = '{}'", claimed_tenant
+)).execute(&mut *tx).await?;
+```
+
+Treat the GUC as a *consequence* of an authorization decision the
+application has already made, not a substitute for one.
 
 ## Migration steps
 
