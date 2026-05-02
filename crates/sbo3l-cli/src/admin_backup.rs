@@ -101,6 +101,7 @@ mod imp {
     use sbo3l_storage::Storage;
     use std::fs;
     use std::io::{BufWriter, Read, Write};
+    use std::path::Path;
 
     /// Tar entry name inside the archive. Single-entry — the
     /// archive carries exactly one SQLite snapshot.
