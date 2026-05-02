@@ -1,0 +1,98 @@
+{
+  "agents": [
+    {
+      "agent_id": "research-agent-01",
+      "capabilities": [
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "research-agent.sbo3lagent.eth",
+      "label": "research-agent",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/research-agent-01.json",
+      "pubkey_ed25519": "3c754c3aad07da711d90ef16665f46c53ad050c9b3764a68d444551ca3d22003",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "trading-agent-01",
+      "capabilities": [
+        "uniswap-swap",
+        "x402-purchase"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "trading-agent.sbo3lagent.eth",
+      "label": "trading-agent",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/trading-agent-01.json",
+      "pubkey_ed25519": "133a21dae2d13849c7756e1ee858319c419b8907c46a8e5917658264567713b1",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "swap-agent-01",
+      "capabilities": [
+        "uniswap-swap"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "swap-agent.sbo3lagent.eth",
+      "label": "swap-agent",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/swap-agent-01.json",
+      "pubkey_ed25519": "0f5c0bd2e3b4243ad14440015765fb7a9785e6fe4d567116a81d7b7832c041cc",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "audit-agent-01",
+      "capabilities": [
+        "audit-export",
+        "audit-verify"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "audit-agent.sbo3lagent.eth",
+      "label": "audit-agent",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/audit-agent-01.json",
+      "pubkey_ed25519": "c150336c92fd2e4812ef8e778df11ab99264bd017a0f540827378b7fea13df01",
+      "register_tx_hash": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "coordinator-agent-01",
+      "capabilities": [
+        "delegate",
+        "attest"
+      ],
+      "endpoint": "https://app.sbo3l.dev/v1",
+      "error": null,
+      "etherscan": null,
+      "fqdn": "coordinator-agent.sbo3lagent.eth",
+      "label": "coordinator-agent",
+      "multicall_tx_hash": null,
+      "policy_url": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/coordinator-agent-01.json",
+      "pubkey_ed25519": "3508179c76640b71b97e0bee1679b21b80b3c015ea153e1e55d47496e8d54f48",
+      "register_tx_hash": null,
+      "status": "pending"
+    }
+  ],
+  "generated_at_utc": "2026-05-01T11:00:00Z",
+  "network": "sepolia",
+  "parent": "sbo3lagent.eth",
+  "schema": "sbo3l.ens_fleet_manifest.v1",
+  "seed_doc": "sbo3l-ens-fleet-2026-05-01",
+  "totals": {
+    "agent_count": 5,
+    "failed": 0,
+    "gas_used_total": null,
+    "succeeded": 0
+  }
+}
