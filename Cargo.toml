@@ -14,7 +14,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.1"
+version = "1.2.0"
 edition = "2021"
 license = "MIT"
 authors = ["Daniel Babjak <babjak_daniel@hotmail.com>"]
@@ -76,15 +76,15 @@ url = "2"
 # survives). The IP-4 standalone adapter
 # (`crates/sbo3l-keeperhub-adapter`) needs `sbo3l-core` to be
 # publishable, which means the version must be declared here.
-sbo3l-core = { path = "crates/sbo3l-core", version = "1.0.1" }
-sbo3l-policy = { path = "crates/sbo3l-policy", version = "1.0.1" }
-sbo3l-storage = { path = "crates/sbo3l-storage", version = "1.0.1" }
-sbo3l-identity = { path = "crates/sbo3l-identity", version = "1.0.1" }
-sbo3l-execution = { path = "crates/sbo3l-execution", version = "1.0.1" }
-sbo3l-keeperhub-adapter = { path = "crates/sbo3l-keeperhub-adapter", version = "1.0.1" }
-sbo3l-mcp = { path = "crates/sbo3l-mcp", version = "1.0.1" }
-sbo3l-cli = { path = "crates/sbo3l-cli", version = "1.0.1" }
-sbo3l-server = { path = "crates/sbo3l-server", version = "1.0.1" }
+sbo3l-core = { path = "crates/sbo3l-core", version = "1.2.0" }
+sbo3l-policy = { path = "crates/sbo3l-policy", version = "1.2.0" }
+sbo3l-storage = { path = "crates/sbo3l-storage", version = "1.2.0" }
+sbo3l-identity = { path = "crates/sbo3l-identity", version = "1.2.0" }
+sbo3l-execution = { path = "crates/sbo3l-execution", version = "1.2.0" }
+sbo3l-keeperhub-adapter = { path = "crates/sbo3l-keeperhub-adapter", version = "1.2.0" }
+sbo3l-mcp = { path = "crates/sbo3l-mcp", version = "1.2.0" }
+sbo3l-cli = { path = "crates/sbo3l-cli", version = "1.2.0" }
+sbo3l-server = { path = "crates/sbo3l-server", version = "1.2.0" }
 
 [profile.release]
 lto = "thin"
