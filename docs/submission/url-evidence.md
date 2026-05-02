@@ -110,8 +110,8 @@ Until that's resolved, the Astro routes referenced in `live-url-inventory.md` an
 
 Web pages on `crates.io` and `npmjs.com` return 404/403 to `curl` (SPA + Cloudflare bot block). Verified live via machine APIs in [`live-url-inventory.md`](live-url-inventory.md):
 
-- 9 crates @ `1.0.1` via `https://crates.io/api/v1/crates/<name>` JSON
-- 6 npm packages @ `1.0.0` (SDK + integrations) via `https://registry.npmjs.org/<scope>/<name>` JSON
+- 9 crates @ `1.2.0` via `https://crates.io/api/v1/crates/<name>` JSON
+- 6 npm packages @ `1.0.0` / `1.2.0` (mixed) (SDK + integrations) via `https://registry.npmjs.org/<scope>/<name>` JSON
 - 5 PyPI packages @ `1.0.0` web HTTP 200 + JSON `https://pypi.org/pypi/<name>/json`
 
 ## Security headers summary

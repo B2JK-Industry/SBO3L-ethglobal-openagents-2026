@@ -19,8 +19,8 @@ This is the entry point. It indexes everything else. Pick a reading-time budget 
 ## ⏱️ If you have **5 minutes** — verify one capsule end-to-end
 
 ```bash
-# 1. Install the CLI from crates.io (already at v1.0.1; v1.2.0 in flight)
-cargo install sbo3l-cli --version 1.0.1
+# 1. Install the CLI from crates.io (already at v1.2.0; v1.2.0 in flight)
+cargo install sbo3l-cli --version 1.2.0
 
 # 2. Run the full Open-Agents demo (13 gates, ~30s)
 git clone --depth=1 https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
@@ -52,9 +52,9 @@ bash scripts/judges/verify-everything.sh
 ```
 
 What it checks:
-- 9 Rust crates installable from crates.io @ 1.0.1
+- 9 Rust crates installable from crates.io @ 1.2.0
 - 6 npm packages + 5 PyPI packages installable
-- `sbo3l --version` returns 1.0.1
+- `sbo3l --version` returns 1.2.0
 - ENS Registry mainnet RPC: `sbo3lagent.eth` resolver lookup
 - CCIP-Read gateway smoke fail-mode rejection
 - Marketing site / GitHub / ENS app HTTP 200
@@ -80,7 +80,7 @@ Each one-pager is ~500 words, evidence-linked, sponsor-specific:
 | Public proof verifier | https://sbo3l.dev/proof (preview routes pending Vercel root config) | 🟡 |
 | CCIP-Read gateway | https://sbo3l-ccip.vercel.app/ + smoke-fail https://sbo3l-ccip.vercel.app/api/0xdeadbeef/0x12345678.json | ✅ 200 / ✅ 400 (correct rejection) |
 | ENS mainnet apex | https://app.ens.domains/sbo3lagent.eth | ✅ 200; 5 records on chain |
-| GitHub releases | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases | ✅ v1.0.0 + v1.0.1 (v1.2.0 in flight) |
+| GitHub releases | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases | ✅ v1.0.0 + v1.2.0 (v1.2.0 in flight) |
 | crates.io / npm / PyPI | see [`live-url-inventory.md`](live-url-inventory.md) | 9 crates + 1 npm + 1 PyPI live; 8 framework-integration packages tagged but pending workflow trigger fix |
 
 ### Real-time visualisation

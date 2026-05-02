@@ -15,7 +15,7 @@ Tagline (preserved through the rebrand from Mandate): **Don't give your agent a 
 
 ```bash
 # 1. Install the CLI from crates.io
-cargo install sbo3l-cli --version 1.0.1
+cargo install sbo3l-cli --version 1.2.0
 
 # 2. Run the SBO3L server (any APRP request gets policy-decided + audited)
 sbo3l serve --db /tmp/sbo3l-judge.db &
@@ -51,11 +51,11 @@ Browser version of the same check at https://sbo3l.dev/proof — drop a capsule 
 | [`live-url-inventory.md`](live-url-inventory.md) | Every live URL SBO3L ships (cargo, npm, PyPI, marketing, docs, hosted, CCIP, releases) | judges + sponsor reviewers |
 | [`demo-video-script.md`](demo-video-script.md) | 3-minute walkthrough script (storyboard + voiceover) | Daniel before recording |
 | [`ETHGlobal-form-content.md`](ETHGlobal-form-content.md) | Ready-to-paste form fields per track | Daniel at submission time |
-| [`partner-onepagers/keeperhub.md`](partner-onepagers/keeperhub.md) | KeeperHub × SBO3L 1-pager + v1.0.1 install | KH team |
-| [`partner-onepagers/ens.md`](partner-onepagers/ens.md) | ENS × SBO3L 1-pager + v1.0.1 install | ENS team |
-| [`partner-onepagers/uniswap.md`](partner-onepagers/uniswap.md) | Uniswap × SBO3L 1-pager + v1.0.1 install | Uniswap team |
+| [`partner-onepagers/keeperhub.md`](partner-onepagers/keeperhub.md) | KeeperHub × SBO3L 1-pager + v1.2.0 install | KH team |
+| [`partner-onepagers/ens.md`](partner-onepagers/ens.md) | ENS × SBO3L 1-pager + v1.2.0 install | ENS team |
+| [`partner-onepagers/uniswap.md`](partner-onepagers/uniswap.md) | Uniswap × SBO3L 1-pager + v1.2.0 install | Uniswap team |
 
-The detailed integration docs at [`docs/partner-onepagers/`](../partner-onepagers/) remain authoritative for engineering audiences; the versions in this folder are submission-shaped (shorter, install-first, refreshed with v1.0.1 commands).
+The detailed integration docs at [`docs/partner-onepagers/`](../partner-onepagers/) remain authoritative for engineering audiences; the versions in this folder are submission-shaped (shorter, install-first, refreshed with v1.2.0 commands).
 
 ## What sponsor judges should look at
 

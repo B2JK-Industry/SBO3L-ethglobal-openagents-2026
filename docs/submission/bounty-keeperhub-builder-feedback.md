@@ -27,7 +27,7 @@ All five issues are linked from [`FEEDBACK.md`](https://github.com/B2JK-Industry
 
 **It's all reproducible.** Every issue has either a `curl` invocation or a Rust unit test that demonstrates the friction. None of the asks are aesthetic — they're all about making integration deterministic for third-party adapter authors. We expect any one of them to land within KeeperHub's normal docs/feature flow without coordination, since each is independent.
 
-**It's all from real integration work.** SBO3L's `KeeperHubExecutor::live_from_env()` was built end-to-end during the hackathon, against a real `wfb_…` token, against the real workflow `m4t4cnpmhv8qquce3bv3c`. The adapter is published standalone on crates.io (IP-4 path); anyone can `cargo add sbo3l-keeperhub-adapter@1.0.1` and reproduce the exact integration shape that surfaced these frictions.
+**It's all from real integration work.** SBO3L's `KeeperHubExecutor::live_from_env()` was built end-to-end during the hackathon, against a real `wfb_…` token, against the real workflow `m4t4cnpmhv8qquce3bv3c`. The adapter is published standalone on crates.io (IP-4 path); anyone can `cargo add sbo3l-keeperhub-adapter@1.2.0` and reproduce the exact integration shape that surfaced these frictions.
 
 ## Sponsor-specific value prop
 
