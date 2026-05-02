@@ -40,6 +40,8 @@ pub mod executor_callback;
 pub mod feature_flags;
 pub use feature_flags::FlagStore;
 
+pub mod metrics;
+
 #[cfg(feature = "ws_events")]
 pub mod ws_events;
 
@@ -77,6 +79,11 @@ pub struct AppInner {
     /// `/v1/admin/flags` mutate it at runtime + append a
     /// `flag_change` audit event. Cheap-clone Arc-backed.
     pub feature_flags: feature_flags::FlagStore,
+    /// R13 P7: process-local Prometheus + JSON metrics registry.
+    /// Read by both `/v1/metrics` (Prometheus text exposition) and
+    /// `/v1/admin/metrics` (apps/observability JSON). Always present —
+    /// no feature gate. Atomic interior; cheap to clone via Arc.
+    pub metrics: Arc<metrics::MetricsRegistry>,
     /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
     /// only with `--features ws_events`. The publish path inside
     /// `create_payment_request` checks `is_some()` and emits when
@@ -153,6 +160,7 @@ impl AppState {
             started_at: Instant::now(),
             callback_nonce_store: Arc::new(executor_callback::CallbackNonceStore::new()),
             feature_flags: feature_flags::FlagStore::from_env(),
+            metrics: Arc::new(metrics::MetricsRegistry::new()),
             #[cfg(feature = "ws_events")]
             ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
         }))
@@ -172,10 +180,26 @@ pub fn router(state: AppState) -> Router {
             "/v1/admin/flags",
             get(feature_flags::list_flags_handler).post(feature_flags::set_flag_handler),
         )
-        .route("/v1/admin/metrics", get(admin_metrics));
+        .route("/v1/admin/metrics", get(admin_metrics))
+        .route("/v1/metrics", get(prometheus_metrics));
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
     r.with_state(state)
+}
+
+/// `GET /v1/metrics` — Prometheus text exposition format. Scraped
+/// every N seconds by a Prometheus / OTEL collector.
+async fn prometheus_metrics(State(state): State<AppState>) -> Response {
+    let body = state.0.metrics.render_prometheus();
+    (
+        StatusCode::OK,
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4",
+        )],
+        body,
+    )
+        .into_response()
 }
 
 /// Legacy liveness probe. Returns the literal string `ok`. Kept for
@@ -366,19 +390,30 @@ async fn admin_metrics(State(state): State<AppState>) -> Response {
     let started_at_iso =
         (Utc::now() - chrono::Duration::seconds(started.elapsed().as_secs() as i64)).to_rfc3339();
 
+    // R13 P7: pull live counters + latency quantiles from the
+    // process-local metrics registry. Pre-P7 this returned placeholder
+    // zeros — the dashboard appeared green even when the daemon was
+    // overloaded. Now both `/v1/metrics` (Prometheus) and this JSON
+    // endpoint read from the same source of truth.
+    let q = inner.metrics.latency_quantiles();
+    let allows = inner.metrics.decisions_allow();
+    let denies = inner.metrics.decisions_deny();
+    let requires_human = inner.metrics.decisions_requires_human();
+    let requests = inner.metrics.requests_total();
+
     Json(MetricsSnapshot {
         bucket_seconds: 60,
         buckets: vec![MetricsBucket {
             ts: now.to_rfc3339(),
-            requests: 0,
-            allows: 0,
-            denies: 0,
-            requires_human: 0,
+            requests,
+            allows,
+            denies,
+            requires_human,
             audit_chain_length: length,
             latency_ms: MetricsLatency {
-                p50: 0.0,
-                p95: 0.0,
-                p99: 0.0,
+                p50: q.p50 * 1000.0,
+                p95: q.p95 * 1000.0,
+                p99: q.p99 * 1000.0,
             },
         }],
         daemon: MetricsDaemon {
@@ -704,6 +739,15 @@ async fn run_pipeline(
     inner: &Arc<AppInner>,
     body: Value,
 ) -> Result<PaymentRequestResponse, Problem> {
+    // R13 P7: stamp pipeline entry. Recorded into the metrics
+    // registry just before we return the success response, so the
+    // /v1/metrics histogram reflects schema-validate → policy →
+    // audit-append → receipt-sign latency. Excludes auth + idempotency
+    // claim (those run in the outer handler); that's the right
+    // boundary because the budget+audit transaction is the variable
+    // cost we're observing.
+    let pipeline_started = std::time::Instant::now();
+
     if let Err(e) = schema::validate_aprp(&body) {
         return Err(problem(
             e.code(),
@@ -923,6 +967,16 @@ async fn run_pipeline(
                 })?
         }
     };
+
+    // R13 P7: record the request in the metrics registry. Read by
+    // both /v1/metrics (Prometheus) and /v1/admin/metrics (JSON
+    // dashboard). Always recorded — no feature gate. The histogram
+    // captures end-to-end wall-clock from handler entry through
+    // signing, matching what an external Prometheus scrape would
+    // report against a load-test harness.
+    inner
+        .metrics
+        .record_request(pipeline_started.elapsed(), &receipt_decision);
 
     // T-3-5 backend: fan out the request outcome to the trust-dns viz
     // event bus. No-op when no subscribers are connected (broadcast
