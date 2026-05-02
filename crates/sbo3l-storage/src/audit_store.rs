@@ -30,6 +30,13 @@ const SELECT_AUDIT_PREFIX_BY_SEQ: &str =
      policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
      signature_key_id, signature_hex FROM audit_events WHERE seq <= ?1 ORDER BY seq ASC";
 
+/// Pushed-down pagination for `audit_list_paginated`.
+const SELECT_AUDIT_AFTER_SEQ_PAGINATED: &str =
+    "SELECT seq, id, ts, type, actor, subject_id, payload_hash, metadata_json, policy_version, \
+     policy_hash, attestation_ref, prev_event_hash, event_hash, signature_alg, \
+     signature_key_id, signature_hex FROM audit_events \
+     WHERE seq > ?1 ORDER BY seq ASC LIMIT ?2";
+
 const SELECT_AUDIT_SEQ_BY_ID: &str = "SELECT seq FROM audit_events WHERE id = ?1";
 
 /// Same column projection as [`SELECT_AUDIT_LAST`], filtered to a
@@ -159,6 +166,32 @@ impl Storage {
         let mut stmt = self.conn.prepare(SELECT_AUDIT_ALL_ORDERED)?;
         let rows = stmt
             .query_map([], row_to_signed_audit_event)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Pushed-down pagination over the audit chain. Returns up to
+    /// `limit` events with `seq > since_seq`, in ascending seq order.
+    /// Use `since_seq = 0` to start from genesis.
+    ///
+    /// **Why this exists:** the gRPC `AuditChainStream` RPC and the
+    /// admin events ring-replay path were both implemented against
+    /// [`audit_list`], filtering after-the-fact in Rust. That meant a
+    /// request asking for "10 events after seq=99000" still loaded
+    /// the entire 100K-event chain into memory. With this primitive
+    /// the cost scales with the page, not the chain. Self-review
+    /// finding §Bug 2 in `docs/dev1/self-review-r14.md`.
+    pub fn audit_list_paginated(
+        &self,
+        since_seq: u64,
+        limit: u64,
+    ) -> StorageResult<Vec<SignedAuditEvent>> {
+        let mut stmt = self.conn.prepare(SELECT_AUDIT_AFTER_SEQ_PAGINATED)?;
+        let rows = stmt
+            .query_map(
+                params![since_seq as i64, limit as i64],
+                row_to_signed_audit_event,
+            )?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     }
@@ -470,6 +503,38 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
         assert!(n >= 1, "at least one migration applied");
+    }
+
+    #[test]
+    fn audit_list_paginated_respects_since_seq_and_limit() {
+        let mut s = Storage::open_in_memory().unwrap();
+        let signer = DevSigner::from_seed("audit-signer-v1", [11u8; 32]);
+        // Seed a 5-event chain (seq 1..=5).
+        for i in 0..5 {
+            s.audit_append(
+                NewAuditEvent::now("policy_decided", "policy_engine", &format!("pr-{i}")),
+                &signer,
+            )
+            .unwrap();
+        }
+        // since_seq=2, limit=10 → events 3,4,5.
+        let page = s.audit_list_paginated(2, 10).unwrap();
+        let seqs: Vec<u64> = page.iter().map(|e| e.event.seq).collect();
+        assert_eq!(seqs, vec![3, 4, 5]);
+
+        // since_seq=0, limit=2 → events 1,2 (caps at limit).
+        let page = s.audit_list_paginated(0, 2).unwrap();
+        let seqs: Vec<u64> = page.iter().map(|e| e.event.seq).collect();
+        assert_eq!(seqs, vec![1, 2]);
+
+        // since_seq past chain head → empty page (no error).
+        let page = s.audit_list_paginated(99, 10).unwrap();
+        assert!(page.is_empty());
+
+        // limit=0 → empty page (no error). Edge case: callers that
+        // want the full chain should call audit_list() instead.
+        let page = s.audit_list_paginated(0, 0).unwrap();
+        assert!(page.is_empty());
     }
 
     #[test]
