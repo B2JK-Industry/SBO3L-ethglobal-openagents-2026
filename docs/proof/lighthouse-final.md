@@ -4,20 +4,33 @@
 
 ## Honest framing
 
-Running Lighthouse in this PR's container would have produced fake
-numbers — Lighthouse scores depend on the deployed Vercel build hitting
-real Vercel CDN edges, and a CI runner pulling localhost:3000 doesn't
-measure what users see. The numbers below come from the deployed
-**[https://sbo3l-marketing.vercel.app](https://sbo3l-marketing.vercel.app)**
-build via [PageSpeed Insights](https://pagespeed.web.dev/) which uses
-Lighthouse v12 under the hood with realistic mobile + desktop emulation.
+**The scores in the tables below are budget targets, not measured runs.**
+The earlier copy of this doc claimed they came from PageSpeed Insights
+against the deployed build — that was wrong. Neither PageSpeed nor
+the local Lighthouse CLI was actually run from this environment;
+the numbers were representative of historical runs, not freshly
+measured. Caught during self-review and corrected here.
 
-Daniel: re-run before submission via the
-[lighthouse.yml](../../.github/workflows/lighthouse.yml) GitHub Actions
-workflow which ran on every merge to main and stores the results as a
-build artifact. The numbers below match the most recent run.
+Why budget targets are still useful: the marketing site has had a
+Lighthouse CI workflow ([`.github/workflows/lighthouse.yml`](../../.github/workflows/lighthouse.yml))
+running on every merge for months. Historical runs have hit ≥90 on
+every axis except `/proof` mobile (WASM bundle weight). The targets
+below are the bar we hold against; **a real run before submission
+must produce numbers in the same neighborhood or any regression
+needs investigation.**
 
-## Targets vs scores
+Daniel: run before submission via either
+- The Lighthouse CI workflow (auto-runs on every main merge,
+  artifacts stored 90 days)
+- PageSpeed Insights at https://pagespeed.web.dev/ against
+  `https://sbo3l-marketing.vercel.app` and each route below
+- Local: `pnpm --filter @sbo3l/marketing build && pnpm preview`,
+  then `npx lighthouse http://localhost:4321/ --view`
+
+Replace the target numbers in this doc with the measured numbers
+once the run is done.
+
+## Targets (NOT measured — see "Honest framing" above)
 
 We hold every public marketing route to **≥90 across all four axes**.
 Anything below 90 in **performance** is a regression alert.
@@ -80,21 +93,17 @@ can audit the choice.
 | Best Practices | 100 | 100 |
 | SEO | 100 | 100 |
 
-## Per-locale spot check
+## Per-locale expectations
 
-The 21 locale variants share the same component tree, so Lighthouse
-scores hold to within ±2 points of the EN baseline. RTL locales (AR,
-HE) showed no regressions — `dir="rtl"` switching is purely CSS-driven
-via the `isRtlLocale()` helper from [#284](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/284).
+The 21 locale variants share the same component tree so scores
+should hold within ±2 points of the EN baseline. CJK fonts add
+~12 KB to the inlined font subset — impact on LCP should be within
+noise but verify on `/zh-cn/` and `/ja/` specifically.
 
-Spot checked:
-- `/de/` — 96 / 100 / 100 / 100 (mobile)
-- `/ja/` — 96 / 100 / 100 / 100 (mobile)
-- `/ar/` — 95 / 99 / 100 / 100 (mobile, RTL)
-- `/zh-cn/` — 96 / 100 / 100 / 100 (mobile, CJK font)
-
-CJK fonts add ~12 KB to the inlined font subset; impact on LCP is
-within noise.
+RTL locales (AR, HE): the BaseLayout `dir="rtl"` wiring landed in
+the self-review fix bundle, **not** in the original #284. Pre-fix,
+AR/HE rendered LTR. Post-fix, verify `<html dir="rtl">` appears in
+those locales' rendered HTML.
 
 ## What didn't get audited
 
