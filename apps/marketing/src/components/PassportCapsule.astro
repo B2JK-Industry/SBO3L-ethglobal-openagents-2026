@@ -1,0 +1,257 @@
+---
+// PassportCapsule — visual passport, two render modes.
+// R19 Wave 2 Task B. Converted from /tmp/sbo3l-design-kit/assets/passport.jsx.
+//
+// state="closed" → 320×448 cover (thumbnail)
+// state="open"   → 800×600 spread (cover left, decision right)
+//
+// Mounted on /proof (open, paired with WASM verifier) +
+// /demo step pages (closed thumbnail) + /try walkthrough step 8.
+
+interface Props {
+  state?: "closed" | "open";
+  width?: number;
+  agentId?: string;
+  ensName?: string;
+  decision?: "allow" | "deny";
+  requestHash?: string;
+  policyHash?: string;
+  auditLink?: string;
+  /** Which of the 6 cryptographic checks have been verified (visually
+      stamped). Pass an empty array (default) to render unstamped. */
+  verifiedChecks?: ("structural" | "request_hash" | "policy_hash" | "receipt_signature" | "audit_chain" | "audit_event_link")[];
+}
+
+const {
+  state = "closed",
+  width = state === "closed" ? 320 : 800,
+  agentId = "0x4f2a...c8b1",
+  ensName = "sbo3lagent.eth",
+  decision = "allow",
+  requestHash = "0x9c8a3e...7f12",
+  policyHash = "0x4d2f1b...a983",
+  auditLink = "0xee2c7a...19fe",
+  verifiedChecks = [],
+} = Astro.props;
+
+const isAllow = decision === "allow";
+const checks: { id: NonNullable<Props["verifiedChecks"]>[number]; label: string; cx: number; cy: number }[] = [
+  { id: "structural",        label: "struct",    cx: 30,  cy: 60  },
+  { id: "request_hash",      label: "request",   cx: 146, cy: 60  },
+  { id: "policy_hash",       label: "policy",    cx: 262, cy: 60  },
+  { id: "receipt_signature", label: "signature", cx: 30,  cy: 150 },
+  { id: "audit_chain",       label: "audit",     cx: 146, cy: 150 },
+  { id: "audit_event_link",  label: "event",     cx: 262, cy: 150 },
+];
+
+// MRZ-line text — same shape as ICAO 9303 lower band but encoding
+// SBO3L identity instead of passport-holder PII. Newlines + < chars
+// match the conventional machine-readable look.
+const mrz = `SBO3L<${ensName.toUpperCase().replace(/\./g, "<")}<<${requestHash.replace("0x", "").toUpperCase()}<<${policyHash.replace("0x", "").toUpperCase()}<<`;
+---
+{state === "closed" ? (
+  <svg
+    class="passport-closed"
+    viewBox="0 0 320 448"
+    width={width}
+    height={width * 1.4}
+    role="img"
+    aria-label="SBO3L Passport, closed cover"
+  >
+    <rect x="0" y="0" width="320" height="448" rx="6" class="cover" />
+    <rect x="20" y="20" width="280" height="408" rx="3" fill="none" class="cover-border" />
+    <text x="160" y="64" text-anchor="middle" class="brand-mark">SBO3L</text>
+    <line x1="120" y1="76" x2="200" y2="76" class="brand-rule" />
+    <g transform="translate(160 220)">
+      <rect x="-60" y="-44" width="120" height="88" rx="4" fill="none" class="emblem-frame" />
+      <path d="M -60 -44 L 0 4 L 60 -44" fill="none" class="emblem-fold" />
+      <circle cx="38" cy="22" r="14" class="emblem-seal" />
+      <text x="38" y="27" text-anchor="middle" class="emblem-num">3</text>
+    </g>
+    <text x="160" y="320" text-anchor="middle" class="title-passport">PASSPORT</text>
+    <text x="160" y="342" text-anchor="middle" class="title-version">CAPSULE · v1</text>
+    <line x1="80" y1="380" x2="240" y2="380" class="footer-rule" />
+    <text x="160" y="400" text-anchor="middle" class="footer-text">ISSUED BY SBO3L · OFFLINE-VERIFIABLE</text>
+    <rect x="0" y="40" width="2" height="368" class="spine" />
+  </svg>
+) : (
+  <svg
+    class="passport-open"
+    viewBox="0 0 800 600"
+    width={width}
+    height={width * 0.75}
+    role="img"
+    aria-label={`SBO3L Passport open spread for ${ensName}, ${decision}`}
+  >
+    <!-- Two-page spread + binding -->
+    <rect x="0" y="0" width="800" height="600" rx="6" class="page-bg" />
+    <line x1="400" y1="20" x2="400" y2="580" class="binding-1" />
+    <line x1="402" y1="20" x2="402" y2="580" class="binding-2" />
+
+    <!-- MRZ band -->
+    <rect x="20" y="540" width="760" height="40" fill="none" class="mrz-frame" />
+    <text x="32" y="565" class="mrz-text">{mrz}</text>
+
+    <!-- Left page: agent identity -->
+    <text x="40" y="50" class="page-label">AGENT IDENTITY</text>
+    <line x1="40" y1="60" x2="380" y2="60" class="page-rule" />
+
+    <rect x="40" y="80" width="100" height="120" fill="none" class="photo-frame" />
+    <g transform="translate(90 140)">
+      <rect x="-22" y="-22" width="44" height="44" rx="3" fill="none" class="avatar-body" />
+      <circle cx="-10" cy="-8" r="2" class="avatar-eye" />
+      <circle cx="10" cy="-8" r="2" class="avatar-eye" />
+      <line x1="-8" y1="8" x2="8" y2="8" class="avatar-mouth" />
+    </g>
+    <text x="90" y="220" text-anchor="middle" class="photo-caption">agent · 256×256</text>
+
+    <text x="160" y="92" class="field-label">ENS NAME</text>
+    <text x="160" y="108" class="field-value">{ensName}</text>
+    <text x="160" y="134" class="field-label">AGENT ID</text>
+    <text x="160" y="150" class="field-value">{agentId}</text>
+    <text x="160" y="176" class="field-label">REPUTATION</text>
+    <text x="160" y="192" class="reputation">0.94 / 1.00</text>
+    <rect x="160" y="200" width="180" height="4" class="rep-bar-bg" />
+    <rect x="160" y="200" width={180 * 0.94} height="4" class="rep-bar-fill" />
+
+    <text x="40" y="270" class="field-label">ISSUED</text>
+    <text x="40" y="286" class="field-issued">2026-05-03 14:22:08Z</text>
+    <text x="200" y="270" class="field-label">EXPIRES</text>
+    <text x="200" y="286" class="field-issued">2026-05-03 14:32:08Z</text>
+
+    <!-- 6 cryptographic check seals -->
+    <g transform="translate(40 310)">
+      <text x="0" y="0" class="seals-label">CRYPTOGRAPHIC CHECKS</text>
+      <line x1="0" y1="10" x2="340" y2="10" class="seals-rule" />
+      {checks.map((check) => {
+        const isVerified = verifiedChecks.includes(check.id);
+        return (
+          <g transform={`translate(${check.cx} ${check.cy})`} class={isVerified ? "seal verified" : "seal unverified"}>
+            <circle cx="0" cy="0" r="22" fill="none" class="seal-ring" />
+            <circle cx="0" cy="0" r="18" fill="none" class="seal-ring-inner" />
+            {isVerified && <path d="M -6 0 L -2 5 L 7 -5" fill="none" class="seal-tick" />}
+            <text x="0" y="36" text-anchor="middle" class="seal-label">{check.label}</text>
+          </g>
+        );
+      })}
+    </g>
+
+    <!-- Right page: decision -->
+    <text x="420" y="50" class="page-label">DECISION</text>
+    <line x1="420" y1="60" x2="760" y2="60" class="page-rule" />
+
+    <g transform="translate(620 130)" class={isAllow ? "decision-stamp allow" : "decision-stamp deny"}>
+      <rect x="-90" y="-30" width="180" height="60" rx="4" fill="none" class="stamp-frame" />
+      <rect x="-86" y="-26" width="172" height="52" rx="2" fill="none" class="stamp-frame-inner" />
+      <text x="0" y="8" text-anchor="middle" class="stamp-text">{decision.toUpperCase()}</text>
+      <line x1="-90" y1="-30" x2="-80" y2="-30" class="stamp-corner" />
+      <line x1="-90" y1="-30" x2="-90" y2="-20" class="stamp-corner" />
+      <line x1="80"  y1="30"  x2="90"  y2="30"  class="stamp-corner" />
+      <line x1="90"  y1="20"  x2="90"  y2="30"  class="stamp-corner" />
+    </g>
+
+    <text x="420" y="200" class="field-label">REQUEST HASH</text>
+    <text x="420" y="216" class="field-value">{requestHash}</text>
+    <text x="420" y="240" class="field-label">POLICY HASH</text>
+    <text x="420" y="256" class="field-value">{policyHash}</text>
+    <text x="420" y="280" class="field-label">AUDIT CHAIN LINK</text>
+    <text x="420" y="296" class="field-value">{auditLink}</text>
+    <text x="420" y="320" class="field-label">EXECUTOR EVIDENCE</text>
+    <text x="420" y="336" class="field-evidence">keeperhub://workflow/9c8a3e</text>
+
+    <g transform="translate(420 370)">
+      <rect x="0" y="0" width="340" height="80" rx="3" fill="none" class="action-frame" />
+      <text x="14" y="20" class="action-label">ACTION</text>
+      <text x="14" y="38" class="action-name">uniswap.swap</text>
+      <text x="14" y="58" class="action-detail">50,000 USDC → ETH · sepolia</text>
+      <text x="14" y="72" class="action-flags">max-slippage 50bps · MEV-guard ON</text>
+    </g>
+
+    <g transform="translate(420 470)">
+      <line x1="0" y1="20" x2="200" y2="20" class="sig-rule" />
+      <text x="0" y="36" class="sig-label">SIGNED · ed25519</text>
+      <text x="0" y="50" class="sig-value">0xa1b2…f3e4 · sbo3l-issuer-1</text>
+    </g>
+  </svg>
+)}
+
+<style>
+  /* Cover (closed) */
+  .cover { fill: #0e2a22; }
+  .cover-border { stroke: var(--accent); stroke-width: 1; opacity: 0.4; }
+  .brand-mark { font-family: var(--font-mono, ui-monospace); font-size: 10px; fill: var(--accent); letter-spacing: 3px; }
+  .brand-rule { stroke: var(--accent); stroke-width: 0.5; }
+  .emblem-frame { stroke: var(--accent); stroke-width: 2; }
+  .emblem-fold  { stroke: var(--accent); stroke-width: 1.5; }
+  .emblem-seal  { fill: #0e2a22; stroke: var(--accent); stroke-width: 1.5; }
+  .emblem-num   { font-family: var(--font-mono, ui-monospace); font-size: 14px; font-weight: 700; fill: var(--accent); }
+  .title-passport { font-family: var(--font-mono, ui-monospace); font-size: 14px; fill: var(--fg); letter-spacing: 3px; }
+  .title-version  { font-family: var(--font-mono, ui-monospace); font-size: 9px; fill: var(--muted); letter-spacing: 2px; }
+  .footer-rule { stroke: var(--accent); stroke-width: 0.5; opacity: 0.4; }
+  .footer-text { font-family: var(--font-mono, ui-monospace); font-size: 8px; fill: var(--muted); letter-spacing: 2px; }
+  .spine { fill: var(--accent); opacity: 0.5; }
+
+  /* Open spread */
+  .page-bg { fill: #14141c; }
+  .binding-1 { stroke: var(--border); stroke-width: 1; }
+  .binding-2 { stroke: var(--border); stroke-width: 0.5; opacity: 0.4; }
+
+  .mrz-frame { stroke: var(--border); stroke-width: 0.5; }
+  .mrz-text  { font-family: var(--font-mono, ui-monospace); font-size: 10px; fill: var(--muted); letter-spacing: 1.5px; }
+
+  .page-label { font-family: var(--font-mono, ui-monospace); font-size: 10px; fill: var(--muted); letter-spacing: 2px; }
+  .page-rule  { stroke: var(--accent); stroke-width: 1; }
+
+  .photo-frame { stroke: var(--border); stroke-width: 1; }
+  .avatar-body { stroke: var(--muted); stroke-width: 1.5; }
+  .avatar-eye  { fill: var(--muted); }
+  .avatar-mouth { stroke: var(--muted); stroke-width: 1.5; }
+  .photo-caption { font-family: var(--font-mono, ui-monospace); font-size: 8px; fill: var(--muted); }
+
+  .field-label { font-family: var(--font-mono, ui-monospace); font-size: 9px; fill: var(--muted); letter-spacing: 1px; }
+  .field-value { font-family: var(--font-mono, ui-monospace); font-size: 12px; fill: var(--fg); }
+  .field-issued { font-family: var(--font-mono, ui-monospace); font-size: 11px; fill: var(--fg); }
+  .reputation  { font-family: var(--font-mono, ui-monospace); font-size: 13px; fill: var(--accent); }
+  .rep-bar-bg  { fill: var(--border); }
+  .rep-bar-fill { fill: var(--accent); }
+
+  .seals-label { font-family: var(--font-mono, ui-monospace); font-size: 10px; fill: var(--muted); letter-spacing: 2px; }
+  .seals-rule  { stroke: var(--border); stroke-width: 1; }
+  .seal-ring        { stroke: var(--accent); stroke-width: 1.5; }
+  .seal-ring-inner  { stroke: var(--accent); stroke-width: 0.5; stroke-dasharray: 2 2; }
+  .seal-tick        { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .seal-label       { font-family: var(--font-mono, ui-monospace); font-size: 8px; fill: var(--fg); }
+  .seal.unverified .seal-ring,
+  .seal.unverified .seal-ring-inner { stroke: var(--muted); opacity: 0.4; }
+  .seal.unverified .seal-label { fill: var(--muted); opacity: 0.6; }
+
+  /* Decision stamp */
+  .decision-stamp.allow .stamp-frame,
+  .decision-stamp.allow .stamp-text,
+  .decision-stamp.allow .stamp-corner { stroke: var(--accent); }
+  .decision-stamp.allow .stamp-frame-inner { stroke: var(--accent); }
+  .decision-stamp.allow .stamp-text { fill: var(--accent); }
+  .decision-stamp.deny .stamp-frame,
+  .decision-stamp.deny .stamp-text,
+  .decision-stamp.deny .stamp-corner { stroke: #e06b6b; }
+  .decision-stamp.deny .stamp-frame-inner { stroke: #e06b6b; }
+  .decision-stamp.deny .stamp-text { fill: #e06b6b; }
+  .stamp-frame { stroke-width: 2.5; fill: none; }
+  .stamp-frame-inner { stroke-width: 0.5; stroke-dasharray: 2 2; fill: none; }
+  .stamp-text  { font-family: var(--font-mono, ui-monospace); font-size: 22px; font-weight: 700; letter-spacing: 6px; }
+  .stamp-corner { stroke-width: 2; }
+
+  .field-evidence { font-family: var(--font-mono, ui-monospace); font-size: 11px; fill: var(--fg); }
+
+  .action-frame { stroke: var(--border); stroke-width: 1; }
+  .action-label { font-family: var(--font-mono, ui-monospace); font-size: 9px; fill: var(--muted); letter-spacing: 1px; }
+  .action-name  { font-family: var(--font-mono, ui-monospace); font-size: 13px; fill: var(--fg); }
+  .action-detail { font-family: var(--font-mono, ui-monospace); font-size: 11px; fill: var(--muted); }
+  .action-flags  { font-family: var(--font-mono, ui-monospace); font-size: 9px;  fill: var(--muted); }
+
+  .sig-rule  { stroke: var(--accent); stroke-width: 1; }
+  .sig-label { font-family: var(--font-mono, ui-monospace); font-size: 9px; fill: var(--muted); letter-spacing: 1px; }
+  .sig-value { font-family: var(--font-mono, ui-monospace); font-size: 10px; fill: var(--fg); }
+
+  svg { display: block; }
+</style>

@@ -1,8 +1,16 @@
 ---
 import BaseLayout from "~/layouts/BaseLayout.astro";
 import PassportVerifier from "~/components/PassportVerifier.astro";
+import PassportCapsule from "~/components/PassportCapsule.astro";
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+
+// PassportCapsule "open" spread is rendered alongside the WASM verifier
+// as a visual reference for what a verified capsule looks like. The
+// `verifiedChecks` prop is empty by default — when the user pastes a
+// capsule and clicks Verify, JS could update this view, but at SSR
+// time we render the unverified state. /proof is build-time static
+// so the visual is a reference card, not a live status.
 ---
 <BaseLayout
   title="SBO3L — Verify a Passport capsule in your browser"
@@ -21,7 +29,18 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
     </p>
   </section>
 
-  <PassportVerifier />
+  <section class="verifier-pair">
+    <div class="passport-side">
+      <PassportCapsule state="open" width={760} />
+      <p class="passport-caption">
+        Visual reference: the SBO3L Passport spread. Left page carries
+        agent identity + the six cryptographic check seals; right page
+        stamps the decision. The verifier on this page runs the same
+        six checks against any capsule JSON you paste below.
+      </p>
+    </div>
+    <PassportVerifier />
+  </section>
 
   <section class="docs">
     <h2>What gets checked</h2>
@@ -55,6 +74,24 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
     .hero { max-width: var(--max); margin: 2em auto 1em; padding: 0 1.5em; }
     .hero h1 { margin: 0 0 0.4em; }
     .lede { color: var(--muted); margin: 0; }
+
+    .verifier-pair {
+      max-width: var(--max);
+      margin: 2em auto;
+      padding: 0 1.5em;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2em;
+      align-items: start;
+    }
+    .passport-side { min-width: 0; }
+    .passport-caption {
+      margin: 1em 0 0;
+      color: var(--muted);
+      font-size: 0.9em;
+      line-height: 1.55;
+    }
+
     .docs {
       max-width: var(--max);
       margin: 2em auto;
@@ -65,5 +102,9 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
     .docs ol { padding-left: 1.4em; }
     .docs ol li { margin-bottom: 0.4em; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+
+    @media (max-width: 1024px) {
+      .verifier-pair { grid-template-columns: 1fr; }
+    }
   </style>
 </BaseLayout>
