@@ -1,0 +1,166 @@
+// SBO3L gRPC API — R14 P1.
+//
+// Wraps the same `run_pipeline` that backs `POST /v1/payment-requests` on
+// the REST surface. Wire shape:
+//
+//   * `DecideRequest.aprp_json` carries a JSON-encoded APRP body — the
+//     identical bytes a REST caller would `POST` to /v1/payment-requests.
+//     We deliberately keep this opaque rather than re-projecting every
+//     APRP field into proto: the canonical APRP schema lives in
+//     `schemas/agent_payment_request_v1.json` and changes additively;
+//     mirroring it into proto would force a round-trip-compatibility
+//     burden across two schemas. The caller serialises their APRP once
+//     and the server runs the existing schema validator.
+//
+//   * `DecideResponse` mirrors the REST `PaymentRequestResponse` 1:1
+//     (status / decision / deny_code / matched_rule_id / request_hash /
+//     policy_hash / audit_event_id). The signed `PolicyReceipt` is also
+//     returned as a JSON-encoded string for the same reason: the receipt
+//     is canonical-JSON-signed (Ed25519 over the JSON minus the
+//     signature field). Re-projecting it into proto would either break
+//     verification (different canonical form) or require shipping the
+//     JSON verbatim alongside the proto fields — we choose the latter
+//     by making the receipt a plain string.
+//
+//   * Errors are surfaced via the standard tonic `Status`: gRPC status
+//     code maps from the REST Problem (4xx → INVALID_ARGUMENT /
+//     FAILED_PRECONDITION / ALREADY_EXISTS, 5xx → INTERNAL). The original
+//     Problem `code` (e.g. `protocol.nonce_replay`) is placed in
+//     `Status::message` so callers can `match` on it.
+
+syntax = "proto3";
+
+package sbo3l.v1;
+
+// `Sbo3l` is the umbrella service. RPCs live here so a single tonic
+// channel reaches every endpoint without re-binding ports.
+service Sbo3l {
+  // Decide — runs the policy pipeline against an APRP body and returns
+  // the signed PolicyReceipt + audit event id. This is the gRPC twin of
+  // `POST /v1/payment-requests`. Idempotency-Key semantics are NOT
+  // mirrored in this scaffold: gRPC's HTTP/2 trailers don't surface
+  // arbitrary headers cleanly through tonic, and the REST flow already
+  // covers safe-retry. Future revisions may add an `idempotency_key`
+  // field on the request directly.
+  rpc Decide(DecideRequest) returns (DecideResponse);
+
+  // Health — minimal liveness probe. Returns version + audit chain head
+  // + length so a load balancer can confirm the daemon is responsive
+  // and the audit chain is advancing.
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  // AuditChainStream — server-streaming RPC that emits one event per
+  // audit row, in chain order, then terminates. Used by external
+  // verifiers that want to walk the chain without polling
+  // `GET /v1/admin/events` over WebSocket. Optional in scope; ships
+  // here because the implementation is a thin wrapper over the
+  // existing `Storage::list_audit_events` cursor.
+  rpc AuditChainStream(AuditChainRequest) returns (stream AuditChainEvent);
+}
+
+// ---------------------------------------------------------------------
+// Decide
+// ---------------------------------------------------------------------
+
+message DecideRequest {
+  // JSON-encoded APRP body. The server runs the same schema validator
+  // (`sbo3l_core::schema::validate_aprp`) the REST handler uses, so
+  // invalid bytes produce a `Status::invalid_argument` with the
+  // schema error code as the message.
+  string aprp_json = 1;
+}
+
+message DecideResponse {
+  // Mirrors `PaymentStatus` from the REST surface: AUTO_APPROVED |
+  // REJECTED | REQUIRES_HUMAN. The wire enum reserves zero for
+  // "unspecified" per proto3 convention so an old client reading a
+  // new server doesn't crash on an unknown variant.
+  PaymentStatus status = 1;
+  // Mirrors `Decision`: ALLOW | DENY | REQUIRES_HUMAN.
+  Decision decision = 2;
+  // Empty when decision = ALLOW. Set to e.g. `budget.daily_limit` on
+  // a deny so callers can branch without parsing the receipt.
+  string deny_code = 3;
+  // Empty when no policy rule matched (e.g. the default-deny path).
+  string matched_rule_id = 4;
+  // SHA-256 of the canonical APRP JSON. Same value the REST surface
+  // returns; useful for cross-protocol dedup.
+  string request_hash = 5;
+  // SHA-256 of the policy JSON the daemon evaluated against.
+  string policy_hash = 6;
+  // ULID of the audit event row written by this decision.
+  string audit_event_id = 7;
+  // JSON-encoded `PolicyReceipt` — the signed receipt. Returned as
+  // an opaque string so the canonical-JSON signature check on the
+  // verifier side reads the same bytes the server signed. See file
+  // header for rationale.
+  string receipt_json = 8;
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_AUTO_APPROVED = 1;
+  PAYMENT_STATUS_REJECTED = 2;
+  PAYMENT_STATUS_REQUIRES_HUMAN = 3;
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_ALLOW = 1;
+  DECISION_DENY = 2;
+  DECISION_REQUIRES_HUMAN = 3;
+}
+
+// ---------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------
+
+message HealthRequest {}
+
+message HealthResponse {
+  // Always "ok" on a successful response. The RPC fails with
+  // `Status::unavailable` when storage is unreachable — the structured
+  // failure mode the REST `/v1/healthz` returns as a 503.
+  string status = 1;
+  // Cargo package version of `sbo3l-server`. Useful for confirming a
+  // new build actually deployed.
+  string version = 2;
+  // Hex-encoded `event_hash` of the latest audit row. Empty string
+  // when the chain is empty (fresh daemon, no requests yet).
+  string audit_chain_head = 3;
+  // Number of audit rows in the chain.
+  uint64 audit_chain_length = 4;
+  // Wall-clock seconds since the daemon started.
+  uint64 uptime_seconds = 5;
+}
+
+// ---------------------------------------------------------------------
+// AuditChainStream
+// ---------------------------------------------------------------------
+
+message AuditChainRequest {
+  // Only emit events with `seq > since_seq`. Defaults to 0 (full
+  // chain). Matches the cursor pattern used by the REST admin events
+  // endpoint.
+  uint64 since_seq = 1;
+  // Hard cap on the number of events emitted before the stream
+  // terminates. Zero means "emit everything available". The default
+  // is set server-side to a sensible page size when the request value
+  // is zero — see grpc.rs.
+  uint64 limit = 2;
+}
+
+message AuditChainEvent {
+  // Monotonic chain index.
+  uint64 seq = 1;
+  // ULID of the row.
+  string event_id = 2;
+  // Hex-encoded SHA-256 of the canonical event body — the chain link.
+  string event_hash = 3;
+  // Hex-encoded `event_hash` of the previous row, empty for seq=1.
+  string prev_event_hash = 4;
+  // Free-form event type (`policy_decided`, `flag_change`, ...).
+  string event_type = 5;
+  // RFC3339 timestamp of the event.
+  string ts = 6;
+}
