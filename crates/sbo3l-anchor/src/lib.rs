@@ -73,7 +73,7 @@ pub mod registry;
 
 pub use digest::{audit_root, AuditRootError};
 pub use registry::{
-    build_dry_run_envelope, write_anchor_calldata, AnchorRegistryError, AuditAnchorEnvelope,
-    AuditAnchorNetwork, ANCHOR_REGISTRY_MAINNET, ANCHOR_REGISTRY_SEPOLIA,
-    AUDIT_ANCHOR_ENVELOPE_SCHEMA, WRITE_ANCHOR_SELECTOR,
+    build_dry_run_envelope, claim_tenant_calldata, publish_anchor_calldata, AnchorRegistryError,
+    AuditAnchorEnvelope, AuditAnchorNetwork, ANCHOR_REGISTRY_MAINNET, ANCHOR_REGISTRY_SEPOLIA,
+    AUDIT_ANCHOR_ENVELOPE_SCHEMA, CLAIM_TENANT_SELECTOR, PUBLISH_ANCHOR_SELECTOR,
 };
