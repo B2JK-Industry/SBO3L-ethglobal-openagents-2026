@@ -20,6 +20,7 @@ mod agent_verify;
 mod audit_anchor;
 mod audit_anchor_ens;
 mod audit_checkpoint;
+mod audit_verify_anchor;
 mod doctor;
 mod key;
 mod passport;
@@ -751,6 +752,28 @@ enum AuditCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+
+    /// Read-side mirror of `Anchor` — fetches an Ethereum tx by
+    /// hash, decodes its `publishAnchor` calldata, and asserts the
+    /// on-chain `auditRoot` matches the local audit chain head's
+    /// recomputed digest.
+    ///
+    /// No private keys, no broadcast. Safe to run from a judge's
+    /// terminal against any public Sepolia RPC.
+    VerifyAnchor {
+        /// 0x-prefixed Ethereum tx hash (66 chars including 0x).
+        tx_hash: String,
+        /// `mainnet` | `sepolia`. Default `sepolia`.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+        /// Local SBO3L SQLite DB to recompute the audit root from.
+        #[arg(long)]
+        db: PathBuf,
+        /// JSON-RPC endpoint. Falls back to SBO3L_RPC_URL env, else
+        /// a public PublicNode endpoint for the network.
+        #[arg(long)]
+        rpc_url: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -913,6 +936,20 @@ fn main() -> ExitCode {
             rpc_url,
             private_key_env_var,
             out,
+        }),
+        Command::Audit {
+            op:
+                AuditCmd::VerifyAnchor {
+                    tx_hash,
+                    network,
+                    db,
+                    rpc_url,
+                },
+        } => audit_verify_anchor::cmd_audit_verify_anchor(audit_verify_anchor::VerifyAnchorArgs {
+            tx_hash,
+            network,
+            db,
+            rpc_url,
         }),
         Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
         Command::Key {

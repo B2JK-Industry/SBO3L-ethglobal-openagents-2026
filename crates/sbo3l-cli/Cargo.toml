@@ -57,6 +57,9 @@ ulid = { workspace = true }
 tempfile = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+# `audit verify-anchor` calls eth_getTransactionByHash via JSON-RPC.
+# Workspace reqwest already with rustls-tls + json features.
+reqwest = { workspace = true }
 # T-3-1 broadcast: optional alloy stack for `sbo3l agent register --broadcast`.
 # Feature-gated so default `cargo build -p sbo3l-cli` stays fast — alloy
 # pulls ~150 transitive crates. Operators wanting broadcast build with
