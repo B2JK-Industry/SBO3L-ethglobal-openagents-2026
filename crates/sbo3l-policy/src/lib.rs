@@ -1,5 +1,6 @@
 //! SBO3L policy: YAML/JSON policy parsing and rule evaluation.
 
+#[cfg(feature = "budget")]
 pub mod budget;
 pub mod cross_chain_reputation;
 pub mod engine;
@@ -15,6 +16,7 @@ pub use cross_chain_reputation::{
 };
 pub use reputation::{compute_reputation, Reputation, ReputationRow};
 
+#[cfg(feature = "budget")]
 pub use budget::{BudgetDeny, BudgetTracker};
 pub use engine::{decide, Decision, EngineError, Outcome};
 pub use mev_guard::{

@@ -512,7 +512,7 @@ mod tests {
         // Seed a 5-event chain (seq 1..=5).
         for i in 0..5 {
             s.audit_append(
-                NewAuditEvent::now("policy_decided", "policy_engine", &format!("pr-{i}")),
+                NewAuditEvent::now("policy_decided", "policy_engine", format!("pr-{i}")),
                 &signer,
             )
             .unwrap();
