@@ -1,6 +1,6 @@
 {
   "name": "@sbo3l/vercel-ai",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Vercel AI SDK adapter for SBO3L — wrap an APRP submit as an `ai.tool()` with zod parameters.",
   "license": "MIT",
   "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
