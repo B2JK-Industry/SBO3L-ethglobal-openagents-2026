@@ -89,10 +89,20 @@ function fmtUtcDateTime(iso: string): string {
             <code class="exec-id">{row.execution_id}</code>
             <span class="agent">{row.agent_id}</span>
             <span class={`decision ${row.decision}`}>{row.decision}</span>
-            <a class="capsule-link" href={row.capsule_url}>verify capsule →</a>
+            <a class="capsule-link" href="/proof">verify capsule format →</a>
           </article>
         ))}
       </div>
+      <p class="rows-footnote">
+        Codex review fix (PR #392): row links go to <a href="/proof">/proof</a>
+        with no query string today — pre-filling the verifier from a row's
+        <code>execution_id</code> requires the daemon's
+        <code>/v1/capsules/&lt;id&gt;</code> retrieval endpoint, which is
+        roadmap. The proof page now also accepts a
+        <code>?capsule=&lt;base64url&gt;</code> query parameter for direct
+        sharing of capsule JSON, so once retrieval lands, deep-linking
+        each row works without a UI change.
+      </p>
     </section>
 
     <section class="cta-card">
@@ -205,6 +215,15 @@ sbo3l-server &amp;
   .decision.deny  { background: rgba(248, 113, 113, 0.15); color: #f87171; }
   .capsule-link { color: var(--accent); text-decoration: none; font-size: 0.85em; text-align: right; }
   .capsule-link:hover { text-decoration: underline; }
+  .rows-footnote {
+    margin-top: 1em;
+    color: var(--muted);
+    font-size: 0.84em;
+    line-height: 1.55;
+    max-width: 760px;
+  }
+  .rows-footnote code { background: var(--code-bg); padding: 0.05em 0.35em; border-radius: 3px; font-size: 0.95em; }
+  .rows-footnote a { color: var(--accent); }
 
   .cta-card {
     background: var(--code-bg);
