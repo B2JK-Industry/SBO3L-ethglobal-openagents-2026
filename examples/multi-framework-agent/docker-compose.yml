@@ -30,6 +30,11 @@ services:
       # acknowledges the non-loopback bind (the F-4 safety gate).
       SBO3L_LISTEN: "0.0.0.0:8730"
       SBO3L_ALLOW_UNSAFE_PUBLIC_BIND: "1"
+      # F-5 signer-factory gate: production-mode lockout in
+      # crates/sbo3l-core/src/eth_signer/factory.rs requires both env
+      # vars to be set explicitly. Demo containers use public dev seeds.
+      SBO3L_SIGNER_BACKEND: "dev"
+      SBO3L_DEV_ONLY_SIGNER: "1"
     ports:
       - "8730:8730"
     healthcheck:
