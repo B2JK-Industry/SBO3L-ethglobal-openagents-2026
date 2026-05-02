@@ -37,6 +37,9 @@ pub use auth::AuthConfig;
 
 pub mod executor_callback;
 
+pub mod feature_flags;
+pub use feature_flags::FlagStore;
+
 #[cfg(feature = "ws_events")]
 pub mod ws_events;
 
@@ -69,6 +72,11 @@ pub struct AppInner {
     /// constructed (no feature gate) — the `/v1/executor-callback`
     /// route is part of the base daemon surface.
     pub callback_nonce_store: Arc<executor_callback::CallbackNonceStore>,
+    /// Hot-reloadable feature flags. Seeded from env at startup
+    /// (`SBO3L_FLAG_<KEY>=true|false`); admin POSTs to
+    /// `/v1/admin/flags` mutate it at runtime + append a
+    /// `flag_change` audit event. Cheap-clone Arc-backed.
+    pub feature_flags: feature_flags::FlagStore,
     /// T-3-5 backend: live event bus for `apps/trust-dns-viz/`. Built
     /// only with `--features ws_events`. The publish path inside
     /// `create_payment_request` checks `is_some()` and emits when
@@ -144,6 +152,7 @@ impl AppState {
             auth,
             started_at: Instant::now(),
             callback_nonce_store: Arc::new(executor_callback::CallbackNonceStore::new()),
+            feature_flags: feature_flags::FlagStore::from_env(),
             #[cfg(feature = "ws_events")]
             ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
         }))
@@ -158,6 +167,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/v1/executor-callback",
             post(executor_callback::executor_callback_handler),
+        )
+        .route(
+            "/v1/admin/flags",
+            get(feature_flags::list_flags_handler).post(feature_flags::set_flag_handler),
         );
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
