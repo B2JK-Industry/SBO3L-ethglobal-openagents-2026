@@ -103,12 +103,16 @@ echo "==> forge test (unit tests against the mock signer)"
 echo
 echo "==> forge create OffchainResolver on $NETWORK"
 
+# The url template MUST be JSON-quoted inside the array literal, or
+# forge's tokenizer mis-parses the unbalanced `{}` inside the URL
+# (Heidi UAT 2026-05-03 caught the original Sepolia deploy storing
+# `"...{sender/{data}.json}"` instead of `"...{sender}/{data}.json"`).
 DEPLOY_OUTPUT=$(cd "$CONTRACTS_DIR" && forge create \
     OffchainResolver.sol:OffchainResolver \
     --rpc-url "$RPC_URL" \
     --private-key "$SBO3L_DEPLOYER_PRIVATE_KEY" \
     --broadcast \
-    --constructor-args "$GATEWAY_SIGNER_ADDRESS" "[$GATEWAY_URL_TEMPLATE]")
+    --constructor-args "$GATEWAY_SIGNER_ADDRESS" "[\"$GATEWAY_URL_TEMPLATE\"]")
 
 echo "$DEPLOY_OUTPUT"
 

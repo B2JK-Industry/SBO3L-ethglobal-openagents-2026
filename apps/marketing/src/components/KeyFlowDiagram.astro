@@ -1,0 +1,268 @@
+---
+// "Where keys live" diagram. Built per reviewer (z02) feedback
+// 2026-05-02: "Vyrobiť diagram 'where keys live'. Toto je jadro
+// projektu. Treba vizuálne ukázať, že agent nemá kľúč, signer je za
+// boundary, audit je append-only, executor sa volá až po allow."
+//
+// Inline SVG (no external assets, CSP-safe under our default-src
+// 'self' policy). Prefers-reduced-motion respected — animation gated.
+---
+<figure class="keyflow" aria-labelledby="keyflow-title">
+  <figcaption id="keyflow-title">
+    <strong>Where the keys live.</strong>
+    The agent never holds a signing key. The signer lives behind the
+    SBO3L policy boundary. The executor is only ever called after a
+    deterministic allow decision is signed and chained.
+  </figcaption>
+
+  <svg viewBox="0 0 920 360" role="img" aria-label="SBO3L key custody flow diagram"
+       xmlns="http://www.w3.org/2000/svg" class="keyflow-svg">
+    <!-- ============================== AGENT ============================== -->
+    <g class="zone agent" transform="translate(20,40)">
+      <rect x="0" y="0" width="200" height="280" rx="12" />
+      <text x="100" y="32" class="zone-title">AI Agent</text>
+      <text x="100" y="58" class="zone-sub">no signing key</text>
+
+      <g class="key-status no-key" transform="translate(100,130)">
+        <circle r="38" />
+        <text y="-2" class="key-glyph">🔑</text>
+        <text y="22" class="key-label">none</text>
+      </g>
+
+      <text x="100" y="220" class="zone-detail">
+        <tspan x="100" dy="0">demo gate 12 grep-asserts</tspan>
+        <tspan x="100" dy="14">no SigningKey refs in</tspan>
+        <tspan x="100" dy="14">demo-agents/research-agent/</tspan>
+      </text>
+    </g>
+
+    <!-- agent → daemon arrow -->
+    <g class="arrow" transform="translate(220,180)">
+      <line x1="0" y1="0" x2="50" y2="0" />
+      <polygon points="50,-6 60,0 50,6" />
+      <text x="30" y="-12" text-anchor="middle">APRP</text>
+      <text x="30" y="22" text-anchor="middle">request</text>
+    </g>
+
+    <!-- ============================ BOUNDARY ============================ -->
+    <g class="zone boundary" transform="translate(290,20)">
+      <rect x="0" y="0" width="340" height="320" rx="12" />
+      <text x="170" y="28" class="zone-title">SBO3L Daemon — policy boundary</text>
+      <text x="170" y="50" class="zone-sub">Ed25519 signer · audit log · executor proxy</text>
+
+      <!-- pipeline steps -->
+      <g class="pipeline" transform="translate(20,70)">
+        <g class="step" transform="translate(0,0)">
+          <rect x="0" y="0" width="300" height="34" rx="6" />
+          <text x="14" y="22">1 · schema validate (deny_unknown_fields)</text>
+        </g>
+        <g class="step" transform="translate(0,42)">
+          <rect x="0" y="0" width="300" height="34" rx="6" />
+          <text x="14" y="22">2 · canonical request hash + nonce gate</text>
+        </g>
+        <g class="step" transform="translate(0,84)">
+          <rect x="0" y="0" width="300" height="34" rx="6" />
+          <text x="14" y="22">3 · deterministic policy decision</text>
+        </g>
+        <g class="step" transform="translate(0,126)">
+          <rect x="0" y="0" width="300" height="34" rx="6" />
+          <text x="14" y="22">4 · multi-scope budget commit</text>
+        </g>
+        <g class="step signer" transform="translate(0,168)">
+          <rect x="0" y="0" width="300" height="34" rx="6" />
+          <text x="14" y="22">5 · 🔑 Ed25519 sign (key behind boundary)</text>
+        </g>
+        <g class="step audit" transform="translate(0,210)">
+          <rect x="0" y="0" width="300" height="34" rx="6" />
+          <text x="14" y="22">6 · hash-chained audit append (SQLite)</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- daemon → executor arrow -->
+    <g class="arrow allow" transform="translate(630,140)">
+      <line x1="0" y1="0" x2="50" y2="0" />
+      <polygon points="50,-6 60,0 50,6" />
+      <text x="30" y="-12" text-anchor="middle">allow</text>
+      <text x="30" y="22" text-anchor="middle">+ signed envelope</text>
+    </g>
+
+    <!-- daemon → blocked arrow (deny path) -->
+    <g class="arrow deny" transform="translate(630,220)">
+      <line x1="0" y1="0" x2="50" y2="0" stroke-dasharray="4 4" />
+      <text x="30" y="-12" text-anchor="middle">deny</text>
+      <text x="30" y="22" text-anchor="middle">⛔ never called</text>
+    </g>
+
+    <!-- ============================= EXECUTOR ============================ -->
+    <g class="zone executor" transform="translate(700,40)">
+      <rect x="0" y="0" width="200" height="280" rx="12" />
+      <text x="100" y="32" class="zone-title">Executor</text>
+      <text x="100" y="58" class="zone-sub">KeeperHub · Uniswap · …</text>
+
+      <g class="key-status sponsor-key" transform="translate(100,130)">
+        <circle r="38" />
+        <text y="-2" class="key-glyph">🔑</text>
+        <text y="22" class="key-label">sponsor's</text>
+      </g>
+
+      <text x="100" y="220" class="zone-detail">
+        <tspan x="100" dy="0">sponsor's own custody</tspan>
+        <tspan x="100" dy="14">never reached on deny</tspan>
+        <tspan x="100" dy="14">execution_ref ← back into capsule</tspan>
+      </text>
+    </g>
+
+    <!-- footer caption -->
+    <text x="460" y="354" class="footer">
+      Audit chain is append-only · Capsule is offline-verifiable · Re-export with `sbo3l audit export`
+    </text>
+  </svg>
+</figure>
+
+<style>
+  .keyflow {
+    margin: 2.5em auto;
+    max-width: var(--max);
+    padding: 0 1em;
+  }
+  .keyflow figcaption {
+    color: var(--muted);
+    margin-bottom: 1.2em;
+    font-size: 0.95em;
+    line-height: 1.55;
+    text-align: center;
+  }
+  .keyflow figcaption strong {
+    color: var(--fg);
+    display: block;
+    margin-bottom: 0.4em;
+    font-size: 1.05em;
+  }
+  .keyflow-svg {
+    width: 100%;
+    height: auto;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 0.5em;
+    color: var(--fg);
+  }
+
+  /* zones */
+  .zone rect {
+    fill: rgba(255, 255, 255, 0.02);
+    stroke: var(--border);
+    stroke-width: 1.5;
+  }
+  .zone.agent rect { stroke: #888aa3; }
+  .zone.boundary rect {
+    fill: rgba(74, 214, 167, 0.06);
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  .zone.executor rect { stroke: #c08070; }
+
+  .zone-title {
+    fill: var(--fg);
+    font-size: 14px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+  .zone-sub {
+    fill: var(--muted);
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  .zone-detail {
+    fill: var(--muted);
+    font-size: 9.5px;
+    text-anchor: middle;
+    font-family: var(--font-mono);
+  }
+
+  /* keys */
+  .key-status circle {
+    stroke-width: 2;
+    fill: rgba(0, 0, 0, 0.2);
+  }
+  .key-status.no-key circle {
+    stroke: var(--muted);
+    stroke-dasharray: 3 3;
+  }
+  .key-status.no-key .key-glyph {
+    opacity: 0.25;
+    font-size: 24px;
+    text-anchor: middle;
+    fill: var(--muted);
+  }
+  .key-status.no-key .key-label {
+    fill: var(--muted);
+    font-size: 11px;
+    font-style: italic;
+    text-anchor: middle;
+  }
+  .key-status.sponsor-key circle {
+    stroke: #c08070;
+  }
+  .key-status.sponsor-key .key-glyph {
+    font-size: 24px;
+    text-anchor: middle;
+  }
+  .key-status.sponsor-key .key-label {
+    fill: #c08070;
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  /* pipeline steps */
+  .pipeline .step rect {
+    fill: rgba(255, 255, 255, 0.03);
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .pipeline .step text {
+    fill: var(--fg);
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+  .pipeline .step.signer rect {
+    fill: rgba(74, 214, 167, 0.18);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+  .pipeline .step.audit rect {
+    fill: rgba(74, 214, 167, 0.10);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+
+  /* arrows */
+  .arrow line {
+    stroke: var(--muted);
+    stroke-width: 1.5;
+  }
+  .arrow polygon {
+    fill: var(--muted);
+  }
+  .arrow text {
+    fill: var(--muted);
+    font-size: 10px;
+    font-family: var(--font-mono);
+  }
+  .arrow.allow line, .arrow.allow polygon { stroke: var(--accent); fill: var(--accent); }
+  .arrow.allow text { fill: var(--accent); }
+  .arrow.deny line { stroke: #c06060; }
+  .arrow.deny text { fill: #c06060; }
+
+  .footer {
+    fill: var(--muted);
+    font-size: 11px;
+    text-anchor: middle;
+    font-family: var(--font-mono);
+  }
+
+  @media (max-width: 720px) {
+    .zone-detail tspan, .pipeline .step text, .arrow text { font-size: 9px; }
+  }
+</style>
