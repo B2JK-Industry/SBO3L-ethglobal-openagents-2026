@@ -44,7 +44,11 @@ use tiny_keccak::{Hasher, Keccak};
 const PROBES: &[ContractProbe] = &[
     ContractProbe {
         label: "OffchainResolver",
-        address: "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+        // Updated 2026-05-03 — old `0x7c6913…8c3` superseded after this
+        // very probe caught its malformed URL template (Bug #2). Pin
+        // history is documented on `OFFCHAIN_RESOLVER_SEPOLIA` in
+        // `crates/sbo3l-identity/src/contracts.rs`.
+        address: "0x87e99508c222c6e419734cacbb6781b8d282b1f6",
         view_signature: "urls(uint256)",
         view_arg: ProbeArg::Uint256(0),
         decode_kind: DecodeKind::DynamicString,

@@ -29,7 +29,7 @@ const sections: { title: string; rows: Row[] }[] = [
         surface: "ENS — mainnet read",
         live: "`sbo3l agent verify-ens sbo3lagent.eth` reads 5 records via PublicNode mainnet RPC. policy_hash byte-matches offline fixture.",
         mock: "Offline fixture in `crates/sbo3l-identity/fixtures/`.",
-        notyet: "Mainnet OffchainResolver (Phase 2 amplifier; needs ~$10 mainnet ETH). Sepolia OffchainResolver deployed but orphan (no subnames wired to it on Sepolia chain).",
+        notyet: "Mainnet OffchainResolver (Phase 2 amplifier; needs ~$10 mainnet ETH). Sepolia OffchainResolver redeployed 2026-05-03 with canonical URL template (`0x87e9…b1f6`, PR #383); still orphan — no Sepolia subname uses it as resolver yet.",
       },
       {
         surface: "Uniswap — read side",
@@ -137,9 +137,9 @@ const sections: { title: string; rows: Row[] }[] = [
       },
       {
         surface: "Sepolia OffchainResolver → ENS chain",
-        live: null,
+        live: "Redeployed 2026-05-03 at `0x87e9…b1f6` with canonical URL template `https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json`. `cast call` confirms `urls(0)` returns the template byte-for-byte. (PR #383 Solidity-script flow + PR #387 bash-script hardening.)",
         mock: null,
-        notyet: "Contract deployed (`0x7c69…8c3`) but orphan (no Sepolia subname has it as resolver). Also: baked URL template is malformed (`{sender/{data}.json}`). Redeploy needed before Sepolia ENS clients can use the flow end-to-end.",
+        notyet: "Still orphan — no Sepolia subname has the resolver wired in. Hooking a research-agent subname to it is the next milestone (Daniel-side; needs sbo3lagent.eth Sepolia ownership, currently mainnet-only).",
       },
       {
         surface: "Mainnet OffchainResolver → sbo3lagent.eth",

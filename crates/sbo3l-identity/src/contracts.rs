@@ -145,21 +145,46 @@ pub const UNIVERSAL_RESOLVER_SEPOLIA: ContractPin = ContractPin {
 // SBO3L deployments (we control the private key)
 // ============================================================
 
-/// SBO3L OffchainResolver on Sepolia (T-4-1 deploy). Deployed and
-/// verified live; the Sepolia anchor for every CCIP-Read demo. Pair
-/// the gateway URL `sbo3l-ccip.vercel.app` for the full off-chain
-/// extension flow.
+/// SBO3L OffchainResolver on Sepolia (T-4-1 deploy, redeployed
+/// 2026-05-03 after Heidi UAT-1 caught Bug #2 — see history block
+/// below). Sepolia anchor for every CCIP-Read demo. Paired with
+/// the gateway URL template
+/// `https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json`
+/// (verified canonical via `cast call <addr> 'urls(uint256)(string)' 0`).
 ///
-/// Migration plan (mainnet): the same `forge create` script with
+/// Migration plan (mainnet): the same deploy flow with
 /// `NETWORK=mainnet SBO3L_ALLOW_MAINNET_TX=1` produces the mainnet
 /// counterpart; pin its address as
 /// `OFFCHAIN_RESOLVER_MAINNET` once Daniel's deploy lands.
+///
+/// **Bug #2 deploy history (2026-05-02 → 2026-05-03):**
+///
+///   - `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` — orig 2026-05-02,
+///     stored malformed URL `…/api/{sender}/{data}.json/{data}.json}`
+///     (forge `--constructor-args` corrupts string literals containing
+///     `{}`). Caught live by `sbo3l doctor --extended` (PR #384).
+///     **SUPERSEDED.**
+///   - `0x87e99508c222c6e419734cacbb6781b8d282b1f6` — redeploy 2026-05-03
+///     via Solidity-side `script/DeployOffchainResolver.s.sol` (PR #383).
+///     URL template canonical, **CURRENT**.
+///   - `0x9FE5B79f0F32a932E6Bd6A1FE94eb1562f2E05c2` — orphan duplicate
+///     2026-05-03 (sibling agent attempted `forge create` redeploy
+///     before discovering PR #383, hit same `--constructor-args` bug
+///     again). **ABANDONED, malformed URL.**
+///   - `0x6056253A1d48DDf6d97FEDfF2664Be15913B0BFF` — orphan duplicate
+///     2026-05-03 (this agent's redeploy via `--constructor-args-path`,
+///     correct URL template, but PR #383 had already shipped first).
+///     **ABANDONED, working but redundant.**
+///
+/// Lesson reinforced: before deploying any contract, check
+/// `gh pr list --state all --search "head:agent/dev<N> deploy"` AND
+/// the relevant ContractPin on main.
 pub const OFFCHAIN_RESOLVER_SEPOLIA: ContractPin = ContractPin {
-    address: "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+    address: "0x87e99508c222c6e419734cacbb6781b8d282b1f6",
     network: Network::Sepolia,
-    label: "SBO3L OffchainResolver (Sepolia, T-4-1 deploy)",
+    label: "SBO3L OffchainResolver (Sepolia, T-4-1 redeploy 2026-05-03)",
     canonical_source:
-        "https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3",
+        "https://sepolia.etherscan.io/address/0x87e99508c222c6e419734cacbb6781b8d282b1f6",
 };
 
 // ============================================================
@@ -468,9 +493,13 @@ mod tests {
     /// drift.
     #[test]
     fn offchain_resolver_sepolia_pinned_to_known_deploy() {
+        // Updated 2026-05-03 — orig 0x7c69…8c3 superseded after Bug #2
+        // redeploy (PR #383, Solidity-script flow). New canonical
+        // verified live via `cast call <addr> 'urls(uint256)(string)' 0`
+        // → `https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json`.
         assert_eq!(
             OFFCHAIN_RESOLVER_SEPOLIA.address,
-            "0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3"
+            "0x87e99508c222c6e419734cacbb6781b8d282b1f6"
         );
         assert_eq!(OFFCHAIN_RESOLVER_SEPOLIA.network, Network::Sepolia);
     }

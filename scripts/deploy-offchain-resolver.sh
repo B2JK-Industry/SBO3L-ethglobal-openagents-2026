@@ -103,16 +103,33 @@ echo "==> forge test (unit tests against the mock signer)"
 echo
 echo "==> forge create OffchainResolver on $NETWORK"
 
-# The url template MUST be JSON-quoted inside the array literal, or
-# forge's tokenizer mis-parses the unbalanced `{}` inside the URL
-# (Heidi UAT 2026-05-03 caught the original Sepolia deploy storing
-# `"...{sender/{data}.json}"` instead of `"...{sender}/{data}.json"`).
+# Bug #2 (Heidi UAT 2026-05-03): the original Sepolia deploy at
+# `0x7c69…8c3` stored `…/api/{sender}/{data}.json/{data}.json}`
+# despite the script passing the canonical
+# `…/api/{sender}/{data}.json`. A second deploy attempt
+# (2026-05-03) at `0x9FE5…05c2` reproduced the same corruption with
+# the JSON-quoted form `"[\"$URL\"]"`, confirming the failure is in
+# forge's `--constructor-args` CLI tokenizer rather than shell
+# quoting. PR #383 added a Solidity-side `forge script` deploy path
+# that sidesteps this; the bash path here was hardened in parallel.
+#
+# Fix: write the constructor args to a temp file and pass via
+# `--constructor-args-path`, which bypasses the tokenizer entirely.
+# Verified against `0x6056253A…0BFF` — `urls(0)` returns the
+# canonical template byte-for-byte.
+CTOR_ARGS_FILE=$(mktemp -t sbo3l-or-ctor-args.XXXXXX)
+trap 'rm -f "$CTOR_ARGS_FILE"' EXIT
+{
+    printf '%s\n' "$GATEWAY_SIGNER_ADDRESS"
+    printf '["%s"]\n' "$GATEWAY_URL_TEMPLATE"
+} >"$CTOR_ARGS_FILE"
+
 DEPLOY_OUTPUT=$(cd "$CONTRACTS_DIR" && forge create \
     OffchainResolver.sol:OffchainResolver \
     --rpc-url "$RPC_URL" \
     --private-key "$SBO3L_DEPLOYER_PRIVATE_KEY" \
     --broadcast \
-    --constructor-args "$GATEWAY_SIGNER_ADDRESS" "[\"$GATEWAY_URL_TEMPLATE\"]")
+    --constructor-args-path "$CTOR_ARGS_FILE")
 
 echo "$DEPLOY_OUTPUT"
 
