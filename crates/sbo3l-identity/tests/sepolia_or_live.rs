@@ -133,15 +133,12 @@ fn new_or_url_template_is_canonical() {
     //   [0:32]  offset (always 0x20 for single string)
     //   [32:64] length
     //   [64:..] payload, padded to 32-byte boundary
-    let bytes = hex::decode(raw.trim_start_matches("0x"))
-        .expect("urls(0) result is valid hex");
+    let bytes = hex::decode(raw.trim_start_matches("0x")).expect("urls(0) result is valid hex");
     assert!(bytes.len() >= 64, "result too short: {} bytes", bytes.len());
     let len_word = &bytes[32..64];
     let mut len_arr = [0u8; 32];
     len_arr.copy_from_slice(len_word);
-    let len = u32::from_be_bytes([
-        len_arr[28], len_arr[29], len_arr[30], len_arr[31],
-    ]) as usize;
+    let len = u32::from_be_bytes([len_arr[28], len_arr[29], len_arr[30], len_arr[31]]) as usize;
     let url = std::str::from_utf8(&bytes[64..64 + len]).expect("url is valid utf-8");
     assert_eq!(
         url, CANONICAL_URL,
@@ -176,7 +173,9 @@ fn new_or_supports_ensip10_extended_resolver() {
         return;
     };
     let json = eth_call(&rpc, NEW_OR_ADDRESS, SUPPORTS_INTERFACE_ENSIP10_CALLDATA);
-    let raw = json["result"].as_str().expect("supportsInterface returns bool");
+    let raw = json["result"]
+        .as_str()
+        .expect("supportsInterface returns bool");
     // ABI-encoded bool: 32 bytes, last byte 0 or 1.
     assert!(
         raw.ends_with('1'),
@@ -196,16 +195,11 @@ fn research_agent_subname_resolver_is_new_or() {
     // own tests).
     let subnode = "0x7131b849ffa657c77803cb882a11ea7edaa6e5c2dc2f33f9a878cb1bf39435dd";
     // resolver(bytes32) selector = 0x0178b8bf
-    let calldata = format!(
-        "0x0178b8bf{}",
-        subnode.trim_start_matches("0x")
-    );
+    let calldata = format!("0x0178b8bf{}", subnode.trim_start_matches("0x"));
     let json = eth_call(&rpc, ENS_REGISTRY, &calldata);
     let raw = json["result"].as_str().expect("resolver() returns address");
     let actual_lower = raw[raw.len().saturating_sub(40)..].to_ascii_lowercase();
-    let expected_lower = NEW_OR_ADDRESS
-        .trim_start_matches("0x")
-        .to_ascii_lowercase();
+    let expected_lower = NEW_OR_ADDRESS.trim_start_matches("0x").to_ascii_lowercase();
     assert_eq!(
         actual_lower, expected_lower,
         "research-agent.sbo3lagent.eth resolver mismatch — Task B subname not wired"
