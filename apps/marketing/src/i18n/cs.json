@@ -1,0 +1,35 @@
+{
+  "common": {
+    "tagline_part1": "Nedávejte agentovi peněženku.",
+    "tagline_part2": "Dejte mu mandát.",
+    "cta_start": "Začněte za 5 minut",
+    "cta_view_source": "Zobrazit zdrojový kód",
+    "cta_walk_demo": "Projít demo",
+    "cta_verify": "Ověřte si kapsli sami",
+    "nav_features": "Funkce",
+    "nav_proof": "Důkaz",
+    "nav_demo": "Demo",
+    "nav_docs": "Dokumentace",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Rychlý start",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — odevzdaný projekt"
+  },
+  "index": {
+    "lede": "SBO3L je kryptograficky ověřitelná vrstva důvěry pro autonomní AI agenty. Každá akce, kterou agent provede — platba, swap, uložení, výpočet, koordinace — nejprve projde přes politickou hranici SBO3L.",
+    "section_what_is": "Co je SBO3L",
+    "section_what_blocks": "Co SBO3L blokuje",
+    "section_evidence": "Důkazy o živé integraci",
+    "section_arch": "Architektura",
+    "section_reproduce": "Reprodukujte si",
+    "section_resources": "Zdroje",
+    "what_is_blurb": "Rust workspace implementující lokální firewall politika + rozpočet + potvrzenka + audit pro AI agenty. Povolit → směrování na vykonavatele sponzora. Zamítnout → vykonavatel není nikdy volán."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Odevzdaný projekt",
+    "h1": "Kryptograficky ověřitelná vrstva důvěry pro autonomní AI agenty."
+  },
+  "proof": {
+    "h1": "Ověřit Passport kapsli",
+    "lede": "Vložte nebo přetáhněte kapsli. Všech 6 kontrol strict-mode probíhá ve vašem prohlížeči přes WASM-kompilovaný sbo3l-core."
+  }
+}
