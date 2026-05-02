@@ -1,0 +1,71 @@
+---
+title: passport run
+description: Emit a self-contained Passport capsule from a recorded daemon decision.
+audience: integration testers, agent runtime developers
+outcome: You'll know how to materialise a capsule for any past decision and pipe it into other tools.
+prereqs:
+  - capsule v2 read
+---
+
+```bash
+sbo3l passport run --request-hash <HASH> [OPTIONS]
+```
+
+Materialises a Passport capsule from a previously-recorded decision. The capsule embeds the policy snapshot, audit segment, and signed receipt — everything needed for offline replay.
+
+## Flags
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--request-hash <HEX>` | required | which decision to capsule |
+| `--out <FILE>` | stdout | write the capsule JSON to a file |
+| `--include-execution` | on | include `execution_ref` + `executor_evidence` if present |
+| `--pretty` | off | indent the output (4-space); off for JCS canonical |
+| `--quiet` | off | suppress info messages on stderr |
+
+The default output is **JCS-canonical** (sorted keys, no insignificant whitespace) so downstream consumers can hash for golden-file comparisons.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | OK — capsule emitted |
+| `1` | IO error — daemon unreachable, request hash missing from local audit |
+| `2` | semantic — request hash exists but decision is incomplete (no signed receipt yet) |
+| `3` | nothing-to-do — `--request-hash` matches no event; nothing to emit |
+
+## Examples
+
+### Emit and verify in one shot
+
+```bash
+sbo3l passport run --request-hash 0xe044f1... | tee capsule.json | sbo3l passport verify --strict
+```
+
+### Round-trip across machines
+
+```bash
+# Producer
+sbo3l passport run --request-hash 0xe044f1... --out capsule.json
+scp capsule.json reviewer@host:/tmp/
+
+# Reviewer
+sbo3l passport verify --strict --path /tmp/capsule.json
+```
+
+### CI golden-file diff
+
+```bash
+sbo3l passport run --request-hash 0xe044f1... > current.json
+diff <(jq -S . current.json) <(jq -S . tests/fixtures/golden-capsule.json)
+```
+
+## Pitfalls
+
+- **Stale audit DB** — if the daemon and the audit DB live on different paths and you point `passport run` at the wrong one, you'll get `rc=3` (nothing-to-do). `--config` chooses an alternate config path; default reads `~/.sbo3l/config.toml`.
+- **`--pretty` breaks hashes** — pretty-printed output is whitespace-different from JCS canonical. Don't pipe a pretty capsule into a hash function expecting it to match a JCS hash.
+
+## See also
+
+- [`passport verify`](/cli/passport-verify) — the matching consumer.
+- [Audit replay](/concepts/audit-replay) — what consumers do with the output.

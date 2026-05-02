@@ -1,0 +1,52 @@
+---
+title: Signing model
+description: How SBO3L signs receipts and audit events with Ed25519, and where signing keys live.
+audience: security teams, compliance reviewers, agent platform engineers
+outcome: You'll know what gets signed, by whom, with which key, and how key material is protected.
+prereqs:
+  - audit log read
+  - capsule v2 read
+---
+
+The SBO3L signing model has one rule: **the agent never signs**. SBO3L signs every PolicyReceipt and every audit event. The agent receives signatures, never produces them.
+
+## What gets signed
+
+| Artefact | Signed body | Verified by |
+|---|---|---|
+| **PolicyReceipt** | `request_hash \|\| decision \|\| policy_snapshot_hash` | Anyone with the daemon's published Ed25519 pubkey |
+| **Audit event** | `prev_event_hash \|\| payload_hash` | Same pubkey; chain is verifiable end-to-end |
+| **Cross-agent attestation** (Phase 2 T-3-4) | `attesting_agent_pubkey \|\| target_agent_pubkey \|\| scope` | Both agents' pubkeys via published ENS records |
+
+## Where the key lives
+
+SBO3L's `Signer` trait has three reference implementations:
+
+- **`InMemorySigner`** — generates an Ed25519 keypair at daemon boot, holds it in process memory, never persists. Default for local dev. Loses signatures on restart.
+- **`FileSigner`** — reads a 32-byte secret from a chmod-600 file path. Persists across restarts. Acceptable for local production where the file is on encrypted storage.
+- **`KmsSigner`** — wraps AWS KMS / GCP KMS / HashiCorp Vault. The private key never leaves the KMS; SBO3L sends the digest, KMS returns a signature. Recommended for production.
+
+Tests exercise all three: `cargo test --workspace -- signer::`. The KMS implementation is integration-tested behind `--features kms-aws`.
+
+## What is NOT signed
+
+- **Logs.** Diagnostic stderr/stdout from the daemon is not signed; treat it as untrusted. The audit log is the trusted record.
+- **Metric counters.** Prometheus counters and traces are operational; not part of the trust boundary.
+- **Schema definitions.** OpenAPI / JSON Schema are static config files; their integrity is via git history, not Ed25519.
+
+If you find code claiming a non-listed artefact "is signed", file a bug — that's identity drift.
+
+## Anti-pattern: agent-side signing
+
+A common mis-design is to give the agent a key so it can pre-sign requests. SBO3L explicitly rejects this:
+
+- Identity sub-claim 2 ("[no-key agent boundary](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/win-backlog/01-identity.md#identity-sub-claims-each-is-testable)"): `grep -rn "SigningKey\|signing_key" demo-agents/` returns 0 lines. Demo gate 12 grep-asserts this every CI run.
+- An agent that holds a key has the same blast radius as a wallet; SBO3L's whole point is to remove that.
+
+If your integration leans on agent-side signing, reconsider whether SBO3L is the right fit.
+
+## See also
+
+- [Audit log](/concepts/audit-log) — how signatures link events.
+- [Self-contained capsule v2](/concepts/capsule) — how the strict verifier checks every signature offline.
+- [Sponsor adapters](/concepts/sponsor-adapters) — sponsor-side signing happens in adapter implementations, not in SBO3L core.

@@ -1,0 +1,63 @@
+---
+title: Idempotency
+description: How SBO3L makes payment-request retries safe via Idempotency-Key header and request-hash matching.
+audience: integration authors, agent runtime developers
+outcome: You'll know how to retry safely, what conflicts look like, and why duplicate-detection is server-side not client-side.
+prereqs:
+  - APRP wire format read
+---
+
+Idempotency in SBO3L is **server-side, deterministic, and hash-anchored**. Clients send an `Idempotency-Key` header on every `POST /v1/payment-requests`; the daemon stores the key alongside the request hash and returns the same decision for any retry within the key's TTL.
+
+## The contract
+
+```http
+POST /v1/payment-requests
+Idempotency-Key: 01HZRG3MW7M2N4K8...
+Authorization: Bearer ...
+Content-Type: application/json
+
+{ "...": "APRP envelope" }
+```
+
+| Scenario | Server response |
+|---|---|
+| First request with key K | full pipeline runs, decision recorded, response returned |
+| Retry with same key K + identical body | cached response replayed; no re-decision |
+| Retry with same key K + different body | `HTTP 409 protocol.idempotency_conflict` |
+| New key K' + identical body to a prior K | full pipeline runs again — different K means different logical operation |
+| Retry after key TTL expired | full pipeline runs (treated as new request) |
+
+The retry-with-different-body conflict is the most subtle case. The server hashes the canonicalised body (JCS) and compares against the stored hash for the key. **Identity is "key + body hash", not "key alone".** This catches client bugs that re-use a key across logically different requests.
+
+## Why server-side
+
+A common alternative is client-side dedup: the client tracks which keys it has sent and never re-sends. That works until:
+
+- The client crashes between sending and receiving.
+- The client retries from a different process / replica.
+- The client retries after a network partition heals.
+
+In all three cases, the client doesn't know whether the server already processed the original. Server-side idempotency removes the ambiguity.
+
+## TTL
+
+Idempotency records persist for **24 hours by default** (`sbo3l-policy::IDEMPOTENCY_TTL_HOURS`, configurable via env var). Beyond that, the key is reused-as-new. Choose key TTLs longer than your worst-case retry window.
+
+## Atomicity guarantee
+
+The check-and-record is a single SQLite transaction (PR #102 hardened this from a check-then-record race). Concurrent requests with the same key + body see exactly one execution and shared decision; concurrent requests with same key + different body see one success + one `409 idempotency_conflict`.
+
+## Interaction with nonce-replay
+
+`Idempotency-Key` is HTTP-layer; the APRP `nonce` is application-layer. They protect against different attacks:
+
+- **Idempotency-Key** = "I am retrying *this exact request*; please don't double-execute." Caught by the daemon's idempotency table.
+- **APRP nonce** = "This request is unique application-side; reject if you've seen this nonce before." Caught by the nonce-replay gate; returns `409 protocol.nonce_replay`.
+
+A correct client sends a fresh `nonce` per logical request and a stable `Idempotency-Key` per retry attempt. The combinations are well-defined: see [APRP wire format § Adversarial inputs](/concepts/aprp#adversarial-inputs-sbo3l-rejects-fail-closed).
+
+## See also
+
+- [APRP wire format](/concepts/aprp) — `nonce` field semantics.
+- [Audit log](/concepts/audit-log) — both retry scenarios appear with the same `request_hash`; only the first writes a new event.

@@ -1,0 +1,81 @@
+---
+title: Self-contained Passport capsule v2
+description: Single-JSON portable proof of authorisation, verifiable offline against a public key alone.
+audience: auditors, judges, integration testers, agent platform engineers
+outcome: You'll know what a Passport capsule contains, why "self-contained" is testable, and which 6 checks the strict verifier runs.
+prereqs:
+  - quickstart completed
+  - APRP wire format read
+  - audit log read
+---
+
+A **Passport capsule** is the unit of proof SBO3L emits per authorised action. v2 capsules are *self-contained* — strict verification re-derives every claim from inside the capsule, with no aux files, no daemon, no network.
+
+## Capsule shape
+
+```json
+{
+  "version": "sbo3l.passport_capsule.v2",
+  "capsule_id": "01HZRG...",
+  "agent_id": "research-agent-01",
+  "agent_pubkey": "ed25519:...",
+  "request": { "...": "the original APRP envelope" },
+  "request_hash": "0x...",
+  "policy_receipt": {
+    "decision": "allow",
+    "agent_id": "research-agent-01",
+    "request_hash": "0x...",
+    "policy_snapshot_hash": "0x...",
+    "signature": "ed25519:..."
+  },
+  "policy_snapshot": { "...": "the policy that decided this request" },
+  "audit_segment": [
+    { "...": "every audit event between request and decision" }
+  ],
+  "execution_ref": null,
+  "executor_evidence": null
+}
+```
+
+The `execution_ref` and `executor_evidence` fields are populated only when the decision was `allow` AND the sponsor adapter executed. Capsules with `decision: deny` carry `null` for both — the strict verifier rejects any deny capsule that contains an `execution_ref`.
+
+## "Self-contained" — what that means concretely
+
+A capsule is self-contained if:
+
+```bash
+sbo3l passport verify --strict --path capsule.json
+```
+
+succeeds with `rc=0` and **zero** `SKIPPED` checks. The strict verifier consumes only the capsule and the agent's published Ed25519 pubkey (already embedded). It does not need the daemon, the local audit DB, the policy file, or any RPC.
+
+Test that locks this property: `cargo test --test passport_v2_self_contained`.
+
+## The 6 strict-mode checks
+
+| # | Check | What can fail |
+|---|---|---|
+| 1 | APRP envelope schema validity (`sbo3l.aprp.v1`) | extra fields, wrong types |
+| 2 | JCS-canonical request hash matches embedded `request_hash` | byte-different request |
+| 3 | Ed25519 signature on the policy receipt verifies | wrong pubkey, signed body tampered |
+| 4 | Audit segment hash chain consistent | flipped `prev_event_hash` |
+| 5 | Embedded `policy_snapshot` deterministically yields the recorded decision | snapshot tampered, decision tampered |
+| 6 | Capsule consistency rules | `decision=deny` with `execution_ref`, `live_mode=true` with empty `executor_evidence` |
+
+All 6 run in < 200 ms on commodity hardware. The browser embed at [/proof](https://sbo3l-marketing.vercel.app/proof) runs the same Rust verifier compiled to WASM.
+
+## Negative corpus
+
+The repo carries 9 tampered capsule fixtures under `tests/fixtures/passport-v2-tampered/`. Each fixture flips exactly one byte (or one structural rule) and is expected to reject with `rc=2` and a specific failure code. Heidi runs the corpus pre-merge.
+
+## Why v2 is bigger than v1
+
+v1 capsules referenced an external `policy.json` file. That made capsules small but un-self-contained — verification required possessing the policy at exactly the right version. v2 embeds `policy_snapshot` and the relevant `audit_segment`, growing from ~2 KB → ~8-15 KB but eliminating the aux-file dependency.
+
+For most use cases v1 is deprecated. Use v2 unless you have a specific reason to externalise the snapshot.
+
+## See also
+
+- [APRP wire format](/concepts/aprp) — the `request` field shape.
+- [Audit log](/concepts/audit-log) — the events bundled into `audit_segment`.
+- [`passport verify` CLI](/cli/passport-verify) — every flag, every exit code.
