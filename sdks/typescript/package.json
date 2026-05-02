@@ -48,6 +48,10 @@
       "import": "./dist/types.js",
       "require": "./dist/types.cjs"
     },
+    "./cross-agent": {
+      "types": "./dist/cross-agent.d.ts",
+      "import": "./dist/cross-agent.js",
+      "require": "./dist/cross-agent.cjs"
     "./uniswap": {
       "types": "./dist/uniswap.d.ts",
       "import": "./dist/uniswap.js",
@@ -73,6 +77,11 @@
     "format:fix": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "size": "npm run build && gzip -c dist/index.js | wc -c"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^2.1.0",
+    "@noble/hashes": "^1.4.0",
+    "canonicalize": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",

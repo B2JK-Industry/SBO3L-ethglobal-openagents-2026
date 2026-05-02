@@ -83,6 +83,28 @@ export type {
   PassportCapsule,
 } from "./types.js";
 
+// T-3-4 cross-agent verification protocol — re-export for the
+// flat `@sbo3l/sdk` surface. The named export at
+// `@sbo3l/sdk/cross-agent` is the canonical import path; this is a
+// convenience for code that already uses `import { ... } from
+// "@sbo3l/sdk"`.
+export {
+  buildChallenge,
+  signChallenge,
+  verifyChallenge,
+  jcsBytes as crossAgentJcsBytes,
+  CHALLENGE_SCHEMA,
+  TRUST_SCHEMA,
+  PUBKEY_RECORD_KEY,
+  FRESHNESS_WINDOW_MS,
+  REJECTION_REASONS,
+} from "./cross-agent.js";
+export type {
+  CrossAgentChallenge,
+  SignedChallenge,
+  CrossAgentTrust,
+  PubkeyResolver,
+} from "./cross-agent.js";
 /**
  * Uniswap helper namespace — agent-side swap construction + (live mode)
  * sign + broadcast. Submits APRP via `client.submit()` separately for
