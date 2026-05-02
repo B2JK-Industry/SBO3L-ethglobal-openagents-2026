@@ -1,0 +1,54 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import NumberStrip from "~/components/NumberStrip.astro";
+import ArchDiagram from "~/components/ArchDiagram.astro";
+import LocaleSwitcher from "~/components/LocaleSwitcher.astro";
+import { t } from "~/i18n";
+
+const locale = "ko" as const;
+const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+---
+<BaseLayout
+  title={`SBO3L — ${t("common.tagline_part1", locale)} ${t("common.tagline_part2", locale)}`}
+  lang="ko"
+>
+  <section class="hero">
+    <LocaleSwitcher current="ko" basePath="/" />
+    <h1>{t("common.tagline_part1", locale)}<br />{t("common.tagline_part2", locale)}</h1>
+    <p class="lede">{t("index.lede", locale)}</p>
+    <div class="cta">
+      <a class="btn primary" href={`${githubRepoUrl}/blob/main/QUICKSTART.md`}>{t("common.cta_start", locale)}</a>
+      <a class="btn ghost" href={githubRepoUrl}>{t("common.cta_view_source", locale)}</a>
+    </div>
+  </section>
+
+  <NumberStrip />
+
+  <section class="panel">
+    <h2>{t("index.section_what_is", locale)}</h2>
+    <p>{t("index.what_is_blurb", locale)}</p>
+  </section>
+
+  <section class="panel">
+    <h2>{t("index.section_arch", locale)}</h2>
+    <ArchDiagram size="compact" />
+  </section>
+
+  <section class="panel">
+    <p>
+      <em>한국어 번역은 핵심 섹션만 다룹니다. 전체 버전은 <a href="/">영어</a>로 제공됩니다.</em>
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { max-width: var(--max); margin: 4em auto 3em; padding: 0 1.5em; }
+  .hero h1 {
+    font-size: var(--fs-4); font-weight: 700; line-height: 1.3;
+    margin: 0.5em 0 0.7em;
+    /* Korean glyphs render slightly larger; tighten line-height vs en/sk */
+    word-break: keep-all;
+  }
+  .hero .lede { font-size: var(--fs-2); color: var(--muted); margin-bottom: 1.5em; max-width: 700px; line-height: 1.6; }
+  .cta { display: flex; gap: 1em; flex-wrap: wrap; }
+</style>
