@@ -39,6 +39,10 @@ tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 ulid = { workspace = true }
 hex = { workspace = true }
+# Webhook callback verifier (P5 / `executor_callback.rs`) — pulls
+# `VerifyingKey::from_bytes` to construct the per-sponsor verifying
+# key from the env-configured hex pubkey.
+ed25519-dalek = { workspace = true }
 # F-1 auth middleware: bearer (bcrypt) + JWT (Ed25519). Pinned majors.
 jsonwebtoken = "9"
 bcrypt = "0.15"
