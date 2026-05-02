@@ -1,0 +1,57 @@
+name: "SBO3L Verify Capsule"
+description: "Verify a SBO3L Passport capsule and post the result as a PR comment / step summary."
+author: "Daniel Babjak"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  capsule:
+    description: "Path to the capsule JSON file to verify (relative to GITHUB_WORKSPACE)."
+    required: true
+  fail-on-deny:
+    description: "Fail the action if the capsule's decision is deny / requires_human (default: true)."
+    required: false
+    default: "true"
+  comment-on-pr:
+    description: "Post a verification report as a PR comment (default: true on pull_request, false otherwise)."
+    required: false
+    default: "auto"
+
+outputs:
+  decision:
+    description: "Capsule's policy decision (allow | deny | requires_human)."
+    value: ${{ steps.verify.outputs.decision }}
+  audit-event-id:
+    description: "Audit event id of the verified receipt."
+    value: ${{ steps.verify.outputs.audit-event-id }}
+  checks-passed:
+    description: "Number of verifier checks that passed (e.g. 6/6)."
+    value: ${{ steps.verify.outputs.checks-passed }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Verify capsule
+      id: verify
+      shell: bash
+      env:
+        SBO3L_CAPSULE_PATH: ${{ inputs.capsule }}
+        SBO3L_FAIL_ON_DENY: ${{ inputs.fail-on-deny }}
+        SBO3L_COMMENT_ON_PR: ${{ inputs.comment-on-pr }}
+        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+      # The action ships a self-contained verifier (./src/index.mjs) that
+      # reads the capsule, runs verify(), writes a markdown report into
+      # $GITHUB_STEP_SUMMARY, and exposes outputs via $GITHUB_OUTPUT.
+      # Posting to the PR uses the GitHub REST API directly via fetch
+      # (no extra deps) — the GITHUB_TOKEN scope from the calling workflow
+      # decides whether the comment lands.
+      run: node "${{ github.action_path }}/src/index.mjs"
