@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
     "@sbo3l/design-tokens": "file:../../packages/design-tokens",
     "next": "^15.0.0",
     "next-auth": "5.0.0-beta.20",
