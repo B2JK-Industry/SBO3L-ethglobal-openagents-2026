@@ -30,8 +30,8 @@
 | Priority | Item | Status |
 |---|---|---|
 | P1 | GitHub Release v1.2.0 page | ✅ live (Latest) at https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases/tag/v1.2.0 |
-| P2 | npm publishes (5 integrations + sdk @ 1.2.0) | 🔴 **Daniel-gated**: `NPM_TOKEN` not provisioned |
-| P3 | `sbo3l-langgraph` PyPI 1.2.0 | 🔴 **Daniel-gated**: PyPI trusted-publisher provisioning |
+| P2 | npm publishes (25 packages @ 1.2.0) | ✅ **25/25 LIVE** — sdk + marketplace + 23 framework adapters (driver-published 2026-05-02 evening) |
+| P3 | `sbo3l-langgraph` PyPI 1.2.0 | ✅ **LIVE** — Trusted Publisher provisioned, workflow auto-published |
 | P4 | Pre-submission rehearsal walkthrough | ✅ static walk PASS; 6 hands-on steps DELEGATED |
 | P5 | Live URL inventory final pass | ✅ |
 | P6 | This doc | ✅ |
@@ -100,8 +100,8 @@
 
 | Gap | Severity | Daniel action | Mitigation if not closed |
 |---|---|---|---|
-| `@sbo3l/sdk` still at 1.0.0 (not 1.2.0) on npm | 🟢 Low | Bump npm dist-tag (3 framework integrations already at 1.2.0) | Python SDK + CLI at 1.2.0 cover full install path |
-| Peripheral npm packages 404 (`@sbo3l/{vercel-ai,design-tokens,marketplace,anthropic,openai-assistants,...}`) | 🟢 Low | Push remaining publish tags | 3 core integrations live (langchain, autogen, elizaos) |
+| ~~`@sbo3l/sdk` still at 1.0.0~~ | ✅ RESOLVED | Bumped + republished at 1.2.0 (driver) | All 25 @sbo3l/* packages aligned at 1.2.0 |
+| ~~Peripheral npm packages 404~~ | ✅ RESOLVED | Driver published all 22 missing packages locally with new NPM_TOKEN (2FA bypass enabled) on 2026-05-02 evening | All 25 @sbo3l/* npm packages now @ 1.2.0 (only intentionally-private @sbo3l/design-tokens stays unpublished) |
 | Newer PyPI integrations 404 (`sbo3l-{agno,pydantic-ai,...}`) | 🟢 Low | Provision additional PyPI publishers | Top-5 Python integrations all live |
 | `sbo3l-trust-dns-viz` Vercel 404 | 🟢 Low | Deploy `apps/trust-dns-viz/` to Vercel | Source verifiable; canvas works locally |
 | Custom domains DNS not pointed | 🟢 Low | (Optional, post-submission) point CTI-3-1 DNS | Vercel previews are canonical |
