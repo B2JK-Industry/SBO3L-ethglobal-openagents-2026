@@ -26,6 +26,10 @@ ed25519-dalek = { workspace = true }
 ulid = { workspace = true }
 # F-2: USD-string → cents conversion lives at the policy/storage boundary.
 rust_decimal = { workspace = true }
+# Remote-backend uploads (0G Storage testnet). Blocking client keeps the
+# `sbo3l audit export` CLI path single-threaded; no tokio runtime needed
+# from the CLI side. `rustls-tls` matches the workspace-wide reqwest config.
+reqwest = { workspace = true, features = ["blocking"] }
 
 # Postgres backend (production deployment). Off by default so the
 # default `cargo build -p sbo3l-storage` stays sqlite-only and fast.
@@ -41,3 +45,7 @@ postgres = ["dep:sqlx", "dep:uuid", "dep:tokio"]
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# Remote-backend unit tests stub the 0G Storage indexer HTTP API in-process
+# so retry / timeout / malformed-response invariants don't depend on the
+# real (flaky) Galileo testnet. `httpmock` ships its own background server.
+httpmock = "0.7"
