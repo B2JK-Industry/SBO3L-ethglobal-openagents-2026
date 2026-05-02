@@ -122,6 +122,7 @@ jobs:
           - "@sbo3l/elizaos"
           - "@sbo3l/inngest"
           - "@sbo3l/langchain"
+          - "@sbo3l/langchain-keeperhub"
           - "@sbo3l/langflow"
           - "@sbo3l/letta"
           - "@sbo3l/mastra"
@@ -243,6 +244,7 @@ jobs:
         package:
           - sbo3l-sdk
           - sbo3l-langchain
+          - sbo3l-langchain-keeperhub
           - sbo3l-crewai
           - sbo3l-llamaindex
           - sbo3l-langgraph
