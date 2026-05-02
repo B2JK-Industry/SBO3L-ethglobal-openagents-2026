@@ -13,6 +13,7 @@
 import en from "./en.json";
 import sk from "./sk.json";
 import ko from "./ko.json";
+import ja from "./ja.json";
 import de from "./de.json";
 import fr from "./fr.json";
 import it from "./it.json";
@@ -32,7 +33,7 @@ import hi from "./hi.json";
 import th from "./th.json";
 
 export const LOCALES = [
-  "en", "sk", "ko",
+  "en", "sk", "ko", "ja",
   "de", "fr", "it", "es", "pt-br", "pl", "cs", "hu",
   "ar", "he", "zh-cn", "zh-tw", "ru", "uk", "tr", "hi", "th",
 ] as const;
@@ -40,7 +41,7 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
 const dictionaries = {
-  en, sk, ko,
+  en, sk, ko, ja,
   de, fr, it, es, "pt-br": ptBr, pl, cs, hu,
   ar, he, "zh-cn": zhCn, "zh-tw": zhTw, ru, uk, tr, hi, th,
 } as const;
