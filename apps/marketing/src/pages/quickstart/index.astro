@@ -1,0 +1,78 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import { QUICKSTARTS } from "~/data/quickstarts";
+---
+<BaseLayout
+  title="SBO3L quickstarts — pick your stack"
+  description="5-minute walkthroughs to first signed decision: Node.js, Python, LangChain, Claude tool-use, KeeperHub cron."
+>
+  <section class="hero-strip">
+    <h1>Pick your quickstart</h1>
+    <p class="lede">
+      Each guide takes you from <code>install</code> to <strong>first
+      signed decision + offline-verified capsule</strong> in under 10
+      minutes. No credit card, no API key signup, no daemon to host —
+      everything runs locally via Docker.
+    </p>
+  </section>
+
+  <section class="grid">
+    {QUICKSTARTS.map((q) => (
+      <a href={`/quickstart/${q.slug}`} class="card">
+        <header>
+          <h2>{q.title.split(" — ")[0]}</h2>
+          <span class="duration">{q.duration_min} min</span>
+        </header>
+        <p class="audience">{q.audience}</p>
+        <p class="prereqs">
+          <strong>Needs:</strong> {q.prereqs.join(", ")}
+        </p>
+      </a>
+    ))}
+  </section>
+
+  <aside class="footer-note">
+    Don't see your stack? The <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/integrations">framework adapter directory</a> covers 16+ frameworks. PRs for new adapters welcome.
+  </aside>
+</BaseLayout>
+
+<style>
+  .hero-strip { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
+  .hero-strip h1 { font-size: var(--fs-4); font-weight: 700; margin-bottom: 0.4em; }
+  .lede { color: var(--muted); font-size: var(--fs-2); max-width: 700px; margin: 0; }
+
+  .grid {
+    max-width: var(--max);
+    margin: 2em auto;
+    padding: 0 1.5em;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1em;
+  }
+
+  .card {
+    display: block;
+    padding: 1.4em 1.5em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); text-decoration: none; }
+  .card header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5em; gap: 1em; }
+  .card h2 { font-size: 1.15em; font-weight: 600; margin: 0; }
+  .card .duration { color: var(--accent); font-family: var(--font-mono); font-size: 0.85em; flex-shrink: 0; }
+  .card .audience { color: var(--muted); font-size: 0.92em; margin: 0 0 0.6em; line-height: 1.5; }
+  .card .prereqs { color: var(--muted); font-size: 0.82em; font-family: var(--font-mono); margin: 0; }
+
+  .footer-note {
+    max-width: var(--max);
+    margin: 3em auto 4em;
+    padding: 0 1.5em;
+    color: var(--muted);
+    text-align: center;
+    font-size: 0.95em;
+  }
+</style>

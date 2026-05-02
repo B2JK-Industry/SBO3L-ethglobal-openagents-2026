@@ -1,0 +1,120 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import { QUICKSTARTS, getQuickstart } from "~/data/quickstarts";
+
+export function getStaticPaths() {
+  return QUICKSTARTS.map((q) => ({ params: { slug: q.slug } }));
+}
+
+const { slug } = Astro.params;
+const guide = slug ? getQuickstart(slug) : undefined;
+if (!guide) {
+  return Astro.redirect("/quickstart");
+}
+---
+<BaseLayout
+  title={`${guide.title} — SBO3L quickstart`}
+  description={`${guide.audience}. ${guide.duration_min}-minute first-decision walkthrough.`}
+>
+  <article class="quickstart">
+    <header class="qs-header">
+      <p class="audience">For: {guide.audience}</p>
+      <h1>{guide.title}</h1>
+      <p class="meta">
+        <strong>~{guide.duration_min} min</strong>
+        <span> · prereqs: </span>
+        {guide.prereqs.join(" · ")}
+      </p>
+    </header>
+
+    <ol class="steps">
+      {guide.steps.map((step, i) => (
+        <li class="step">
+          <header>
+            <span class="step-number">{i + 1}</span>
+            <h2>{step.title}</h2>
+          </header>
+          <p>{step.description}</p>
+          {step.code && (
+            <pre class="code"><code class={`language-${step.language ?? "sh"}`}>{step.code}</code></pre>
+          )}
+          {step.output && (
+            <pre class="output"><code>{step.output}</code></pre>
+          )}
+        </li>
+      ))}
+    </ol>
+
+    <footer class="next-steps">
+      <h2>Next steps</h2>
+      <ul>
+        {guide.next_steps.map((n) => (
+          <li><a href={n.href}>{n.label} →</a></li>
+        ))}
+      </ul>
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  .quickstart { max-width: 760px; margin: 3em auto 4em; padding: 0 1.5em; }
+
+  .qs-header { margin-bottom: 2.5em; padding-bottom: 1.5em; border-bottom: 1px solid var(--border); }
+  .audience { color: var(--accent); font-size: 0.85em; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.5em; }
+  .qs-header h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin: 0 0 0.5em; }
+  .meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.9em; }
+
+  .steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  .step {
+    margin-bottom: 2.5em;
+    padding-left: 0;
+  }
+  .step header {
+    display: flex;
+    align-items: center;
+    gap: 0.8em;
+    margin-bottom: 0.6em;
+  }
+  .step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2em;
+    height: 2em;
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 50%;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+  .step h2 { margin: 0; font-size: 1.3em; font-weight: 600; }
+  .step p { color: var(--muted); margin: 0 0 0.8em; max-width: 65ch; }
+
+  .code, .output {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 0.9em 1.1em;
+    margin: 0.5em 0;
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    line-height: 1.55;
+    overflow-x: auto;
+  }
+  .output {
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+  }
+  .output::before {
+    content: "→ ";
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .next-steps { margin-top: 3em; padding-top: 2em; border-top: 1px solid var(--border); }
+  .next-steps h2 { font-size: 1.1em; font-weight: 600; margin: 0 0 0.7em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .next-steps ul { list-style: none; padding: 0; margin: 0; }
+  .next-steps li { margin-bottom: 0.4em; }
+  .next-steps a { color: var(--accent); }
+</style>
