@@ -54,11 +54,18 @@ pub mod ws_events;
 #[cfg(feature = "ws_events")]
 pub mod admin_events;
 
+<<<<<<< HEAD
 /// R14 P4 — 3-node Raft cluster scaffold (**EXPERIMENTAL**). Built only
 /// with `--features cluster`. See `crates/sbo3l-server/src/cluster/mod.rs`
 /// + `docs/cluster-mode.md` for what's wired vs what's TODO.
 #[cfg(feature = "cluster")]
 pub mod cluster;
+=======
+// R14 P1: tonic-based gRPC service. Compiled only with `--features grpc`
+// so HTTP-only builds don't pay the prost / tonic compile cost.
+#[cfg(feature = "grpc")]
+pub mod grpc;
+>>>>>>> origin/main
 
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
@@ -771,7 +778,11 @@ fn handle_existing_claim(
     }
 }
 
-async fn run_pipeline(
+// R14 P1: visibility bumped from `fn` (private) to `pub(crate)` so the
+// gRPC module (`crate::grpc`) can call into the same pipeline that
+// backs the REST handler. The signature is unchanged; existing callers
+// inside this module are unaffected.
+pub(crate) async fn run_pipeline(
     inner: &Arc<AppInner>,
     body: Value,
 ) -> Result<PaymentRequestResponse, Problem> {

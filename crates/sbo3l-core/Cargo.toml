@@ -48,6 +48,35 @@ curve25519-dalek = { version = "4.1.3", features = ["rand_core", "digest"] }
 blake3 = "1.8.5"
 frost-ed25519 = { version = "3", features = ["serialization"] }
 
+# R14 P3 — live AWS KMS EthSigner backend (feature `eth_kms_aws`).
+# Pulls aws-sdk-kms (~80 transitive crates); kept behind a dedicated
+# feature so the existing `aws_kms` Ed25519 stub stays compile-only.
+# `aws-smithy-mocks` provides a Rule-based MockResponseInterceptor so
+# unit tests exercise the real client + interceptor stack without a
+# network round-trip. `aws-smithy-types` is needed for `Blob`.
+aws-sdk-kms = { version = "1", default-features = false, features = ["rt-tokio", "rustls"], optional = true }
+aws-config = { version = "1", default-features = false, features = ["rt-tokio", "rustls"], optional = true }
+aws-smithy-types = { version = "1", optional = true }
+aws-smithy-mocks = { version = "0.2", optional = true }
+aws-smithy-runtime-api = { version = "1", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+
+# R14 P3 — live GCP KMS EthSigner backend (feature `eth_kms_gcp`).
+# `google-cloud-kms` 0.6 ships an `eth` feature wiring secp256k1 +
+# k256 directly — that path bypasses the manual DER-decode dance
+# entirely. We use the lower-level `AsymmetricSign` + `GetPublicKey`
+# RPCs ourselves to keep the mock-test surface portable across
+# AWS/GCP and to avoid pulling ethers-* into the dep tree.
+google-cloud-kms = { version = "0.6", default-features = false, features = ["rustls-tls", "auth"], optional = true }
+google-cloud-auth = { version = "0.17", default-features = false, features = ["rustls-tls"], optional = true }
+google-cloud-googleapis = { version = "0.16", optional = true }
+async-trait = { version = "0.1", optional = true }
+
+# `base64` is only used to strip the PEM envelope GCP returns for
+# pubkeys; both KMS features pull base64 transitively (smithy / tonic),
+# so making it a direct optional dep doesn't grow the dep tree.
+base64 = { version = "0.22", optional = true }
+
 # wasm32 verifier slice (`scripts/build-wasm-verifier.sh`): pin
 # `getrandom = { version = "0.3", features = ["wasm_js"] }` for the
 # wasm target so OsRng has a JS-side entropy source. Native targets
@@ -76,6 +105,29 @@ phala_tee = []
 # default off so KeeperHub-only consumers don't pay for the EVM
 # stack they don't use.
 eth_signer = ["dep:k256", "dep:tiny-keccak"]
+
+# R14 P3 — live cloud-KMS secp256k1 backends. Each pulls its own
+# vendor SDK only when the feature is enabled. `eth_signer` is an
+# implicit dep (you can't sign EVM digests without the trait).
+eth_kms_aws = [
+    "eth_signer",
+    "dep:aws-sdk-kms",
+    "dep:aws-config",
+    "dep:aws-smithy-types",
+    "dep:aws-smithy-mocks",
+    "dep:aws-smithy-runtime-api",
+    "dep:tokio",
+    "dep:async-trait",
+]
+eth_kms_gcp = [
+    "eth_signer",
+    "dep:google-cloud-kms",
+    "dep:google-cloud-auth",
+    "dep:google-cloud-googleapis",
+    "dep:async-trait",
+    "dep:tokio",
+    "dep:base64",
+]
 
 [dev-dependencies]
 # `local_file` signer tests write secrets to per-test temp files +

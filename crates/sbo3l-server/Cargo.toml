@@ -20,6 +20,16 @@ path = "src/lib.rs"
 name = "sbo3l-server"
 path = "src/main.rs"
 
+# R14 P1: optional gRPC binary that runs the existing axum HTTP router
+# AND a tonic-based gRPC server side-by-side on different ports. Lives
+# behind the `grpc` feature so deployments that don't want gRPC don't
+# pay the prost / tonic compile cost. `cargo build -p sbo3l-server`
+# (no features) keeps emitting only the HTTP `sbo3l-server` binary.
+[[bin]]
+name = "sbo3l-server-grpc"
+path = "src/bin/sbo3l_server_grpc.rs"
+required-features = ["grpc"]
+
 [dependencies]
 sbo3l-core = { workspace = true }
 sbo3l-policy = { workspace = true }
@@ -30,6 +40,13 @@ tokio = { workspace = true }
 axum = { workspace = true, features = ["ws"] }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+# R14 P1: gRPC stack. `tonic` carries the runtime; `prost` is the
+# generated-code dependency for proto messages. Both are gated behind
+# the `grpc` feature so the default HTTP-only build stays lean.
+tonic = { version = "0.12", optional = true }
+prost = { version = "0.13", optional = true }
+async-stream = { version = "0.3", optional = true }
+tokio-stream = { version = "0.1", optional = true }
 # T-3-5 backend: futures combinators for the WebSocket split read/write
 # path. Pulled in unconditionally since reqwest already transitively
 # depends on futures-util; gating saves no bytes.
@@ -89,6 +106,15 @@ reqwest = { workspace = true, features = ["blocking"] }
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2"
 
+# R14 P1: build-time codegen for `proto/sbo3l.proto`. Runs only when
+# the `grpc` feature is enabled (see [features] below) — `tonic-build`
+# is keyed on `cfg(feature = "grpc")` inside `build.rs`. The vendored
+# protoc binary lets the build work on hosts without `protoc` on PATH,
+# which matches our CI + worktree pattern (no pre-provisioned tools).
+[build-dependencies]
+tonic-build = { version = "0.12", optional = true }
+protoc-bin-vendored = { version = "3", optional = true }
+
 # F-5: passthrough features for sbo3l-core's KMS backends so a
 # `cargo test -p sbo3l-server --features aws_kms` route compiles the
 # AWS backend in the consumer crate's test_signers.rs without forcing
@@ -108,6 +134,17 @@ ws_events = []
 # — the audit chain remains single-node unless explicitly opted in.
 # See `docs/cluster-mode.md` for the EXPERIMENTAL caveats.
 cluster = ["dep:openraft", "dep:bincode", "dep:reqwest", "dep:async-trait"]
+# R14 P1: opt-in gRPC surface. Activates the tonic + prost runtime
+# crates AND the build-script codegen path (`tonic-build` +
+# `protoc-bin-vendored`). The `sbo3l-server-grpc` binary
+# (`required-features = ["grpc"]`) only builds when this is on.
+grpc = [
+    "dep:tonic",
+    "dep:prost",
+    "dep:async-stream",
+    "dep:tokio-stream",
+    "dep:tonic-build",
+    "dep:protoc-bin-vendored",
 # R14 P5: OpenTelemetry tracing emitter. OFF by default — the
 # no-features build must not pull a single OTEL transitive dep. Enable
 # with `--features otel`. Runtime exporter selection via
