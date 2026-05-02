@@ -1,0 +1,66 @@
+---
+title: Policy decision
+description: Deterministic, snapshot-versioned policy evaluation; allow/deny is a pure function of the APRP envelope and the policy snapshot.
+audience: agent platform engineers, compliance teams
+outcome: You'll know what the policy engine evaluates, why decisions are reproducible, and how snapshot hashing gives you cross-version comparison.
+prereqs:
+  - APRP wire format read
+---
+
+The policy engine is a **pure function**: given the canonicalised APRP envelope and a policy snapshot, it returns a decision (`allow` / `deny`) and a deny code. Pure means no clocks (`expiry` is read from the envelope, not the wall), no I/O, no randomness. Two evaluations of the same `(request, snapshot)` always agree — that's what makes audit replay possible.
+
+## What the policy receives
+
+```rust
+fn decide(request: &AprpEnvelope, snapshot: &PolicySnapshot) -> PolicyDecision
+```
+
+`PolicySnapshot` is the parsed policy file at the moment of decision, content-hashed. The hash travels in the audit event (`policy_snapshot_hash`) and the Passport capsule (so strict verification can confirm the decision was reproducible).
+
+## Decision shape
+
+```json
+{
+  "decision": "allow",
+  "deny_code": null,
+  "deny_detail": null,
+  "policy_snapshot_hash": "0xe044f1...",
+  "matched_rules": ["risk.low", "asset.weth", "chain.sepolia"]
+}
+```
+
+When `decision: deny`, `deny_code` is one of a closed set of domain codes (see [error codes reference](/reference/errors)) and `deny_detail` carries human-readable context.
+
+## Snapshot versioning
+
+A policy snapshot is the **whole policy file**, not just the matched rule. This is deliberate:
+
+- Diffing two snapshots tells you exactly what policy changed between two decisions.
+- A capsule from 2026-04-30 is verifiable in 2027 against its embedded snapshot, even if today's policy file diverged.
+- Operators can evolve the policy without invalidating older capsules.
+
+The cost is capsule size — embedded snapshots are typically 1-3 KB. Worth it for offline reproducibility.
+
+## Common deny codes
+
+| Code | When it fires |
+|---|---|
+| `policy.deny_unknown_provider` | sponsor not registered with this daemon |
+| `policy.budget_exceeded` | request would exceed a [multi-scope budget](/concepts/budget) |
+| `policy.expiry_in_past` | `expiry` has already passed |
+| `policy.risk_class_blocked` | risk class blocked by current operator policy |
+| `policy.asset_unknown` | asset not in the allowed list |
+
+Full list in the [error codes reference](/reference/errors).
+
+## Editing the policy
+
+Production deployments load policy from `/etc/sbo3l/policy.json`. Local dev reads `~/.sbo3l/policy.json`. The daemon **does not auto-reload**: edit, then `kill -HUP <pid>` (or restart) — and the new snapshot's hash differs from the old, so subsequent capsules embed the new snapshot.
+
+For zero-downtime policy changes in production, use rolling daemon restarts behind a load balancer. Audit chain integrity is preserved (each event records its snapshot hash).
+
+## See also
+
+- [APRP wire format](/concepts/aprp) — what the policy receives.
+- [Multi-scope budget](/concepts/budget) — how `policy.budget_exceeded` fires.
+- [Self-contained capsule v2](/concepts/capsule) — how the snapshot travels with the decision.

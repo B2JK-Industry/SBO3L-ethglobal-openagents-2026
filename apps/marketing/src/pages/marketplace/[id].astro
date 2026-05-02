@@ -1,0 +1,162 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import policiesData from "~/data/marketplace-policies.json";
+
+interface Policy {
+  id: string;
+  name: string;
+  issuer: string;
+  framework: string;
+  risk_class: string;
+  version: string;
+  rules_count: number;
+  budget_summary: string;
+  reputation_score: number;
+  reputation_basis: string;
+  downloads: number;
+  last_updated: string;
+  description: string;
+  tags: string[];
+}
+
+export async function getStaticPaths() {
+  const policies = (policiesData as { policies: Policy[] }).policies;
+  return policies.map((p) => ({ params: { id: p.id }, props: { policy: p } }));
+}
+
+const { policy } = Astro.props as { policy: Policy };
+
+function repTier(score: number): "high" | "medium" | "low" {
+  if (score >= 0.9) return "high";
+  if (score >= 0.75) return "medium";
+  return "low";
+}
+const tier = repTier(policy.reputation_score);
+
+const all = (policiesData as { policies: Policy[] }).policies;
+const related = all
+  .filter((p) => p.id !== policy.id && (p.framework === policy.framework || p.tags.some((t) => policy.tags.includes(t))))
+  .slice(0, 3);
+---
+<BaseLayout
+  title={`${policy.name} — Marketplace`}
+  description={policy.description}
+  ogTitle={`${policy.name} · SBO3L Marketplace`}
+>
+  <a href="/marketplace" class="back-cta">← Marketplace</a>
+
+  <article class="policy">
+    <header>
+      <p class="eyebrow">Policy · v{policy.version} · last updated {policy.last_updated}</p>
+      <h1>{policy.name}</h1>
+      <p class="issuer">by <code>{policy.issuer}</code></p>
+    </header>
+
+    <section class="rep-row">
+      <div class={`rep-card rep-${tier}`}>
+        <span class="rep-score">★ {policy.reputation_score.toFixed(2)}</span>
+        <span class="rep-tier">{tier === "high" ? "high reputation" : tier === "medium" ? "medium reputation" : "newer policy"}</span>
+        <p class="rep-basis">{policy.reputation_basis}</p>
+      </div>
+      <dl class="quick-stats">
+        <div><dt>Framework</dt><dd>{policy.framework}</dd></div>
+        <div><dt>Risk class</dt><dd class={`risk-${policy.risk_class}`}>{policy.risk_class}</dd></div>
+        <div><dt>Rules</dt><dd>{policy.rules_count}</dd></div>
+        <div><dt>Downloads</dt><dd>{policy.downloads}</dd></div>
+      </dl>
+    </section>
+
+    <section class="block">
+      <h2>Description</h2>
+      <p>{policy.description}</p>
+    </section>
+
+    <section class="block">
+      <h2>Budget summary</h2>
+      <p class="mono">{policy.budget_summary}</p>
+    </section>
+
+    <section class="block">
+      <h2>Tags</h2>
+      <div class="tag-row">
+        {policy.tags.map((t) => <span class="tag">{t}</span>)}
+      </div>
+    </section>
+
+    <section class="adopt">
+      <h2>Adopt this policy</h2>
+      <p>Pin the policy ID in your daemon's <code>policy.toml</code>:</p>
+      <pre><code>{`[policy]
+source = "sbo3l-marketplace"
+id = "${policy.id}"
+version = "${policy.version}"
+trust = "by-reputation"   # or "pinned-hash" for stricter integrity`}</code></pre>
+      <p class="mono note">
+        Reload the daemon. On next request the runtime fetches the policy, verifies the
+        issuer signature, computes <code>policy_snapshot_hash</code>, and starts using
+        it. Every Passport capsule from that point on embeds the marketplace ID
+        + version so consumers can re-derive the source.
+      </p>
+    </section>
+
+    {related.length > 0 && (
+      <section class="related">
+        <h2>Related policies</h2>
+        <ul>
+          {related.map((r) => <li><a href={`/marketplace/${r.id}`}>{r.name}</a> <span class="mono">★ {r.reputation_score.toFixed(2)}</span></li>)}
+        </ul>
+      </section>
+    )}
+  </article>
+</BaseLayout>
+
+<style>
+  .back-cta { position: sticky; top: 0; z-index: 5; display: block; background: var(--code-bg); border-bottom: 1px solid var(--border); color: var(--accent); padding: 0.6em 1.5em; font-weight: 600; text-decoration: none; font-size: 0.9em; }
+  .back-cta:hover { background: var(--bg); text-decoration: none; }
+
+  article.policy { max-width: var(--max); margin: 2em auto 4em; padding: 0 1.5em; }
+  article.policy header { margin-bottom: 1.5em; }
+  article.policy .eyebrow { color: var(--accent); font-family: var(--font-mono); font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5em; }
+  article.policy h1 { font-size: var(--fs-3); font-weight: 700; line-height: 1.2; margin-bottom: 0.4em; }
+  article.policy .issuer { color: var(--muted); font-size: 0.9em; }
+
+  .rep-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin: 1.5em 0; }
+  .rep-card { padding: 1.2em; border-radius: var(--r-md); background: var(--code-bg); border: 1px solid var(--border); display: grid; gap: 0.4em; }
+  .rep-card.rep-high { border-left: 3px solid var(--accent); }
+  .rep-card.rep-medium { border-left: 3px solid #ffce5c; }
+  .rep-card.rep-low { border-left: 3px solid var(--muted); }
+  .rep-score { font-size: 2em; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+  .rep-tier { color: var(--muted); font-size: 0.9em; }
+  .rep-basis { color: var(--muted); font-size: 0.85em; margin-top: 0.5em; }
+
+  .quick-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em 1em; padding: 1.2em; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r-md); margin: 0; }
+  .quick-stats div { display: contents; }
+  .quick-stats dt { color: var(--muted); font-size: 0.85em; padding: 0.2em 0; border-bottom: 1px solid var(--border); }
+  .quick-stats dd { color: var(--fg); font-family: var(--font-mono); padding: 0.2em 0; border-bottom: 1px solid var(--border); margin: 0; text-align: right; }
+  .quick-stats dd.risk-low    { color: var(--accent); }
+  .quick-stats dd.risk-medium { color: #ffce5c; }
+  .quick-stats dd.risk-high   { color: #ff6b6b; }
+
+  section.block { margin: 1.5em 0; }
+  section.block h2 { font-size: 1.1em; font-weight: 700; margin-bottom: 0.4em; }
+  section.block p { color: var(--muted); }
+  section.block .mono { font-family: var(--font-mono); }
+
+  .tag-row { display: flex; gap: 0.4em; flex-wrap: wrap; }
+  .tag { font-size: 0.85em; padding: 0.2em 0.6em; border-radius: var(--r-sm); background: var(--code-bg); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); }
+
+  .adopt { margin: 2em 0; padding: 1.5em; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--code-bg); }
+  .adopt h2 { font-size: 1.1em; margin-bottom: 0.6em; }
+  .adopt pre { background: var(--bg); padding: 1em; border-radius: var(--r-sm); overflow-x: auto; }
+  .adopt .note { margin-top: 0.7em; font-size: 0.85em; color: var(--muted); }
+
+  .related h2 { font-size: 1em; color: var(--muted); margin-bottom: 0.6em; }
+  .related ul { list-style: none; padding: 0; display: grid; gap: 0.4em; }
+  .related li { padding: 0.5em 0.8em; border-radius: var(--r-sm); background: var(--code-bg); display: flex; justify-content: space-between; }
+  .related a { color: var(--accent); }
+  .related .mono { color: var(--muted); font-family: var(--font-mono); font-size: 0.85em; }
+
+  @media (max-width: 640px) {
+    .rep-row { grid-template-columns: 1fr; }
+  }
+</style>

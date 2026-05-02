@@ -1,0 +1,86 @@
+---
+title: agent verify-ens
+description: Verify that an agent's published ENS records match its current daemon-side identity.
+audience: integration testers, ops, third-party verifiers
+outcome: You'll know how to detect ENS-vs-daemon drift and what each mismatch means.
+prereqs:
+  - agent register read
+---
+
+```bash
+sbo3l agent verify-ens --ens <NAME> [OPTIONS]
+```
+
+Resolves an ENS name and compares the `sbo3l:*` text records against the local daemon's view of that agent. Fails fast on drift.
+
+## Flags
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--ens <NAME>` | required | ENS name to resolve |
+| `--rpc-url <URL>` | `https://ethereum-rpc.publicnode.com` | mainnet RPC for ENS resolution |
+| `--expected-pubkey <ED25519>` | none | optionally pin the pubkey; mismatch is `rc=2` |
+| `--json` | off | structured output for CI |
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | OK — every record present and matches daemon state |
+| `1` | IO error — RPC down, daemon unreachable, ENS unresolvable |
+| `2` | semantic — at least one record missing or mismatched |
+| `3` | nothing-to-do — ENS name resolves but has zero `sbo3l:*` records |
+
+## Records checked
+
+| Key | Daemon source |
+|---|---|
+| `sbo3l:pubkey` | configured signer's pubkey |
+| `sbo3l:endpoint` | daemon's public bind address |
+| `sbo3l:policy_hash` | active `policy.json` JCS hash |
+| `sbo3l:audit_root` | current chain root |
+| `sbo3l:proof_uri` | configured proof base URL |
+
+A passing run confirms third parties resolving the ENS name see exactly what the daemon claims to be.
+
+## Examples
+
+### Mainnet smoke against the demo agent
+
+```bash
+sbo3l agent verify-ens --ens sbo3lagent.eth
+# stdout (truncated):
+# ✓ pubkey       ed25519:9aF3...   matches
+# ✓ endpoint     http://127.0.0.1:8730/v1
+# ✓ policy_hash  e044f13c5acb...
+# ✓ audit_root   0x000000...
+# ✓ proof_uri    https://sbo3l-marketing.vercel.app/proof
+# rc=0
+```
+
+### CI gate — fail build on drift
+
+```bash
+sbo3l agent verify-ens --ens prod-research-01.sbo3lagent.eth --json | tee verify.json
+test "$(jq -r .rc verify.json)" = "0"
+```
+
+### Pinned pubkey check (third-party verifier)
+
+```bash
+sbo3l agent verify-ens \
+  --ens research-01.sbo3lagent.eth \
+  --expected-pubkey ed25519:9aF3aaaa...
+# rc=2 if the published pubkey ever rotates without the verifier updating
+```
+
+## Pitfalls
+
+- **Public RPC rate limits.** `publicnode.com` is generous but enforces caps. For CI loops use a private RPC.
+- **CCIP-Read records (Phase 2 T-4-1)** — when records move off-chain via ENSIP-25, this command needs the CCIP gateway URL. `--ccip-gateway` flag is added in the T-4-1 ticket; until then, on-chain-only.
+- **ENS namehash mismatch — case sensitivity.** Ensure `--ens` is lowercase; mixed-case names hash differently.
+
+## See also
+
+- [`agent register`](/cli/agent-register) — how the records were published in the first place.
+- [Trust DNS concept](/concepts/trust-dns) — the broader story (lands in T-3-6).

@@ -3,8 +3,30 @@
 Content-addressed, signed policy registry SDK for SBO3L. Operators publish vetted policy bundles + consumers fetch + verify them offline.
 
 ```bash
-npm i @sbo3l/marketplace
+npm i @sbo3l/marketplace                        # SDK
+npm i -g @sbo3l/marketplace                     # SDK + sbo3l-marketplace CLI binary
 ```
+
+## CLI quick reference
+
+```bash
+# Adopt a registry-hosted policy locally:
+sbo3l-marketplace adopt --from sha256-<hex> \
+  --registry https://marketplace.sbo3l.dev \
+  --as my-policy
+# → writes verified policy to .sbo3l/policies/my-policy.json
+
+# Verify a bundle file you already have:
+sbo3l-marketplace verify --file ./bundle.json
+
+# Publish a pre-signed bundle to a registry:
+sbo3l-marketplace publish --file ./bundle.json \
+  --registry https://marketplace.sbo3l.dev
+```
+
+`adopt` does TWO checks: (a) the registry-returned bytes hash to the requested `policy_id` (catches a misbehaving CDN), and (b) the bundle's signature verifies under a trusted issuer. Either failure aborts the write and exits non-zero.
+
+Trusted issuers are loaded from (in precedence order): `--issuers <path>` flag → `$XDG_CONFIG_HOME/sbo3l/trusted-issuers.json` → `~/.sbo3l/trusted-issuers.json` → fallback (SBO3L official only, with placeholder pubkey — every verify fails until you wire a real config).
 
 ## What it solves
 

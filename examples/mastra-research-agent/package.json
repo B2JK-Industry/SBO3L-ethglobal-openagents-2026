@@ -1,0 +1,20 @@
+{
+  "name": "sbo3l-mastra-research-agent",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Demo: Mastra agent gating each payment-shaped action through SBO3L.",
+  "scripts": {
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/mastra": "file:../../sdks/typescript/integrations/mastra",
+    "@sbo3l/sdk": "file:../../sdks/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}

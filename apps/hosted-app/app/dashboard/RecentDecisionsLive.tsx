@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 
 interface DecisionRow {
   ts: number;
@@ -16,7 +16,7 @@ const INTENTS = ["swap WETH→USDC", "pay vendor", "quote check", "audit checkpo
 // Mock SSE — emits a fake decision every ~3 seconds. Replaced in slice 2
 // by `new EventSource("/api/feed")` consuming Dev 1's ws_events endpoint
 // proxied through the daemon. Same row-shape contract.
-export function RecentDecisionsLive(): JSX.Element {
+export function RecentDecisionsLive(): ReactElement {
   const [rows, setRows] = useState<DecisionRow[]>([]);
 
   useEffect(() => {

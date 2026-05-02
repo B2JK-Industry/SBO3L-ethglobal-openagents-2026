@@ -1,0 +1,77 @@
+---
+title: Sponsor adapters
+description: How SBO3L routes allow-decisions to sponsor executors (KeeperHub, Uniswap, ENS) without holding any sponsor secrets itself.
+audience: integration authors, sponsor engineering teams
+outcome: You'll know the GuardedExecutor trait, when to use mock vs live, and where evidence lands in the audit chain.
+prereqs:
+  - APRP wire format read
+---
+
+A **sponsor adapter** is the contract between an SBO3L `decision: allow` and a downstream execution path (a swap on Uniswap, a workflow on KeeperHub, an ENS subname mint). Adapters are first-class: each sponsor ships its own crate implementing `GuardedExecutor`, with mock and live constructors as peers.
+
+## The trait
+
+```rust
+pub trait GuardedExecutor: Send + Sync {
+    fn name(&self) -> &'static str;
+    async fn execute(&self, intent: &AprpIntent, receipt: &PolicyReceipt)
+        -> Result<ExecutorEvidence, ExecError>;
+    async fn health(&self) -> Result<(), ExecError>;
+}
+```
+
+`execute` is called only after the policy decision is `allow` and the receipt has been signed. The adapter receives the canonicalised intent and the signed receipt; it does NOT receive the agent's private key (because the agent doesn't have one).
+
+## Mock + live as peers
+
+Every adapter ships two constructors:
+
+```rust
+let kh_mock = KeeperHubAdapter::local_mock();          // CI-safe default
+let kh_live = KeeperHubAdapter::live_from_env()?;      // pulls KH_API_TOKEN
+```
+
+Both implement the same trait. CI runs against mock fixtures (deterministic outputs); the production-shaped runner exercises live where credentials are configured. **Mock is the default** so integrations don't fail closed when the sponsor API is down.
+
+## Evidence schema
+
+Every adapter writes an `executor_evidence` record into the audit chain alongside the decision:
+
+```json
+{
+  "sponsor": "keeperhub",
+  "execution_ref": "kh-172o77rxov7mhwvpssc3x",
+  "mock": false,
+  "evidence": { "...": "sponsor-specific schema" }
+}
+```
+
+`execution_ref` is the sponsor's own ID (KH `executionId`, Uniswap tx hash, ENS namehash). It's stored as an opaque string — SBO3L does not parse it.
+
+The `mock: false` flag is the boundary between demonstration and production: a Passport capsule with `live_mode: true` and an empty `executor_evidence` rejects with `capsule.live_mode_empty_evidence` (strict-verifier check #6).
+
+## Shipped adapters
+
+| Sponsor | Crate | Live evidence shape |
+|---|---|---|
+| KeeperHub | `sbo3l-keeperhub-adapter` | KH workflow `executionId`, status, payload digest |
+| Uniswap (Sepolia QuoterV2) | `sbo3l-execution` example | quote source, route tokens, sqrt_price_x96, freshness |
+| ENS mainnet (`sbo3lagent.eth`) | `sbo3l-identity` example | namehash, resolved records, block number |
+
+Each adapter has a smoke test under `examples/<sponsor>_live_smoke`. The marketing site evidence panel quotes verbatim outputs from these smokes.
+
+## Authoring a new adapter
+
+1. Implement `GuardedExecutor` in a new crate, naming it `sbo3l-<sponsor>-adapter`.
+2. Define a sponsor-specific evidence schema; document at `docs/sponsors/<sponsor>.md`.
+3. Ship `local_mock()` returning fixture evidence and `live_from_env()` reading credentials from env vars.
+4. Add an `examples/<sponsor>_live_smoke.rs` runnable against real infra.
+5. Add CI matrix entry for both mock + live (live behind a job-level secret).
+
+The repo's `sbo3l-keeperhub-adapter` is the canonical reference.
+
+## See also
+
+- [APRP wire format](/concepts/aprp) — what the adapter receives.
+- [Audit log](/concepts/audit-log) — where evidence lands.
+- [Live integration evidence](https://sbo3l-marketing.vercel.app#live-evidence) on the marketing site for current outputs.

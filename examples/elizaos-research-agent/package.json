@@ -1,0 +1,29 @@
+{
+  "name": "@sbo3l/example-elizaos-research-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end ElizaOS research agent demo using @sbo3l/elizaos plugin's SBO3L_PAYMENT_REQUEST action. Two-tool research-then-pay flow gated by SBO3L; routes through KH workflow m4t4cnpmhv8qquce3bv3c.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build:dep": "npm --prefix ../../integrations/elizaos install --no-audit --no-fund && npm --prefix ../../integrations/elizaos run build",
+    "preagent": "npm run build:dep",
+    "presmoke": "npm run build:dep",
+    "pretypecheck": "npm run build:dep",
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/elizaos": "file:../../integrations/elizaos",
+    "@sbo3l/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

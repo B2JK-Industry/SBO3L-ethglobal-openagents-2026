@@ -1,0 +1,101 @@
+---
+title: Trust DNS — why ENS is the agent identity layer
+description: How ENS, CCIP-Read, and hash-chained audit logs compose into a verifiable trust DNS for autonomous agents.
+audience: agent platform engineers, ENS community, ETHGlobal Most Creative judges
+outcome: You'll understand the analogy "ENS : agents :: DNS : the web", how off-chain records via CCIP-Read keep ENS records writable at agent speeds, and why a hash-chained audit log functions as a DNS query log you can replay offline.
+prereqs:
+  - capsule v2 read
+  - audit log read
+---
+
+## Executive summary
+
+The web has DNS, X.509, and certificate transparency. Autonomous agents have nothing equivalent — until you compose three primitives that already exist on Ethereum.
+
+ENS gives every agent a human-readable name backed by a cryptographic record. CCIP-Read lets that record update at agent speeds without paying gas per write. A hash-chained, Ed25519-signed audit log functions as the public query log that makes the whole system replayable.
+
+We call this composition **Trust DNS**. Not a marketing term — a literal architectural analogy:
+
+| Web primitive | Trust DNS analogue |
+|---|---|
+| DNS A/CNAME records | ENS `sbo3l:*` text records |
+| DNS query log (CT logs) | hash-chained audit chain |
+| TLS certificate | Ed25519-signed PolicyReceipt |
+| Certificate transparency proof | self-contained Passport capsule |
+| `dig`, `whois` | `sbo3l agent verify-ens` |
+
+What the web took 25 years to assemble post-hoc, agents can adopt at v1 — because the primitives already exist on a public chain that 23M domains already trust ([ENS deployment statistics](https://ens.domains)).
+
+## Why ENS over centralized identity
+
+The first instinct when designing agent identity is to spin up a central registry. "Each agent gets a UUID; we run the registry." That registry then becomes:
+
+- A trust bottleneck — anyone trusting an agent must trust the registry operator.
+- A kill switch — registry operators can revoke or rewrite agent identities.
+- A privacy choke point — every cross-agent verification round-trips the registry.
+- A target — compromising the registry compromises every downstream consumer.
+
+ENS sidesteps every one of these. An agent's identity is rooted in `<agent>.sbo3lagent.eth`. The records resolve via the public ENS Universal Resolver. The agent's owner controls its records — not the registry — because there is no registry. Verification does not call any centralised service; it reads chain state.
+
+Concretely: SBO3L's demo agent at [`sbo3lagent.eth`](https://app.ens.domains/sbo3lagent.eth) publishes five records — `sbo3l:pubkey`, `sbo3l:endpoint`, `sbo3l:policy_hash`, `sbo3l:audit_root`, `sbo3l:proof_uri`. Anyone with a mainnet RPC can resolve them. SBO3L the project has zero ability to revoke them. The agent's owner alone holds that power, and they hold it via the same mechanism that secures their wallet.
+
+This is the same shape that gave the web its trust foundation: distinct entities, common name lookups, public verifiability. We are not inventing it — we are noticing that ENS *is* it, for the agent layer.
+
+## The CCIP-Read off-chain extension
+
+Naive ENS use has one problem for agents: writes cost gas. An agent that updates its `audit_root` every hour spends real money per update, and updates compete for block space.
+
+[ENSIP-25 (CCIP-Read)](https://docs.ens.domains/ensip/16/) solves this. The on-chain record carries a single pointer to an HTTP gateway; the gateway returns the actual record, signed against the same on-chain identity. Reads stay public and trust-anchored on-chain; writes happen at HTTP speeds, off-chain.
+
+For agents this means:
+
+- The expensive on-chain footprint is the resolver pointer (one transaction at registration).
+- High-frequency records — `audit_root` after each checkpoint, reputation deltas after each cross-agent attestation — flow through the CCIP gateway at near-zero cost.
+- The signing key for off-chain records is the agent's own Ed25519 key, the same key that signs PolicyReceipts. One key, three uses (audit, ENS records, attestations), zero new trust assumptions.
+
+SBO3L Phase 2 [T-4-1](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/win-backlog/06-phase-2.md) ships a CCIP gateway at `sbo3l-ccip.vercel.app`. The gateway is stateless — it reads from the daemon's audit chain, signs the response, returns it. Anyone can run their own gateway against their own daemon; the on-chain pointer chooses which.
+
+## Hash-chained audit log as the DNS query log
+
+The web's certificate transparency logs are the underrated part of TLS. They give third parties — not just the issuer — a verifiable record of what was issued, when, and to whom. SBO3L's hash-chained audit log fills the same role for agents.
+
+Every decision the daemon makes appends an event linked to the previous via `prev_event_hash`. Every event is Ed25519-signed. Flip one byte and the [strict-hash verifier](/concepts/audit-log#strict-hash-verifier) rejects with `audit.tamper_detected` at the failing event. The chain is local SQLite — no consensus, no leader — but the offline-verifiability is identical to a CT log slice.
+
+The replay path makes this concrete. Take a single Passport capsule. Run [`passport verify --strict`](/cli/passport-verify). The capsule embeds the relevant audit segment plus the policy snapshot at decision time. Six checks fire and either all pass — meaning the authorisation chain is intact — or the verifier rejects with a specific failure code. No daemon, no DB, no network. The capsule is the proof; the audit log is the historical query log behind it.
+
+Try it yourself in your browser at [`sbo3l-marketing.vercel.app/proof`](https://sbo3l-marketing.vercel.app/proof). The verifier is the same Rust code, compiled to WASM. Paste a capsule; six green checks or a specific reject reason. The point of "self-contained" is that you don't have to take SBO3L's word for it — you can verify locally.
+
+## 60-agent constellation as scale proof
+
+A single demo agent proves the protocol works. A 60-agent constellation proves the trust topology composes.
+
+[ENS-AGENT-A1](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/win-backlog/10-first-tier-amplifiers.md) targets a 60-agent fleet on mainnet by Day 80, each agent registered with its own subname under `sbo3lagent.eth`, each publishing the five records, each cross-attesting to its peers. The trust-dns visualization at [`sbo3l-trust-dns-viz.vercel.app`](https://sbo3l-trust-dns-viz.vercel.app) renders this in real time — a force-directed graph where nodes are agents, edges are cross-agent attestations, and the graph evolves as decisions land.
+
+Three properties scale with the constellation:
+
+1. **Discovery is O(1) per query.** Resolving any agent's records is a single ENS Universal Resolver call, no matter how many agents exist. The gas cost of registration is one-time per agent; the recurring cost is zero.
+2. **Verification is parallelisable.** Each capsule is self-contained; you do not need to consult one agent to verify another. Audit teams can verify a fleet in parallel without coordination.
+3. **Failure modes degrade gracefully.** If one agent's CCIP gateway goes down, only that agent's high-frequency records pause; the on-chain identity, the audit chain, and every previously-emitted capsule remain verifiable. There is no shared dependency that fails the whole fleet.
+
+The constellation is the product demo. It is also the empirical demonstration that the architecture composes — a single agent could be a fluke; sixty interlocking agents producing offline-verifiable Passports is not.
+
+## What this is, and what it is not
+
+Trust DNS is not a new chain, a new token, a new consensus mechanism. It is a conscious application of three existing primitives — ENS, CCIP-Read, hash-chained signed logs — to the agent identity problem.
+
+The honest scope:
+
+- It is **not** a wallet. SBO3L holds no ETH; agents hold no keys.
+- It is **not** a replacement for KYC, legal identity, or reputation. The records say what an agent claims; humans still decide whom to trust.
+- It is **not** Sybil-resistant at the agent layer. A single operator can mint arbitrary subnames. ENS makes attribution clear — not unforgeable.
+- It is **not** anchored on-chain by default. Audit chains live in local SQLite; optional EAS / on-chain anchoring is Phase 3.
+
+What it is: a verifiable identity, query, and replay layer for autonomous agents, built entirely on primitives that already exist and are already trusted. We did not invent it. We composed it.
+
+## See also
+
+- [`agent register` CLI](/cli/agent-register) — how to publish ENS records.
+- [`agent verify-ens` CLI](/cli/agent-verify-ens) — how to confirm records match daemon state.
+- [Self-contained capsule v2](/concepts/capsule) — the unit of proof Trust DNS produces.
+- [Browser verifier at /proof](https://sbo3l-marketing.vercel.app/proof) — verify a capsule live.
+- [Trust-DNS visualization](https://sbo3l-trust-dns-viz.vercel.app) — see the constellation in motion.

@@ -1,0 +1,165 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import policiesData from "~/data/marketplace-policies.json";
+
+interface Policy {
+  id: string;
+  name: string;
+  issuer: string;
+  framework: string;
+  risk_class: string;
+  version: string;
+  rules_count: number;
+  budget_summary: string;
+  reputation_score: number;
+  reputation_basis: string;
+  downloads: number;
+  last_updated: string;
+  description: string;
+  tags: string[];
+}
+
+const policies = policiesData.policies as Policy[];
+const frameworks = [...new Set(policies.map((p) => p.framework))].sort();
+const riskClasses = [...new Set(policies.map((p) => p.risk_class))].sort();
+
+function repTier(score: number): "high" | "medium" | "low" {
+  if (score >= 0.9) return "high";
+  if (score >= 0.75) return "medium";
+  return "low";
+}
+---
+<BaseLayout
+  title="Marketplace — SBO3L"
+  description="Discover, audit, and adopt SBO3L policies. Each policy is signed, reputation-scored, and verifiable offline."
+  ogTitle="SBO3L Marketplace"
+>
+  <section class="hero">
+    <p class="eyebrow">Phase 3 · Marketplace</p>
+    <h1>Discover policies. Adopt the trust they encode.</h1>
+    <p class="lede">
+      Every policy is a signed JSON document, ranked by reputation accumulated from real production decisions across the SBO3L fleet. Browse by framework, risk class, or issuer — copy the policy ID into your daemon, the runtime checks the signature on next request.
+    </p>
+  </section>
+
+  <section class="filters" aria-label="Filter policies">
+    <details>
+      <summary>Filter <span id="filter-summary">{policies.length} policies</span></summary>
+      <div class="filter-row">
+        <label>
+          <span>Framework</span>
+          <select id="framework-filter">
+            <option value="">all frameworks</option>
+            {frameworks.map((f) => <option value={f}>{f}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Risk class</span>
+          <select id="risk-filter">
+            <option value="">all risk classes</option>
+            {riskClasses.map((r) => <option value={r}>{r}</option>)}
+          </select>
+        </label>
+        <label class="search">
+          <span>Search</span>
+          <input id="search-filter" type="text" placeholder="name, issuer, tag…" autocomplete="off" />
+        </label>
+      </div>
+    </details>
+  </section>
+
+  <section class="policies" id="policy-grid">
+    {policies.map((p) => (
+      <a
+        class="policy-card"
+        href={`/marketplace/${p.id}`}
+        data-framework={p.framework}
+        data-risk={p.risk_class}
+        data-search={`${p.name} ${p.issuer} ${p.tags.join(" ")} ${p.description}`.toLowerCase()}
+      >
+        <header>
+          <h2>{p.name}</h2>
+          <span class={`rep rep-${repTier(p.reputation_score)}`}>★ {p.reputation_score.toFixed(2)}</span>
+        </header>
+        <p class="issuer">by <code>{p.issuer}</code> · v{p.version}</p>
+        <p class="desc">{p.description}</p>
+        <div class="meta-row">
+          <span class="tag tag-framework">{p.framework}</span>
+          <span class={`tag tag-risk tag-risk-${p.risk_class}`}>{p.risk_class} risk</span>
+          <span class="tag">{p.rules_count} rules</span>
+          <span class="tag">↓ {p.downloads}</span>
+        </div>
+      </a>
+    ))}
+  </section>
+
+  <section class="cta-row">
+    <a class="btn primary" href="/marketplace/publish">Publish a policy →</a>
+    <a class="btn ghost" href="https://sbo3l-docs.vercel.app/concepts/policy">Read the policy spec</a>
+  </section>
+</BaseLayout>
+
+<script>
+  const grid = document.getElementById("policy-grid");
+  const summary = document.getElementById("filter-summary");
+  const fwSel = document.getElementById("framework-filter") as HTMLSelectElement | null;
+  const riskSel = document.getElementById("risk-filter") as HTMLSelectElement | null;
+  const search = document.getElementById("search-filter") as HTMLInputElement | null;
+
+  const applyFilters = (): void => {
+    if (!grid) return;
+    const fw = fwSel?.value ?? "";
+    const risk = riskSel?.value ?? "";
+    const q = (search?.value ?? "").trim().toLowerCase();
+    let visible = 0;
+    grid.querySelectorAll<HTMLElement>(".policy-card").forEach((card) => {
+      const fwMatch = !fw || card.dataset.framework === fw;
+      const riskMatch = !risk || card.dataset.risk === risk;
+      const qMatch = !q || (card.dataset.search ?? "").includes(q);
+      const ok = fwMatch && riskMatch && qMatch;
+      card.style.display = ok ? "" : "none";
+      if (ok) visible += 1;
+    });
+    if (summary) summary.textContent = `${visible} polic${visible === 1 ? "y" : "ies"}`;
+  };
+  fwSel?.addEventListener("change", applyFilters);
+  riskSel?.addEventListener("change", applyFilters);
+  search?.addEventListener("input", applyFilters);
+</script>
+
+<style>
+  .hero { max-width: var(--max); margin: 4em auto 2em; padding: 0 1.5em; }
+  .hero .eyebrow { color: var(--accent); font-family: var(--font-mono); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6em; }
+  .hero h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin-bottom: 0.6em; }
+  .hero .lede { font-size: var(--fs-2); color: var(--muted); max-width: 760px; }
+
+  .filters { max-width: var(--max); margin: 0 auto 1em; padding: 0 1.5em; }
+  .filters details { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 0.6em 1em; }
+  .filters summary { cursor: pointer; color: var(--muted); font-size: 0.9em; }
+  .filters summary span { color: var(--fg); margin-left: 0.6em; }
+  .filter-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.8em; margin-top: 0.8em; }
+  .filter-row label { display: grid; gap: 0.3em; font-size: 0.85em; color: var(--muted); }
+  .filter-row select, .filter-row input { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0.5em 0.7em; font-family: var(--font-mono); }
+  .filter-row .search { grid-column: 1 / -1; }
+
+  .policies { max-width: var(--max); margin: 1.5em auto 3em; padding: 0 1.5em; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1em; }
+  .policy-card { display: grid; gap: 0.6em; padding: 1.2em; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--code-bg); color: var(--fg); text-decoration: none; transition: border-color 0.15s, transform 0.15s; }
+  .policy-card:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-2px); }
+  .policy-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em; }
+  .policy-card h2 { font-size: 1.05em; font-weight: 700; line-height: 1.3; }
+  .policy-card .issuer { color: var(--muted); font-size: 0.85em; }
+  .policy-card .desc { color: var(--muted); font-size: 0.92em; }
+
+  .rep { font-family: var(--font-mono); font-size: 0.82em; padding: 0.15em 0.5em; border-radius: var(--r-sm); white-space: nowrap; }
+  .rep-high   { background: var(--accent); color: var(--bg); }
+  .rep-medium { background: var(--code-bg); border: 1px solid var(--accent); color: var(--accent); }
+  .rep-low    { background: var(--code-bg); border: 1px solid var(--border); color: var(--muted); }
+
+  .meta-row { display: flex; flex-wrap: wrap; gap: 0.4em; margin-top: 0.4em; }
+  .tag { font-size: 0.78em; padding: 0.2em 0.55em; border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); }
+  .tag-risk-low    { color: var(--accent); border-color: var(--accent); }
+  .tag-risk-medium { color: #ffce5c; border-color: #ffce5c; }
+  .tag-risk-high   { color: #ff6b6b; border-color: #ff6b6b; }
+
+  .cta-row { max-width: var(--max); margin: 2em auto 4em; padding: 0 1.5em; display: flex; gap: 1em; flex-wrap: wrap; }
+</style>

@@ -1,0 +1,71 @@
+---
+title: Schemas
+description: JSON Schemas for every wire format SBO3L produces or consumes.
+audience: integration authors, runtime developers, schema linters
+outcome: You'll know which schema governs which artefact, where to find it in the repo, and how to validate against it locally.
+---
+
+Every wire format SBO3L produces has a versioned JSON Schema in `schemas/`. Schemas use `additionalProperties: false` end-to-end — extra fields are rejection conditions, not deprecation wiggle room.
+
+## Versioning
+
+Schema IDs are dotted `sbo3l.<surface>.v<n>`:
+
+| ID | What it governs |
+|---|---|
+| `sbo3l.aprp.v1` | request body for `POST /v1/payment-requests` |
+| `sbo3l.policy_receipt.v1` | signed receipt returned to the agent |
+| `sbo3l.audit_event.v1` | one row in the audit chain |
+| `sbo3l.audit_bundle.v2` | bundle of events with per-bundle root signature |
+| `sbo3l.passport_capsule.v2` | self-contained capsule (replay-ready) |
+| `sbo3l.executor_evidence.v1` | sponsor-side evidence appended to audit events |
+
+Major-version bump for breaking changes; never silent v1 mutation. v1 → v2 implies the verifier rejects v1 inputs unless backward-compat is explicitly opted in.
+
+## Schema files
+
+```
+schemas/
+├── aprp.v1.json
+├── policy_receipt.v1.json
+├── audit_event.v1.json
+├── audit_bundle.v2.json
+├── passport_capsule.v2.json
+└── executor_evidence.v1.json
+```
+
+CI validates every schema with `python3 scripts/validate_schemas.py` before merge. Same script is the source of truth for which IDs are valid.
+
+## OpenAPI
+
+The HTTP API is described in `crates/sbo3l-server/openapi.yaml`. The `/api` page on this docs site renders a Redoc HTML view (lands in CTI-3-3 slice 3b). Until then, read the YAML directly.
+
+## Validation locally
+
+```bash
+# Validate a fixture against its schema
+npx ajv validate \
+  -s schemas/passport_capsule.v2.json \
+  -d tests/fixtures/passport-v2-good.json
+# valid
+```
+
+```bash
+# Run the workspace validator (all schemas + all fixtures)
+python3 scripts/validate_schemas.py
+# OK · 6 schemas · 47 fixtures · 0 violations
+```
+
+## Schema evolution policy
+
+- New optional fields → patch bump in `description`, no version bump.
+- New required fields, changed types, or removed fields → major version bump (new schema ID).
+- Renamed fields → major version bump; old name kept under `additionalProperties: false` would error, so rename = breaking.
+
+For deprecation, ship the new version alongside the old; mark the old `description` with a sunset date; CI keeps validating both for one major release.
+
+## See also
+
+- [Error codes reference](/reference/errors) — `schema.*` codes fire when validation fails.
+- [APRP wire format](/concepts/aprp) — the most-used schema, in narrative form.
+- [Audit log](/concepts/audit-log) — `audit_event.v1` and `audit_bundle.v2` shapes.

@@ -1,0 +1,28 @@
+{
+  "name": "@sbo3l/example-langchain-ts-research-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end LangChain JS research agent that gates every payment through SBO3L's policy boundary. Reasons across 2 tools (data_fetch + sbo3l_pay) and executes through KeeperHub workflow m4t4cnpmhv8qquce3bv3c.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
+    "@sbo3l/langchain": "file:../../integrations/langchain-typescript",
+    "@sbo3l/sdk": "^1.0.0",
+    "langchain": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
