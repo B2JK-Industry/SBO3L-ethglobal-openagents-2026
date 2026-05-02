@@ -230,6 +230,11 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Install parent SDK (for vercel-ai which lives under sdks/typescript/)
+        if: ${{ startsWith(github.ref_name, matrix.tag_prefix) && matrix.id == 'vercel-ai' }}
+        working-directory: sdks/typescript
+        run: npm install --no-audit --no-fund
+
       - name: Install
         if: ${{ startsWith(github.ref_name, matrix.tag_prefix) }}
         working-directory: ${{ matrix.dir }}
