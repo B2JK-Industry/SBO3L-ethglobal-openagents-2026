@@ -8,6 +8,7 @@
     "dev": "astro dev",
     "prebuild": "bash scripts/copy-openapi.sh && bash scripts/fetch-redoc.sh",
     "build": "astro build",
+    "build:versioned": "bash scripts/build-versions.sh",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro check"

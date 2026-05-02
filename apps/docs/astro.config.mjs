@@ -9,9 +9,15 @@ import starlight from "@astrojs/starlight";
 // Sidebar mirrors docs/design/phase-2-frontend.md §4.2 sitemap. Most
 // sections are scaffolded with "Coming soon" stubs in this prep PR;
 // content port lands in CTI-3-3 main.
+// Per-version base path is supplied via the ASTRO_BASE_PATH env var by
+// scripts/build-versions.sh. Empty (default) for the latest/apex build;
+// "/v1.0.0" etc. for tagged snapshots.
+const basePath = process.env.ASTRO_BASE_PATH || undefined;
+
 export default defineConfig({
   output: "static",
   site: "https://sbo3l-docs.vercel.app",
+  base: basePath,
   trailingSlash: "never",
   integrations: [
     starlight({
@@ -25,6 +31,13 @@ export default defineConfig({
         },
       ],
       customCss: ["./src/styles/custom.css"],
+      components: {
+        // Mounts the VersionSelector at the top of the sidebar; the
+        // override re-renders the default Sidebar via <slot /> so all
+        // other nav behaviour is unchanged. See
+        // src/components/VersionSelectorWrapper.astro for the wiring.
+        Sidebar: "./src/components/VersionSelectorWrapper.astro",
+      },
       sidebar: [
         { label: "Quickstart", link: "/quickstart" },
         {
