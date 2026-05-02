@@ -1,0 +1,7 @@
+[05-skew] start 2026-05-02T05:48:41Z
+[chaos] past expiry: 2026-05-02T05:47:41Z
+  HTTP=200 body={"status":"auto_approved","decision":"allow","deny_code":null,"matched_rule_id":"allow-small-x402-api-call","request_hash":"dced61d9fb8b119486ec6c94429d537412537ccb2e27f36e4d0f83753215b43a","policy_ha
+FAIL: expired APRP returned 200 (expected 4xx); body: {"status":"auto_approved","decision":"allow","deny_code":null,"matched_rule_id":"allow-small-x402-api-call","request_hash":"dced61d9fb8b119486ec6c94429d537412537ccb2e27f36e4d0f83753215b43a","policy_hash":"e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf","audit_event_id":"evt-01KQKKPRD7N1XGS7WREHJCY348","receipt":{"receipt_type":"sbo3l.policy_receipt.v1","version":1,"agent_id":"research-agent-01","decision":"allow","request_hash":"dced61d9fb8b119486ec6c94429d537412537ccb2e27f36e4d0f83753215b43a","policy_hash":"e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf","policy_version":1,"audit_event_id":"evt-01KQKKPRD7N1XGS7WREHJCY348","issued_at":"2026-05-02T05:48:41.767873Z","signature":{"algorithm":"ed25519","key_id":"decision-signer-v1","signature_hex":"48e94cc966eb1f00e175c2925f511140aa6265a3fbbf2248cc8e9b31872423c5371a891776f3590d57613025a741556e0e8d86851950def0a41d228e392a1e0a"}}}
+PASS: follow-up valid request HTTP=200 (budget unaffected by expired deny)
+[chaos] audit chain growth = 1 events
+[05-skew] end 2026-05-02T05:48:41Z; failed=1
