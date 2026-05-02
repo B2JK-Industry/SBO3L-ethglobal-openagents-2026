@@ -8,7 +8,7 @@
 | Dimension | State |
 |---|---|
 | **cargo build** | ✅ clean (10 crates compile in 1m 36s) |
-| **cargo test** | ✅ **777/777 passing** (0 failed, --tests workspace) |
+| **cargo test** | ✅ **873/873 passing** (0 failed, --tests workspace) |
 | **cargo clippy** | ✅ clean |
 | **cargo fmt** | ⚠️ Dev 1 WIP not yet committed (not main blocker) |
 | **Open PRs** | 1 DRAFT (#132 gated on Daniel ERC-8004 deploy) |
@@ -96,7 +96,7 @@
 
 ## Critical-path checklist for SUBMISSION READY
 
-- [x] All Rust crates built + tested (777/777)
+- [x] All Rust crates built + tested (873/873)
 - [x] Clippy + fmt clean
 - [x] CHANGELOG marked v1.2.0 released
 - [x] Demo video script ready

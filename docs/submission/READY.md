@@ -64,7 +64,7 @@
 ### Code + crates
 - ✅ **9 Rust crates** at 1.2.0 on crates.io
 - ✅ **4 Python packages** at 1.2.0 on PyPI (sdk, langchain, crewai, llamaindex)
-- ✅ **777/777 tests on main** (bump from R12's 318/318 reflects R13 cascade landing)
+- ✅ **873/873 tests on main** (bump from R12's 318/318 reflects R13 cascade landing)
 - ✅ **5/5 chaos scenarios** PASS (proof in `docs/proof/chaos-suite-results-v1.2.0.md`)
 - ✅ **v1.2.0 GitHub Release** as Latest
 - ✅ **R13 quality infrastructure shipped:** proptest + cargo-fuzz + cargo-mutants + criterion benchmarks all wired into CI
