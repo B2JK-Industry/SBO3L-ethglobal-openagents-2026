@@ -42,9 +42,8 @@ pub struct PgConfig {
 
 impl PgConfig {
     pub fn from_env() -> StorageResult<Self> {
-        let url = std::env::var("DATABASE_URL").map_err(|_| {
-            StorageError::Configuration("DATABASE_URL env var not set".into())
-        })?;
+        let url = std::env::var("DATABASE_URL")
+            .map_err(|_| StorageError::Configuration("DATABASE_URL env var not set".into()))?;
         Ok(Self {
             url,
             max_connections: std::env::var("DATABASE_MAX_CONNECTIONS")
@@ -89,10 +88,7 @@ impl PgPool {
     /// use this for per-tenant queries — never .begin() directly, or the
     /// RLS policies in V020 will return zero rows (which is the safe
     /// default but probably not what you wanted).
-    pub async fn tenant_tx(
-        &self,
-        tenant_uuid: Uuid,
-    ) -> StorageResult<Transaction<'_, Postgres>> {
+    pub async fn tenant_tx(&self, tenant_uuid: Uuid) -> StorageResult<Transaction<'_, Postgres>> {
         let mut tx = self
             .inner
             .begin()

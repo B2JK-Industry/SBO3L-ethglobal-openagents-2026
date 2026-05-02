@@ -36,25 +36,20 @@ jobs:
             exit 1
           fi
 
-      - name: GET API stub (expect 501 not_implemented)
+      - name: GET API endpoint (expect 400 unsupported_function for stub calldata)
         run: |
           set -euo pipefail
-          # The current pre-T-4-1 implementation returns 501; once T-4-1
-          # ships, this should switch to either 200 (valid record) or 404
-          # (unknown sender/record). When that happens, this step needs
-          # updating; the failure here on transition is intentional —
-          # the workflow flips green only after this assertion is
-          # corrected.
-          BODY=$(curl -sS -o /tmp/api.json -w "%{http_code}" \
+          # Post-T-4-1: gateway implements text() + addr() per ENSIP-25.
+          # Probing with stub calldata `0x00` — gateway responds 400
+          # `unsupported_function` because the selector doesn't match.
+          # That confirms the gateway is alive AND parsing requests.
+          STATUS=$(curl -sS -o /tmp/api.json -w "%{http_code}" \
                   https://sbo3l-ccip.vercel.app/api/0x0000000000000000000000000000000000000000/0x00.json)
-          STATUS=$BODY
           echo "api http=$STATUS"
-          if [ "$STATUS" = "501" ]; then
-            grep -q "not_implemented" /tmp/api.json
+          if [ "$STATUS" = "400" ]; then
+            grep -q "unsupported_function" /tmp/api.json
             exit 0
           fi
-          # Once T-4-1 ships, switch the assertion above to:
-          # if [ "$STATUS" = "404" ]; then exit 0; fi
           echo "::warning::api returned unexpected status $STATUS"
           cat /tmp/api.json
           exit 1

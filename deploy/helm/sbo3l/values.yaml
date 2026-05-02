@@ -1,0 +1,272 @@
+# =====================================================================
+# EXPERIMENTAL — chart skeleton.
+# Operator deploying to production should review every default below.
+# Multi-replica + Raft cluster mode are NOT in this chart; see
+# `docs/cluster-mode.md` (or `docker-compose-cluster.yml` at repo root)
+# for the experimental cluster scaffold. CRDs (SBO3LPolicy /
+# SBO3LCluster) are deferred to a separate operator-chart project; this
+# chart only deploys the daemon.
+# =====================================================================
+
+# -- Override the chart name. Defaults to ``.Chart.Name``.
+nameOverride: ""
+# -- Override the fullname (release-name + chart-name).
+fullnameOverride: ""
+
+image:
+  # -- Container image repository. Default tracks the published Docker
+  # image that the repo's top-level Dockerfile produces.
+  repository: sbo3l/server
+  # -- Image tag. Defaults to the workspace ``appVersion`` baked into
+  # ``Chart.yaml`` if left empty.
+  tag: "1.2.0"
+  pullPolicy: IfNotPresent
+  # -- Pull secrets passed through to the Pod spec (list of names).
+  pullSecrets: []
+
+# -- Number of daemon replicas. Defaults to 1 because the audit chain
+# is single-writer; multi-replica without the Raft scaffold means
+# silent data loss. Operators running the experimental cluster mode
+# must override BOTH this value AND configure shared storage / Raft
+# peer discovery — see the cluster-mode doc.
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  # -- Service port. Container always listens on 8730 (matches
+  # ``SBO3L_LISTEN`` default in the binary).
+  port: 8730
+  annotations: {}
+
+ingress:
+  # -- Ingress is OFF by default. Enable + configure ``className`` +
+  # ``hosts`` + ``tls`` per your environment.
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  # Example:
+  # hosts:
+  #   - host: sbo3l.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  tls: []
+  # Example:
+  # tls:
+  #   - secretName: sbo3l-tls
+  #     hosts:
+  #       - sbo3l.example.com
+
+env:
+  # -- F-1 dev bypass: accept unauthenticated requests on
+  # ``POST /v1/payment-requests``. SAFE DEFAULT is OFF — operators
+  # opt in per environment, ideally only for local smoke tests.
+  allowUnauthenticated: false
+  # -- F-5 dev signer flag. SAFE DEFAULT is OFF — operators opt in
+  # only when paired with ``signer.backend=dev`` for development.
+  # The binary refuses to start with a non-dev backend label until
+  # the AppState refactor lands; see `docs/cli/docker.md` and
+  # `crates/sbo3l-server/src/main.rs`.
+  devOnlySigner: false
+  # -- F-4 unsafe public-bind flag. The container image ships with
+  # this set to "1" (because public bind is the entire point inside
+  # a container) — Helm value here ONLY overrides the env if you
+  # deliberately want to flip it back to "0" for a sidecar-only
+  # mesh deployment. Normally leave as `null` to keep image default.
+  allowUnsafePublicBind: null
+  # -- Listen address inside the container. Default matches the
+  # Dockerfile's ENV (`0.0.0.0:8730`). Override if you need IPv6 or
+  # a different port.
+  listen: "0.0.0.0:8730"
+  # -- Path inside the container where the SQLite DB lives. The image
+  # also defaults to this; override if you mount the volume elsewhere.
+  db: "/var/lib/sbo3l/sbo3l.db"
+  # -- Optional ``SBO3L_POLICY`` path (mount your policy via a
+  # ConfigMap or Secret and point this at the mounted file path).
+  # Leave empty to use the embedded reference policy.
+  policy: ""
+  # -- Free-form environment variables passed to the container.
+  # Useful for bearer-token hashes, JWT pubkey hex, Prometheus
+  # OTLP endpoints, RUST_LOG overrides, etc. Avoid putting secrets
+  # here — use ``existingSecret`` instead.
+  extra: {}
+  # Example:
+  # extra:
+  #   RUST_LOG: "info,sbo3l_server=debug"
+
+signer:
+  # -- Signer backend identifier. Today only "dev" is functionally
+  # wired through ``AppState`` — the binary refuses to start with a
+  # non-dev backend until the F-5 trait refactor lands. KMS values
+  # are accepted by the chart so operator configs can be drafted
+  # ahead of the runtime change.
+  backend: dev
+  # -- AWS KMS key ARN (used only when ``backend: aws_kms``). Stored
+  # as a plain env var; the actual auth happens via IRSA / instance
+  # role / static AWS_* env vars supplied separately.
+  awsKmsKeyArn: ""
+  # -- GCP KMS key resource name (used only when ``backend: gcp_kms``).
+  # Auth happens via Workload Identity / GOOGLE_APPLICATION_CREDENTIALS
+  # supplied separately.
+  gcpKmsKeyName: ""
+
+# -- Reference an externally managed Secret rather than rendering
+# one from this chart. Recommended for bearer-token hashes,
+# JWT pubkey hex, and KMS auth material. Leave empty to disable;
+# set ``secret.create: true`` to render an empty placeholder Secret.
+existingSecret: ""
+
+secret:
+  # -- Render a placeholder Secret resource (empty by default — used
+  # as the env-from source if you want a single point of override
+  # without managing a separate Secret resource). Most operators
+  # should leave this off and use ``existingSecret``.
+  create: false
+  # -- Map of secret keys → values. Values are templated through
+  # ``b64enc`` automatically. Examples: ``SBO3L_BEARER_TOKEN_HASH``,
+  # ``SBO3L_JWT_PUBKEY_HEX``, ``SBO3L_ADMIN_BEARER_HASH``.
+  data: {}
+
+# -- Render a ConfigMap with non-secret config (policy JSON, log
+# config). When ``data`` is non-empty the ConfigMap is mounted at
+# ``/etc/sbo3l/`` and you can point ``env.policy`` at e.g.
+# ``/etc/sbo3l/policy.json``.
+configMap:
+  create: false
+  data: {}
+  # Example:
+  # data:
+  #   policy.json: |
+  #     { "rules": [] }
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits: {}
+  # Example:
+  # limits:
+  #   cpu: 1000m
+  #   memory: 512Mi
+
+# -- Persistent volume for the SQLite DB. The image's ``VOLUME`` is
+# ``/var/lib/sbo3l``; this chart mounts a PVC there when enabled.
+persistence:
+  enabled: false
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+
+serviceAccount:
+  # -- If ``true``, render a dedicated ServiceAccount.
+  create: true
+  # -- Override the ServiceAccount name (defaults to the chart
+  # fullname when ``create: true``, otherwise ``"default"``).
+  name: ""
+  annotations: {}
+  automount: true
+
+# -- Pod-level securityContext. Defaults match the distroless image's
+# nonroot UID (65532) and lock down filesystem + privilege escalation.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container-level securityContext. Defaults to a hardened profile
+# (drop all caps, no privilege escalation, read-only root FS). The
+# data dir mounts as a writable PVC (or emptyDir) so SQLite still
+# works.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  capabilities:
+    drop:
+      - ALL
+
+# -- Liveness + readiness probes target ``/v1/healthz`` (structured
+# JSON) on the container port. The simpler ``/v1/health`` returns a
+# bare ``"ok"`` and is also valid; ``/v1/healthz`` is preferred
+# because Kubernetes can surface the JSON body in describe output.
+livenessProbe:
+  httpGet:
+    path: /v1/healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /v1/healthz
+    port: http
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  enabled: false
+  httpGet:
+    path: /v1/healthz
+    port: http
+  initialDelaySeconds: 0
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30
+
+# -- Prometheus Operator integration. OFF by default. When enabled,
+# renders a ``ServiceMonitor`` that scrapes ``/v1/metrics`` (the
+# daemon exposes the Prometheus text format there).
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  # Example:
+  # labels:
+  #   release: kube-prometheus-stack
+  metricRelabelings: []
+  relabelings: []
+
+# -- PodDisruptionBudget. OFF by default because ``replicaCount: 1``
+# makes a PDB pointless (and noisy in cluster-autoscaler logs).
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# -- Pod-level scheduling controls.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+# -- Extra labels and annotations applied to all rendered resources.
+commonLabels: {}
+commonAnnotations: {}
+
+# -- Pod-only annotations (e.g. for sidecar opt-in / opt-out).
+podAnnotations: {}
+podLabels: {}
+
+# -- Update strategy for the Deployment. ``Recreate`` is recommended
+# when ``persistence.enabled: true`` because the SQLite volume is
+# RWO and the rolling strategy will deadlock on attach.
+updateStrategy:
+  type: RollingUpdate
+
+# -- Termination grace period. The daemon is mostly stateless on the
+# request path (writes commit-or-abort), but in-flight Raft AppendEntries
+# RPCs benefit from a few seconds.
+terminationGracePeriodSeconds: 30
