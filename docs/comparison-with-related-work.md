@@ -61,7 +61,7 @@ A production deployment can stack two or three of these — e.g. SBO3L for per-d
 
 | Project | URLs consulted |
 |---|---|
-| **SBO3L** | This repository at `main` HEAD `0707079` (`docs: P0c final truth-align — KH live exercised, timing reflects warm-cache reality (#78)`). Test count `cargo test --workspace --all-targets` → 377/377; demo runner 13/13; production-shaped runner 26/0/1. All three sponsor live paths (KeeperHub `submit_live_to`, `LiveEnsResolver`, `UniswapExecutor::live_from_env`) verified end-to-end during the submission window. |
+| **SBO3L** | This repository at `main` HEAD. Test count `cargo test --workspace --tests` → 881/881; demo runner 13/13; production-shaped runner 26/0/1. All three sponsor live paths (KeeperHub `submit_live_to`, `LiveEnsResolver`, `UniswapExecutor::live_from_env`) verified end-to-end during the submission window. |
 | **PEAC Protocol** | [github.com/peacprotocol/peac](https://github.com/peacprotocol/peac), [peacprotocol.org](https://www.peacprotocol.org/docs), npm `@peac/protocol`. |
 | **Signet** | [github.com/Prismer-AI/signet](https://github.com/Prismer-AI/signet). |
 | **ScopeBlind / `protect-mcp`** | [github.com/scopeblind/scopeblind-gateway](https://github.com/scopeblind/scopeblind-gateway). The `scopeblind/protect-mcp` URL given in some references is a 404; `protect-mcp` is the npx command, not a repo. |

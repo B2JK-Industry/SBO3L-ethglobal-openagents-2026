@@ -10,7 +10,7 @@ This repository was implemented during **ETHGlobal Open Agents 2026**. Planning 
 
 ## Status
 
-**Implemented and reproducible from a fresh clone.** `cargo test --workspace --tests` runs **873/873 green** (10 crates, 37 test binaries). `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~10 seconds. `bash demo-scripts/run-production-shaped-mock.sh` exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `sbo3l doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with **Tally: 26 real, 0 mock, 1 skipped** (only the optional `--include-final-demo` flag remains on the SKIPPED list — every A-side backlog item has merged). The MCP-callable SBO3L gateway (`crates/sbo3l-mcp/`, P3.1), the IP-1 KeeperHub envelope helper (`sbo3l_keeperhub_adapter::build_envelope`, P5.1), and the publishable workspace crate `crates/sbo3l-keeperhub-adapter` (IP-4) are present; judge-facing integration walk-through in [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md). See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
+**Implemented and reproducible from a fresh clone.** `cargo test --workspace --tests` runs **881/881 green** (10 crates, 37 test binaries). `bash demo-scripts/run-openagents-final.sh` runs all **13 demo gates** end-to-end clean in ~10 seconds. `bash demo-scripts/run-production-shaped-mock.sh` exercises the production-shaped surface (HTTP `Idempotency-Key` four-case matrix + `sbo3l doctor` + mock-KMS CLI lifecycle + active-policy lifecycle + **audit checkpoint create/verify with mock anchoring** + audit-bundle round-trip + the operator-evidence transcript consumed by the operator console + the Passport capsule emit/verify pair) end-to-end with **Tally: 26 real, 0 mock, 1 skipped** (only the optional `--include-final-demo` flag remains on the SKIPPED list — every A-side backlog item has merged). The MCP-callable SBO3L gateway (`crates/sbo3l-mcp/`, P3.1), the IP-1 KeeperHub envelope helper (`sbo3l_keeperhub_adapter::build_envelope`, P5.1), and the publishable workspace crate `crates/sbo3l-keeperhub-adapter` (IP-4) are present; judge-facing integration walk-through in [`docs/mcp-integration-guide.md`](docs/mcp-integration-guide.md). See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) for the current snapshot.
 
 ## Verify the demo
 
@@ -72,7 +72,7 @@ Each row below is a real adversarial input the daemon rejects fail-closed, verif
 | Capsule claiming deny but carrying `execution_ref` | `capsule.deny_with_execution_ref` (`rc=2`) |
 | All 9 tampered passport fixtures in `test-corpus/passport/` | every one rejected with `rc=2` |
 
-Test surface backing these: **377 / 377 cargo tests** · **13 / 13 demo gates** · **8 / 8 HTTP adversarial fail-closed** · **9 tampered passport fixtures + manual byte-flip rejected**. `bash demo-scripts/run-openagents-final.sh` reproduces the audit-tamper detection gate end-to-end in ~10 seconds.
+Test surface backing these: **881 / 881 cargo tests** · **13 / 13 demo gates** · **8 / 8 HTTP adversarial fail-closed** · **9 tampered passport fixtures + manual byte-flip rejected**. `bash demo-scripts/run-openagents-final.sh` reproduces the audit-tamper detection gate end-to-end in ~10 seconds.
 
 ## What this is
 

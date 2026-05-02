@@ -1,0 +1,347 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+
+// Truth table: live vs mock vs not-yet across every claim the project
+// makes. Built per reviewer feedback (2026-05-02): "Urobiť jednu 'truth
+// table': live vs mock". This page is the single source of truth on
+// claim provenance — every other surface (homepage, README, sponsor
+// pages) defers here when a judge asks "is X actually live?"
+
+interface Row {
+  surface: string;
+  live: string | null;
+  mock: string | null;
+  notyet: string | null;
+}
+
+const sections: { title: string; rows: Row[] }[] = [
+  {
+    title: "Sponsor integrations",
+    rows: [
+      {
+        surface: "KeeperHub",
+        live: "POST to live workflow `m4t4cnpmhv8qquce3bv3c` returns real `executionId`. IP-1 envelope shipped.",
+        mock: "Default in CI: `local_mock()` returns deterministic `kh-<ULID>`.",
+        notyet: null,
+      },
+      {
+        surface: "ENS — mainnet read",
+        live: "`sbo3l agent verify-ens sbo3lagent.eth` reads 5 records via PublicNode mainnet RPC. policy_hash byte-matches offline fixture.",
+        mock: "Offline fixture in `crates/sbo3l-identity/fixtures/`.",
+        notyet: "Mainnet OffchainResolver (Phase 2 amplifier; needs ~$10 mainnet ETH). Sepolia OffchainResolver deployed but orphan (no subnames wired to it on Sepolia chain).",
+      },
+      {
+        surface: "Uniswap — read side",
+        live: "Sepolia QuoterV2 returns real quote for USDC→WETH. Guards: token allowlist + max notional + max slippage + quote freshness + treasury recipient.",
+        mock: null,
+        notyet: "Real swap broadcast (scope-cut for hackathon; needs mainnet ETH + post-submission narrative).",
+      },
+      {
+        surface: "Anthropic Claude tool-use",
+        live: "`@sbo3l/anthropic` published on npm. `examples/anthropic-research-agent/` runs end-to-end with `ANTHROPIC_API_KEY=…`.",
+        mock: "`npm run smoke` — deterministic synthetic `tool_use` dispatch, no API key required.",
+        notyet: null,
+      },
+    ],
+  },
+  {
+    title: "Storage + audit",
+    rows: [
+      {
+        surface: "SQLite audit chain (single-tenant)",
+        live: "Default storage backend. Hash-chained `audit_events` table; `Storage::audit_last` returns the head.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "Postgres audit chain (multi-tenant)",
+        live: "V020 migration ships per-tenant scoping. `apps/sbo3l-playground-api` uses Neon Postgres in production.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "On-chain audit-root anchor",
+        live: "Sepolia `AnchorRegistry` at `0x4C302b…f4Ac`. `sbo3l audit anchor` broadcasts via alloy. `sbo3l audit verify-anchor <tx>` reads back.",
+        mock: "`sbo3l audit checkpoint create` (without `--anchor`) does mock anchoring — no chain TX, deterministic checkpoint.",
+        notyet: "Mainnet anchor (waiting for production-grade signer; KMS work-in-progress).",
+      },
+    ],
+  },
+  {
+    title: "Identity + signing",
+    rows: [
+      {
+        surface: "Local file Ed25519 signer",
+        live: "`sbo3l_core::signers::local_file::LocalFileSigner` — production-shape, file-based key.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "AWS KMS signer",
+        live: null,
+        mock: null,
+        notyet: "Compile-only stub. Crate compiles, but `sign()` is `unimplemented!()`. Awaits AWS access key from operator.",
+      },
+      {
+        surface: "GCP Cloud KMS signer",
+        live: null,
+        mock: null,
+        notyet: "Compile-only stub. Same shape as AWS KMS. Awaits GCP service account.",
+      },
+      {
+        surface: "Phala TEE signer",
+        live: null,
+        mock: null,
+        notyet: "Placeholder trait. No TEE deployment. Phase 3+.",
+      },
+      {
+        surface: "ERC-8004 IdentityRegistry",
+        live: "Sepolia `0x600c10dE…Db37` deployed + pinned. `sbo3l agent register` writes via the registry.",
+        mock: null,
+        notyet: "Mainnet registry deployment.",
+      },
+    ],
+  },
+  {
+    title: "Passport capsule verification",
+    rows: [
+      {
+        surface: "Structural verifier (CLI default)",
+        live: "`sbo3l passport verify` runs schema + cross-field structural checks on every capsule.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "Crypto verifier (auto-promoted)",
+        live: "When the capsule is self-contained (v2 with embedded `policy_snapshot` + `audit_segment`), `verify` auto-runs the 6 strict crypto checks. Tampered self-contained capsules now fail with exit 2.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "WASM verifier (browser, /proof)",
+        live: "`apps/marketing/public/wasm/sbo3l_core_bg.wasm` (2.4 MB). Verifies entirely client-side, zero network call.",
+        mock: null,
+        notyet: null,
+      },
+    ],
+  },
+  {
+    title: "CCIP-Read flow",
+    rows: [
+      {
+        surface: "Gateway HTTP API",
+        live: "`https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json` returns signed `(value, expires, signature)` for `text(node, key)` queries.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "Sepolia OffchainResolver → ENS chain",
+        live: null,
+        mock: null,
+        notyet: "Contract deployed (`0x7c69…8c3`) but orphan (no Sepolia subname has it as resolver). Also: baked URL template is malformed (`{sender/{data}.json}`). Redeploy needed before Sepolia ENS clients can use the flow end-to-end.",
+      },
+      {
+        surface: "Mainnet OffchainResolver → sbo3lagent.eth",
+        live: null,
+        mock: null,
+        notyet: "Currently sbo3lagent.eth points at PublicResolver with regular text records. Mainnet OR deploy ~$10. Operator-gated (needs primary wallet PK).",
+      },
+    ],
+  },
+  {
+    title: "Daemon + production posture",
+    rows: [
+      {
+        surface: "Daemon HTTP API (`/v1/payment-requests`, `/v1/healthz`)",
+        live: "`sbo3l-server` binary runs on `127.0.0.1:8730` by default. APRP envelope → policy → budget → audit → signed receipt end-to-end.",
+        mock: null,
+        notyet: null,
+      },
+      {
+        surface: "Daemon as production service",
+        live: null,
+        mock: null,
+        notyet: "Marked **dev-only** in security notes. Hardcoded localhost bind. No TLS, no auth on default config. For production: behind reverse proxy + KMS signer + Postgres backend. Roadmap, not v1.",
+      },
+      {
+        surface: "Tier-3 hosted daemon (Vercel)",
+        live: "`sbo3l-playground-api` on Vercel — Neon Postgres + Upstash KV + Blob + Ed25519 signing key. `apps/sbo3l-playground-api` source.",
+        mock: null,
+        notyet: null,
+      },
+    ],
+  },
+];
+
+const liveCount = sections.flatMap(s => s.rows).filter(r => r.live).length;
+const mockCount = sections.flatMap(s => s.rows).filter(r => r.mock).length;
+const notyetCount = sections.flatMap(s => s.rows).filter(r => r.notyet).length;
+const totalRows = sections.flatMap(s => s.rows).length;
+---
+<BaseLayout
+  title="SBO3L status — live vs mock vs not-yet"
+  description="Single source of truth for what is live, what is mock, and what is roadmap across every SBO3L surface."
+  ogTitle="SBO3L status — live vs mock vs not-yet"
+>
+  <main class="status-page">
+    <header>
+      <p class="eyebrow">Truth table · ETHGlobal Open Agents 2026 submission</p>
+      <h1>What is live, what is mock, what is not yet</h1>
+      <p class="lede">
+        Reviewer feedback (2026-05-02): "Urobiť jednu 'truth table'." This is
+        it. Every claim the project makes is filed under one of three columns
+        below. When a judge asks "is X actually live?", the answer is on this
+        page.
+      </p>
+      <p class="counters">
+        <strong>{liveCount}</strong> surfaces live · <strong>{mockCount}</strong> have a mock fallback · <strong>{notyetCount}</strong> documented as not-yet · {totalRows} rows total
+      </p>
+    </header>
+
+    {sections.map((section) => (
+      <section class="section">
+        <h2>{section.title}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Surface</th>
+              <th>Live</th>
+              <th>Mock</th>
+              <th>Not yet</th>
+            </tr>
+          </thead>
+          <tbody>
+            {section.rows.map((row) => (
+              <tr>
+                <td><strong>{row.surface}</strong></td>
+                <td>{row.live ? <span class="cell live" set:html={row.live} /> : <span class="cell empty">—</span>}</td>
+                <td>{row.mock ? <span class="cell mock" set:html={row.mock} /> : <span class="cell empty">—</span>}</td>
+                <td>{row.notyet ? <span class="cell notyet" set:html={row.notyet} /> : <span class="cell empty">—</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))}
+
+    <section class="section footnote">
+      <h2>Why this page exists</h2>
+      <p>
+        Hackathon projects routinely overclaim. SBO3L's standing rule
+        (Daniel's no-overclaim rule, originSession): every "live" claim
+        must be backed by a real artifact a judge can hit (URL, contract
+        address, npm package, executable command). Anything that isn't
+        gets the "not yet" column with what's blocking it.
+      </p>
+      <p>
+        If you find a claim elsewhere in this site that contradicts this
+        page, this page wins — please open a GitHub issue against the
+        contradicting surface.
+      </p>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .status-page {
+    max-width: var(--max);
+    margin: 2em auto;
+    padding: 0 1.5em;
+  }
+  header {
+    margin-bottom: 2em;
+    padding-bottom: 1.2em;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.5em;
+  }
+  h1 {
+    font-size: var(--fs-3);
+    font-weight: 700;
+    margin-bottom: 0.6em;
+  }
+  .lede {
+    color: var(--muted);
+    margin-bottom: 0.8em;
+    max-width: 700px;
+  }
+  .counters {
+    color: var(--muted);
+    font-size: 0.95em;
+  }
+  .counters strong {
+    color: var(--accent);
+    font-size: 1.05em;
+  }
+  .section {
+    margin-bottom: 2em;
+  }
+  .section h2 {
+    font-size: 1.3em;
+    margin-bottom: 0.6em;
+    color: var(--fg);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+    margin-bottom: 1em;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.6em 0.75em;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    color: var(--fg);
+  }
+  td:first-child {
+    width: 22%;
+    background: var(--code-bg);
+  }
+  .cell {
+    display: block;
+    line-height: 1.45;
+    color: var(--fg);
+  }
+  .cell.live { color: var(--accent); }
+  .cell.mock { color: var(--muted); }
+  .cell.notyet { color: var(--muted); font-style: italic; }
+  .cell.empty {
+    text-align: center;
+    color: var(--border);
+  }
+  .cell code, td code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: rgba(74, 214, 167, 0.08);
+    padding: 0.1em 0.3em;
+    border-radius: var(--r-sm);
+  }
+  .footnote {
+    border-top: 1px solid var(--border);
+    padding-top: 1.5em;
+    margin-top: 3em;
+  }
+  .footnote p {
+    color: var(--muted);
+    margin-bottom: 0.8em;
+    line-height: 1.55;
+  }
+  @media (max-width: 720px) {
+    table {
+      font-size: 0.85em;
+    }
+    th, td {
+      padding: 0.5em;
+    }
+  }
+</style>

@@ -29,7 +29,7 @@
 ```bash
 set -e
 
-# Baseline regression (existing 377/377)
+# Baseline regression (881/881 at HEAD)
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
