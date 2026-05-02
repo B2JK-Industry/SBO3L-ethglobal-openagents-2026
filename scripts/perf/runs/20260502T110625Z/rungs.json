@@ -1,0 +1,51 @@
+[
+{
+  "target": "http://127.0.0.1:18761/v1/payment-requests",
+  "duration_secs": 15.004435042,
+  "concurrency": 16,
+  "total_requests": 101971,
+  "successful_requests": 101971,
+  "error_rate": 0.0,
+  "requests_per_second": 6796.057280035242,
+  "p50_ms": 1.925,
+  "p95_ms": 4.959,
+  "p99_ms": 6.746,
+  "p999_ms": 27.734,
+  "status_breakdown": {
+    "200": 101971
+  }
+},
+{
+  "target": "http://127.0.0.1:18761/v1/payment-requests",
+  "duration_secs": 15.008372,
+  "concurrency": 64,
+  "total_requests": 122404,
+  "successful_requests": 90238,
+  "error_rate": 0.2627855298846443,
+  "requests_per_second": 8155.7146904407755,
+  "p50_ms": 7.307,
+  "p95_ms": 15.025,
+  "p99_ms": 21.095,
+  "p999_ms": 46.491,
+  "status_breakdown": {
+    "200": 90238,
+    "409": 32166
+  }
+},
+{
+  "target": "http://127.0.0.1:18761/v1/payment-requests",
+  "duration_secs": 15.014952584,
+  "concurrency": 128,
+  "total_requests": 164051,
+  "successful_requests": 80675,
+  "error_rate": 0.5082321960853637,
+  "requests_per_second": 10925.842028619756,
+  "p50_ms": 10.742,
+  "p95_ms": 23.967,
+  "p99_ms": 34.627,
+  "p999_ms": 56.989,
+  "status_breakdown": {
+    "200": 80675,
+    "409": 83376
+  }
+}]
