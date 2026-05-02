@@ -43,6 +43,9 @@ pub use feature_flags::FlagStore;
 #[cfg(feature = "ws_events")]
 pub mod ws_events;
 
+#[cfg(feature = "ws_events")]
+pub mod admin_events;
+
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 const IDEMPOTENCY_KEY_MIN_LEN: usize = 16;
@@ -84,6 +87,13 @@ pub struct AppInner {
     /// see no behaviour change.
     #[cfg(feature = "ws_events")]
     pub ws_events: Option<std::sync::Arc<ws_events::WsEventsBus>>,
+    /// R13 P6: operator-facing event bus served at
+    /// `/v1/admin/events`. Sister to `ws_events` but with
+    /// server-side filter, cursor reconnect, and severity dimension.
+    /// Like `ws_events`, gated on the same feature flag and built
+    /// only when present.
+    #[cfg(feature = "ws_events")]
+    pub admin_events: Option<std::sync::Arc<admin_events::AdminEventsBus>>,
 }
 
 impl AppState {
@@ -155,6 +165,8 @@ impl AppState {
             feature_flags: feature_flags::FlagStore::from_env(),
             #[cfg(feature = "ws_events")]
             ws_events: Some(std::sync::Arc::new(ws_events::WsEventsBus::new())),
+            #[cfg(feature = "ws_events")]
+            admin_events: Some(std::sync::Arc::new(admin_events::AdminEventsBus::new())),
         }))
     }
 }
@@ -175,6 +187,8 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/admin/metrics", get(admin_metrics));
     #[cfg(feature = "ws_events")]
     let r = r.route("/v1/events", get(ws_events::ws_events_handler));
+    #[cfg(feature = "ws_events")]
+    let r = r.route("/v1/admin/events", get(admin_events::admin_events_handler));
     r.with_state(state)
 }
 
@@ -941,6 +955,28 @@ async fn run_pipeline(
             &aprp.agent_id,
             None, // ENS name lookup is upstream of this handler.
             viz_decision,
+            final_deny_code.clone(),
+            signed_event.event.seq,
+            &signed_event.event_hash,
+        );
+    }
+
+    // R13 P6: same fan-out into the admin event stream (operator
+    // dashboards). Filtered + cursor-replay-capable; see
+    // `admin_events::admin_events_handler`. Tenant id defaults to the
+    // single-tenant `default` until per-request tenant headers land.
+    #[cfg(feature = "ws_events")]
+    if let Some(bus) = inner.admin_events.as_ref() {
+        let admin_decision = match receipt_decision {
+            ReceiptDecision::Allow => admin_events::AdminDecision::Allow,
+            ReceiptDecision::Deny => admin_events::AdminDecision::Deny,
+            ReceiptDecision::RequiresHuman => admin_events::AdminDecision::Deny,
+        };
+        admin_events::publish_decision(
+            bus,
+            sbo3l_storage::DEFAULT_TENANT_ID,
+            &aprp.agent_id,
+            admin_decision,
             final_deny_code.clone(),
             signed_event.event.seq,
             &signed_event.event_hash,
