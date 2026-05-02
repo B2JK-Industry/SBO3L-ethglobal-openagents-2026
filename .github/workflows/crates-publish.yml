@@ -24,7 +24,8 @@ name: Publish 9 SBO3L crates to crates.io
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 jobs:
   publish:
@@ -40,7 +41,8 @@ jobs:
       - name: Verify the tag matches the workspace version
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF#refs/tags/v}"
+          tag="${GITHUB_REF#refs/tags/}"
+          tag="${tag#v}"
           ws_version=$(grep -E '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
           if [ "$tag" != "$ws_version" ]; then
             echo "::error::tag $tag does not match workspace.package.version $ws_version"

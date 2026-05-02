@@ -1,0 +1,87 @@
+---
+title: audit export-bundle
+description: Export a self-contained audit bundle (multiple events + signatures + index) for archival or batch replay.
+audience: compliance teams, archive operators
+outcome: You'll know how to export a date-ranged bundle, what it contains, and how to verify it round-trip.
+prereqs:
+  - audit log read
+---
+
+```bash
+sbo3l audit export-bundle [OPTIONS] --out <FILE>
+```
+
+Exports a contiguous slice of the audit chain into a single signed bundle (`sbo3l.audit_bundle.v2`). One bundle = many events; the verifier checks every link plus a per-bundle root signature.
+
+## Flags
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--out <FILE>` | required | path to write the bundle |
+| `--from <RFC3339>` | epoch start | export events at-or-after this timestamp |
+| `--to <RFC3339>` | now | export events at-or-before this timestamp |
+| `--agent-pubkey <ED25519>` | all | filter to one agent |
+| `--max-events <N>` | unlimited | hard cap on bundle size |
+| `--gzip` | off | gzip the output |
+
+Time filtering is **inclusive** at both ends. The bundle index records the actual `[from, to]` covered.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | OK — bundle written |
+| `1` | IO error — output path unwritable, daemon unreachable |
+| `2` | semantic — chain has gaps in the requested range; bundle would be incomplete |
+| `3` | nothing-to-do — no events in the requested range |
+
+## Bundle shape
+
+```json
+{
+  "version": "sbo3l.audit_bundle.v2",
+  "bundle_id": "01HZRG...",
+  "covers_from": "2026-04-29T00:00:00Z",
+  "covers_to":   "2026-04-30T23:59:59Z",
+  "event_count": 4219,
+  "first_event_hash": "0x...",
+  "last_event_hash": "0x...",
+  "events": [/* ... event_count entries ... */],
+  "bundle_signature": "ed25519:..."
+}
+```
+
+The bundle signature covers `bundle_id || first_event_hash || last_event_hash || event_count`, so a tampered slice fails the bundle-level check before per-event verification even runs.
+
+## Examples
+
+### Daily compliance export
+
+```bash
+sbo3l audit export-bundle \
+  --from 2026-05-01T00:00:00Z \
+  --to   2026-05-01T23:59:59Z \
+  --gzip --out bundles/2026-05-01.json.gz
+```
+
+### Per-agent slice
+
+```bash
+sbo3l audit export-bundle \
+  --agent-pubkey ed25519:9aF3... \
+  --max-events 1000 \
+  --out research-01-recent.json
+```
+
+### Round-trip verification
+
+```bash
+sbo3l audit export-bundle --out bundle.json
+sbo3l audit verify --mode strict --bundle bundle.json
+# Expected: bundle OK · 4219 events · root 0x... · rc=0
+```
+
+## See also
+
+- [`audit verify` CLI](/cli) — the matching consumer.
+- [Audit log concept](/concepts/audit-log) — what each event contains.

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Trust DNS — bench harness (100 agents)</title>
+    <title>Trust DNS — bench harness</title>
     <link rel="stylesheet" href="/src/style.css" />
     <style>
       #fps {
@@ -21,25 +21,47 @@
   <body>
     <header id="chrome">
       <a class="brand" href="/">SBO3L · Trust DNS · Bench</a>
-      <span id="status" class="connected">100-agent stress</span>
+      <span id="status" class="connected"></span>
     </header>
     <main>
       <svg id="viz" role="img" aria-label="Bench harness force-directed graph"></svg>
+      <canvas id="viz-canvas" role="img" aria-label="Bench harness force-directed graph (canvas)"></canvas>
       <div id="fps" aria-live="polite">— fps</div>
     </main>
     <script type="module">
       import { mountGraph } from "/src/graph.ts";
+      import { mountCanvasGraph } from "/src/canvas-renderer.ts";
+
+      // Bench params: ?nodes=N (default 100), ?renderer=svg|canvas
+      // (default canvas above 100, svg otherwise), ?rate=ms-between-events
+      // (default 20). Bad input → silently fall back to defaults
+      // instead of NaN-propagation through the clamp math.
+      const params = new URLSearchParams(location.search);
+      const parseIntDefault = (raw, dflt) => {
+        const n = Number.parseInt(raw, 10);
+        return Number.isFinite(n) ? n : dflt;
+      };
+      const N = Math.max(1, Math.min(2000, parseIntDefault(params.get("nodes"), 100)));
+      const rate = Math.max(5, parseIntDefault(params.get("rate"), 20));
+      const explicit = params.get("renderer");
+      const useCanvas = explicit === "canvas" || (explicit !== "svg" && N > 100);
 
       const svg = document.getElementById("viz");
+      const canvas = document.getElementById("viz-canvas");
+      const status = document.getElementById("status");
       const fpsEl = document.getElementById("fps");
-      const graph = mountGraph(svg);
 
-      // Seed 100 agents and randomly emit attestations + decisions.
-      const N = 100;
+      svg.style.display = useCanvas ? "none" : "block";
+      canvas.style.display = useCanvas ? "block" : "none";
+      status.textContent = `${N}-agent stress · ${useCanvas ? "canvas" : "svg"} · ${rate}ms`;
+
+      const graph = useCanvas ? mountCanvasGraph(canvas) : mountGraph(svg);
+
+      // Seed N agents.
       for (let i = 0; i < N; i += 1) {
         graph.apply({
           kind: "agent.discovered",
-          agent_id: `bench-${i.toString().padStart(3, "0")}`,
+          agent_id: `bench-${i.toString().padStart(4, "0")}`,
           ens_name: `bench-${i}.sbo3lagent.eth`,
           pubkey_b58: `mock-pubkey-bench-${i}`,
           ts_ms: Date.now(),
@@ -54,7 +76,7 @@
         acc += now - lastFrame;
         lastFrame = now;
         if (acc >= 500) {
-          fpsEl.textContent = `${Math.round((frames * 1000) / acc)} fps`;
+          fpsEl.textContent = `${Math.round((frames * 1000) / acc)} fps · n=${N}`;
           frames = 0;
           acc = 0;
         }
@@ -62,13 +84,12 @@
       };
       requestAnimationFrame(tick);
 
-      // Drive ~50 events/sec
       setInterval(() => {
         const i = Math.floor(Math.random() * N);
         const j = Math.floor(Math.random() * N);
         const which = Math.floor(Math.random() * 3);
-        const id = `bench-${i.toString().padStart(3, "0")}`;
-        const id2 = `bench-${j.toString().padStart(3, "0")}`;
+        const id = `bench-${i.toString().padStart(4, "0")}`;
+        const id2 = `bench-${j.toString().padStart(4, "0")}`;
         const now = Date.now();
         if (which === 0) {
           graph.apply({ kind: "attestation.signed", from: id, to: id2, attestation_id: `att-${now}`, ts_ms: now });
@@ -77,7 +98,7 @@
         } else {
           graph.apply({ kind: "decision.made", agent_id: id, decision: "deny", deny_code: "policy.deny_unknown_provider", ts_ms: now });
         }
-      }, 20);
+      }, rate);
     </script>
   </body>
 </html>

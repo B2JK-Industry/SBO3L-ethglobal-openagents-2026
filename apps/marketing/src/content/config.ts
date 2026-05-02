@@ -19,4 +19,19 @@ const blog = defineCollection({
   }),
 });
 
-export const collections = { blog };
+// Submissions collection — per-partner bounty one-pagers materialised
+// from docs/submission/bounty-*.md by scripts/copy-bounty-pages.mjs at
+// prebuild. The source-of-truth lives in docs/submission/ alongside the
+// rest of the submission pack; the marketing site mirrors them so the
+// content site can render via Astro's content pipeline.
+const submissions = defineCollection({
+  type: "content",
+  schema: z.object({
+    title: z.string().min(1),
+    slug: z.string().min(1),
+    audience: z.string().optional(),
+    source_file: z.string().min(1),
+  }),
+});
+
+export const collections = { blog, submissions };

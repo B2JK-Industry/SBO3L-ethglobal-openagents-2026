@@ -24,7 +24,17 @@ The `/demo` landing page renders these as `<picture>`-element-driven cards (mobi
 
 Loading is lazy (`loading="lazy"` on every `<img>`); the screenshots are served as static PNGs from Vercel's edge cache, immutable per the `*.png` rule in `apps/marketing/vercel.json`.
 
-## Regeneration
+## Regeneration — CI (preferred)
+
+The fastest path is **GitHub Actions**:
+
+1. Open the [Capture /demo screenshots workflow](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/actions/workflows/capture-demo-screenshots.yml).
+2. Click **Run workflow** → optionally override `target_url` → leave `open_pr: true` ticked → **Run workflow**.
+3. The workflow runs Playwright against the deployed marketing site, commits 8 PNGs, swaps `.svg` → `.png` in the 3 referencing files, opens an auto-merge PR.
+
+No terminal access needed; Daniel triggers via the GitHub UI.
+
+## Regeneration — local
 
 ```bash
 cd apps/marketing

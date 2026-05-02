@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-pydantic-ai"
+version = "1.2.0"
+description = "Pydantic AI adapter for SBO3L — wrap an APRP submit as a typed agent tool with Pydantic-validated input."
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["sbo3l", "pydantic-ai", "agent", "policy", "tool", "typed"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "sbo3l-sdk>=1.0.0",
+    "pydantic>=2.0,<3.0",
+]
+
+[project.optional-dependencies]
+pydantic-ai = ["pydantic-ai>=0.0.20"]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.8",
+]
+
+[project.urls]
+Homepage = "https://sbo3l.dev"
+Repository = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_pydantic_ai"]
+
+[tool.hatch.build.targets.sdist]
+include = ["sbo3l_pydantic_ai", "tests", "README.md", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "RUF", "UP", "SIM"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"

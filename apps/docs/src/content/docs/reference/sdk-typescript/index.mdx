@@ -1,0 +1,40 @@
+---
+title: TypeScript SDK reference
+description: Auto-generated typedoc HTML for the four @sbo3l/* TypeScript packages.
+audience: TypeScript agent developers
+outcome: You'll know which package to install, where its API reference lives, and how the four packages compose.
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Four published packages on npm, all auto-documented from their typings via typedoc on every release. Click into any package below for its full API surface (functions, types, classes).
+
+<CardGrid>
+  <Card title="@sbo3l/sdk" icon="rocket">
+    Core SDK — fetch wrapper around the SBO3L daemon. Start here.<br />
+    [Reference →](/sdk-ref/typescript/sdk/)
+  </Card>
+  <Card title="@sbo3l/langchain" icon="puzzle">
+    LangChain integration — `SBO3LPolicyTool` + middleware.<br />
+    [Reference →](/sdk-ref/typescript/langchain/)
+  </Card>
+  <Card title="@sbo3l/autogen" icon="puzzle">
+    AutoGen integration — guarded agent + tool-call wrapper.<br />
+    [Reference →](/sdk-ref/typescript/autogen/)
+  </Card>
+  <Card title="@sbo3l/vercel-ai" icon="puzzle">
+    Vercel AI SDK adapter — guard `streamText` + `generateText` calls.<br />
+    [Reference →](/sdk-ref/typescript/vercel-ai/)
+  </Card>
+</CardGrid>
+
+## Versions + provenance
+
+Every reference page shows the package version it was generated from. Re-runs are triggered on every npm publish event and committed to `main` by `sbo3l-bot` — the version on screen always matches the latest release.
+
+To regenerate locally: `bash apps/docs/scripts/gen-sdk-ts-refs.sh`. See [`scripts/README.md`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/apps/docs/scripts/README.md).
+
+## See also
+
+- [Python SDK reference](/reference/sdk-python) — sister auto-gen for `sbo3l-*` PyPI packages.
+- [Quickstart](/quickstart) — minimal integration walkthrough.

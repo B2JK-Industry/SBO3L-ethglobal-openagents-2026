@@ -1,0 +1,22 @@
+{
+  "name": "sbo3l-openai-assistants-research-agent",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Demo: OpenAI Assistants agent gating each payment-shaped action through SBO3L.",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sbo3l/openai-assistants": "file:../../sdks/typescript/integrations/openai-assistants",
+    "@sbo3l/sdk": "file:../../sdks/typescript",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}

@@ -9,16 +9,24 @@
 ```bash
 # 1. Confirm submission package is record-ready
 bash scripts/submission/rehearsal-audit.sh
-# expect: 36 PASS / 15 WARN (SPA-bot-blocked, expected) / 0 FAIL
+# expect (as of 2026-05-02): 59 PASS / 15 WARN / 7 FAIL.
+# 6 of 7 FAILs are audit-script URL-extraction artifacts (shell template
+# strings in code blocks captured as URLs, markdown-link `](glue)` capture,
+# CCIP smoke-fail-mode HTTP 400 treated as fail when 400 IS the correct
+# response). The 1 real FAIL is `sbo3l-trust-dns-viz.vercel.app` 404
+# (known 🔴 in live-url-inventory.md; viz package main not yet deployed).
+# See docs/submission/rehearsal-walkthrough-2026-05-02.md for detail.
 
 # 2. Confirm chaos suite latest run is current
 cat scripts/chaos/artifacts/summary.txt
-# expect: 3/5 PASS minimum (02 + 03 + 04). 01 + 05 known-failing per
-# the documented findings — flag verbally in the video if relevant.
+# expect (post-#235 merge): 5/5 PASS. The canonical proof doc is
+# docs/proof/chaos-suite-results-v1.2.0.md. If summary.txt still shows
+# 3/5 PASS, the round-4 stale data is on main; #235 contains the 5/5
+# update.
 
-# 3. Confirm v1.0.1 install path is clean on a fresh shell
-mktemp -d /tmp/sbo3l-rehearsal-XXX | xargs -I{} bash -c 'cd "{}" && cargo install sbo3l-cli --version 1.0.1 --root . && bin/sbo3l --version'
-# expect: sbo3l 1.0.1
+# 3. Confirm v1.2.0 install path is clean on a fresh shell
+mktemp -d /tmp/sbo3l-rehearsal-XXX | xargs -I{} bash -c 'cd "{}" && cargo install sbo3l-cli --version 1.2.0 --root . && bin/sbo3l --version'
+# expect: sbo3l 1.2.0
 
 # 4. Confirm key live URLs (see also: scripts/monitoring/check-live-urls.sh)
 bash scripts/judges/verify-everything.sh

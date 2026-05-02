@@ -1,0 +1,37 @@
+{
+  "common": {
+    "tagline_part1": "Don't give your agent a wallet.",
+    "tagline_part2": "Give it a mandate.",
+    "cta_start": "Start in 5 minutes",
+    "cta_view_source": "View source",
+    "cta_walk_demo": "Walk the demo",
+    "cta_verify": "Verify a capsule yourself",
+    "nav_features": "Features",
+    "nav_proof": "Proof",
+    "nav_demo": "Demo",
+    "nav_docs": "Docs",
+    "nav_github": "GitHub",
+    "nav_quickstart": "Quickstart",
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 submission"
+  },
+  "index": {
+    "lede": "SBO3L is the cryptographically verifiable trust layer for autonomous AI agents. Every action your agent takes — pay, swap, store, compute, coordinate — passes through SBO3L's policy boundary first. Output: a self-contained Passport capsule anyone can verify offline.",
+    "section_what_is": "What SBO3L is",
+    "section_what_blocks": "What SBO3L blocks",
+    "section_evidence": "Live integration evidence",
+    "section_arch": "Architecture",
+    "section_reproduce": "Reproduce yourself",
+    "section_resources": "Resources",
+    "what_is_blurb": "A Rust workspace implementing a local policy + budget + receipt + audit firewall for AI agents. Allow → routes to sponsor executor (KeeperHub, Uniswap). Deny → executor never called. Every decision can be wrapped in a Passport capsule that anyone can verify offline against the agent's published Ed25519 pubkey alone."
+  },
+  "submission": {
+    "eyebrow": "ETHGlobal Open Agents 2026 · Submission",
+    "h1": "The cryptographically verifiable trust layer for autonomous AI agents.",
+    "judge_test_h2": "The judge-test",
+    "judge_test_body": "Don't take our word for any claim above. Drop a capsule onto /proof. The WebAssembly verifier — same Rust code that runs inside the daemon, compiled to wasm32 — runs all 6 strict checks in your browser. No upload, no API call, no daemon. Six green checks or a specific reject reason."
+  },
+  "proof": {
+    "h1": "Verify a Passport capsule",
+    "lede": "Paste or drop a capsule. All 6 strict-mode checks run in your browser via a WASM-compiled sbo3l-core. No data leaves the page — no upload, no API call, no analytics."
+  }
+}
