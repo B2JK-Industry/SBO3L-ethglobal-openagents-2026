@@ -79,7 +79,7 @@ You then:
 
 - main HEAD: `f653a7c` (post P0f, README sexy upgrade)
 - Open PRs: 0
-- Test count: 377/377
+- Test count: 881/881
 - Demo gates: 13/13 green
 - Production-shaped runner: 26 real / 0 mock / 1 skipped
 - 7 P0 cleanup PRs landed today (#75 → #81)

@@ -84,7 +84,7 @@ These are the load-bearing claims SBO3L makes to the world. If a ticket weakens 
 ## Voice + tone (for docs, marketing, demo video)
 
 - **Honest over slick.** No silent claims, no marketing fluff. Every claim has a code reference or test.
-- **Specific over general.** "377/377 tests, 13 demo gates, 8/8 adversarial fail-closed" beats "robust testing".
+- **Specific over general.** "881/881 tests, 13 demo gates, 8/8 adversarial fail-closed" beats "robust testing".
 - **Code-first.** Show the curl, show the response, then explain.
 - **Tagline survives intact.** Don't reword "Don't give your agent a wallet. Give it a mandate."
 - **No emoji in code or commits.** Emoji allowed in marketing site / demo video / per-agent persona docs.
