@@ -352,6 +352,82 @@ fn render_human(report: &DoctorReport) -> String {
     out
 }
 
+/// New-shape entry point that handles both the standard local-storage
+/// doctor and the optional `--extended` Sepolia contract probes. Old
+/// callers using [`run`] keep working — that path forwards to here
+/// with `extended = false`.
+///
+/// Exit code semantics: the *worst* status across local-storage and
+/// extended probes wins. `0` if every section is `ok` (or skip);
+/// `1` if any local check or any extended probe fails; `2` if the
+/// local DB couldn't even be opened.
+pub fn run_with_extended(
+    db: Option<&Path>,
+    json: bool,
+    extended: bool,
+    rpc_url: Option<&str>,
+) -> ExitCode {
+    let local_exit = run(db, json);
+    if !extended {
+        return local_exit;
+    }
+    let resolved_url = resolve_extended_rpc_url(rpc_url);
+    let extended_exit = crate::doctor_extended::run_extended(&resolved_url, json);
+    // Worst exit wins: 2 > 1 > 0.
+    let local_code = exit_code_to_u8(local_exit);
+    let ext_code = exit_code_to_u8(extended_exit);
+    let worst = local_code.max(ext_code);
+    ExitCode::from(worst)
+}
+
+/// Build the Sepolia RPC URL for `--extended` probes. Precedence:
+///
+///   1. `--rpc-url <URL>` flag
+///   2. `SBO3L_SEPOLIA_RPC_URL` env (preferred — distinct from
+///      `audit verify-anchor`'s mainnet/sepolia router so an operator
+///      can have both pinned without conflict)
+///   3. `SBO3L_RPC_URL` env (compat with `audit verify-anchor`)
+///   4. PublicNode last-resort, with a one-line stderr warning that
+///      Alchemy is preferred for batch reads (memory note:
+///      `alchemy_rpc_endpoints.md`).
+fn resolve_extended_rpc_url(flag: Option<&str>) -> String {
+    if let Some(s) = flag {
+        if !s.is_empty() {
+            return s.to_string();
+        }
+    }
+    if let Ok(s) = std::env::var("SBO3L_SEPOLIA_RPC_URL") {
+        if !s.is_empty() {
+            return s;
+        }
+    }
+    if let Ok(s) = std::env::var("SBO3L_RPC_URL") {
+        if !s.is_empty() {
+            return s;
+        }
+    }
+    let fallback = "https://ethereum-sepolia-rpc.publicnode.com";
+    eprintln!(
+        "sbo3l doctor --extended: no --rpc-url / SBO3L_SEPOLIA_RPC_URL / \
+         SBO3L_RPC_URL — falling back to PublicNode ({fallback}). \
+         Alchemy is preferred for batch reads (PublicNode rate-limits)."
+    );
+    fallback.to_string()
+}
+
+fn exit_code_to_u8(code: ExitCode) -> u8 {
+    // `ExitCode` doesn't expose the inner code on stable Rust, so we
+    // round-trip through Debug. Format is `ExitCode(<u8>)` for both
+    // `ExitCode::SUCCESS` (0) and `ExitCode::from(n)`. This is brittle
+    // but stable across the Rust versions in our toolchain pin
+    // (1.80+); the doctor's exit-code logic is the only place that
+    // needs to compare codes, and a spurious Debug change would be
+    // caught by the unit tests below.
+    let s = format!("{code:?}");
+    let inner = s.trim_start_matches("ExitCode(").trim_end_matches(')');
+    inner.parse::<u8>().unwrap_or(1)
+}
+
 /// Entry point for `sbo3l doctor`. Returns a process exit code:
 /// `0` on `ok` / `warn`, `1` if any check failed, `2` if the database
 /// itself could not be opened.

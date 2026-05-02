@@ -361,6 +361,76 @@ const result = await chain.invoke({ input }, { callbacks: [sbo3l] });
 </p>
 `;
 
+// The Trust DNS Manifesto is a ~5000-word RFC-style document — too large
+// to embed inline as HTML in this data file. The /learn card surfaces a
+// synopsis and points readers at the canonical source in the repo, where
+// the manifesto is rendered with all the cross-references intact.
+const trustDnsManifestoHtml = `
+<p>
+  This is a synopsis. The full manifesto (~5000 words, RFC-style with
+  normative MUST/SHOULD/MAY language, eight sections, comparison tables,
+  worked rotation examples, and an attack-resistance argument) lives at
+  <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/concepts/trust-dns-manifesto.md"><code>docs/concepts/trust-dns-manifesto.md</code></a>.
+</p>
+
+<h2>The substitution that changes everything</h2>
+<p>
+  Most uses of ENS reduce to <em>naming</em>: a friendlier label for a
+  wallet address. What an autonomous-agent ecosystem actually needs is
+  <em>authentication</em>: a name that lets a remote verifier reconstruct
+  everything they need to know about the named entity, with no shared
+  secrets and no trusted intermediary. ENS — precisely because of how
+  it was already built — turns out to be the cleanest substrate to make
+  that substitution on.
+</p>
+
+<h2>The trust profile in seven records</h2>
+<p>
+  ENS gives us <code>text(node, key)</code>. SBO3L proposes seven keys.
+  Each answers a question a remote verifier needs answered.
+  <code>agent_id</code> stable identifier · <code>endpoint</code> daemon
+  URL · <code>pubkey_ed25519</code> receipt verifying key ·
+  <code>policy_hash</code> commitment to the active policy ·
+  <code>audit_root</code> anchor to the audit chain ·
+  <code>capability</code> sponsor-surface tags ·
+  <code>reputation_score</code> portable signal via CCIP-Read.
+</p>
+<p>
+  The seven keys are also the body of <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/ENSIP-N-DRAFT.md"><code>docs/ENSIP-N-DRAFT.md</code></a>,
+  the standardisation companion to this manifesto. Treating them as a
+  profile rather than a free-form schema is what lets the convention
+  generalise across platforms.
+</p>
+
+<h2>Resolver rotation as identity key-rotation</h2>
+<p>
+  ENS names point to a resolver contract; the owner can change which
+  resolver the name points to at any time. If the agent's signing key is
+  compromised, the operator runs a four-line runbook: generate the new
+  key, update <code>pubkey_ed25519</code> in one transaction, resume
+  signing, append a key.rotated entry to the audit chain. There is no
+  CRL, no OCSP, no third-party signal — the chain itself is the
+  truststore.
+</p>
+
+<h2>Cross-agent reputation through reverse records</h2>
+<p>
+  An action's signature recovers the public key; the public key hashes
+  to a synthetic identifier; the synthetic identifier reverse-resolves to
+  the agent's forward ENS name; the forward name reads back the seven
+  records. The chain is permissionless and injective by construction —
+  an attempt to launder bad reputation by registering a parallel name
+  with the same key is detectable in the resolver, not in application
+  code.
+</p>
+
+<p>
+  <strong>
+    <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/concepts/trust-dns-manifesto.md">Read the full manifesto →</a>
+  </strong>
+</p>
+`;
+
 export const ARTICLES: Article[] = [
   {
     slug: "tier-architecture",
@@ -401,6 +471,14 @@ export const ARTICLES: Article[] = [
     reading_min: 5,
     audience: "LangChain devs already shipping agents in production",
     body_html: langChainHtml.trim(),
+  },
+  {
+    slug: "trust-dns-manifesto",
+    title: "Trust DNS Manifesto — naming as authentication for autonomous agents",
+    description: "RFC-style 5000-word manifesto. Why SBO3L resolves ENS names to trust commitments rather than wallet addresses; the seven-record opinionated profile; the standardisation path through ENSIP-N.",
+    reading_min: 22,
+    audience: "ENS standards reviewers, ERC-8004 implementers, agent-platform architects",
+    body_html: trustDnsManifestoHtml.trim(),
   },
 ];
 

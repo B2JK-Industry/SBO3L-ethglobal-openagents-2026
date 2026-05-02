@@ -21,6 +21,8 @@ pub mod mock_kms_store;
 pub mod nonce_store;
 pub mod policy_store;
 pub mod tenant;
+// Remote upload backends for `sbo3l audit export` (Task C).
+pub mod zerog_backend;
 
 pub use audit_checkpoint_store::AuditCheckpointRecord;
 pub use audit_store::NewAuditEvent;

@@ -23,6 +23,7 @@ mod audit_anchor_ens;
 mod audit_checkpoint;
 mod audit_verify_anchor;
 mod doctor;
+mod doctor_extended;
 mod key;
 mod passport;
 mod policy;
@@ -95,6 +96,25 @@ enum Command {
         /// Emit JSON instead of human-readable text.
         #[arg(long, default_value_t = false)]
         json: bool,
+        /// Extended mode: also probe the 6 SBO3L Sepolia contracts
+        /// (`OffchainResolver`, `AnchorRegistry`, `SubnameAuction`,
+        /// `ReputationBond`, `ReputationRegistry`,
+        /// `ERC8004 IdentityRegistry`) — runs `eth_getCode` plus one
+        /// view call per contract. The OffchainResolver probe also
+        /// validates the URL template carries `{sender}` + `{data}`
+        /// (the shape Heidi's Bug #2 broke at submission time).
+        ///
+        /// RPC URL resolution: `--rpc-url` flag, then
+        /// `SBO3L_SEPOLIA_RPC_URL` env, then `SBO3L_RPC_URL` env, then
+        /// PublicNode public endpoint as last-resort. Alchemy
+        /// preferred per `memory:alchemy_rpc_endpoints.md`.
+        #[arg(long, default_value_t = false)]
+        extended: bool,
+        /// Sepolia JSON-RPC URL for `--extended` probes. When omitted,
+        /// the resolver falls back through `SBO3L_SEPOLIA_RPC_URL` →
+        /// `SBO3L_RPC_URL` → PublicNode. Ignored without `--extended`.
+        #[arg(long)]
+        rpc_url: Option<String>,
     },
     /// Mock KMS keyring commands (PSM-A1.9).
     ///
@@ -478,8 +498,9 @@ enum PassportCmd {
     /// (schema → request_hash → policy → budget → audit → signed
     /// receipt) and emit one `sbo3l.passport_capsule.v1` JSON to
     /// `--out`. Wraps existing primitives — no policy/audit/crypto
-    /// rewrite. P2.1 supports `--mode mock` only; `--mode live` is
-    /// rejected (live integration is P5.1/P6.1 work).
+    /// rewrite. Supports `--mode mock` only; `--mode live` is
+    /// rejected (live executor integration runs in the daemon, not
+    /// in this offline CLI surface).
     Run {
         /// Path to an APRP JSON file (the request body the agent
         /// would normally POST to `/v1/payment-requests`).
@@ -507,10 +528,11 @@ enum PassportCmd {
         /// this value (status=not_called is hard-enforced).
         #[arg(long, value_enum)]
         executor: ExecutorChoiceArg,
-        /// Execution mode. P2.1 only supports `mock`. `live` is
-        /// rejected with exit 2 (truthfulness rule: live claims
-        /// require real evidence). For real live execution, use the
-        /// daemon (`sbo3l-server`) with configured executor credentials.
+        /// Execution mode. This offline CLI only supports `mock`.
+        /// `live` is rejected with exit 2 (truthfulness rule: live
+        /// claims require real evidence). For real live execution,
+        /// use the daemon (`sbo3l-server`) with configured executor
+        /// credentials.
         #[arg(long, value_enum, default_value_t = ModeChoiceArg::Mock)]
         mode: ModeChoiceArg,
         /// Output path for the capsule JSON. Written atomically
@@ -690,6 +712,23 @@ enum AuditCmd {
         /// Output path. If omitted, the bundle JSON is written to stdout.
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Where to publish the bundle. `local` (default) writes the bundle
+        /// JSON to disk via `--out` (or stdout when omitted), preserving the
+        /// pre-existing CLI behaviour exactly. `0g-storage` additionally
+        /// uploads the bundle to the 0G Galileo testnet indexer (see
+        /// `SBO3L_ZEROG_INDEXER_URL`) and prints the returned `rootHash`.
+        ///
+        /// 0G testnet is documented-flaky; a successful upload is
+        /// best-effort, not a guarantee. On hard failure the CLI points
+        /// the operator at the browser-upload tool at
+        /// `https://storagescan-galileo.0g.ai/tool` as a fallback.
+        #[arg(long, value_parser = ["local", "0g-storage"], default_value = "local")]
+        backend: String,
+        /// 0G Storage indexer URL (only consulted when `--backend 0g-storage`).
+        /// Defaults to the env var `SBO3L_ZEROG_INDEXER_URL`, then falls back
+        /// to the Galileo testnet turbo indexer baked into the build.
+        #[arg(long)]
+        zerog_indexer_url: Option<String>,
     },
     /// Verify a previously-exported bundle.
     ///
@@ -932,6 +971,8 @@ fn main() -> ExitCode {
                     receipt_pubkey,
                     audit_pubkey,
                     out,
+                    backend,
+                    zerog_indexer_url,
                 },
         } => cmd_audit_export(
             &receipt,
@@ -940,6 +981,8 @@ fn main() -> ExitCode {
             &receipt_pubkey,
             &audit_pubkey,
             out.as_deref(),
+            &backend,
+            zerog_indexer_url.as_deref(),
         ),
         Command::Audit {
             op: AuditCmd::VerifyBundle { path },
@@ -1018,7 +1061,12 @@ fn main() -> ExitCode {
             db,
             rpc_url,
         }),
-        Command::Doctor { db, json } => doctor::run(db.as_deref(), json),
+        Command::Doctor {
+            db,
+            json,
+            extended,
+            rpc_url,
+        } => doctor::run_with_extended(db.as_deref(), json, extended, rpc_url.as_deref()),
         Command::Key {
             op:
                 KeyCmd::Init {
@@ -1453,6 +1501,7 @@ fn read_audit_chain_from_db(
     Ok(chain)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_audit_export(
     receipt_path: &Path,
     chain_path: Option<&Path>,
@@ -1460,6 +1509,8 @@ fn cmd_audit_export(
     receipt_pubkey_hex: &str,
     audit_pubkey_hex: &str,
     out: Option<&Path>,
+    backend: &str,
+    zerog_indexer_url: Option<&str>,
 ) -> ExitCode {
     let receipt: PolicyReceipt = match std::fs::read_to_string(receipt_path)
         .map_err(anyhow::Error::from)
@@ -1517,24 +1568,109 @@ fn cmd_audit_export(
             return ExitCode::from(2);
         }
     };
-    match out {
-        Some(p) => {
-            if let Err(e) = std::fs::write(p, serialised.as_bytes()) {
-                eprintln!("error writing {}: {e}", p.display());
-                return ExitCode::from(2);
+
+    match backend {
+        // Default path. Identical to pre-Task-C behaviour: write the bundle
+        // JSON to `--out` (or stdout). No remote upload, no live_evidence.
+        "local" => {
+            match out {
+                Some(p) => {
+                    if let Err(e) = std::fs::write(p, serialised.as_bytes()) {
+                        eprintln!("error writing {}: {e}", p.display());
+                        return ExitCode::from(2);
+                    }
+                    eprintln!(
+                        "wrote bundle to {} (chain length: {}, audit_event_id: {})",
+                        p.display(),
+                        bundle.audit_chain_segment.len(),
+                        bundle.audit_event.event.id
+                    );
+                }
+                None => {
+                    println!("{serialised}");
+                }
             }
-            eprintln!(
-                "wrote bundle to {} (chain length: {}, audit_event_id: {})",
-                p.display(),
-                bundle.audit_chain_segment.len(),
-                bundle.audit_event.event.id
-            );
+            ExitCode::SUCCESS
         }
-        None => {
-            println!("{serialised}");
+        // 0G Storage upload path. Builds an "export envelope" wrapper
+        // containing the (unmodified) bundle plus a `live_evidence` block
+        // recording the upload. The bundle JSON itself is what gets sent
+        // to 0G — so anyone who fetches the rootHash gets a directly
+        // re-verifiable AuditBundle, not an envelope they have to unwrap.
+        //
+        // Writing an envelope (rather than mutating AuditBundle to carry
+        // a `live_evidence` field) preserves AuditBundle v1's
+        // `deny_unknown_fields` schema invariant. See PR body for the
+        // explicit discrepancy note.
+        "0g-storage" => {
+            use sbo3l_storage::zerog_backend::{
+                RemoteBackend, ZeroGStorageBackend, DEFAULT_ZEROG_INDEXER_URL,
+            };
+            let endpoint = zerog_indexer_url
+                .map(|s| s.to_string())
+                .or_else(|| std::env::var("SBO3L_ZEROG_INDEXER_URL").ok())
+                .unwrap_or_else(|| DEFAULT_ZEROG_INDEXER_URL.to_string());
+            let zerog = ZeroGStorageBackend::new(&endpoint);
+            eprintln!(
+                "uploading bundle to 0G Storage testnet (indexer: {endpoint}; \
+                 max attempts: {})",
+                zerog.max_attempts()
+            );
+            let remote_ref = match zerog.upload(serialised.as_bytes()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("0g-storage upload failed: {e}");
+                    return ExitCode::from(1);
+                }
+            };
+            // Envelope = { bundle, live_evidence }. The bundle is bit-for-bit
+            // what would have been written with --backend local.
+            let envelope = serde_json::json!({
+                "bundle": &bundle,
+                "live_evidence": {
+                    "backend": remote_ref.backend,
+                    "root_hash": remote_ref.root_hash,
+                    "uploaded_at": remote_ref.uploaded_at.to_rfc3339(),
+                    "indexer_url": remote_ref.endpoint,
+                },
+            });
+            let envelope_str = match serde_json::to_string_pretty(&envelope) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error serialising envelope: {e}");
+                    return ExitCode::from(2);
+                }
+            };
+            match out {
+                Some(p) => {
+                    if let Err(e) = std::fs::write(p, envelope_str.as_bytes()) {
+                        eprintln!("error writing {}: {e}", p.display());
+                        return ExitCode::from(2);
+                    }
+                    eprintln!(
+                        "wrote envelope to {} (chain length: {}, audit_event_id: {})",
+                        p.display(),
+                        bundle.audit_chain_segment.len(),
+                        bundle.audit_event.event.id
+                    );
+                }
+                None => {
+                    println!("{envelope_str}");
+                }
+            }
+            // Print rootHash on its own line so shell pipelines can capture
+            // it without parsing the envelope.
+            println!("rootHash={}", remote_ref.root_hash);
+            ExitCode::SUCCESS
+        }
+        other => {
+            eprintln!(
+                "unknown backend '{other}' (clap should have rejected this); \
+                 expected 'local' or '0g-storage'"
+            );
+            ExitCode::from(2)
         }
     }
-    ExitCode::SUCCESS
 }
 
 fn cmd_audit_verify_bundle(path: &Path) -> ExitCode {
