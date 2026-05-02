@@ -8,6 +8,9 @@ use sbo3l_core::receipt::PolicyReceipt;
 use sbo3l_core::{schema, SchemaError};
 
 mod agent;
+#[cfg(feature = "eth_broadcast")]
+mod agent_broadcast;
+mod agent_reputation;
 mod agent_verify;
 mod audit_anchor_ens;
 mod audit_checkpoint;
@@ -178,6 +181,15 @@ enum AgentCmd {
         #[arg(long, default_value_t = false)]
         broadcast: bool,
 
+        /// Explicitly request dry-run (no broadcast). Dry-run is
+        /// already the default, but passing `--dry-run` surfaces
+        /// intent — automation scripts pass it as defense-in-depth so
+        /// a future flip of the CLI default to broadcast won't
+        /// silently turn an envelope-build invocation into a real tx.
+        /// Mutually exclusive with `--broadcast`.
+        #[arg(long, default_value_t = false, conflicts_with = "broadcast")]
+        dry_run: bool,
+
         #[arg(long)]
         rpc_url: Option<String>,
 
@@ -250,6 +262,40 @@ enum AgentCmd {
         /// of human-readable text.
         #[arg(long, default_value_t = false)]
         json: bool,
+    },
+    /// Compute and publish an agent's reputation score (T-4-6).
+    ///
+    /// Reads audit events from `--events <file.json>` (a JSON array
+    /// of {decision, executor_confirmed, age_secs} objects), computes
+    /// the v2 weighted score (sbo3l_policy::reputation::compute_reputation_v2),
+    /// and emits a setText envelope publishing the score to the agent's
+    /// `sbo3l:reputation_score` ENS text record.
+    ///
+    /// **Dry-run only in this build.** Broadcast wires through F-5
+    /// EthSigner once that lands.
+    ReputationPublish {
+        /// FQDN of the agent (e.g. `research-agent.sbo3lagent.eth`).
+        #[arg(long)]
+        fqdn: String,
+
+        /// Path to a JSON file: array of `ReputationEventInput`
+        /// (`{decision, executor_confirmed, age_secs}`).
+        #[arg(long)]
+        events: PathBuf,
+
+        /// `mainnet` or `sepolia`. Default `mainnet` since the
+        /// canonical reputation publishes are on `sbo3lagent.eth`.
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Override the resolver address. Default = the network's
+        /// canonical PublicResolver.
+        #[arg(long)]
+        resolver: Option<String>,
+
+        /// Write the envelope JSON to `<path>` in addition to printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
 }
 
@@ -829,6 +875,14 @@ fn main() -> ExitCode {
                     owner,
                     resolver,
                     broadcast,
+                    // `--dry-run` is acknowledged but doesn't change
+                    // behaviour: dry-run is the default, broadcast
+                    // is opt-in via `--broadcast`. Clap's
+                    // conflicts_with already enforces the mutex; we
+                    // accept the flag here so scripts that pass it
+                    // for defense-in-depth aren't rejected as
+                    // "unknown argument".
+                    dry_run: _,
                     rpc_url,
                     private_key_env_var,
                     out,
@@ -867,6 +921,24 @@ fn main() -> ExitCode {
             expected_records,
             json,
         }),
+        Command::Agent {
+            op:
+                AgentCmd::ReputationPublish {
+                    fqdn,
+                    events,
+                    network,
+                    resolver,
+                    out,
+                },
+        } => agent_reputation::cmd_agent_reputation_publish(
+            agent_reputation::ReputationPublishArgs {
+                fqdn,
+                events,
+                network,
+                resolver,
+                out,
+            },
+        ),
     }
 }
 

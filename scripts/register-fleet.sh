@@ -118,8 +118,15 @@ python3 scripts/derive-fleet-keys.py \
 
 # ---- Per-agent registration loop -----------------------------------
 
+# Manifest filename = ens-fleet-${CONFIG_BASE}-${DATE}.json so two
+# fleets registered on the same day (e.g. agents-5.yaml and
+# agents-60.yaml) don't collide on a single output path. The
+# CONFIG_BASE comes from the YAML basename (`agents-5`, `agents-60`,
+# whatever the operator named it) — keeps the path self-describing
+# without requiring an extra flag. (codex P1 fix on #138 + #173.)
 DATE_TAG=$(date -u +%Y-%m-%d)
-MANIFEST_PATH="docs/proof/ens-fleet-${DATE_TAG}.json"
+CONFIG_BASE=$(basename "$CONFIG_PATH" .yaml)
+MANIFEST_PATH="docs/proof/ens-fleet-${CONFIG_BASE}-${DATE_TAG}.json"
 mkdir -p "$(dirname "$MANIFEST_PATH")"
 
 # Build the manifest skeleton with python (richer JSON than bash heredoc).
@@ -207,12 +214,18 @@ print(json.dumps({
     echo "    pubkey (Ed25519): $PUBKEY"
 
     DRY_RUN_OUT=$(mktemp)
+    # Defense-in-depth: pass --dry-run explicitly even though it's
+    # the CLI default. clap's conflicts_with rejects --broadcast in
+    # the same call, so a future flip of the CLI default cannot
+    # silently turn this envelope-build invocation into a real tx.
+    # (codex P1 fix on #138.)
     if ! "$SBO3L_BIN" agent register \
             --name "$LABEL" \
             --parent "$PARENT" \
             --network "$NETWORK" \
             --records "$RECORDS_JSON" \
             --owner "$OWNER" \
+            --dry-run \
             --out "$DRY_RUN_OUT" >/dev/null 2>&1; then
         echo "    ERROR: dry-run failed for $LABEL" >&2
         python3 -c "
