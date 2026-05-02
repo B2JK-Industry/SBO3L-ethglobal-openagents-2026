@@ -267,10 +267,12 @@ mod tests {
     #[test]
     fn equal_weight_equal_recency_is_average() {
         let now = 1_000_000;
-        let mut params = AggregateReputationParams::default();
         // Force all chains equal weight = 1.0 to test the pure average shape.
-        params.chain_weights = BTreeMap::new();
-        params.default_chain_weight = 1.0;
+        let params = AggregateReputationParams {
+            chain_weights: BTreeMap::new(),
+            default_chain_weight: 1.0,
+            ..Default::default()
+        };
 
         let snaps = vec![
             snap(1, "a", 60, now),
@@ -429,9 +431,11 @@ mod tests {
     fn all_zero_weight_returns_max_reputation() {
         // Pathological: every chain weighted zero. No signal → 100.
         let now = 1_000_000;
-        let mut params = AggregateReputationParams::default();
-        params.chain_weights = BTreeMap::new();
-        params.default_chain_weight = 0.0;
+        let params = AggregateReputationParams {
+            chain_weights: BTreeMap::new(),
+            default_chain_weight: 0.0,
+            ..Default::default()
+        };
 
         let snaps = vec![snap(1, "a", 0, now)];
         let r = aggregate_reputation(&snaps, now, &params);
