@@ -20,6 +20,7 @@ pub mod ens;
 pub mod ens_anchor;
 pub mod ens_live;
 pub mod reputation_publisher;
+pub mod universal;
 
 pub use ccip_read::{
     decode_gateway_data, decode_gateway_response_body, decode_string_result,
@@ -43,4 +44,8 @@ pub use ens_live::{
 pub use reputation_publisher::{
     build_publish_envelope, PublishMode, ReputationEventInput, ReputationPublishEnvelope,
     ReputationPublishParams, REPUTATION_ENVELOPE_SCHEMA_ID, REPUTATION_TEXT_KEY,
+};
+pub use universal::{
+    dns_encode, is_offchain_lookup_revert, UniversalError, UniversalResolver,
+    UNIVERSAL_RESOLVER_MAINNET, UNIVERSAL_RESOLVER_SEPOLIA, UNIVERSAL_RESOLVE_SELECTOR,
 };
