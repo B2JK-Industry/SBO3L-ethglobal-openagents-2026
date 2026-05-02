@@ -1,0 +1,57 @@
+# T-3-3 ENS amplifier — fleet of 5 named agents under sbo3lagent.eth.
+#
+# Each agent is registered via Durin (sbo3l agent register --broadcast)
+# and carries the canonical 5 sbo3l:* text records that anchor its
+# on-chain identity to its off-chain proof:
+#
+#   sbo3l:agent_id        — stable identifier
+#   sbo3l:endpoint        — daemon URL
+#   sbo3l:pubkey_ed25519  — receipt/audit signing key (deterministic
+#                           per `seed_doc` below)
+#   sbo3l:policy_url      — published policy snapshot
+#   sbo3l:capabilities    — JSON list of sponsor capabilities
+#
+# Daniel runs scripts/register-fleet.sh against this file once Dev 1's
+# T-3-1 broadcast slice lands. Output manifest at
+# docs/proof/ens-fleet-agents-5-2026-05-01.json.
+
+seed_doc: "sbo3l-ens-fleet-2026-05-01"
+parent: "sbo3lagent.eth"
+network: "sepolia"
+# Resolver address: the OffchainResolver Daniel deploys per
+# docs/design/T-4-1-offchain-resolver-deploy.md (T-4-1 ops half).
+# Empty here means "use the network's default PublicResolver" — the
+# fleet works against PublicResolver as a fallback, but the
+# OffchainResolver is the production target.
+resolver: ""
+
+agents:
+  - label: "research-agent"
+    agent_id: "research-agent-01"
+    endpoint: "https://app.sbo3l.dev/v1"
+    policy_url: "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/research-agent-01.json"
+    capabilities: ["x402-purchase"]
+
+  - label: "trading-agent"
+    agent_id: "trading-agent-01"
+    endpoint: "https://app.sbo3l.dev/v1"
+    policy_url: "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/trading-agent-01.json"
+    capabilities: ["uniswap-swap", "x402-purchase"]
+
+  - label: "swap-agent"
+    agent_id: "swap-agent-01"
+    endpoint: "https://app.sbo3l.dev/v1"
+    policy_url: "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/swap-agent-01.json"
+    capabilities: ["uniswap-swap"]
+
+  - label: "audit-agent"
+    agent_id: "audit-agent-01"
+    endpoint: "https://app.sbo3l.dev/v1"
+    policy_url: "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/audit-agent-01.json"
+    capabilities: ["audit-export", "audit-verify"]
+
+  - label: "coordinator-agent"
+    agent_id: "coordinator-agent-01"
+    endpoint: "https://app.sbo3l.dev/v1"
+    policy_url: "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/policies/coordinator-agent-01.json"
+    capabilities: ["delegate", "attest"]
