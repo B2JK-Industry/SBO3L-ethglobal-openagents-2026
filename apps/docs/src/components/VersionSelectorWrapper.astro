@@ -1,0 +1,32 @@
+---
+// Starlight Sidebar override — prepends the VersionSelector to the
+// default sidebar so users always see which version they're reading
+// and can switch with one click.
+//
+// Wired via apps/docs/astro.config.mjs:
+//   starlight({ components: { Sidebar: './.../VersionSelectorWrapper.astro' } })
+//
+// The override pattern (https://starlight.astro.build/guides/overriding-components/):
+// import the upstream default + render our addition above it. We keep
+// the default's <slot /> contract so Starlight's nav rendering is
+// unchanged.
+import Default from "@astrojs/starlight/components/Sidebar.astro";
+import VersionSelector from "./VersionSelector.astro";
+---
+<div class="version-selector-wrap">
+  <VersionSelector />
+</div>
+<Default><slot /></Default>
+
+<style>
+  .version-selector-wrap {
+    padding: 0.6em var(--sl-sidebar-pad-x, 1em) 0.4em;
+    border-bottom: 1px solid var(--sl-color-hairline);
+    margin-bottom: 0.6em;
+  }
+  /* Mobile: Starlight collapses the sidebar; keep the version
+     selector visible at the top of the content area instead. */
+  @media (max-width: 50em) {
+    .version-selector-wrap { padding: 0.4em 0.8em; }
+  }
+</style>
