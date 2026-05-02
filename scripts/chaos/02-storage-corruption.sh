@@ -28,7 +28,11 @@ DB="$SCENARIO_DIR/sbo3l.db"
 daemon_start "$DB"
 
 for i in 1 2 3; do
+<<<<<<< HEAD
   PAYLOAD=$(fixture_aprp "01HCHAOS0200000000000000$i")
+=======
+  PAYLOAD=$(fixture_aprp "01HCHA0S02000000000000000$i")
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
   RESP=$(http_post "/v1/payment-requests" "$PAYLOAD")
   HTTP=$(printf '%s' "$RESP" | tail -n1)
   [ "$HTTP" = "200" ] || record_fail "seed request $i HTTP=$HTTP"
@@ -40,6 +44,7 @@ daemon_stop
 # Flip the middle row's payload_hash. Take the existing hex hash, flip
 # the first nibble (XOR 0x80), write it back. SQLite unaffected — the
 # strict verifier MUST detect the mismatch.
+<<<<<<< HEAD
 ORIG=$(sqlite3 "$DB" "SELECT payload_hash FROM audit_events WHERE seq=2")
 [ -n "$ORIG" ] || record_fail "could not read seq=2 payload_hash"
 FIRST_BYTE=${ORIG:0:2}
@@ -47,6 +52,18 @@ REST=${ORIG:2}
 FLIPPED=$(printf '%02x' $((0x$FIRST_BYTE ^ 0x80)))${REST}
 sqlite3 "$DB" "UPDATE audit_events SET payload_hash = '$FLIPPED' WHERE seq=2"
 echo "[chaos] flipped seq=2 payload_hash $ORIG → $FLIPPED" >> "$SCENARIO_DIR/result.txt"
+=======
+# Pick a middle row by its actual seq (not assuming seq=2 exists).
+TARGET_SEQ=$(sqlite3 "$DB" "SELECT seq FROM audit_events ORDER BY seq DESC LIMIT 1 OFFSET 1")
+[ -n "$TARGET_SEQ" ] || { record_fail "no second-to-last audit row to corrupt"; TARGET_SEQ=0; }
+ORIG=$(sqlite3 "$DB" "SELECT payload_hash FROM audit_events WHERE seq=$TARGET_SEQ")
+[ -n "$ORIG" ] || record_fail "could not read seq=$TARGET_SEQ payload_hash"
+FIRST_BYTE=${ORIG:0:2}
+REST=${ORIG:2}
+FLIPPED=$(printf '%02x' $((0x$FIRST_BYTE ^ 0x80)))${REST}
+sqlite3 "$DB" "UPDATE audit_events SET payload_hash = '$FLIPPED' WHERE seq=$TARGET_SEQ"
+echo "[chaos] flipped seq=$TARGET_SEQ payload_hash $ORIG → $FLIPPED" >> "$SCENARIO_DIR/result.txt"
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
 
 audit_dump "$SCENARIO_DIR/after.json"
 
