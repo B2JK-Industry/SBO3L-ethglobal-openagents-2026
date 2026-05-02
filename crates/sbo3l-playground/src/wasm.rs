@@ -150,6 +150,14 @@ pub fn build_capsule_wasm(
         .and_then(|v| v.as_str())
         .map(str::to_string);
 
+    // Codex P2 finding (#357): validate the policy schema BEFORE
+    // embedding it in a capsule. Without this, a caller could build a
+    // structurally-/strictly-verifiable capsule from a malformed
+    // policy that the daemon's `Policy::parse_json` would reject.
+    // Mirrors what `decide_aprp_wasm` already does, keeping both
+    // entry points symmetric.
+    let _ = Policy::parse_json(policy_json)
+        .map_err(|e| JsValue::from_str(&format!("policy.parse_error: {e}")))?;
     let policy_value: Value = serde_json::from_str(policy_json)
         .map_err(|e| JsValue::from_str(&format!("policy.parse_error: {e}")))?;
 

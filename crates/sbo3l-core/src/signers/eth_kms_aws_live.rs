@@ -159,19 +159,27 @@ impl AwsEthKmsLiveSigner {
             return Err(SignerError::MissingEnv("SBO3L_ETH_AWS_KMS_KEY_ID"));
         }
 
-        // Build a single-thread tokio runtime to drive the async SDK
-        // calls from a sync constructor. The daemon may already have
-        // its own runtime; we deliberately don't try to reuse it
-        // because that requires `block_in_place` which only works
-        // inside a multi-thread runtime context.
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| SignerError::Kms(format!("aws kms: build tokio rt: {e}")))?;
-        let client = rt.block_on(async {
+        // Codex P1 fix (#324): drive the async SDK calls under
+        // whichever runtime context exists. When called from a
+        // running multi-threaded Tokio runtime (the daemon's
+        // `#[tokio::main]`), reuse it via `Handle::block_on` +
+        // `block_in_place`. When called outside a runtime (CLI, unit
+        // tests), build a fresh single-thread runtime. Same
+        // pattern as `block_on` below.
+        let build_client = async {
             let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             AwsKmsClient::new(&cfg)
-        });
+        };
+        let client = match tokio::runtime::Handle::try_current() {
+            Ok(handle) => tokio::task::block_in_place(|| handle.block_on(build_client)),
+            Err(_) => {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| SignerError::Kms(format!("aws kms: build tokio rt: {e}")))?;
+                rt.block_on(build_client)
+            }
+        };
 
         Self::with_client(Box::new(SdkKmsClient::new(client)), key_id)
     }
@@ -192,19 +200,41 @@ impl AwsEthKmsLiveSigner {
         Ok(s)
     }
 
-    /// Synchronous block-on helper for the `EthSigner` impl. Builds a
-    /// fresh single-thread runtime per call. AWS KMS Sign is a few-ms
-    /// round-trip; the runtime construction overhead is dwarfed by
-    /// network latency.
+    /// Synchronous block-on helper for the `EthSigner` impl.
+    ///
+    /// **Codex P1 fix (#324):** the previous impl built a fresh
+    /// single-thread `Runtime` and called `Runtime::block_on` per
+    /// invocation. That panics with "Cannot start a runtime from
+    /// within a runtime" when invoked from a Tokio worker thread —
+    /// which IS the daemon's normal request-handling context. The
+    /// fix detects whether we're already inside a runtime via
+    /// `Handle::try_current()`:
+    ///
+    /// - **Inside** a runtime: use `tokio::task::block_in_place` +
+    ///   `Handle::block_on`. `block_in_place` tells the runtime
+    ///   "this worker is about to block; spin up a replacement so
+    ///   other tasks make progress". Requires multi-threaded
+    ///   runtime; `#[tokio::main]` defaults to that.
+    /// - **Outside** a runtime (e.g. the unit-test path or a CLI
+    ///   tool): build a fresh single-thread runtime per call —
+    ///   matches the previous behaviour for those callers.
+    ///
+    /// This keeps the synchronous `EthSigner` trait surface intact
+    /// (a full async signer trait would be a much larger refactor).
     fn block_on<T>(
         &self,
         fut: impl std::future::Future<Output = Result<T, SignerError>>,
     ) -> Result<T, SignerError> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| SignerError::Kms(format!("aws kms: build tokio rt: {e}")))?;
-        rt.block_on(fut)
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => tokio::task::block_in_place(|| handle.block_on(fut)),
+            Err(_) => {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| SignerError::Kms(format!("aws kms: build tokio rt: {e}")))?;
+                rt.block_on(fut)
+            }
+        }
     }
 
     /// Fetch + cache the verifying key. First call hits KMS; subsequent

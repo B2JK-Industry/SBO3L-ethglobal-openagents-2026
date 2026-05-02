@@ -38,13 +38,24 @@ ENV CARGO_NET_RETRY=5
 
 COPY . .
 
+# Optional cargo `--features` list. `docker-compose-cluster.yml` passes
+# `SBO3L_BUILD_FEATURES=cluster` so the same Dockerfile can produce a
+# cluster-enabled image without forking. Default is empty (single-node
+# build), which is what the top-level `docker-compose.yml` relies on.
+# Codex P1 fix (#323): the previous version of the cluster compose file
+# advertised this build-arg, but the Dockerfile RUN ignored it — so the
+# `sbo3l/server:cluster` image was identical to the default and the
+# `/v1/admin/cluster/*` API was missing at runtime.
+ARG SBO3L_BUILD_FEATURES=""
+
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/build/target,sharing=locked \
     cargo build --release --locked \
         --bin sbo3l-server \
         --bin sbo3l \
-        --bin sbo3l-mcp && \
+        --bin sbo3l-mcp \
+        $([ -n "$SBO3L_BUILD_FEATURES" ] && echo "--features sbo3l-server/$SBO3L_BUILD_FEATURES") && \
     install -Dm0755 target/release/sbo3l-server /out/usr/local/bin/sbo3l-server && \
     install -Dm0755 target/release/sbo3l        /out/usr/local/bin/sbo3l && \
     install -Dm0755 target/release/sbo3l-mcp    /out/usr/local/bin/sbo3l-mcp && \

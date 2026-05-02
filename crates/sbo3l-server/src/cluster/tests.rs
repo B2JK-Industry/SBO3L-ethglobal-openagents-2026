@@ -90,7 +90,9 @@ fn audit_append_response_serde_round_trip() {
 async fn apply_audit_append_on_fresh_db() {
     let storage = fresh_storage();
     let signer = audit_signer();
-    let resp = apply_audit_append(storage.clone(), signer, sample_append("pr-fresh")).await;
+    let resp = apply_audit_append(storage.clone(), signer, sample_append("pr-fresh"))
+        .await
+        .expect("apply_audit_append must succeed on fresh db");
     assert_eq!(resp.seq, 1, "first append on a fresh db lands at seq=1");
     assert!(!resp.event_hash.is_empty(), "event_hash must be populated");
     let s = storage.lock().await;
@@ -120,7 +122,9 @@ async fn apply_audit_append_on_db_with_existing_rows() {
         )
         .unwrap();
     }
-    let resp = apply_audit_append(storage.clone(), signer, sample_append("pr-third")).await;
+    let resp = apply_audit_append(storage.clone(), signer, sample_append("pr-third"))
+        .await
+        .expect("third append must succeed");
     assert_eq!(resp.seq, 3, "third append must land at seq=3");
     let s = storage.lock().await;
     assert_eq!(s.audit_count().unwrap(), 3);
@@ -132,7 +136,9 @@ async fn audit_state_machine_reports_count_after_apply() {
     let signer = audit_signer();
     let sm = AuditStateMachine::new(storage.clone(), signer.clone());
     assert_eq!(sm.audit_count().await, 0, "fresh state machine has no rows");
-    apply_audit_append(storage, signer, sample_append("pr-A")).await;
+    apply_audit_append(storage, signer, sample_append("pr-A"))
+        .await
+        .expect("apply must succeed");
     assert_eq!(sm.audit_count().await, 1);
 }
 
@@ -215,9 +221,14 @@ fn voter_set_diff_add_remove() {
 
 #[test]
 fn audit_append_response_default_seq_zero() {
-    // The `apply_audit_append` sentinel returns seq=0 + empty hash on
-    // the SQLite-write-failure path. Tests that mock that path rely
-    // on the empty-hash check; pin it here.
+    // After Codex P1 fix (#323), `apply_audit_append` no longer
+    // returns a sentinel on SQLite-write failure — it propagates
+    // `Err(StorageError)`. The seq=0 + empty-hash response is still
+    // emitted by `apply()` for `EntryPayload::Blank` and
+    // `EntryPayload::Membership` (openraft requires the input/output
+    // cardinalities to match, and those entries don't carry an audit
+    // append). Pin the shape here so a future refactor that drops
+    // those Vec entries doesn't silently break openraft's contract.
     let r = AuditAppendResponse {
         seq: 0,
         event_hash: String::new(),

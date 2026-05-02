@@ -35,9 +35,17 @@ pub use ccip_read::{
     parse_offchain_lookup_revert, CcipError, GatewayBody, GatewayResponse, OffchainLookup,
     OFFCHAIN_LOOKUP_SELECTOR,
 };
+// `ERC8004_SEPOLIA_PLACEHOLDER` was deprecated in #358 (2026-05-02) when
+// the contract was actually deployed. Re-exporting the live constant
+// instead under the same name was retained for backwards-compat
+// callers; new code should prefer `ERC8004_SEPOLIA`. The deprecated
+// alias still re-exports here behind `#[allow(deprecated)]` so any
+// downstream that depends on the old name keeps compiling.
+#[allow(deprecated)]
+pub use contracts::ERC8004_SEPOLIA_PLACEHOLDER;
 pub use contracts::{
     addr_eq, all_pins, is_placeholder, resolver_for, universal_resolver_for, ContractPin, Network,
-    ANCHOR_REGISTRY_SEPOLIA, ENS_REGISTRY, ERC8004_SEPOLIA_PLACEHOLDER, OFFCHAIN_RESOLVER_SEPOLIA,
+    ANCHOR_REGISTRY_SEPOLIA, ENS_REGISTRY, ERC8004_SEPOLIA, OFFCHAIN_RESOLVER_SEPOLIA,
     PLACEHOLDER_ZERO, PUBLIC_RESOLVER_MAINNET, PUBLIC_RESOLVER_SEPOLIA, REPUTATION_BOND_SEPOLIA,
     REPUTATION_REGISTRY_SEPOLIA, SUBNAME_AUCTION_SEPOLIA,
 };

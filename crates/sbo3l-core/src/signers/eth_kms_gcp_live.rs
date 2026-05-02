@@ -141,11 +141,12 @@ impl GcpEthKmsLiveSigner {
         if key_name.is_empty() {
             return Err(SignerError::MissingEnv("SBO3L_ETH_GCP_KMS_KEY_NAME"));
         }
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| SignerError::Kms(format!("gcp kms: build tokio rt: {e}")))?;
-        let client = rt.block_on(async {
+        // Codex P1 fix (#324): same nested-runtime hazard as
+        // `block_on` below. Daemon code calls `from_env` at startup,
+        // which runs inside `#[tokio::main]`'s runtime; building a
+        // fresh runtime here would panic with the nested-runtime
+        // error.
+        let build_client = async {
             let cfg = ClientConfig::default()
                 .with_auth()
                 .await
@@ -153,7 +154,17 @@ impl GcpEthKmsLiveSigner {
             GcpKmsClient::new(cfg)
                 .await
                 .map_err(|e| SignerError::Kms(format!("gcp kms: client: {e}")))
-        })?;
+        };
+        let client = match tokio::runtime::Handle::try_current() {
+            Ok(handle) => tokio::task::block_in_place(|| handle.block_on(build_client))?,
+            Err(_) => {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| SignerError::Kms(format!("gcp kms: build tokio rt: {e}")))?;
+                rt.block_on(build_client)?
+            }
+        };
         Self::with_client(Box::new(SdkGcpClient::new(client)), key_name)
     }
 
@@ -170,15 +181,28 @@ impl GcpEthKmsLiveSigner {
         Ok(s)
     }
 
+    /// Synchronous block-on helper for the `EthSigner` impl.
+    ///
+    /// **Codex P1 fix (#324):** the previous impl built a fresh
+    /// runtime per call. That panics when invoked from a Tokio
+    /// worker thread (the daemon's normal context). Mirrors the
+    /// AWS-side fix in `eth_kms_aws_live.rs::block_on`: detect via
+    /// `Handle::try_current()` and use `block_in_place` inside a
+    /// runtime, fall back to building one outside.
     fn block_on<T>(
         &self,
         fut: impl std::future::Future<Output = Result<T, SignerError>>,
     ) -> Result<T, SignerError> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| SignerError::Kms(format!("gcp kms: build tokio rt: {e}")))?;
-        rt.block_on(fut)
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => tokio::task::block_in_place(|| handle.block_on(fut)),
+            Err(_) => {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| SignerError::Kms(format!("gcp kms: build tokio rt: {e}")))?;
+                rt.block_on(fut)
+            }
+        }
     }
 
     fn verifying_key(&self) -> Result<&VerifyingKey, SignerError> {
