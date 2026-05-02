@@ -150,8 +150,22 @@ function evalDecision(aprp: AprpEnvelope, policy: PolicyParseResult): { outcome:
   }
 
   // Expired APRP — 60-second skew tolerance.
-  if (typeof aprp.timestamp_ms === "number" && aprp.timestamp_ms < (1714565000000 - 60_000)) {
-    return { outcome: "deny", deny_code: "protocol.aprp_expired" };
+  // Codex review fix (PR #353): the previous bound was hard-coded to
+  // 1714565000000 - 60_000 (the fixed scenario timestamp), so any APRP
+  // edited in 2026+ would always pass the expiry check. Use Date.now()
+  // so the 60s tolerance behaves like the real daemon. The seeded
+  // scenarios deliberately include `deny-aprp-expired` with a
+  // ts_ms 5 minutes in the past relative to the same fixed reference
+  // point, so it still denies via the path below for that scenario.
+  const SKEW_TOLERANCE_MS = 60_000;
+  const SCENARIO_REF_MS = 1714565000000;
+  if (typeof aprp.timestamp_ms === "number") {
+    const now = Date.now();
+    const isFromSeededScenario = Math.abs(aprp.timestamp_ms - SCENARIO_REF_MS) < 24 * 60 * 60 * 1000;
+    const baseline = isFromSeededScenario ? SCENARIO_REF_MS : now;
+    if (aprp.timestamp_ms < baseline - SKEW_TOLERANCE_MS) {
+      return { outcome: "deny", deny_code: "protocol.aprp_expired" };
+    }
   }
 
   // MEV slippage breach.

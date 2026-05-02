@@ -12,16 +12,18 @@ the numbers were representative of historical runs, not freshly
 measured. Caught during self-review and corrected here.
 
 Why budget targets are still useful: the marketing site has had a
-Lighthouse CI workflow ([`.github/workflows/lighthouse.yml`](../../.github/workflows/lighthouse.yml))
-running on every merge for months. Historical runs have hit ≥90 on
-every axis except `/proof` mobile (WASM bundle weight). The targets
-below are the bar we hold against; **a real run before submission
-must produce numbers in the same neighborhood or any regression
-needs investigation.**
+Lighthouse CI workflow ([`.github/workflows/lighthouse.yml`](../../.github/workflows/lighthouse.yml)).
+The workflow is triggered by `workflow_dispatch` (manual run) plus a
+weekly cron at Mon 06:00 UTC — **not automatically on every merge.**
+Historical weekly runs have hit ≥90 on every axis except `/proof`
+mobile (WASM bundle weight). The targets below are the bar we hold
+against; **a real run before submission must produce numbers in the
+same neighborhood or any regression needs investigation.**
 
 Daniel: run before submission via either
-- The Lighthouse CI workflow (auto-runs on every main merge,
-  artifacts stored 90 days)
+- Manually trigger the Lighthouse CI workflow (Actions tab →
+  Lighthouse → "Run workflow"); artifacts stored 90 days
+- Wait for the next Monday 06:00 UTC weekly run
 - PageSpeed Insights at https://pagespeed.web.dev/ against
   `https://sbo3l-marketing.vercel.app` and each route below
 - Local: `pnpm --filter @sbo3l/marketing build && pnpm preview`,
