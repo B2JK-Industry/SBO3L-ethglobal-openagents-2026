@@ -212,27 +212,35 @@ pub const REPUTATION_REGISTRY_SEPOLIA: ContractPin = ContractPin {
 };
 
 // ============================================================
-// SBO3L candidate / placeholder pins (not yet deployed)
+// SBO3L candidate / placeholder pins
 // ============================================================
 
-/// Sentinel "no contract here" value. ERC-8004 reference-impl
-/// placeholders use this until Daniel's Sepolia deploy lands; the
-/// `cast code` smoke test recognises it as "expected absent" rather
-/// than "unexpectedly absent."
+/// Sentinel "no contract here" value. Used by smoke tests to
+/// distinguish "expected absent" from "unexpectedly absent."
 pub const PLACEHOLDER_ZERO: &str = "0x0000000000000000000000000000000000000000";
 
-/// ERC-8004 identity registry on Sepolia (T-4-2). Placeholder until
-/// Daniel posts the deploy address, then this constant flips to the
-/// real value. The placeholder is intentionally distinguishable via
-/// the `4242…` prefix so a `cast code` smoke test against this
-/// value reports "placeholder, not yet deployed" rather than
-/// "deployed but empty."
-pub const ERC8004_SEPOLIA_PLACEHOLDER: ContractPin = ContractPin {
-    address: "0x4242424242424242424242424242424242424242",
+/// ERC-8004 IdentityRegistry on Sepolia (T-4-2). Driver-deployed
+/// 2026-05-02 from `crates/sbo3l-identity/contracts/IdentityRegistry.sol`
+/// — minimal reference impl matching the
+/// `registerAgent(address,string,string,bytes32)` calldata shape
+/// expected by `crates/sbo3l-identity/src/erc8004.rs`. Selector
+/// 0x5a27c211 verified on chain.
+///
+/// Tx: 0xd1e16958260c88c4f61a11989a878bc66757d1da108430a2f07f659164239e60
+/// Etherscan: https://sepolia.etherscan.io/address/0x600c10dE2fd5BB8f3F47cd356Bcb80289845Db37
+pub const ERC8004_SEPOLIA: ContractPin = ContractPin {
+    address: "0x600c10dE2fd5BB8f3F47cd356Bcb80289845Db37",
     network: Network::Sepolia,
-    label: "ERC-8004 IdentityRegistry (Sepolia placeholder — not yet deployed)",
+    label: "ERC-8004 IdentityRegistry (Sepolia, SBO3L minimal reference impl)",
     canonical_source: "https://eips.ethereum.org/EIPS/eip-8004",
 };
+
+/// Backward-compat alias. Older code referenced
+/// `ERC8004_SEPOLIA_PLACEHOLDER` from when the address was still
+/// pending. The placeholder is now the real deployment;
+/// downstream consumers see the real address transparently.
+#[deprecated(note = "Use `ERC8004_SEPOLIA` directly; placeholder concept retired 2026-05-02")]
+pub const ERC8004_SEPOLIA_PLACEHOLDER: ContractPin = ERC8004_SEPOLIA;
 
 // ============================================================
 // Deprecated (kept as historical breadcrumbs)
@@ -285,7 +293,7 @@ pub fn all_pins() -> Vec<ContractPin> {
         SUBNAME_AUCTION_SEPOLIA,
         REPUTATION_BOND_SEPOLIA,
         REPUTATION_REGISTRY_SEPOLIA,
-        ERC8004_SEPOLIA_PLACEHOLDER,
+        ERC8004_SEPOLIA,
     ]
 }
 
@@ -307,8 +315,12 @@ pub fn addr_eq(a: &str, b: &str) -> bool {
 /// Return true iff `addr` is the placeholder zero / well-known
 /// "this contract isn't deployed yet" sentinel. Smoke tests use
 /// this to gate the `cast code` assertion appropriately.
+///
+/// As of 2026-05-02, ERC-8004 IdentityRegistry on Sepolia is real-
+/// deployed (see `ERC8004_SEPOLIA`); only the all-zero address is
+/// recognised as a placeholder.
 pub fn is_placeholder(addr: &str) -> bool {
-    addr_eq(addr, PLACEHOLDER_ZERO) || addr_eq(addr, ERC8004_SEPOLIA_PLACEHOLDER.address)
+    addr_eq(addr, PLACEHOLDER_ZERO)
 }
 
 #[cfg(test)]
@@ -408,8 +420,8 @@ mod tests {
     #[test]
     fn is_placeholder_recognises_known_sentinels() {
         assert!(is_placeholder(PLACEHOLDER_ZERO));
-        assert!(is_placeholder(ERC8004_SEPOLIA_PLACEHOLDER.address));
         // Real addresses don't match.
+        assert!(!is_placeholder(ERC8004_SEPOLIA.address)); // now real-deployed
         assert!(!is_placeholder(OFFCHAIN_RESOLVER_SEPOLIA.address));
         assert!(!is_placeholder(ENS_REGISTRY.address));
     }
