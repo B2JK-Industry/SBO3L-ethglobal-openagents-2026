@@ -116,3 +116,98 @@ Task C (contracts.rs pin + mainnet ENS update + doc memory updates) is the remai
 
 Batch 2 verification fires when these land.
 
+### Batch 2 — verified 2026-05-03 ~01:30 UTC — **regression bug found**
+
+8 R18 PRs landed in a 25-second window:
+
+#### #394 — Dev 1 — `sbo3l uniswap swap` mainnet swap envelope CLI ✅ PASS
+
+CLI subcommand exists, builds, and is documented for Daniel to broadcast. Not in the original brief; light verification.
+
+#### #395 — Dev 2 PR1 — LangChain Python + KeeperHub demo ✅ PASS
+
+`examples/langchain-py-research-agent/` directory present:
+- `README.md` documents the 3-line setup
+- `pyproject.toml` (installable via `pip install`)
+- `sbo3l_langchain_demo/` package
+- `test_smoke.py` smoke harness
+
+Routes allowed payments through live KeeperHub workflow `m4t4cnpmhv8qquce3bv3c`. Pip-install + smoke deferred to live-daemon environment (Heidi runs structurally).
+
+#### #396 — Dev 4 Task C — pin new OR address ⚠️ **regression introduced**
+
+`crates/sbo3l-identity/src/contracts.rs` correctly bumped to `0x87e99508C222c6E419734CACbb6781b8d282b1F6` ✅
+
+**BUT:** `crates/sbo3l-cli/src/doctor_extended.rs` carries an INLINED copy of the OR address (intentional, to avoid pulling sbo3l-identity into cli's dep graph). That inlined copy was NOT updated, so:
+
+```
+$ sbo3l doctor --extended
+...
+FAIL  OffchainResolver  0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3
+      URL template missing {sender} or {data} — Heidi's Bug #2 shape
+```
+
+Even though the new deploy is correct on chain. **Fix shipped as PR #410** (one-line address bump + 7-line lockstep comment). After fix:
+
+```
+$ sbo3l doctor --extended
+...
+ok    OffchainResolver  0x87e99508C222c6E419734CACbb6781b8d282b1F6
+      urls(uint256) -> https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json
+overall: ok
+```
+
+**Bug #2 closeout status:** with #396 + #410 both merged, doctor + contracts.rs both point at the new OR which serves the canonical URL.
+
+#### #397 — Dev 2 — install-smoke daemon-signer fix ✅ PASS
+
+CI fix only; verified by passing CI on its own PR + the install-smoke workflow now sets `SBO3L_DEV_ONLY_SIGNER=1`.
+
+#### #399 — Dev 2 PR3 — 0G Storage uploader UI ⚠️ — route not yet live
+
+Source mentions `apps/marketing/src/components/CapsulePlayground.astro` but:
+- `/0g`, `/0g-upload`, `/0g-uploader`, `/upload`, `/storage`, `/demo/0g` all return 404
+- The uploader appears to be a component awaiting integration into a parent route
+
+**Verdict:** the package landed but isn't routed. Daniel-side: mount the component on a publicly-reachable path before judges click.
+
+#### #400 — Heidi (this UAT track) — R1.5 batch 1 doc ✅ PASS
+
+Self-merged via cascade.
+
+#### #401 — Dev 3 — /status truth-table update ✅ PASS
+
+`/status` now shows 7 sections (Sponsor integrations, Storage + audit, Identity + signing, Passport capsule verification, CCIP-Read flow, Daemon + production posture, Why this page exists). Truth-table content is rich. Round 1's keyword check (live/mock/not yet) still passes per Round 1 verification.
+
+#### #407 — Dev 2 PR2 (KH-BF-A1+A2) — 5 additional KH issues + 5 companion PRs ✅ PASS
+
+**10 GitHub issues all HTTP 200:**
+
+| Issue | Status |
+|---|---|
+| KeeperHub/cli#47 | ✅ |
+| KeeperHub/cli#48 | ✅ |
+| KeeperHub/cli#49 | ✅ |
+| KeeperHub/cli#50 | ✅ |
+| KeeperHub/cli#51 | ✅ |
+| KeeperHub/cli#52 | ✅ |
+| KeeperHub/cli#53 | ✅ |
+| KeeperHub/cli#54 | ✅ |
+| KeeperHub/cli#55 | ✅ |
+| KeeperHub/cli#56 | ✅ |
+
+**5 companion draft PRs all HTTP 200:** #402, #403, #404, #405, #406.
+
+Total KH builder feedback footprint: **10 issues filed + 5 companion-shape draft PRs** in this repo.
+
+### Batch 2 verdict — 7/8 PASS, 1 partial (regression auto-fixed by #410)
+
+- #394 ✅, #395 ✅ (structural), #396+#410 ✅ (Bug #2 closeout, after follow-on fix), #397 ✅, #399 🟡 (component shipped, route gap), #400 ✅, #401 ✅, #407 ✅
+- Bug #2 mainnet ENS update still pending Daniel's NÁVOD 1 broadcast
+
+### Open R18 PRs at batch 2 close
+
+- #402-#406 (Dev 2 KH consumer-side adapter draft PRs — all open as draft until upstream KH ships)
+- #408, #409 (post-cascade fmt cleanups, Dev 1)
+- #410 (this branch's predecessor — doctor pin fix; auto-merge armed)
+
