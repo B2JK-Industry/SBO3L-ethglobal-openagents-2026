@@ -3,6 +3,26 @@ import BaseLayout from "~/layouts/BaseLayout.astro";
 import PassportVerifier from "~/components/PassportVerifier.astro";
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
+
+// Codex review fix (PR #392): /kh-fleet "verify capsule →" links pass
+// `?capsule=...` query strings. Read the param here and pre-fill the
+// PassportVerifier so the deep-links actually populate the textarea.
+// We accept either:
+//   - raw JSON (rare; only short capsules fit in URL bounds)
+//   - base64url-encoded JSON (standard; matches `passport export --base64`)
+// The decode is best-effort — malformed input leaves the textarea
+// empty and the user gets the standard idle state.
+function decodeCapsuleParam(raw: string | null): string {
+  if (!raw) return "";
+  if (raw.trim().startsWith("{")) return raw;
+  try {
+    const padded = raw.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(raw.length / 4) * 4, "=");
+    return atob(padded);
+  } catch {
+    return "";
+  }
+}
+const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"));
 ---
 <BaseLayout
   title="SBO3L — Verify a Passport capsule in your browser"
@@ -21,7 +41,7 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
     </p>
   </section>
 
-  <PassportVerifier />
+  <PassportVerifier initialCapsule={initialCapsule} />
 
   <section class="docs">
     <h2>What gets checked</h2>

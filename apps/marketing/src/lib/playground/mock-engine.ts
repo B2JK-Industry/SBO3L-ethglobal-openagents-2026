@@ -150,20 +150,30 @@ function evalDecision(aprp: AprpEnvelope, policy: PolicyParseResult): { outcome:
   }
 
   // Expired APRP — 60-second skew tolerance.
-  // Codex review fix (PR #353): the previous bound was hard-coded to
-  // 1714565000000 - 60_000 (the fixed scenario timestamp), so any APRP
-  // edited in 2026+ would always pass the expiry check. Use Date.now()
-  // so the 60s tolerance behaves like the real daemon. The seeded
-  // scenarios deliberately include `deny-aprp-expired` with a
-  // ts_ms 5 minutes in the past relative to the same fixed reference
-  // point, so it still denies via the path below for that scenario.
+  //
+  // Codex review history:
+  //   PR #353 — original bound hard-coded to SCENARIO_REF − 60s; any
+  //     2026+ edit silently passed the gate.
+  //   PR #353 fix in #359 — heuristic "within ±24h of SCENARIO_REF use
+  //     SCENARIO_REF baseline, else Date.now()". Codex flagged this:
+  //     a user-edited timestamp 23h after SCENARIO_REF is still 2024
+  //     time, but the heuristic baselines it against SCENARIO_REF and
+  //     accepts it as fresh.
+  //
+  // Final logic (this fix): a timestamp counts as "fresh" if it is
+  // within the skew tolerance of EITHER the seeded scenario reference
+  // OR the current wall clock. That accepts seeded fixtures (which
+  // sit exactly at SCENARIO_REF_MS) without accepting user-edited
+  // 2024 timestamps that drift outside the 60s tolerance, and
+  // accepts real-time edits (2026+ values within 60s of now) like a
+  // production daemon would.
   const SKEW_TOLERANCE_MS = 60_000;
   const SCENARIO_REF_MS = 1714565000000;
   if (typeof aprp.timestamp_ms === "number") {
-    const now = Date.now();
-    const isFromSeededScenario = Math.abs(aprp.timestamp_ms - SCENARIO_REF_MS) < 24 * 60 * 60 * 1000;
-    const baseline = isFromSeededScenario ? SCENARIO_REF_MS : now;
-    if (aprp.timestamp_ms < baseline - SKEW_TOLERANCE_MS) {
+    const ts = aprp.timestamp_ms;
+    const freshAgainstScenarioRef = Math.abs(ts - SCENARIO_REF_MS) <= SKEW_TOLERANCE_MS;
+    const freshAgainstWallClock   = Math.abs(ts - Date.now())   <= SKEW_TOLERANCE_MS;
+    if (!freshAgainstScenarioRef && !freshAgainstWallClock) {
       return { outcome: "deny", deny_code: "protocol.aprp_expired" };
     }
   }
