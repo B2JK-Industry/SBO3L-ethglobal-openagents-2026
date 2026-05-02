@@ -79,3 +79,10 @@ eth_signer = ["dep:k256", "dep:tiny-keccak"]
 # verify the loader handles hex/raw inputs identically. Dev-dep
 # only — release `sbo3l-core` builds don't pull `tempfile`.
 tempfile = { workspace = true }
+
+# Property-based testing (R13 P1). Drives `tests/proptest_invariants.rs`:
+# APRP wire-format roundtrip, JCS-canonical hash determinism, byte-flip
+# tamper-detection on chain hashes, audit-event linkage. Default 256
+# cases per property; `PROPTEST_CASES=100000` env var enables long-run
+# mode under nightly CI.
+proptest = { workspace = true }
