@@ -1,13 +1,35 @@
-# FROST threshold signatures — design + scope (R13 P8)
+# FROST threshold signatures — design + status (R13 P8 → R14 P2 LIVE)
 
-**Status:** **design doc + Rust trait scaffold.** Round 13 P8 asked
-for FROST 3-of-5 + corporate-board-signoff + integration + tests
-in 4h. Same honest trim as R13 P4 ZK: a meaningful FROST
-integration is multi-day work; rushing it produces a non-secure
-artefact. This doc covers the architecture; the Rust scaffold
+**Status update (R14 P2):** scaffold replaced with real
+cryptography. The Rust module
 ([`crates/sbo3l-core/src/threshold_sig.rs`](../../crates/sbo3l-core/src/threshold_sig.rs))
-ships the trait shape so the rest of the codebase can plumb the
-verification surface today.
+now uses the zcash `frost-ed25519` v3 crate end-to-end:
+
+- **Real DKG** via `frost::keys::dkg::part1` / `part2` / `part3`.
+- **Real signing** via `frost::round1::commit` / `round2::sign`.
+- **Real aggregation** via `frost::aggregate` producing a single
+  Ed25519-Schnorr signature indistinguishable from a single-key
+  signature to verifiers.
+- **Real verification** via `frost::VerifyingKey::verify`.
+
+12 unit tests including 3-of-5 + 4-of-5 round trips, below-
+threshold rejection, wrong-key rejection, tampered-payload
+rejection, and the cross-DKG cross-signature check (sigs from
+committee A don't verify under committee B's pubkey).
+
+**The original R13 scaffold rationale is preserved below for
+historical context** — explains why we shipped scaffold-first
+before getting to real cryptography.
+
+---
+
+## Original scaffold posture (R13 P8 archive)
+
+Round 13 P8 originally asked for FROST 3-of-5 + corporate-board-
+signoff + integration + tests in 4h. Same honest trim as R13 P4
+ZK: a meaningful FROST integration is multi-day work; rushing it
+produces a non-secure artefact. We shipped the scaffold first; R14
+budgeted the proper time and the scaffold became real.
 **Companion:** `docs/design/zk-capsule-privacy.md` (same posture
 applied to ZK).
 
