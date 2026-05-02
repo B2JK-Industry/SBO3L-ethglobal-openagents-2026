@@ -54,10 +54,18 @@ pub mod ws_events;
 #[cfg(feature = "ws_events")]
 pub mod admin_events;
 
+<<<<<<< HEAD
+/// R14 P4 — 3-node Raft cluster scaffold (**EXPERIMENTAL**). Built only
+/// with `--features cluster`. See `crates/sbo3l-server/src/cluster/mod.rs`
+/// + `docs/cluster-mode.md` for what's wired vs what's TODO.
+#[cfg(feature = "cluster")]
+pub mod cluster;
+=======
 // R14 P1: tonic-based gRPC service. Compiled only with `--features grpc`
 // so HTTP-only builds don't pay the prost / tonic compile cost.
 #[cfg(feature = "grpc")]
 pub mod grpc;
+>>>>>>> origin/main
 
 /// `Idempotency-Key` header constraints from `docs/api/openapi.json`.
 const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
