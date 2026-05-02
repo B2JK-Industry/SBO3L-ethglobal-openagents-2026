@@ -99,6 +99,20 @@ sbo3l passport verify --strict --capsule <(curl -s http://localhost:8730/v1/audi
 - **Tool call never fires** — make sure your `OPENAI_API_KEY` is set and the model supports function-calling (`gpt-4o-mini` ✓).
 - **SDK install fails** — Python 3.10+ required.
 
+## Runnable example
+
+The full code lives at [`examples/langchain-py-research-agent`](../../examples/langchain-py-research-agent/) — clone, install, smoke in 3 lines.
+
+For a focused KH-only path that names the KH execution explicitly (no LLM, no LangChain runtime needed), use the new `keeperhub_smoke` runner:
+
+```bash
+cd examples/langchain-py-research-agent
+python3 -m venv .venv && .venv/bin/pip install -e ../../sdks/python -e ../../integrations/langchain-python -e .
+.venv/bin/python -m sbo3l_langchain_demo.keeperhub_smoke
+```
+
+The `keeperhub_tool()` factory in `sbo3l_langchain_demo.keeperhub_tool` returns a tool descriptor whose envelope explicitly carries `kh_workflow_id` + `kh_execution_ref` keys (named for the LLM to branch on, vs inferring from `execution_ref`'s `kh-` prefix). 6 pytest cases cover allow / deny / workflow-id-override / invalid-input paths against a mocked daemon.
+
 ## Next
 
 - [KH × OpenAI Assistants](keeperhub-with-openai-assistants.md) for a TS variant
