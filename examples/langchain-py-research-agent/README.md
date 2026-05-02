@@ -50,6 +50,37 @@ LangChain's `create_openai_functions_agent` picks the tool sequence: it inspects
 
 Total wall-clock: < 30 s.
 
+## Run the KH demo (no LLM, ~10 s)
+
+The `keeperhub_smoke` runner is a focused KeeperHub-only path — submits one APRP through SBO3L, prints the captured KH `execution_ref`. Runs without OpenAI / LangChain.
+
+```bash
+.venv/bin/python -m sbo3l_langchain_demo.keeperhub_smoke
+```
+
+Expected output (with `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN` set on the daemon):
+
+```
+▶ KH smoke: workflow target = kh-demo-...
+▶ APRP: agent=research-agent-kh-01 amount=0.05 USD chain=base
+
+▶ tool: sbo3l_keeperhub_payment_request
+  envelope:
+    decision: "allow"
+    kh_workflow_id: "m4t4cnpmhv8qquce3bv3c"
+    kh_execution_ref: "kh-01HTAWX5..."
+    audit_event_id: "evt-..."
+    ...
+
+✓ allow + KH executed — kh_execution_ref=kh-01HTAWX5...
+  workflow=m4t4cnpmhv8qquce3bv3c
+  audit_event_id=evt-...
+```
+
+Without webhook env vars on the daemon, the KH adapter falls back to `local_mock` — the demo still prints a `kh-<ULID>` ref (with `mock=true` evidence in the receipt) so the wire path is visible end-to-end.
+
+The wrapper (`sbo3l_langchain_demo.keeperhub_tool.keeperhub_tool`) returns a `kh_execution_ref` field explicitly named for the LLM to branch on, plus the workflow id surfaced for context. Useful in agent code that needs to reason "did KH execute?" without inferring from `execution_ref`'s prefix.
+
 ## Tests
 
 ```bash
@@ -57,7 +88,9 @@ Total wall-clock: < 30 s.
 .venv/bin/pytest -q
 ```
 
-2 tests verify the SBO3L tool path against a mocked-httpx daemon (real `sbo3l_sdk.SBO3LClientSync`).
+8 tests verify the SBO3L tool paths against a mocked-httpx daemon (real `sbo3l_sdk.SBO3LClientSync`):
+- `test_smoke.py` (2): generic SBO3L tool — allow envelope, smoke importable
+- `test_keeperhub_demo.py` (6): KH tool — allow surfaces `kh_execution_ref`, deny doesn't, workflow id override, invalid input handling, smoke importable
 
 ## License
 
