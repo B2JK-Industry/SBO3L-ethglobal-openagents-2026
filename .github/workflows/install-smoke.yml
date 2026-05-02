@@ -1,0 +1,352 @@
+name: install-smoke
+
+# Proves a judge can pip install / npm install / cargo install our published
+# packages from a fresh sandbox and have them work end-to-end against a real
+# (mock-mode) sbo3l-server daemon. Catches:
+#
+#   - npm/PyPI package corruption (missing dist/, broken tarballs, wrong files)
+#   - dependency conflicts after a transitive bump (e.g. peer SDK ABI break)
+#   - publish-pipeline regressions where a package is tagged but the registry
+#     copy has a stale or incomplete payload
+#   - server-side daemon protocol drift that breaks an old SDK we just shipped
+#
+# Each ecosystem matrix entry runs in a fresh ubuntu-latest runner, installs
+# ONLY the published package (never the in-tree source), boots the daemon as
+# a background process with SBO3L_ALLOW_UNAUTHENTICATED=1, and runs a 5-line
+# smoke that imports the package + hits the daemon's health endpoint via the
+# package's own client API. fail-fast: false so one bad package surfaces
+# without masking the others.
+
+on:
+  schedule:
+    # 03:17 UTC nightly — off the hour to dodge GitHub-runner-cold-start congestion.
+    - cron: "17 3 * * *"
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/install-smoke.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to smoke-test (default 1.2.0)"
+        required: false
+        default: "1.2.0"
+
+permissions:
+  contents: read
+
+env:
+  SBO3L_VERSION: ${{ inputs.version || '1.2.0' }}
+  SBO3L_ENDPOINT: http://127.0.0.1:8730
+
+concurrency:
+  group: install-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Build the daemon ONCE, share via artifact. Each matrix job downloads the
+  # binary instead of rebuilding from source — saves ~5 min × 30 matrix jobs
+  # of compile time per workflow run.
+  # -----------------------------------------------------------------------
+  build-daemon:
+    name: build sbo3l-server (shared artifact)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: install-smoke-daemon
+      - name: cargo build --release --bin sbo3l-server
+        run: cargo build --release --bin sbo3l-server
+      - name: upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbo3l-server-bin
+          path: target/release/sbo3l-server
+          retention-days: 7
+          if-no-files-found: error
+
+  # -----------------------------------------------------------------------
+  # cargo: just `cargo install sbo3l-cli && sbo3l --version`. Per spec —
+  # the CLI's --version doesn't need a daemon (it's a local-only command).
+  # -----------------------------------------------------------------------
+  cargo-smoke:
+    name: cargo install sbo3l-cli
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo install sbo3l-cli@${{ env.SBO3L_VERSION }}
+        run: cargo install sbo3l-cli --version "$SBO3L_VERSION" --locked
+      - name: smoke — sbo3l --version
+        run: |
+          set -euo pipefail
+          out=$(sbo3l --version)
+          echo "$out"
+          # CLI prints `sbo3l <version>` — assert version line contains expected version.
+          # Trailing assertion catches corruption where the binary runs but reports a
+          # stale version baked into the tarball.
+          echo "$out" | grep -E "^sbo3l[[:space:]]+${SBO3L_VERSION//./\\.}([[:space:]]|$)"
+
+  # -----------------------------------------------------------------------
+  # npm: one matrix job per published @sbo3l/* package. Each smoke is the
+  # same 5-line shape — install package + import + hit daemon health — but
+  # the import name varies. Listed explicitly (not derived) so a missed
+  # publish surfaces immediately as a 404 rather than silently dropping a
+  # package from coverage.
+  # -----------------------------------------------------------------------
+  npm-smoke:
+    name: npm ${{ matrix.package }}
+    needs: build-daemon
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "@sbo3l/sdk"
+          - "@sbo3l/marketplace"
+          - "@sbo3l/agentforce"
+          - "@sbo3l/anthropic"
+          - "@sbo3l/anthropic-computer-use"
+          - "@sbo3l/autogen"
+          - "@sbo3l/autogpt"
+          - "@sbo3l/babyagi"
+          - "@sbo3l/cohere-tools"
+          - "@sbo3l/copilot-studio"
+          - "@sbo3l/e2b"
+          - "@sbo3l/elizaos"
+          - "@sbo3l/inngest"
+          - "@sbo3l/langchain"
+          - "@sbo3l/langflow"
+          - "@sbo3l/letta"
+          - "@sbo3l/mastra"
+          - "@sbo3l/modal"
+          - "@sbo3l/openai-assistants"
+          - "@sbo3l/perplexity"
+          - "@sbo3l/replicate"
+          - "@sbo3l/superagi"
+          - "@sbo3l/together"
+          - "@sbo3l/vellum"
+          - "@sbo3l/vercel-ai"
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: download daemon binary
+        uses: actions/download-artifact@v4
+        with:
+          name: sbo3l-server-bin
+          path: ./daemon
+
+      - name: start sbo3l-server (mock-mode, background)
+        run: |
+          set -euo pipefail
+          chmod +x ./daemon/sbo3l-server
+          mkdir -p "$RUNNER_TEMP/sbo3l-data"
+          # Mock-mode = SBO3L_ALLOW_UNAUTHENTICATED=1 (no bearer token / JWT
+          # required). Bound to loopback only — the safety check inside the
+          # daemon refuses non-loopback bind without SBO3L_ALLOW_UNSAFE_PUBLIC_BIND.
+          SBO3L_ALLOW_UNAUTHENTICATED=1 \
+          SBO3L_LISTEN_ADDR=127.0.0.1:8730 \
+          SBO3L_DB="$RUNNER_TEMP/sbo3l-data/sbo3l.db" \
+            ./daemon/sbo3l-server > "$RUNNER_TEMP/sbo3l-server.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/sbo3l.pid"
+          # Wait up to 30s for the daemon to come up.
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8730/v1/health >/dev/null; then
+              echo "daemon up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: daemon never came up. Log:"
+          cat "$RUNNER_TEMP/sbo3l-server.log" || true
+          exit 1
+
+      - name: install ${{ matrix.package }}@${{ env.SBO3L_VERSION }} into a fresh sandbox
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sandbox"
+          cd "$RUNNER_TEMP/sandbox"
+          npm init -y >/dev/null
+          npm pkg set type=module >/dev/null
+          # Always install @sbo3l/sdk too — every adapter needs the runtime
+          # client. Pinning both at the same version proves they resolve cleanly
+          # against each other (catches peer-range mismatches after a bump).
+          if [ "${{ matrix.package }}" = "@sbo3l/sdk" ]; then
+            npm install --no-audit --no-fund --silent "@sbo3l/sdk@$SBO3L_VERSION"
+          else
+            npm install --no-audit --no-fund --silent \
+              "@sbo3l/sdk@$SBO3L_VERSION" \
+              "${{ matrix.package }}@$SBO3L_VERSION"
+          fi
+          npm ls --all || true
+
+      - name: write 5-line smoke
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/sandbox/smoke.mjs" <<'EOF'
+          import { SBO3LClient } from "@sbo3l/sdk";
+          const pkg = await import(process.env.PKG);
+          if (!pkg || Object.keys(pkg).length === 0) { console.error("import returned empty exports for", process.env.PKG); process.exit(2); }
+          const ok = await new SBO3LClient({ endpoint: process.env.SBO3L_ENDPOINT }).health();
+          if (!ok) { console.error("daemon health failed at", process.env.SBO3L_ENDPOINT); process.exit(3); }
+          console.log("OK", process.env.PKG, "exports=", Object.keys(pkg).length, "daemon=ok");
+          EOF
+
+      - name: run smoke
+        env:
+          PKG: ${{ matrix.package }}
+        run: |
+          cd "$RUNNER_TEMP/sandbox"
+          node smoke.mjs
+
+      - name: stop daemon
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/sbo3l.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/sbo3l.pid")" 2>/dev/null || true
+          fi
+
+      - name: upload daemon log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-log-npm-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/sbo3l-server.log
+          if-no-files-found: ignore
+
+  # -----------------------------------------------------------------------
+  # pip: one matrix job per published sbo3l-* package. Same shape as npm.
+  # Module import name converts hyphens to underscores per PEP 8.
+  # -----------------------------------------------------------------------
+  pip-smoke:
+    name: pip ${{ matrix.package }}
+    needs: build-daemon
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - sbo3l-sdk
+          - sbo3l-langchain
+          - sbo3l-crewai
+          - sbo3l-llamaindex
+          - sbo3l-langgraph
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: download daemon binary
+        uses: actions/download-artifact@v4
+        with:
+          name: sbo3l-server-bin
+          path: ./daemon
+
+      - name: start sbo3l-server (mock-mode, background)
+        run: |
+          set -euo pipefail
+          chmod +x ./daemon/sbo3l-server
+          mkdir -p "$RUNNER_TEMP/sbo3l-data"
+          SBO3L_ALLOW_UNAUTHENTICATED=1 \
+          SBO3L_LISTEN_ADDR=127.0.0.1:8730 \
+          SBO3L_DB="$RUNNER_TEMP/sbo3l-data/sbo3l.db" \
+            ./daemon/sbo3l-server > "$RUNNER_TEMP/sbo3l-server.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/sbo3l.pid"
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8730/v1/health >/dev/null; then
+              echo "daemon up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: daemon never came up. Log:"
+          cat "$RUNNER_TEMP/sbo3l-server.log" || true
+          exit 1
+
+      - name: pip install ${{ matrix.package }}==${{ env.SBO3L_VERSION }} into a fresh venv
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/venv"
+          # shellcheck disable=SC1091
+          . "$RUNNER_TEMP/venv/bin/activate"
+          python -m pip install --upgrade pip >/dev/null
+          # Install the SDK + the framework adapter (or just the SDK if that's
+          # the matrix entry). Same version pin as npm — catches peer drift.
+          if [ "${{ matrix.package }}" = "sbo3l-sdk" ]; then
+            pip install "sbo3l-sdk==$SBO3L_VERSION"
+          else
+            pip install "sbo3l-sdk==$SBO3L_VERSION" "${{ matrix.package }}==$SBO3L_VERSION"
+          fi
+          pip list
+
+      - name: write 5-line smoke
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/smoke.py" <<'EOF'
+          import importlib, os, sys
+          mod = importlib.import_module(os.environ["PKG"].replace("-", "_"))
+          if not dir(mod): print("import returned empty module", file=sys.stderr); sys.exit(2)
+          from sbo3l_sdk import SBO3LClientSync
+          with SBO3LClientSync(os.environ["SBO3L_ENDPOINT"]) as c:
+              if not c.health(): print("daemon health failed", file=sys.stderr); sys.exit(3)
+          print(f"OK {os.environ['PKG']} exports={len(dir(mod))} daemon=ok")
+          EOF
+
+      - name: run smoke
+        env:
+          PKG: ${{ matrix.package }}
+        run: |
+          # shellcheck disable=SC1091
+          . "$RUNNER_TEMP/venv/bin/activate"
+          python "$RUNNER_TEMP/smoke.py"
+
+      - name: stop daemon
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/sbo3l.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/sbo3l.pid")" 2>/dev/null || true
+          fi
+
+      - name: upload daemon log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-log-pip-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/sbo3l-server.log
+          if-no-files-found: ignore
+
+  # -----------------------------------------------------------------------
+  # Aggregate result. `if: always()` so this fails loudly when ANY matrix
+  # entry failed — the per-package green/red is preserved in the matrix
+  # rendering, this job exists so a single required-status-check guards
+  # the whole sweep.
+  # -----------------------------------------------------------------------
+  install-smoke-summary:
+    name: install-smoke summary
+    needs: [cargo-smoke, npm-smoke, pip-smoke]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: assert all smokes passed
+        run: |
+          cargo='${{ needs.cargo-smoke.result }}'
+          npm='${{ needs.npm-smoke.result }}'
+          pip='${{ needs.pip-smoke.result }}'
+          echo "cargo-smoke: $cargo"
+          echo "npm-smoke:   $npm"
+          echo "pip-smoke:   $pip"
+          if [ "$cargo" = "success" ] && [ "$npm" = "success" ] && [ "$pip" = "success" ]; then
+            echo "✅ install-smoke green: 1 cargo + 25 npm + 5 pip = 31 packages installed cleanly"
+            exit 0
+          fi
+          echo "❌ install-smoke regression — one or more matrix jobs failed"
+          exit 1
