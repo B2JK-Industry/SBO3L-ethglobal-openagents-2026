@@ -28,7 +28,11 @@ scenario_init "01-crash"
 DB="$SCENARIO_DIR/sbo3l.db"
 daemon_start "$DB"
 
+<<<<<<< HEAD
 PAYLOAD=$(fixture_aprp "01HCHAOS01000000000000001")
+=======
+PAYLOAD=$(fixture_aprp "01HCHA0S010000000000000001")
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
 RESP=$(http_post "/v1/payment-requests" "$PAYLOAD")
 HTTP=$(printf '%s' "$RESP" | tail -n1)
 [ "$HTTP" = "200" ] || record_fail "first request HTTP=$HTTP"
@@ -43,7 +47,11 @@ sleep 0.5
 # Restart against the same DB.
 daemon_start "$DB"
 
+<<<<<<< HEAD
 PAYLOAD=$(fixture_aprp "01HCHAOS01000000000000002")
+=======
+PAYLOAD=$(fixture_aprp "01HCHA0S010000000000000002")
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
 RESP=$(http_post "/v1/payment-requests" "$PAYLOAD")
 HTTP=$(printf '%s' "$RESP" | tail -n1)
 [ "$HTTP" = "200" ] || record_fail "post-restart request HTTP=$HTTP"

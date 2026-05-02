@@ -30,6 +30,11 @@ rm -f "$DB" "$DB-shm" "$DB-wal"
 SBO3L_LISTEN="127.0.0.1:$DAEMON_PORT" \
 SBO3L_DB="$DB" \
 SBO3L_ALLOW_UNAUTHENTICATED=1 \
+<<<<<<< HEAD
+=======
+SBO3L_SIGNER_BACKEND=dev \
+SBO3L_DEV_ONLY_SIGNER=1 \
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
 SBO3L_KEEPERHUB_WEBHOOK_URL="https://192.0.2.1/dropped" \
 SBO3L_KEEPERHUB_TOKEN="wfb_chaos_dummy_token_for_partition_test" \
 "${SBO3L_SERVER_BIN:-$REPO_ROOT/target/debug/sbo3l-server}" > "$DAEMON_LOG" 2>&1 &
@@ -44,7 +49,11 @@ fi
 audit_dump "$SCENARIO_DIR/before.json"
 
 KEY="01CHAOS03IDEMPOTENCYKEY00"
+<<<<<<< HEAD
 PAYLOAD=$(fixture_aprp "01HCHAOS03000000000000001")
+=======
+PAYLOAD=$(fixture_aprp "01HCHA0S030000000000000001")
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
 echo "[chaos] first POST with idempotency key (expect partition / sponsor failure)" >> "$SCENARIO_DIR/result.txt"
 RESP1=$(curl -sk -m 15 -w "\n%{http_code}" \
   -H "Content-Type: application/json" \

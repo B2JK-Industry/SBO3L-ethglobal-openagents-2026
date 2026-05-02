@@ -35,6 +35,8 @@ daemon_start() {
   SBO3L_LISTEN="127.0.0.1:$DAEMON_PORT" \
   SBO3L_DB="$DAEMON_DB" \
   SBO3L_ALLOW_UNAUTHENTICATED=1 \
+  SBO3L_SIGNER_BACKEND=dev \
+  SBO3L_DEV_ONLY_SIGNER=1 \
   "${SBO3L_SERVER_BIN:-$REPO_ROOT/target/debug/sbo3l-server}" > "$DAEMON_LOG" 2>&1 &
   DAEMON_PID=$!
   # Wait up to 5s for the daemon to bind.
@@ -66,10 +68,13 @@ daemon_stop() {
 }
 
 # Capture audit chain state (full audit log dump) into the given file.
+# Schema columns from migrations: seq, id, ts, type, actor, subject_id,
+# payload_hash, metadata_json, policy_version, policy_hash, prev_event_hash,
+# event_hash, signature_*. We project the columns useful for diffing.
 audit_dump() {
   local out="$1"
   if command -v sqlite3 > /dev/null 2>&1 && [ -n "$DAEMON_DB" ] && [ -f "$DAEMON_DB" ]; then
-    sqlite3 -json "$DAEMON_DB" "SELECT seq, agent_id, decision, prev_event_hash, event_hash, payload_hash FROM audit_events ORDER BY seq" > "$out" 2>/dev/null || echo "[]" > "$out"
+    sqlite3 -json "$DAEMON_DB" "SELECT seq, id, type, actor, subject_id, payload_hash, prev_event_hash, event_hash FROM audit_events ORDER BY seq" > "$out" 2>/dev/null || echo "[]" > "$out"
   else
     echo "[]" > "$out"
   fi
@@ -94,21 +99,34 @@ scenario_finish() {
   return $SCENARIO_FAILED
 }
 
-# Fixture APRP — lightly customizable via env.
+# Fixture APRP — matches v1.0.1 schema (test-corpus/aprp/golden_001_minimal.json shape).
+# Note: nonce MUST match the ULID Crockford-base32 pattern
+#   ^[0-7][0-9A-HJKMNP-TV-Z]{25}$  (no I, L, O, U; total length 26)
+# else the daemon rejects with HTTP 400 schema.value_out_of_range.
 fixture_aprp() {
   local nonce="${1:-01HTAWX5K3R8YV9NQB7C6P2D01}"
   local expiry="${2:-2026-12-31T23:59:59Z}"
   cat <<EOF
 {
-  "schema": "sbo3l.aprp.v1",
-  "agent_id": "chaos-agent",
+  "agent_id": "research-agent-01",
+  "task_id": "chaos-task-$nonce",
   "intent": "purchase_api_call",
-  "amount": { "value": "0.01", "currency": "USDC" },
-  "destination": { "kind": "x402_endpoint", "expected_recipient": "0x000000000000000000000000000000000000dEaD" },
-  "chain": "sepolia",
+  "amount": { "value": "0.05", "currency": "USD" },
+  "token": "USDC",
+  "destination": {
+    "type": "x402_endpoint",
+    "url": "https://api.example.com/v1/inference",
+    "method": "POST",
+    "expected_recipient": "0x1111111111111111111111111111111111111111"
+  },
+  "payment_protocol": "x402",
+  "chain": "base",
+  "provider_url": "https://api.example.com",
+  "x402_payload": null,
   "expiry": "$expiry",
-  "risk_class": "low",
-  "nonce": "$nonce"
+  "nonce": "$nonce",
+  "expected_result": null,
+  "risk_class": "low"
 }
 EOF
 }

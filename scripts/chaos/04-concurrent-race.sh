@@ -20,7 +20,11 @@ audit_dump "$SCENARIO_DIR/before.json"
 COUNT_BEFORE=$(jq 'length' "$SCENARIO_DIR/before.json")
 
 KEY="01CHAOS04RACE16CHARSUNIQU"
+<<<<<<< HEAD
 PAYLOAD=$(fixture_aprp "01HCHAOS04000000000000001")
+=======
+PAYLOAD=$(fixture_aprp "01HCHA0S040000000000000001")
+>>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
 
 # Fire 50 concurrent requests with the same idempotency key.
 echo "[chaos] firing 50 concurrent same-key POSTs" >> "$SCENARIO_DIR/result.txt"
