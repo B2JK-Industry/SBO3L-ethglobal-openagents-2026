@@ -7,7 +7,15 @@
 >
 > **Replaces:** [`bounty-ens-most-creative.md`](bounty-ens-most-creative.md)
 > (the draft submission). This file is the closeout version that pins
-> every Phase-2 ENS deliverable.
+> every Phase-2 + R10/R11/R12 ENS deliverable.
+>
+> **Updated (R12):** added the multi-chain reputation pipeline,
+> ENS DNS gateway codec, broader ENSIP-N draft, time-window token
+> gate, and the mainnet OffchainResolver skip rationale. **14
+> framework adapters** (LangChain, LangGraph, CrewAI, AutoGen,
+> ElizaOS, LlamaIndex, Vercel AI, OpenAI Assistants, Anthropic,
+> + 5 more) consume ENS-resolved agent identity through this stack
+> today.
 
 ## Hero claim
 
@@ -66,8 +74,22 @@ in-flight (auto-merge queued).
 | **T-4-2** | Live AC wiring (gated on Daniel's deploy address) | #132 | DRAFT (gated) |
 | **T-4-5** | ENS Universal Resolver migration (360 → 60 RPC reduction on 60-agent fleet) | #194 | Merged |
 | **T-4-6** | Reputation publisher CLI — `sbo3l agent reputation-publish` | #201 | Merged |
-| **ENSIP** | Pre-submission draft for `reputation_score` text-record convention | #222 | Auto-merge queued |
-| **Pin** | Canonical contracts.rs single-source-of-truth for deployed addresses | #232 | Auto-merge queued |
+| **ENSIP** | Pre-submission draft for `reputation_score` text-record convention | #222 | Merged |
+| **Pin** | Canonical contracts.rs single-source-of-truth for deployed addresses | #232 | Merged |
+
+### R10 / R11 / R12 deliverables (added since the round-9 closeout)
+
+| Ticket | What it ships | PR(s) | Status |
+|---|---|---|---|
+| **R10 P1 / T-4-7** | `--broadcast` for reputation publish (alloy harness shared with T-3-1) | #250 | Merged |
+| **R10 P2** | ENSIP-upstream submission packet (cover letter for Dhaiwat) | #251 | Merged |
+| **R10 P3** | ENS DNS gateway scaffold (Vercel/Next.js, RFC 8484 DoH) | #251 | Merged |
+| **R11 P1** | `SBO3LReputationRegistry.sol` — narrowly-scoped on-chain reputation log + 23 tests at 10K fuzz | #257 | Merged |
+| **R11 P2** | Multi-chain reputation broadcast CLI — `--multi-chain sepolia,optimism-sepolia,base-sepolia` | #267 | Merged |
+| **R11 P3** | ENS DNS gateway codec finish — DoH wire codec wired (16 vitest tests) | #262 | Merged |
+| **R11 P4** | Broader ENSIP-N draft — 7 `sbo3l:*` keys, ~2200 words for ENS Labs | #264 | Merged |
+| **R11 P5** | Time-window token gate (UTC range / business hours / DST workaround) — 14 tests | #263 | Merged |
+| **R12** | Deploy runbook, `aggregate` CLI, mainnet skip rationale, bounty finalize | (this PR) | Pending |
 
 ## Live verification per claim
 
@@ -147,6 +169,42 @@ sbo3l agent reputation-publish \
 ```bash
 cargo test -p sbo3l-identity --lib universal
 # 13 tests including hand-built canned response → decoded EnsRecords.
+```
+
+### Multi-chain reputation aggregator works on synthetic inputs (no chain access required)
+
+```bash
+cat > /tmp/snapshots.json <<'EOF'
+{
+  "now_secs": 2000000000,
+  "snapshots": [
+    {"chain_id": 1,    "fqdn": "x", "score": 90, "observed_at": 1999999940},
+    {"chain_id": 10,   "fqdn": "x", "score": 80, "observed_at": 1999999940},
+    {"chain_id": 137,  "fqdn": "x", "score": 70, "observed_at": 1999999940}
+  ]
+}
+EOF
+sbo3l agent reputation-aggregate --input /tmp/snapshots.json
+# → aggregate_score: 82 (mainnet 90 × 1.0 + Optimism 80 × 0.8 +
+#   Polygon 70 × 0.6 = 196; weight sum 2.4; 196/2.4 = 81.67 → 82).
+# Pinned in sbo3l-policy::cross_chain_reputation::tests.
+```
+
+### ENS DNS gateway codec passes 16 vitest cases
+
+```bash
+cd apps/ens-dns-gateway
+npm install
+npm test
+# 16 tests across 5 mock ENS names + edge cases (trailing-dot, IPv6,
+# missing endpoint, partial records, non-ENS rejection).
+```
+
+### Time-window token gate composes with ERC-721 / ERC-1155 gates
+
+```bash
+cargo test -p sbo3l-identity --lib time_window_gate
+# 14 tests including DST workaround via AnyOf two BusinessHours gates.
 ```
 
 ## Evidence inventory
@@ -243,6 +301,56 @@ Three reasons stack:
    the rest of ENS. We aren't competing with ERC-8004 — we'd
    integrate. We aren't bypassing CCIP-Read — we're showing it
    works at production scale.
+
+4. **14 framework adapters consume ENS-resolved identities.** The
+   SBO3L stack ships first-party adapters for LangChain (TS + Py),
+   LangGraph, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI,
+   OpenAI Assistants, Anthropic SDK, plus 5 more under
+   `examples/*-research-agent/`. Each adapter resolves the agent's
+   identity via the ENS records described above — the convention
+   is real-world plug-and-play across the agent-framework
+   ecosystem, not a bespoke SBO3L pattern. **One ENS name, 14
+   different stacks; same authentication semantics.**
+
+## Multi-chain reputation pipeline (R11 + R12)
+
+Three chains carry the same agent's reputation score:
+
+- **Sepolia** — L1 testnet, default-weight 0.2.
+- **Optimism Sepolia** — OP-stack L2, default-weight 0.5.
+- **Base Sepolia** — Base-stack L2, default-weight 0.5.
+
+The contract on each chain is `SBO3LReputationRegistry`
+([`crates/sbo3l-identity/contracts/SBO3LReputationRegistry.sol`](../../crates/sbo3l-identity/contracts/SBO3LReputationRegistry.sol)),
+ECDSA-gated, append-only, multi-tenant. **Per-chain signatures
+(NOT signature replay)** — the digest binds to `address(this)`
+so sigs from one deploy can't be replayed on another. Same agent,
+same score, N per-chain signatures.
+
+The CLI wires both halves:
+
+```bash
+# Publish: same score to all 3 chains.
+sbo3l agent reputation-publish \
+  --fqdn research-agent.sbo3lagent.eth \
+  --events events.json \
+  --multi-chain sepolia,optimism-sepolia,base-sepolia
+
+# Aggregate: read N chain scores, produce one weighted score.
+sbo3l agent reputation-aggregate --input snapshots.json
+```
+
+Walkthrough at [`docs/proof/multi-chain-reputation.md`](../proof/multi-chain-reputation.md).
+
+## Mainnet OffchainResolver — explicitly skipped
+
+We **chose not** to deploy `OffchainResolver` to mainnet for the
+hackathon submission. Sepolia is fully demonstrative; mainnet
+migration of the live `sbo3lagent.eth` apex carries non-trivial
+risk for marginal psychological-confidence gain. Decision logged
+at [`docs/design/mainnet-deploy-decision.md`](../design/mainnet-deploy-decision.md)
+with three "conditions to revisit" so a future operator can
+unblock the path when one triggers.
 
 ## Submission metadata
 

@@ -48,13 +48,19 @@ use std::process::ExitCode;
 
 use crate::agent_reputation::ReputationPublishArgs;
 
-/// Chain label → (chain_id, RPC env var, is_mainnet).
+/// Chain label → (chain_id, RPC env var, is_mainnet, optional pinned
+/// registry address). The `registry_addr` slot is `None` until
+/// `scripts/deploy-reputation-registry.sh <network>` runs and the
+/// resulting address is pinned here. With `None`, multi-chain
+/// broadcast falls back to ENS resolver `setText` for chains that
+/// have native ENS, and skips chains that don't.
 #[derive(Debug)]
 pub struct ChainSpec {
     pub label: &'static str,
     pub chain_id: u64,
     pub rpc_env: &'static str,
     pub is_mainnet: bool,
+    pub registry_addr: Option<&'static str>,
 }
 
 const CHAINS: &[ChainSpec] = &[
@@ -63,36 +69,45 @@ const CHAINS: &[ChainSpec] = &[
         chain_id: 11155111,
         rpc_env: "SBO3L_RPC_URL_SEPOLIA",
         is_mainnet: false,
+        // Pin after running `./scripts/deploy-reputation-registry.sh sepolia`.
+        registry_addr: None,
     },
     ChainSpec {
         label: "optimism-sepolia",
         chain_id: 11155420,
         rpc_env: "SBO3L_RPC_URL_OPTIMISM_SEPOLIA",
         is_mainnet: false,
+        // Pin after running `./scripts/deploy-reputation-registry.sh optimism-sepolia`.
+        registry_addr: None,
     },
     ChainSpec {
         label: "base-sepolia",
         chain_id: 84532,
         rpc_env: "SBO3L_RPC_URL_BASE_SEPOLIA",
         is_mainnet: false,
+        // Pin after running `./scripts/deploy-reputation-registry.sh base-sepolia`.
+        registry_addr: None,
     },
     ChainSpec {
         label: "mainnet",
         chain_id: 1,
         rpc_env: "SBO3L_RPC_URL_MAINNET",
         is_mainnet: true,
+        registry_addr: None,
     },
     ChainSpec {
         label: "optimism",
         chain_id: 10,
         rpc_env: "SBO3L_RPC_URL_OPTIMISM",
         is_mainnet: true,
+        registry_addr: None,
     },
     ChainSpec {
         label: "base",
         chain_id: 8453,
         rpc_env: "SBO3L_RPC_URL_BASE",
         is_mainnet: true,
+        registry_addr: None,
     },
 ];
 
@@ -180,6 +195,16 @@ pub async fn cmd_broadcast_multi(args: ReputationPublishArgs) -> ExitCode {
     for spec in &chains {
         println!();
         println!("─── chain: {} (id {}) ───", spec.label, spec.chain_id);
+
+        // Surface the pinned registry address if any. Pin happens
+        // post-deploy by editing this file; until then this slot is
+        // None and the broadcast falls back to the ENS resolver
+        // setText path. Once pinned, a follow-up wires
+        // SBO3LReputationRegistry.writeReputation(...) as the
+        // broadcast target.
+        if let Some(registry) = spec.registry_addr {
+            println!("  registry:    {registry} (target-switch wires in follow-up)");
+        }
 
         // Per-chain RPC URL.
         let rpc_url = match std::env::var(spec.rpc_env) {
