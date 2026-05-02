@@ -26,13 +26,17 @@ set -euo pipefail
 scenario_init "01-crash"
 
 DB="$SCENARIO_DIR/sbo3l.db"
+# Pre-test cleanup happens HERE only. The post-SIGKILL `daemon_start`
+# below MUST NOT wipe the DB — that would erase the audit chain we
+# just wrote and turn this scenario into a tautological "fresh
+# daemon's chain has 1 entry after 1 POST" check (the bug the
+# round-6 chaos report flagged: count_after=1 instead of 2).
+daemon_db_reset "$DB"
 daemon_start "$DB"
 
-<<<<<<< HEAD
-PAYLOAD=$(fixture_aprp "01HCHAOS01000000000000001")
-=======
-PAYLOAD=$(fixture_aprp "01HCHA0S010000000000000001")
->>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
+# Crockford-base32 ULID — no I/L/O/U so the schema's regex
+# `^[0-7][0-9A-HJKMNP-TV-Z]{25}$` accepts.
+PAYLOAD=$(fixture_aprp "01HCRASH000000000000000Z1A")
 RESP=$(http_post "/v1/payment-requests" "$PAYLOAD")
 HTTP=$(printf '%s' "$RESP" | tail -n1)
 [ "$HTTP" = "200" ] || record_fail "first request HTTP=$HTTP"
@@ -47,11 +51,7 @@ sleep 0.5
 # Restart against the same DB.
 daemon_start "$DB"
 
-<<<<<<< HEAD
-PAYLOAD=$(fixture_aprp "01HCHAOS01000000000000002")
-=======
-PAYLOAD=$(fixture_aprp "01HCHA0S010000000000000002")
->>>>>>> 37c25f8 (docs+scripts: round 4 — Trust DNS essay, chaos run artifacts, watcher, Lighthouse, rehearsal runbook)
+PAYLOAD=$(fixture_aprp "01HCRASH000000000000000Z2A")
 RESP=$(http_post "/v1/payment-requests" "$PAYLOAD")
 HTTP=$(printf '%s' "$RESP" | tail -n1)
 [ "$HTTP" = "200" ] || record_fail "post-restart request HTTP=$HTTP"
@@ -59,10 +59,21 @@ audit_dump "$SCENARIO_DIR/after.json"
 COUNT_AFTER=$(jq 'length' "$SCENARIO_DIR/after.json")
 
 # The chain must have grown by exactly one event since the crash.
-if [ "$COUNT_AFTER" -ge $((COUNT_BEFORE + 1)) ]; then
+# Strict equality (== COUNT_BEFORE + 1) catches both the
+# original bug (count stays at 1 because pre-restart DB was wiped)
+# AND a future failure mode where a request silently writes 2 rows.
+if [ "$COUNT_AFTER" -eq $((COUNT_BEFORE + 1)) ]; then
   record_pass "audit chain grew $COUNT_BEFORE → $COUNT_AFTER after restart"
 else
-  record_fail "audit chain did not advance: $COUNT_BEFORE → $COUNT_AFTER"
+  record_fail "audit chain did not advance: $COUNT_BEFORE → $COUNT_AFTER (expected $((COUNT_BEFORE + 1)))"
+fi
+
+# Total post-restart count must be exactly 2 — one event per nonce
+# submitted, no extras, no losses. Pins the chaos-1 bug.
+if [ "$COUNT_AFTER" -eq 2 ]; then
+  record_pass "post-restart audit_events count == 2 (one per nonce submitted)"
+else
+  record_fail "post-restart audit_events count == $COUNT_AFTER (expected 2)"
 fi
 
 # Optional: if sbo3l CLI is installed, run strict-hash verifier.
