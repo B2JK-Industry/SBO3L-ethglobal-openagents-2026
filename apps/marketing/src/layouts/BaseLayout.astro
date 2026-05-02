@@ -8,6 +8,8 @@ interface Props {
   title: string;
   description?: string;
   ogTitle?: string;
+  /** Override OG image URL. Default: derive from page slug at /og/<slug>.svg. */
+  ogImage?: string;
   lang?: string;
 }
 
@@ -15,8 +17,18 @@ const {
   title,
   description = "SBO3L is the cryptographically verifiable trust layer for autonomous AI agents.",
   ogTitle = "SBO3L — Agent Trust Layer",
+  ogImage,
   lang,
 } = Astro.props;
+
+// R19 Wave 2 Task D: derive a per-page OG image URL from Astro.url.pathname
+// and the OG_PAGES registry. Strip leading/trailing slashes; map "" → "default".
+// /og/[...slug].svg.ts is the static-generator endpoint that emits one SVG per
+// registry entry (variants: default / proof / status / roadmap / playground /
+// sponsor). Fall back to /og-default.svg if the slug isn't registered yet.
+const rawSlug = (Astro.url?.pathname ?? "/").replace(/^\/+|\/+$/g, "");
+const slug = rawSlug === "" ? "default" : rawSlug;
+const resolvedOgImage = ogImage ?? `/og/${slug}.svg`;
 
 // Self-review fix: derive lang + dir from Astro.currentLocale rather than
 // trusting the prop default. The previous default of `lang = "en"` meant
@@ -36,17 +48,16 @@ const dir = isRtlLocale(currentLocale) ? "rtl" : "ltr";
     <meta property="og:title" content={ogTitle} />
     <meta property="og:description" content="Don't give your agent a wallet. Give it a mandate." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/og-default.svg" />
+    <meta property="og:image" content={resolvedOgImage} />
     <meta property="og:image:alt" content="SBO3L — the cryptographically verifiable trust layer for autonomous AI agents." />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     {/*
-      Codex review fix (PR #291): X/Twitter cards do not render SVG, so the
-      previous twitter:image pointing at og-default.svg produced cards
-      without preview imagery. summary_large_image card stays declared —
-      Twitter falls back to a no-image card variant which renders the
-      title + description correctly. When a PNG hero asset ships,
-      restore twitter:image pointing at the PNG.
+      Codex review fix (PR #291): X/Twitter cards do not render SVG, so
+      twitter:image pointing at any SVG produces cards without preview
+      imagery. Card type stays "summary" (text-only fallback). When the
+      PNG render of /og/<slug>.svg is wired (rasteriser TBD), restore
+      twitter:image to point at the .png twin.
     */}
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content={ogTitle} />
