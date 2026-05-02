@@ -173,17 +173,24 @@ Expected output (2026-05-02 R12 reference):
 
 This page is updated whenever a new surface goes live or a custom domain points. The `regression-on-main.yml` workflow does not currently link-check this file; `scripts/check_live_urls.py` (TODO) will add 200/API-version verification per row and post a delta to coordination if any drops.
 
-## Known gaps at submission time (2026-05-02 R12)
+## Known gaps at submission time (2026-05-02 final closeout)
 
-The submission can ship with these gaps documented because **all three sponsor flows are independently verifiable via working alternates**:
+> **Major gap closures since R12 inventory** (re-verified by Heidi 2026-05-02 ~17:30 CEST):
+> - ✅ `/marketplace` now **HTTP 200** (was 404 — Vercel redeployed)
+> - ✅ `sbo3l-langgraph` 1.2.0 **LIVE on PyPI** (publisher provisioned)
+> - ✅ `@sbo3l/{langchain,autogen,elizaos}` 1.2.0 **LIVE on npm** (NPM_TOKEN provisioned)
+> - ✅ 4 new Sepolia contracts deployed (AnchorRegistry, SubnameAuction, ReputationBond, ReputationRegistry — all bytecode verified onchain)
+
+**Remaining gaps** — each has a judge-facing workaround:
 
 | Gap | Impact | Workaround for judges |
 |---|---|---|
-| 5 npm integration packages 404 + `@sbo3l/sdk` at 1.0.0 not 1.2.0 | TypeScript install path is one minor version behind | Use Python SDK at 1.2.0 (`pip install sbo3l-sdk==1.2.0`) or CLI (`cargo install sbo3l-cli --version 1.2.0`) |
-| `sbo3l-langgraph` 404 on PyPI | LangGraph integration is install-blocked | Other 4 Python integrations work; SDK + CLI cover the integration story |
-| `/marketplace` 404 on Vercel preview | Cannot click-through marketplace UI | Source live at `apps/marketing/src/pages/marketplace/`; `@sbo3l/marketplace` content-addressed registry + `sbo3l-marketplace` CLI both verifiable from crates.io / npm |
+| `@sbo3l/sdk` still at 1.0.0 (not 1.2.0) | TS SDK base package one minor behind | Framework integrations all at 1.2.0; Python SDK + CLI at 1.2.0 cover full install path |
+| `@sbo3l/{vercel-ai,design-tokens,marketplace,anthropic,openai-assistants,...}` 404 | Newer/peripheral npm packages not yet published | 3 core integrations live (langchain, autogen, elizaos) |
+| `sbo3l-{agno,pydantic-ai,...}` (newer PyPI integrations beyond top-5) | Newer integrations install-blocked | Top-5 Python integrations all live (sdk + langchain + crewai + llamaindex + langgraph) |
 | `sbo3l-trust-dns-viz.vercel.app` 404 | Cannot click-through visualization | Source live at `apps/trust-dns-viz/`; canvas renderer verifiable from local build |
 | Custom domains (`sbo3l.dev` etc.) DNS not pointed | Vercel preview URLs are the canonical live URLs | Submission uses Vercel preview URLs throughout |
+| `/admin` 404 on marketing site | Admin lives at hosted-app, not marketing | hosted-app has `/admin/*`; deploy to its own Vercel project (gated on Daniel signing up) |
 
 ## Sepolia smart contracts deployed 2026-05-02 (R14)
 
