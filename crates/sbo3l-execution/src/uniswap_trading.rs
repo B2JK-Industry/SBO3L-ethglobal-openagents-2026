@@ -42,7 +42,7 @@
 //!   official Circle Sepolia USDC; surfaced as the default `token_out`.
 //! - Selector pinned in tests against `keccak256("exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))")[0..4]`.
 
-use crate::uniswap_live::SEPOLIA_WETH;
+use crate::uniswap_live::{MAINNET_WETH, SEPOLIA_WETH};
 
 /// Sepolia SwapRouter02 deployment address.
 ///
@@ -51,6 +51,15 @@ pub const SEPOLIA_SWAP_ROUTER_02: &str = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7A
 
 /// Sepolia USDC (Circle's official testnet USDC). 6 decimals.
 pub const SEPOLIA_USDC: &str = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
+
+/// Mainnet SwapRouter02 deployment address. Used by Task D's
+/// `sbo3l uniswap swap --network mainnet` envelope.
+///
+/// Source: `developers.uniswap.org/contracts/v3/reference/deployments/ethereum-deployments`.
+pub const MAINNET_SWAP_ROUTER_02: &str = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45";
+
+/// Mainnet USDC (Circle's canonical USDC contract). 6 decimals.
+pub const MAINNET_USDC: &str = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 
 /// Selector for `exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))`.
 ///
@@ -119,6 +128,52 @@ impl SwapParams {
             amount_out_minimum: u128_to_u256_be(amount_out_minimum_wei),
             sqrt_price_limit_x96: [0u8; 32],
         })
+    }
+
+    /// Mainnet WETH → USDC swap with 0.3% fee tier defaults. Pair to
+    /// [`Self::sepolia_weth_for_usdc`] for Task D's mainnet demo.
+    /// Caller supplies the recipient EOA, the WETH-in amount in wei,
+    /// and the USDC-out floor (6-decimal micros).
+    pub fn mainnet_weth_for_usdc(
+        recipient: [u8; 20],
+        amount_in_wei: u128,
+        amount_out_minimum_usdc_micros: u128,
+    ) -> Result<Self, AddressError> {
+        let token_in = parse_address(MAINNET_WETH)?;
+        let token_out = parse_address(MAINNET_USDC)?;
+        Ok(Self {
+            token_in,
+            token_out,
+            fee: 3_000,
+            recipient,
+            amount_in: u128_to_u256_be(amount_in_wei),
+            amount_out_minimum: u128_to_u256_be(amount_out_minimum_usdc_micros),
+            sqrt_price_limit_x96: [0u8; 32],
+        })
+    }
+
+    /// Generic ctor for arbitrary `(token_in, token_out, fee, recipient,
+    /// amount_in_u256, amount_out_min_u256)` tuples. Both amounts are
+    /// supplied as already-padded 32-byte big-endian buffers, so the
+    /// CLI layer can route any 256-bit value through without going via
+    /// `u128`. `sqrtPriceLimitX96` is fixed at `0` (no price limit).
+    pub fn new_exact_in(
+        token_in: [u8; 20],
+        token_out: [u8; 20],
+        fee: u32,
+        recipient: [u8; 20],
+        amount_in: [u8; 32],
+        amount_out_minimum: [u8; 32],
+    ) -> Self {
+        Self {
+            token_in,
+            token_out,
+            fee,
+            recipient,
+            amount_in,
+            amount_out_minimum,
+            sqrt_price_limit_x96: [0u8; 32],
+        }
     }
 }
 

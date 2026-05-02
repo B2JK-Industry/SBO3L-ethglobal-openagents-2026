@@ -27,6 +27,7 @@ mod doctor_extended;
 mod key;
 mod passport;
 mod policy;
+mod uniswap_swap;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -172,6 +173,80 @@ enum Command {
     Admin {
         #[command(subcommand)]
         op: AdminCmd,
+    },
+    /// Uniswap V3 swap envelope (Task D — Daniel-broadcast demo).
+    ///
+    /// Builds an `exactInputSingle` calldata + tx envelope for either
+    /// Sepolia or mainnet, gated behind `SBO3L_ALLOW_MAINNET_TX=1`
+    /// when `--network mainnet`. Default `--dry-run` emits a JSON
+    /// envelope to stdout; `--broadcast` (with `--features
+    /// eth_broadcast`) signs + sends. The CLI never reads a private
+    /// key from a flag — operators point `--private-key-env-var` at
+    /// the env var holding the 32-byte hex key.
+    ///
+    /// See `docs/cli/uniswap-swap.md`.
+    Uniswap {
+        #[command(subcommand)]
+        op: UniswapCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum UniswapCmd {
+    /// Build (and optionally broadcast) a Uniswap V3 `exactInputSingle`
+    /// swap envelope. Default `--dry-run`; `--broadcast` requires
+    /// the `eth_broadcast` Cargo feature plus `SBO3L_ALLOW_MAINNET_TX=1`
+    /// for `--network mainnet`.
+    Swap {
+        /// `mainnet` | `sepolia`. Default `sepolia`.
+        #[arg(long, default_value = "sepolia")]
+        network: String,
+
+        /// Amount + token suffix (`0.005ETH`, `1USDC`) or raw wei
+        /// integer. ETH/WETH = 18-decimal; USDC = 6-decimal.
+        #[arg(long)]
+        amount_in: String,
+
+        /// Output token: `USDC` | `ETH` | `WETH` | `0x...` hex.
+        #[arg(long)]
+        token_out: String,
+
+        /// Recipient EOA receiving `tokenOut` (EIP-55 case ignored).
+        #[arg(long)]
+        recipient: String,
+
+        /// Slippage cap in bps (1..=10000). Default 50 (0.5%).
+        #[arg(long)]
+        slippage_bps: Option<u16>,
+
+        /// Default-true. Mutually exclusive with `--broadcast`.
+        #[arg(long, default_value_t = false, conflicts_with = "broadcast")]
+        dry_run: bool,
+
+        /// Sign + send the tx. Requires `--features eth_broadcast`
+        /// at build time and the mainnet gate when network=mainnet.
+        #[arg(long, default_value_t = false)]
+        broadcast: bool,
+
+        /// JSON-RPC URL. Falls back to `SBO3L_RPC_URL`.
+        #[arg(long)]
+        rpc_url: Option<String>,
+
+        /// Env var name holding the 32-byte hex private key. The CLI
+        /// never reads the key from a flag — only via the env var
+        /// the operator names. Default `SBO3L_SIGNER_KEY`.
+        #[arg(long)]
+        private_key_env_var: Option<String>,
+
+        /// Optional local audit DB to append the envelope event to
+        /// (best-effort; failures log but don't abort).
+        #[arg(long)]
+        db: Option<PathBuf>,
+
+        /// Write the envelope JSON to `<path>` in addition to
+        /// printing.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
 }
 
@@ -1277,6 +1352,34 @@ fn main() -> ExitCode {
         Command::Admin {
             op: AdminCmd::Verify { from, decrypt_with },
         } => admin_backup::cmd_verify(admin_backup::VerifyArgs { from, decrypt_with }),
+        Command::Uniswap {
+            op:
+                UniswapCmd::Swap {
+                    network,
+                    amount_in,
+                    token_out,
+                    recipient,
+                    slippage_bps,
+                    dry_run,
+                    broadcast,
+                    rpc_url,
+                    private_key_env_var,
+                    db,
+                    out,
+                },
+        } => uniswap_swap::cmd_uniswap_swap(uniswap_swap::SwapArgs {
+            network,
+            amount_in,
+            token_out,
+            recipient,
+            slippage_bps,
+            dry_run,
+            broadcast,
+            rpc_url,
+            private_key_env_var,
+            db,
+            out,
+        }),
     }
 }
 
