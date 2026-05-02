@@ -117,14 +117,15 @@ enum Command {
         #[command(subcommand)]
         op: PolicyCmd,
     },
-    /// SBO3L Passport — portable proof capsule (P1.1).
+    /// SBO3L Passport — portable proof capsule.
     ///
     /// `sbo3l passport verify --path <capsule>` runs schema and
     /// cross-field structural verification against a
-    /// `sbo3l.passport_capsule.v1` artifact. P1.1 is structural-only
-    /// (no execution, no live integration). The `passport run` and
-    /// `explain` surfaces, plus full cryptographic verification, land
-    /// in P2.1. Source of truth:
+    /// `sbo3l.passport_capsule.{v1,v2}` artifact, and auto-promotes
+    /// to crypto verification when the capsule is self-contained.
+    /// `passport run` orchestrates the offline flow end-to-end and
+    /// emits a capsule. `passport explain` prints a human-readable
+    /// summary. Source of truth:
     /// `docs/product/SBO3L_PASSPORT_SOURCE_OF_TRUTH.md`.
     Passport {
         #[command(subcommand)]
@@ -492,8 +493,9 @@ enum PassportCmd {
         /// is captured into the capsule's `agent.records` block.
         #[arg(long)]
         agent: String,
-        /// How `agent.records` are obtained. P2.1 only supports
-        /// `offline-fixture`; `live-ens` is reserved for P4.1.
+        /// How `agent.records` are obtained. The offline `passport run`
+        /// surface uses `offline-fixture`; live ENS resolution flows
+        /// through `sbo3l agent verify-ens` instead.
         #[arg(long, value_enum, default_value_t = ResolverChoiceArg::OfflineFixture)]
         resolver: ResolverChoiceArg,
         /// Path to the ENS fixture. Required when
@@ -507,7 +509,8 @@ enum PassportCmd {
         executor: ExecutorChoiceArg,
         /// Execution mode. P2.1 only supports `mock`. `live` is
         /// rejected with exit 2 (truthfulness rule: live claims
-        /// require real evidence). Live mode lands in P5.1 / P6.1.
+        /// require real evidence). For real live execution, use the
+        /// daemon (`sbo3l-server`) with configured executor credentials.
         #[arg(long, value_enum, default_value_t = ModeChoiceArg::Mock)]
         mode: ModeChoiceArg,
         /// Output path for the capsule JSON. Written atomically
@@ -764,7 +767,7 @@ enum AuditCmd {
         out: Option<PathBuf>,
     },
 
-    /// On-chain audit-root anchor (Phase 3.1).
+    /// On-chain audit-root anchor.
     ///
     /// Computes a 32-byte digest over the local audit chain head +
     /// ABI-encodes a `publishAnchor(bytes32 tenantId, bytes32

@@ -1,4 +1,4 @@
-//! `sbo3l audit verify-anchor <tx>` — Phase 3.1 read-side mirror.
+//! `sbo3l audit verify-anchor <tx>` — read-side anchor verifier.
 //!
 //! Read-side counterpart to [`crate::audit_anchor`]. Given an
 //! Ethereum tx hash that broadcast a `publishAnchor` call to Dev 4's

@@ -1,22 +1,23 @@
-//! `sbo3l passport {verify,run,explain}` (Passport P1.1 + P2.1).
+//! `sbo3l passport {verify,run,explain}` — Passport capsule surface.
 //!
-//! `verify` (P1.1) — structural verification of a
-//! `sbo3l.passport_capsule.v1` JSON artifact via
-//! `sbo3l-core::passport::verify_capsule`.
+//! `verify` — structural + (when self-contained) crypto verification
+//! of a `sbo3l.passport_capsule.{v1,v2}` JSON artifact via
+//! `sbo3l-core::passport::verify_capsule` and (auto) `verify_capsule_strict`.
+//! Pass `--strict` with `--receipt-pubkey`/`--audit-bundle`/`--policy`
+//! for full external-aux crypto coverage.
 //!
-//! `run` (P2.1) — orchestrates the existing offline SBO3L flow
-//! (APRP → policy → budget → audit → signed receipt) end-to-end and
-//! emits a `sbo3l.passport_capsule.v1` JSON to `--out`. **Wraps**
-//! existing primitives (`sbo3l-server::router` oneshot, mock
-//! KeeperHub/Uniswap executors, `Storage::policy_current`,
-//! `Storage::audit_last`, `Storage::audit_checkpoint_create`); does
-//! NOT reimplement crypto, audit chain semantics, or the policy
-//! engine. Live mode is rejected with exit 2 in this PR — live
-//! integration belongs in P5.1 / P6.1 / future work.
+//! `run` — orchestrates the offline SBO3L flow (APRP → policy →
+//! budget → audit → signed receipt) end-to-end and emits a
+//! `sbo3l.passport_capsule.v1` JSON to `--out`. **Wraps** existing
+//! primitives (`sbo3l-server::router` oneshot, KeeperHub/Uniswap
+//! executors, `Storage::policy_current`, `Storage::audit_last`,
+//! `Storage::audit_checkpoint_create`); does NOT reimplement crypto,
+//! audit chain semantics, or the policy engine.
 //!
-//! `explain` (P2.1) — runs the P1.1 verifier on a capsule and prints
-//! a 6–10 line human summary (or `--json` structured object). On
-//! verifier failure exits 2 with the same `(capsule.<code>)` shape.
+//! `explain` — runs the verifier on a capsule and prints a 6–10 line
+//! human summary (or `--json` structured object). On verifier failure
+//! exits 2 with the same `(capsule.<code>)` shape as `verify`, so any
+//! tooling that branches on verify codes also works for explain.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -62,16 +63,40 @@ pub fn cmd_verify(args: VerifyArgs) -> ExitCode {
     };
 
     if !args.strict {
-        return match verify_capsule(&value) {
-            Ok(()) => {
-                print_verify_summary(&value);
-                ExitCode::SUCCESS
+        // Default mode: structural always; auto-promote to crypto checks
+        // when the capsule carries its own policy snapshot + audit segment
+        // (= self-contained per F-6). This catches receipt/audit tampering
+        // without requiring the operator to remember `--strict`. For aux-
+        // dependent capsules we surface a clear hint instead of silently
+        // accepting structural-only as "ok".
+        if let Err(e) = verify_capsule(&value) {
+            eprintln!("sbo3l passport verify: {} ({})", e, e.code());
+            return ExitCode::from(2);
+        }
+        let self_contained = capsule_is_self_contained(&value);
+        if self_contained {
+            let opts = StrictVerifyOpts {
+                receipt_pubkey_hex: None,
+                audit_bundle: None,
+                policy_json: None,
+            };
+            let report = verify_capsule_strict(&value, &opts);
+            if !report.is_ok() {
+                print_strict_report(&report);
+                eprintln!("sbo3l passport verify: crypto check FAILED on self-contained capsule");
+                return ExitCode::from(2);
             }
-            Err(e) => {
-                eprintln!("sbo3l passport verify: {} ({})", e, e.code());
-                ExitCode::from(2)
-            }
-        };
+            print_verify_summary(&value);
+            println!("passport: crypto verify:    ok (self-contained, no aux required)");
+        } else {
+            print_verify_summary(&value);
+            eprintln!(
+                "sbo3l passport verify: structural pass — capsule is NOT self-contained, \
+                 signature checks were SKIPPED. Re-run with --strict --receipt-pubkey \
+                 [--audit-bundle] [--policy] for full crypto coverage."
+            );
+        }
+        return ExitCode::SUCCESS;
     }
 
     // Strict mode — load auxiliary inputs (each independent + optional).
@@ -204,7 +229,7 @@ fn print_strict_report(report: &StrictVerifyReport) {
 
 /// `sbo3l passport explain --path <capsule> [--json]`
 ///
-/// Reads + verifies a capsule via the P1.1 verifier; on success
+/// Reads + verifies a capsule via the structural verifier; on success
 /// prints a concise human (or JSON) summary. On verifier failure
 /// exits 2 with `(capsule.<code>)` in stderr — same shape as
 /// `verify`, so any tooling that branches on verify codes also
@@ -623,16 +648,16 @@ impl ModeChoice {
 ///   — i.e. we somehow built a capsule that wouldn't pass our own
 ///   verifier; that's a hard refuse, not a "ship anyway").
 pub fn cmd_run(args: RunArgs) -> ExitCode {
-    // Live mode is rejected here. P5.1 / P6.1 / future work will
-    // un-gate this behind real credentials and live evidence; until
-    // then, the CLI must not produce a capsule that *claims* live
-    // mode without proof.
+    // Live mode is rejected here: the CLI must not produce a capsule
+    // that *claims* live mode without real credentials + live evidence
+    // to back it up. Live execution flows through `sbo3l-server` with
+    // configured executor credentials, not through this offline CLI.
     if args.mode == ModeChoice::Live {
         eprintln!(
-            "sbo3l passport run: --mode live is not implemented in P2.1 \
-             (truthfulness rule: live claims require real evidence). Re-run \
-             with --mode mock; live mode lands in P5.1/P6.1 with concrete \
-             credentials + live_evidence."
+            "sbo3l passport run: --mode live is not supported by the offline CLI \
+             (truthfulness rule: live claims require real evidence). Re-run with \
+             --mode mock, or use the daemon (`sbo3l-server`) with configured \
+             executor credentials for real live execution."
         );
         return ExitCode::from(2);
     }
@@ -871,9 +896,9 @@ pub fn cmd_run(args: RunArgs) -> ExitCode {
     }
 
     // 7. Allow path → call mock executor; deny path → execution.status
-    // = "not_called" (HARD invariant — verified by tampered_001 in
-    // P1.1). Mode is forced to `mock` here because we rejected `live`
-    // up top.
+    // = "not_called" (HARD invariant — verified by tampered_001 in the
+    // structural verifier). Mode is forced to `mock` here because we
+    // rejected `live` up top.
     let allow_path = matches!(response.status, PaymentStatus::AutoApproved);
     let exec_block = if allow_path {
         match call_mock_executor(args.executor, &aprp_value, &response) {
