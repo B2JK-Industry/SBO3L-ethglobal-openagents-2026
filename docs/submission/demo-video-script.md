@@ -30,6 +30,7 @@
 > 1. `sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` returns 5 `sbo3l:*` records on mainnet — `agent_id`, `endpoint`, `policy_hash` (`e044f13c5acb…`), `audit_root`, `proof_uri`. Phase 2 adds `capability` and `reputation` for 7 total.
 > 2. The `policy_hash` matches the offline fixture byte-for-byte — no drift between published identity and shipped behaviour.
 > 3. Cut to Sepolia: 5+ named agents resolved (`research-agent.sbo3lagent.eth`, `trading-agent`, `swap-agent`, `audit-agent`, `coordinator-agent`) — each issued via direct ENS Registry `setSubnodeRecord` (no third-party registrar; we evaluated Durin and dropped it).
+> **Voiceover (Kevin caveat preemption — talking head over the verify-ens cut):** "Other ENS-based agent identity schemes leave the records as user-claimed strings — anyone can write anything. SBO3L's `policy_hash` is different: it's a cryptographic commitment to the live engine's actual rules. If they drift, `verify-ens` fails closed. The text record is verifiable, not just claimed."
 > **Voiceover beat:** "Same parent, different agents, fully on chain. Anyone with an Ethereum RPC can verify these identities — and SBO3L's CCIP-Read gateway resolves the dynamic ones too."
 
 ## 1:15 — 1:45 — Trust DNS viz with live attestation events
