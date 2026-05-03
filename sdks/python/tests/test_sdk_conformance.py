@@ -52,7 +52,7 @@ def test_manifest_vector_count_pinned(manifest: dict) -> None:
     """Pin the corpus size — adding/removing a fixture must update
     both the manifest and this assertion together. Catches an
     accidental delete during refactors."""
-    assert len(manifest["vectors"]) == 19, (
+    assert len(manifest["vectors"]) == 24, (
         "manifest vector count drifted; update both the manifest and this constant"
     )
 

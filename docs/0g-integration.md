@@ -126,8 +126,8 @@ The backend also has a **`live_testnet_upload`** integration test gated behind
 
 ```bash
 ZEROG_TESTNET_LIVE=1 cargo test -p sbo3l-storage \
-  --test-threads=1 zerog_backend::tests::live_testnet_upload \
-  -- --nocapture
+  zerog_backend::tests::live_testnet_upload \
+  -- --test-threads=1 --nocapture
 ```
 
 ### Honest gaps

@@ -63,7 +63,7 @@ describe("SDK conformance — TypeScript runner", () => {
   it("manifest vector count is pinned (sync with manifest.json)", () => {
     // Adding/removing a fixture must update both the manifest and
     // this assertion together.
-    expect(manifest.vectors.length).toBe(19);
+    expect(manifest.vectors.length).toBe(24);
   });
 
   it("typescript SDK matches every manifest vector (skipping known_drift)", () => {

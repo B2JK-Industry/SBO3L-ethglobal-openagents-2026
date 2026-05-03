@@ -61,7 +61,13 @@ async fn post_raw(
     let req = req.body(Body::from(body_bytes)).unwrap();
     let resp = app.oneshot(req).await.expect("server must not panic");
     let status = resp.status();
-    let bytes = resp.into_body().collect().await.unwrap().to_bytes().to_vec();
+    let bytes = resp
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes()
+        .to_vec();
     (status, bytes)
 }
 
