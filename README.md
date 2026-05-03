@@ -17,9 +17,9 @@
 **With the CLI** (3 min, ~150MB Rust install):
 
 ```bash
-cargo install sbo3l-cli --version 1.2.0
+cargo install sbo3l-cli --version 1.2.1
 sbo3l agent verify-ens sbo3lagent.eth --network mainnet  # → 5 records resolved
-sbo3l doctor --extended                                  # → 6/6 contracts ok
+sbo3l doctor --extended                                  # → 7/7 contracts ok
 curl -s https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json \
   | sbo3l passport verify --path /dev/stdin              # → crypto verify: ok
 ```
