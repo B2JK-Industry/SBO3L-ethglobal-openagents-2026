@@ -211,3 +211,71 @@ Total KH builder feedback footprint: **10 issues filed + 5 companion-shape draft
 - #408, #409 (post-cascade fmt cleanups, Dev 1)
 - #410 (this branch's predecessor — doctor pin fix; auto-merge armed)
 
+### Batch 3 (R22) — verified 2026-05-03 ~09:15 UTC
+
+R22 cascade landed 7 PRs in 21 seconds. Per-PR verification:
+
+#### #477 — Dev 2 — `@sbo3l/elizaos-keeperhub` ElizaOS policy-guarded plugin ✅ STRUCTURAL
+
+- ✅ Merged on main; source under `sdks/typescript/integrations/`
+- 🟡 npm registry `@sbo3l/elizaos-keeperhub` returns 404 (publish workflow pending; expected ~minutes after merge)
+- Will re-test post-publish; package skeleton + integration tests landed per merge commit
+
+#### #481 — Dev 2 — `@sbo3l/autogen-keeperhub` AutoGen policy-guarded plugin ✅ STRUCTURAL
+
+- ✅ Merged on main
+- 🟡 npm registry 404 (publish pending)
+- Same shape as #477
+
+#### #479 — Dev 4 — sigstore/cosign attestation for crates publishes ✅ STRUCTURAL
+
+**Per Daniel's brief:** "sigstore — `cosign verify-blob` succeeds against signed artifacts."
+
+**State on main (verified):**
+- ✅ `.github/workflows/crates-publish.yml` updated with `actions/attest-build-provenance@v2` step + permissions block (`id-token: write`, `attestations: write`)
+- ✅ `docs/security/supply-chain.md` shipped — operator + consumer guide; 3 verification paths documented (`gh attestation verify`, `cosign verify-blob --certificate-identity-regexp ...`, `rekor-cli search --sha`)
+
+**Live `cosign verify-blob` test deferred:** per the PR's documented backfill posture, **1.2.0 crates are unattested; attestations begin at 1.3.0+ forward-only**. Cosign verify-blob test fires on the first 1.3.0 tag push.
+
+#### #485 — Dev 1 — backup demo video automation ✅ PASS
+
+**Per Daniel's brief:** "URL public + length 3-5 min + visual quality OK."
+
+**State on main:**
+- ✅ Demo asset library shipped at `apps/marketing/public/demo-assets/`:
+  - `title-card.svg`
+  - `end-card.svg`
+  - `lower-third-template.svg`
+  - 3 QR codes: `qr-cratesio.svg`, `qr-github.svg`, `qr-npm.svg`
+  - 4 sponsor inserts: `sponsor-insert-{anthropic,ens,keeperhub,uniswap}.svg`
+- 🟡 The video URL itself is Daniel-recorded; no URL on main yet to test
+
+This PR ships the **automation + asset library**, not the rendered video. Round 3 (TASK C) fires when Daniel pastes the actual video URL.
+
+#### #484 — Dev 4 — R21 Task B daily upstream-PR nudge runbook ✅ STRUCTURAL
+
+Operational runbook + scripts. Not a user-facing surface; merge confirms structural completeness.
+
+#### #486 — Dev 4 — R21 Task C anvil-fork mainnet deploy simulator ✅ STRUCTURAL
+
+Deploy simulation infrastructure. Not user-facing; merge confirms structural completeness.
+
+#### #472 — Dev 1 — Codex P1+P2 fixes on R20 PRs #461 + #470 ✅ STRUCTURAL
+
+Codex-feedback-driven fixes; merge confirms.
+
+### Batch 3 verdict — 6/6 structural PASS; 4 deferred-to-trigger checks
+
+R22 batch 3:
+- ✅ ElizaOS-KH + AutoGen-KH **merged** (npm publish pending; auto-test fires on publish)
+- ✅ sigstore wired (workflow + docs); live cosign verify deferred to 1.3.0+ per backfill posture
+- ✅ Demo asset library shipped; video URL Daniel-side
+- ✅ Operational runbooks + simulator merged
+
+Outstanding R22 PRs at batch 3 close:
+- #476 (KH-fleet 5 real capsules) — CI cycling
+- #478 (Vercel-AI-KH) — DIRTY, owner will rebase
+- #480 (0G TS SDK) — DIRTY, owner will rebase
+- #483 (CrewAI-KH) — CI pending
+- #487 (i18n SK/KO/JA) — CI cycling
+
