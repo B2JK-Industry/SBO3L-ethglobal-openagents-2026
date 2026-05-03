@@ -91,6 +91,7 @@ in-flight (auto-merge queued).
 | **R11 P2** | Multi-chain reputation broadcast CLI — `--multi-chain sepolia,optimism-sepolia,base-sepolia` | #267 | Merged |
 | **R11 P3** | ENS DNS gateway codec finish — DoH wire codec wired (16 vitest tests) | #262 | Merged |
 | **R11 P4** | Broader ENSIP-N draft — 7 `sbo3l:*` keys, ~2200 words for ENS Labs | #264 | Merged |
+| **R19 A** | **ENSIP-26 upstream submitted** at [ensdomains/ensips#71](https://github.com/ensdomains/ensips/pull/71) — 363 LOC, composes with ENSIP-25 | this PR | **OPEN upstream** |
 | **R11 P5** | Time-window token gate (UTC range / business hours / DST workaround) — 14 tests | #263 | Merged |
 | **R12** | Deploy runbook, `aggregate` CLI, mainnet skip rationale, bounty finalize | (this PR) | Pending |
 
