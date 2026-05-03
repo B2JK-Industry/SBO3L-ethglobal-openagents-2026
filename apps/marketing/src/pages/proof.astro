@@ -94,10 +94,27 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
     }
 
     const params = new URLSearchParams(window.location.search);
+    const input = document.getElementById("capsule-input") as HTMLTextAreaElement | null;
+
     const decoded = decodeCapsuleParam(params.get("capsule"));
-    if (decoded) {
-      const input = document.getElementById("capsule-input") as HTMLTextAreaElement | null;
-      if (input) input.value = decoded;
+    if (decoded && input) {
+      input.value = decoded;
+    }
+
+    // R22 PR3: /kh-fleet rows deep-link via `?capsule_url=<path>` to a
+    // static JSON file under /capsules/. Fetch + populate the textarea
+    // here. Restricted to same-origin paths starting with `/` to keep
+    // the page from following an attacker-controlled absolute URL.
+    const capsuleUrl = params.get("capsule_url");
+    if (capsuleUrl && input && capsuleUrl.startsWith("/") && !capsuleUrl.startsWith("//")) {
+      fetch(capsuleUrl)
+        .then((r) => (r.ok ? r.text() : null))
+        .then((text) => {
+          if (text && input) input.value = text;
+        })
+        .catch(() => {
+          // Silent — user can paste manually if fetch failed.
+        });
     }
   </script>
 
