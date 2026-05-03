@@ -3,10 +3,9 @@ import BaseLayout from "~/layouts/BaseLayout.astro";
 import KeyFlowDiagram from "~/components/KeyFlowDiagram.astro";
 
 // Truth table: live vs mock vs not-yet across every claim the project
-// makes. Built per reviewer feedback (2026-05-02): "Urobiť jednu 'truth
-// table': live vs mock". This page is the single source of truth on
-// claim provenance — every other surface (homepage, README, sponsor
-// pages) defers here when a judge asks "is X actually live?"
+// makes. This page is the single source of truth on claim provenance —
+// every other surface (homepage, README, sponsor pages) defers here
+// when a judge asks "is X actually live?"
 
 interface Row {
   surface: string;
@@ -224,10 +223,9 @@ const totalRows = sections.flatMap(s => s.rows).length;
       <p class="eyebrow">Truth table · ETHGlobal Open Agents 2026 submission</p>
       <h1>What is live, what is mock, what is not yet</h1>
       <p class="lede">
-        Reviewer feedback (2026-05-02): "Urobiť jednu 'truth table'." This is
-        it. Every claim the project makes is filed under one of three columns
+        Every claim the project makes is filed under one of three columns
         below. When a judge asks "is X actually live?", the answer is on this
-        page.
+        page. No marketing fluff — every row links straight to the source-of-truth artefact.
       </p>
       <p class="counters">
         <strong>{liveCount}</strong> surfaces live · <strong>{mockCount}</strong> have a mock fallback · <strong>{notyetCount}</strong> documented as not-yet · {totalRows} rows total
