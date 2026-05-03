@@ -1,0 +1,11 @@
+# SBO3L marketing site — robots.txt
+#
+# Allow all well-behaved crawlers. The OG image generator endpoints
+# (/og/<slug>.svg) are static-rendered at build time and safe to crawl.
+# /api/* paths don't exist on this domain (apps/sbo3l-playground-api
+# lives at sbo3l-playground-api.vercel.app, not here).
+
+User-agent: *
+Allow: /
+
+Sitemap: https://sbo3l-marketing.vercel.app/sitemap-index.xml
