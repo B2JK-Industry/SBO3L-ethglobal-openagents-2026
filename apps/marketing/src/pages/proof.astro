@@ -5,32 +5,13 @@ import PassportCapsule from "~/components/PassportCapsule.astro";
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
 
-// PassportCapsule "open" spread is rendered alongside the WASM verifier
-// as a visual reference for what a verified capsule looks like. The
-// `verifiedChecks` prop is empty by default — when the user pastes a
-// capsule and clicks Verify, JS could update this view, but at SSR
-// time we render the unverified state. /proof is build-time static
-// so the visual is a reference card, not a live status.
-//
-// Codex review fix (PR #392): /kh-fleet "verify capsule →" links pass
-// `?capsule=...` query strings. Read the param here and pre-fill the
-// PassportVerifier so the deep-links actually populate the textarea.
-// We accept either:
-//   - raw JSON (rare; only short capsules fit in URL bounds)
-//   - base64url-encoded JSON (standard; matches `passport export --base64`)
-// The decode is best-effort — malformed input leaves the textarea
-// empty and the user gets the standard idle state.
-function decodeCapsuleParam(raw: string | null): string {
-  if (!raw) return "";
-  if (raw.trim().startsWith("{")) return raw;
-  try {
-    const padded = raw.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(raw.length / 4) * 4, "=");
-    return atob(padded);
-  } catch {
-    return "";
-  }
-}
-const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"));
+// /proof is build-time static (output: 'static'). The deep-link
+// `?capsule=…` and `?capsule_url=…` parsing happens at runtime in the
+// inline <script> below — Astro.url.searchParams in this frontmatter
+// is empty at build time, so any decoding here would be dead. The
+// previous frontmatter `decodeCapsuleParam` + `initialCapsule` const
+// were removed in R22 self-review (PR #496) — they computed nothing
+// and the result was never passed to <PassportVerifier />.
 ---
 <BaseLayout
   title="SBO3L — Verify a Passport capsule in your browser"
@@ -48,7 +29,7 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
       crate yourself.
     </p>
     <p class="install-row">
-      <button id="pwa-install-btn" class="install-btn" hidden type="button" aria-label="Install SBO3L Verify as an app">
+      <button id="pwa-install-btn" class="install-btn" hidden type="button">
         <span aria-hidden="true">⤓</span> Install as offline-capable app
       </button>
       <span id="pwa-install-status" class="install-status" hidden role="status"></span>
