@@ -7,16 +7,19 @@
 //   starlight({ components: { Sidebar: './.../VersionSelectorWrapper.astro' } })
 //
 // The override pattern (https://starlight.astro.build/guides/overriding-components/):
-// import the upstream default + render our addition above it. We keep
-// the default's <slot /> contract so Starlight's nav rendering is
-// unchanged.
+// forward the parent's props verbatim ({...Astro.props}) so the Default
+// sidebar still receives `sidebar`, `entries`, `labels`, etc. Without
+// the spread, Default's `Astro.props.sidebar` is undefined and
+// SidebarSublist's `sublist.map()` crashes every rendered docs page —
+// the second of the two unblock-build errors flagged by Heidi after
+// PR #437.
 import Default from "@astrojs/starlight/components/Sidebar.astro";
 import VersionSelector from "./VersionSelector.astro";
 ---
 <div class="version-selector-wrap">
   <VersionSelector />
 </div>
-<Default><slot /></Default>
+<Default {...Astro.props}><slot /></Default>
 
 <style>
   .version-selector-wrap {

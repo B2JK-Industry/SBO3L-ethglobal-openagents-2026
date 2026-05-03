@@ -8,3 +8,4 @@ node_modules/
 # Materialised at build time by scripts/copy-openapi.sh + scripts/fetch-redoc.sh
 public/openapi.yaml
 public/redoc/
+.vercel

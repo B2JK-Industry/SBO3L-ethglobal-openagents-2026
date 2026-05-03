@@ -43,7 +43,11 @@
 ### Deploy
 
 ```bash
-export PRIVATE_KEY=0x6105886f230543f6d49c18d12c92b67f6564a3e6d4b1599ccc20e0f5690972cc
+# Driver wallet PK is in your local
+# `~/.claude/projects/.../memory/critical_credentials.md`
+# under "Driver-spawned deploy wallet". DO NOT paste it into the
+# repo — gitleaks scans block on PK literals (rightly).
+export PRIVATE_KEY=0x<driver-wallet-PK-from-memory>
 # OR the fresh-wallet PK from Option B
 
 cd crates/sbo3l-identity/contracts
