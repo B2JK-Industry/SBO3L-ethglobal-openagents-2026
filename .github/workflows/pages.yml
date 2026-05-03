@@ -79,11 +79,16 @@ jobs:
         run: |
           python3 - <<'PY'
           import re, sys, pathlib
-          # Same allowlist as demo-fixtures/test_fixtures.py:
-          # RFC 2606 / 6761 reserved + 127.0.0.1 + schemas.sbo3l.dev.
+          # Allowlist:
+          # - RFC 2606 / 6761 reserved (.invalid, .example, .test)
+          # - 127.0.0.1 / localhost
+          # - schemas.sbo3l.dev (canonical schema host)
+          # - sbo3l-marketing.vercel.app (judge-routing banner link to richer demo)
+          # - etherscan.io (mainnet UNI-A1 broadcast tx evidence link)
           pat = re.compile(
               r'<script|fetch\(|https?://(?!localhost|127\.0\.0\.1'
-              r'|.*\.invalid|.*\.example|.*\.test|schemas\.sbo3l\.dev)',
+              r'|.*\.invalid|.*\.example|.*\.test|schemas\.sbo3l\.dev'
+              r'|sbo3l-marketing\.vercel\.app|etherscan\.io)',
               re.IGNORECASE,
           )
           fail = 0
