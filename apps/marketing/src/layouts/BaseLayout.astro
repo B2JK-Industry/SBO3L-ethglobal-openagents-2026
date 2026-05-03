@@ -79,6 +79,21 @@ const dir = isRtlLocale(currentLocale) ? "rtl" : "ltr";
     <meta name="twitter:description" content="Don't give your agent a wallet. Give it a mandate." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     {/*
+      R22 PR2 — PWA wrapper. The manifest + service worker make /proof
+      installable + offline-capable so a judge can verify a Passport
+      capsule without network. The manifest is sitewide; the SW is
+      registered from /proof only (see proof.astro inline script) so
+      we don't take over caching for users who never need the verifier.
+      apple-touch-icon points at the 192px rasterised icon — Safari
+      iOS uses this for "Add to Home Screen", not the SVG favicon.
+    */}
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#4ad6a7" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SBO3L Verify" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    {/*
       JSON-LD structured data — gives search engines + social fetchers
       enough metadata to render rich cards without scraping. The
       SoftwareApplication schema is closest to "open-source dev tool"
