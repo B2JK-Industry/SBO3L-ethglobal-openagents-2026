@@ -28,7 +28,7 @@ interface RoadmapItem {
 const shipped: RoadmapItem[] = [
   {
     title: "Cryptographic core",
-    blurb: "Ed25519 signing, hash-chained audit log, JCS canonicalisation, strict-mode capsule verifier — all production-shape Rust in the sbo3l-core crate. 881/881 tests green.",
+    blurb: "Ed25519 signing, hash-chained audit log, JCS canonicalisation, strict-mode capsule verifier — all production-shape Rust in the sbo3l-core crate. 977/977 tests green.",
   },
   {
     title: "Daemon HTTP API",
@@ -62,6 +62,14 @@ const shipped: RoadmapItem[] = [
     title: "Hosted playground (Tier 3)",
     blurb: "Real Vercel-hosted /playground/live with provision-aware healthz banner. Capsules carry a real Ed25519 signature; audit chain is public.",
   },
+  {
+    title: "Mainnet Uniswap V3 broadcast UNI-A1",
+    blurb: "Real swap on Ethereum mainnet from the SBO3L deploy wallet — tx 0xed68d1…aff0b: 0.005 ETH → 11.5743 USDC via Universal Router, block 25,013,950, gas $0.71 @ 2.19 gwei. Same swap-policy guard (token allowlist + slippage cap + treasury recipient) protects this and any future agent-initiated swap.",
+  },
+  {
+    title: "5 KH-aware framework adapters",
+    blurb: "@sbo3l/langchain-keeperhub, @sbo3l/elizaos-keeperhub, @sbo3l/vercel-ai-keeperhub on npm + sbo3l-autogen-keeperhub, sbo3l-crewai-keeperhub on PyPI. Each shipped with a runnable demo. One-line install for the most common AI agent frameworks.",
+  },
 ];
 
 const prerequisites: RoadmapItem[] = [
@@ -78,9 +86,9 @@ const prerequisites: RoadmapItem[] = [
     owner: "Infra",
   },
   {
-    title: "Real Uniswap swap broadcast",
-    blurb: "Read-side is live (Sepolia QuoterV2 returns real quotes). Write-side scope-cut for hackathon — no swap actually executes. Production v1 needs the broadcast path with mainnet ETH gas, plus the post-broadcast capsule wiring.",
-    blocker: "Mainnet ETH for gas + nonMartin's review of the broadcast path. Treasury approval for first-tx gas budget.",
+    title: "Mainnet Universal Router via Trading API",
+    blurb: "Real Uniswap V3 mainnet swap broadcast UNI-A1 already shipped (tx 0xed68d1…aff0b: 0.005 ETH → 11.5743 USDC at block 25,013,950, gas $0.71). Production v1 would route through the Uniswap Trading API for server-side fee-tier discovery + signed-quote handling instead of building envelopes locally.",
+    blocker: "Trading API access + signed-quote spec from Uniswap team.",
     owner: "Sponsor track lead (Uniswap)",
   },
   {

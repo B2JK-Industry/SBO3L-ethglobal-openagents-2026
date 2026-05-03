@@ -42,8 +42,16 @@ const blocks = [
       <a class="btn primary" href="/quickstart">
         Start in 5 minutes
       </a>
+      <a class="btn ghost" href="/proof">Try in browser</a>
       <a class="btn ghost" href={githubRepoUrl}>View source</a>
     </div>
+    <p class="mainnet-banner">
+      🌐 Live on Ethereum mainnet —
+      <a href="https://etherscan.io/tx/0xed68d1301b479c4229bc89cca5162b56517b80cbaeb654323e05b183000aff0b" rel="noopener">
+        UNI-A1 broadcast tx 0xed68d1…aff0b
+      </a>
+      · 0.005 ETH → 11.5743 USDC via Universal Router · block 25,013,950 · gas $0.71 @ 2.19 gwei
+    </p>
   </section>
 
   <CinematicDecision variant="deny-amount" />
@@ -220,6 +228,20 @@ SBO3L_UNISWAP_TOKEN_OUT=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 \\
     opacity: 0;
     animation: heroFadeIn 0.7s cubic-bezier(.2, .7, .2, 1) 0.7s forwards;
   }
+  .mainnet-banner {
+    margin: 1.6em 0 0;
+    padding: 0.8em 1.2em;
+    background: rgba(13, 153, 104, 0.08);
+    border: 1px solid rgba(13, 153, 104, 0.25);
+    border-radius: var(--r-sm);
+    font-size: 0.9em;
+    color: var(--muted);
+    line-height: 1.6;
+    opacity: 0;
+    animation: heroFadeIn 0.7s cubic-bezier(.2, .7, .2, 1) 0.9s forwards;
+  }
+  .mainnet-banner a { color: var(--accent); font-family: var(--font-mono); }
+  .mainnet-banner a:hover { text-decoration: underline; }
 
   @keyframes heroLineIn {
     to { opacity: 1; transform: translateY(0); }

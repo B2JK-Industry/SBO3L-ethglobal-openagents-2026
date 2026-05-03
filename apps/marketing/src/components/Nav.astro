@@ -24,12 +24,16 @@ const ariaCurrent = (href: string): "page" | undefined => isCurrent(href) ? "pag
       <Logo variant="lockup" height={32} />
     </a>
     <div class="links">
+      <a href="/try"        aria-current={ariaCurrent("/try")}>Try it</a>
+      <a href="/proof"      aria-current={ariaCurrent("/proof")}>Proof</a>
+      <a href="/playground" aria-current={ariaCurrent("/playground")}>Playground</a>
+      <a href="/demo"       aria-current={ariaCurrent("/demo")}>Demo</a>
+      <a href="/status"     aria-current={ariaCurrent("/status")}>Status</a>
+      <a href="/kh-fleet"   aria-current={ariaCurrent("/kh-fleet")}>KH-fleet</a>
+      <a href="/compare"    aria-current={ariaCurrent("/compare")}>Compare</a>
+      <a href="/roadmap"    aria-current={ariaCurrent("/roadmap")}>Roadmap</a>
+      <a href="/quickstart" aria-current={ariaCurrent("/quickstart")}>Quickstart</a>
       <a href={githubRepoUrl} rel="noopener">GitHub</a>
-      <a href="/proof"    aria-current={ariaCurrent("/proof")}>Proof</a>
-      <a href="/status"   aria-current={ariaCurrent("/status")}>Status</a>
-      <a href="/kh-fleet" aria-current={ariaCurrent("/kh-fleet")}>KH-fleet</a>
-      <a href="/roadmap"  aria-current={ariaCurrent("/roadmap")}>Roadmap</a>
-      <a href={`${githubRepoUrl}/blob/main/QUICKSTART.md`} rel="noopener">Quickstart</a>
       <a href={docsUrl} class="search-hint" data-docs-url={docsUrl} aria-label="Search docs (Cmd+K)">
         <span aria-hidden="true">⌘K</span>
         <span class="sr-only">Search docs</span>
@@ -75,7 +79,7 @@ const ariaCurrent = (href: string): "page" | undefined => isCurrent(href) ? "pag
   }
   .brand { font-weight: 700; font-size: 1.2em; color: var(--fg); }
   .brand:hover { text-decoration: none; color: var(--accent); }
-  .links { display: flex; gap: 1.6em; flex-wrap: wrap; align-items: center; }
+  .links { display: flex; gap: 1.2em; flex-wrap: wrap; align-items: center; font-size: 0.95em; }
   .search-hint {
     font-family: var(--font-mono);
     font-size: 0.85em;
