@@ -1,0 +1,78 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-crewai-keeperhub"
+version = "1.2.0"
+description = "CrewAI Python tool that gates KeeperHub workflow execution through SBO3L's policy boundary. Composable with sbo3l-sdk."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+keywords = ["sbo3l", "crewai", "keeperhub", "agent", "policy", "tool", "ai-agent", "workflow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.6,<3",
+]
+
+[project.optional-dependencies]
+sdk = ["sbo3l-sdk>=1.0.0,<2"]
+crewai = ["crewai>=0.30,<2"]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-httpx>=0.30,<1",
+    "ruff>=0.4,<1",
+    "mypy>=1.10,<2",
+    "pydantic>=2.6,<3",
+]
+
+[project.urls]
+Homepage = "https://sbo3l.dev"
+Repository = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_crewai_keeperhub"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "RUF"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+files = ["sbo3l_crewai_keeperhub"]
+
+# crewai is heavy + has untyped surfaces in some modules. mypy --strict
+# can't always resolve `from crewai.tools import BaseTool` cleanly when
+# the package isn't installed in the type-check env. Mark the namespace
+# as untyped; the [misc] "Class cannot subclass BaseTool (has type Any)"
+# error on the Sbo3lKeeperHubCrewAITool class is suppressed inline via
+# `# type: ignore[misc]` rather than disabling the rule globally.
+[[tool.mypy.overrides]]
+module = ["crewai.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    # crewai>=1.x emits a benign ImportWarning at import time for its
+    # `crewai.rag.embeddings` submodule due to the way it lazily
+    # re-attaches submodules. Not actionable on our side; downgrade to
+    # warning so collection doesn't fail under the strict policy.
+    "default::ImportWarning:crewai",
+    "default::ImportWarning",
+]

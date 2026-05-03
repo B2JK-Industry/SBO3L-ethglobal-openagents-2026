@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-example-crewai-keeperhub-demo"
+version = "0.0.0"
+description = "Runnable CrewAI demo: 3 specialized agents share one SBO3L policy boundary + KH workflow + hash-chained audit log."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+classifiers = [
+    "Private :: Do Not Upload",
+]
+dependencies = [
+    # file: deps to local packages — never published to PyPI.
+    "sbo3l-sdk",
+    "sbo3l-crewai-keeperhub",
+    "crewai>=0.30,<2",
+]
+
+[tool.hatch.build.targets.wheel]
+# Demo, not a library — packaging metadata only.
+packages = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
