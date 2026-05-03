@@ -206,34 +206,69 @@ ffmpeg -i terminal-scenes.mp4 -ss 35 -c copy scene-04-keeperhub.mp4
 
 (Adjust the split point by eyeballing — the `clear` between scenes is at ~33 s.)
 
-Then concat all six in order:
+### Normalise each clip first (REQUIRED — different sources)
+
+The six clips come from three different recording paths: `vhs` (Scenes 2 + 4 — video-only, no audio), OBS (Scene 3 — usually audio + video), `ffmpeg -loop 1` over an SVG-rasterised PNG (Scenes 1 + 5 + 6 — video-only, no audio). The `concat` demuxer requires every input to share the **same codec, resolution, fps, pixel format, AND track layout**. If you feed it a mix of with-audio and without-audio clips, it either errors out or produces a `final.mp4` with a stuck audio track. So we re-encode each clip into a uniform shape first, then concat the normalised set.
+
+```bash
+# Add a silent audio track to every clip + force 1920x1080@30fps + yuv420p.
+# Re-encoding happens once; the final concat step is then stream-copy.
+for SRC in scene-01-title scene-02-install scene-03-proof scene-04-keeperhub scene-05-sponsors scene-06-end; do
+  ffmpeg -y -i "${SRC}.mp4" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 \
+    -shortest \
+    -c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p -r 30 \
+    -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1" \
+    -c:a aac -ar 48000 -ac 2 -b:a 128k \
+    -map 0:v:0 -map 1:a:0 \
+    "${SRC}.norm.mp4"
+done
+```
+
+If your Scene 3 OBS recording already has narration audio, drop the `-f lavfi -i anullsrc=...` and `-map 1:a:0` for that one clip and let it carry its own audio:
+
+```bash
+ffmpeg -y -i scene-03-proof.mp4 \
+  -c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p -r 30 \
+  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1" \
+  -c:a aac -ar 48000 -ac 2 -b:a 128k \
+  scene-03-proof.norm.mp4
+```
+
+### Now concat the normalised set
 
 ```bash
 cat > /tmp/concat.txt <<EOF
-file 'scene-01-title.mp4'
-file 'scene-02-install.mp4'
-file 'scene-03-proof.mp4'
-file 'scene-04-keeperhub.mp4'
-file 'scene-05-sponsors.mp4'
-file 'scene-06-end.mp4'
+file 'scene-01-title.norm.mp4'
+file 'scene-02-install.norm.mp4'
+file 'scene-03-proof.norm.mp4'
+file 'scene-04-keeperhub.norm.mp4'
+file 'scene-05-sponsors.norm.mp4'
+file 'scene-06-end.norm.mp4'
 EOF
 
-ffmpeg -f concat -safe 0 -i /tmp/concat.txt \
-  -c:v libx264 -pix_fmt yuv420p -preset medium -crf 23 \
-  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" \
-  -movflags +faststart \
-  final.mp4
+ffmpeg -f concat -safe 0 -i /tmp/concat.txt -c copy -movflags +faststart final.mp4
 ```
+
+`-c copy` is safe here because every input is already a 1920×1080 yuv420p H.264 + 48 kHz stereo AAC clip from the normalisation pass — no re-encoding needed.
 
 **Sanity check the output:**
 
 ```bash
-ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 final.mp4
-# duration should be ~135 (close to 3:00 with some slack)
-# size should be < 52428800 bytes (50 MB)
+DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 final.mp4)
+SIZE=$(ffprobe -v error -show_entries format=size -of csv=p=0 final.mp4)
+echo "duration=${DUR}s size=${SIZE}B"
+# Target: 175–185 seconds (3:00 ± 5 s). The 6-scene script budgets
+# 15+30+30+30+15+15 = 135 s of in-scene content; the remaining ~45 s
+# is voiceover-only beats, breath, and cross-fades that the script
+# bakes in (see demo-video-script.md scene boundaries). A run that
+# clocks in under 175 s is almost certainly missing time on Scene 3
+# (the longest manual capture) — re-record it.
+test "${DUR%.*}" -ge 175 -a "${DUR%.*}" -le 185 || { echo "FAIL: duration ${DUR}s is outside 175-185s window"; exit 1; }
+test "$SIZE" -lt 52428800 || { echo "FAIL: size ${SIZE}B exceeds 50 MB cap"; exit 1; }
+echo "OK: duration + size within submission limits"
 ```
 
-If `final.mp4` is over 50 MB, raise the CRF (try `-crf 28`).
+If `final.mp4` is over 50 MB, raise the CRF (try `-crf 28`) and re-run the normalisation pass.
 
 ---
 
