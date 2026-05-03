@@ -17,7 +17,7 @@
 // Versioning: bumping SW_VERSION invalidates all caches on activate.
 // CSP: vercel.json allows worker-src 'self'; SW is same-origin.
 
-const SW_VERSION = "v1-2026-05-02";
+const SW_VERSION = "v2-2026-05-03";
 const SHELL_CACHE = `sbo3l-shell-${SW_VERSION}`;
 const RUNTIME_CACHE = `sbo3l-runtime-${SW_VERSION}`;
 
@@ -106,18 +106,28 @@ self.addEventListener("fetch", (event) => {
   // Network-first for HTML so users see updated pages when online; fall
   // back to cached shell if offline. Limit fallback to navigation
   // requests so JSON / data files don't get stale shells.
+  //
+  // Self-review fix (PR #501): the cache key is the URL pathname, not
+  // the full Request, so /proof?capsule_url=A and /proof?capsule_url=B
+  // and /proof?capsule_url=C all collapse onto a single cache entry
+  // for /proof. Without this, every distinct deep-link from /kh-fleet
+  // ("verify →" buttons) added an unbounded entry to the runtime cache.
+  // The runtime <script> on /proof reads window.location.search at
+  // execution time, so query-string variants don't need separate
+  // cached HTML — the canonical /proof shell handles them all.
   if (req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html")) {
+    const cacheKey = new Request(url.pathname, { method: "GET" });
     event.respondWith(
       fetch(req)
         .then((res) => {
           if (res && res.ok) {
             const copy = res.clone();
-            caches.open(RUNTIME_CACHE).then((c) => c.put(req, copy));
+            caches.open(RUNTIME_CACHE).then((c) => c.put(cacheKey, copy));
           }
           return res;
         })
         .catch(() =>
-          caches.match(req).then((cached) => cached || caches.match("/proof"))
+          caches.match(cacheKey).then((cached) => cached || caches.match("/proof"))
         )
     );
   }
