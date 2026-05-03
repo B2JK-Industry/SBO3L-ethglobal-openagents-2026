@@ -6,13 +6,15 @@
     "cta_view_source": "View source",
     "cta_walk_demo": "Walk the demo",
     "cta_verify": "Verify a capsule yourself",
+    "cta_full_english": "Read full English version",
     "nav_features": "Features",
     "nav_proof": "Proof",
     "nav_demo": "Demo",
     "nav_docs": "Docs",
     "nav_github": "GitHub",
     "nav_quickstart": "Quickstart",
-    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 submission"
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 submission",
+    "partial_translation_note": "This translation covers only the headline sections. The full version with all technical detail is available in"
   },
   "index": {
     "lede": "SBO3L is the cryptographically verifiable trust layer for autonomous AI agents. Every action your agent takes — pay, swap, store, compute, coordinate — passes through SBO3L's policy boundary first. Output: a self-contained Passport capsule anyone can verify offline.",
@@ -32,6 +34,26 @@
   },
   "proof": {
     "h1": "Verify a Passport capsule",
-    "lede": "Paste or drop a capsule. All 6 strict-mode checks run in your browser via a WASM-compiled sbo3l-core. No data leaves the page — no upload, no API call, no analytics."
+    "lede": "Paste or drop a capsule. All 6 strict-mode checks run in your browser via a WASM-compiled sbo3l-core. No data leaves the page — no upload, no API call, no analytics.",
+    "section_what_checks": "What gets checked",
+    "what_checks_blurb": "A v2 capsule embeds the policy snapshot and audit segment. The verifier runs all 6 checks with no aux input: structural invariants, request hash recompute, policy hash recompute, receipt signature, audit chain, and audit event link. v1 capsules pass the structural and request-hash checks; the remaining four show as SKIPPED — that's an honest report, never a fake-OK."
+  },
+  "status": {
+    "h1": "What's live, what's mock, what's roadmap",
+    "lede": "An honest, surface-by-surface inventory of where SBO3L is end-to-end live, where the executor is mocked, and where the path is roadmap. Counters at the top match the rows below.",
+    "section_legend": "Legend",
+    "legend_blurb": "Each row is one user-facing surface. Live = end-to-end signed and verifiable. Mock = the contract or executor is intentionally a fake we own. Not yet = path designed, not yet wired."
+  },
+  "try_page": {
+    "h1": "Try SBO3L in 5 minutes",
+    "lede": "An eight-step sticky-scroll walkthrough: stand up the daemon, point an agent at it, watch a capsule emit, verify the capsule offline. No wallet, no API key, no SaaS account.",
+    "section_outcome": "What you walk away with",
+    "outcome_blurb": "By the end you have a running daemon, an agent making allowed and denied requests, and one signed Passport capsule on disk that you can hand to anyone for offline verification."
+  },
+  "keeperhub": {
+    "h1": "SBO3L × KeeperHub — guarded execution for cron agents",
+    "lede": "Drop SBO3L between any KeeperHub workflow and any cron agent. Every tick passes through the policy boundary; allowed ticks emit a signed Passport capsule that anyone can verify offline.",
+    "section_evidence": "Live evidence",
+    "evidence_blurb": "Workflow m4t4cnpmhv8qquce3bv3c on KeeperHub has been running cron ticks against the SBO3L policy boundary since April 2026. Five capsules from that run are downloadable on /kh-fleet — each verifies under all 6 strict-mode WASM checks on /proof."
   }
 }

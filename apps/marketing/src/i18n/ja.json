@@ -7,18 +7,57 @@
     "cta_view_source": "ソースを見る",
     "cta_walk_demo": "デモを見る",
     "cta_verify": "カプセルを自分で検証",
+    "cta_full_english": "完全な英語版を読む",
     "nav_features": "機能",
     "nav_proof": "証明",
     "nav_demo": "デモ",
     "nav_docs": "ドキュメント",
     "nav_github": "GitHub",
     "nav_quickstart": "クイックスタート",
-    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — 提出作品"
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — 提出作品",
+    "partial_translation_note": "この翻訳は主要セクションのみをカバーしています。すべての技術的詳細を含む完全版はこちらで入手可能です:"
   },
   "index": {
-    "lede": "SBO3L は自律型 AI エージェント向けの暗号学的に検証可能な信頼レイヤーです。エージェントが実行するすべてのアクション — 支払い、スワップ、ストレージ、計算、調整 — はまず SBO3L のポリシー境界を通過します。"
+    "lede": "SBO3L は自律型 AI エージェント向けの暗号学的に検証可能な信頼レイヤーです。エージェントが実行するすべてのアクション — 支払い、スワップ、ストレージ、計算、調整 — はまず SBO3L のポリシー境界を通過します。出力: 誰もがオフラインで検証できる自己完結型 Passport カプセル。",
+    "section_what_is": "SBO3L とは",
+    "section_what_blocks": "SBO3L がブロックするもの",
+    "section_evidence": "実稼働統合の証拠",
+    "section_arch": "アーキテクチャ",
+    "section_reproduce": "自分で再現する",
+    "section_resources": "リソース",
+    "what_is_blurb": "AI エージェント向けのローカル ポリシー + 予算 + 領収書 + 監査ファイアウォールを実装する Rust ワークスペース。許可 → スポンサー実行器へのルーティング (KeeperHub, Uniswap)。拒否 → 実行器は呼び出されません。すべての決定は、エージェントが公開した Ed25519 公開鍵のみを使って誰でもオフライン検証可能な Passport カプセルにラップできます。"
   },
   "submission": {
-    "h1": "自律型 AI エージェント向けの暗号学的に検証可能な信頼レイヤー。"
+    "eyebrow": "ETHGlobal Open Agents 2026 · 提出作品",
+    "h1": "自律型 AI エージェント向けの暗号学的に検証可能な信頼レイヤー。",
+    "judge_test_h2": "審査員テスト",
+    "judge_test_body": "上記のいかなる主張も、私たちの言葉だけで信じないでください。/proof にカプセルをドロップしてください。WebAssembly 検証器 — デーモン内部で動作する同じ Rust コードを wasm32 にコンパイルしたもの — が、ブラウザ内で 6 つの strict チェックすべてを実行します。アップロードなし、API 呼び出しなし、デーモンなし。6 つの緑色のチェック、または具体的な拒否理由。"
+  },
+  "proof": {
+    "h1": "Passport カプセルを検証",
+    "lede": "カプセルを貼り付けるかドロップしてください。6 つの strict モード チェックすべてが、WASM コンパイルされた sbo3l-core を介してブラウザ内で実行されます。データはページから一切出ません — アップロードなし、API 呼び出しなし、アナリティクスなし。",
+    "_TODO_JA_REVIEW": "Native Japanese reviewer: 'strict モード', 'WASM', 'Passport カプセル' kept in mixed Latin-Japanese (technical/brand terms).",
+    "section_what_checks": "検証される項目",
+    "what_checks_blurb": "v2 カプセルはポリシー スナップショットと監査セグメントを埋め込んでいます。検証器は補助入力なしに 6 つのチェックすべてを実行します: 構造的不変条件、リクエスト ハッシュ再計算、ポリシー ハッシュ再計算、領収書署名、監査チェーン、監査イベント リンク。v1 カプセルは構造とリクエスト ハッシュのチェックを通過し、残りの 4 つは SKIPPED として表示されます — これは誠実な報告であり、決して偽の OK ではありません。"
+  },
+  "status": {
+    "h1": "稼働中・モック・ロードマップ",
+    "lede": "表面ごとの誠実なインベントリ: SBO3L がエンドツーエンドで稼働している箇所、実行器がモックされている箇所、経路がロードマップである箇所。上部のカウンターは下の行と一致します。",
+    "section_legend": "凡例",
+    "legend_blurb": "各行は 1 つのユーザー向け表面です。Live = エンドツーエンドで署名され検証可能。Mock = 私たちが意図的に所有する偽のコントラクトまたは実行器。Not yet = 経路設計済み、未配線。",
+    "_TODO_JA_REVIEW": "Native Japanese reviewer: 'Live/Mock/Not yet' kept in English to mirror the truth-table headers."
+  },
+  "try_page": {
+    "h1": "5 分で SBO3L を試す",
+    "lede": "8 ステップの sticky-scroll ウォークスルー: デーモンを起動し、エージェントを向けさせ、カプセルが生成されるのを観察し、カプセルをオフライン検証する。ウォレットなし、API キーなし、SaaS アカウントなし。",
+    "section_outcome": "得られるもの",
+    "outcome_blurb": "終わると、稼働中のデーモン、許可と拒否のリクエストを行うエージェント、そして誰にでも渡してオフライン検証できる、ディスク上の署名済み Passport カプセル 1 つが手に入ります。"
+  },
+  "keeperhub": {
+    "h1": "SBO3L × KeeperHub — cron エージェント向けガード付き実行",
+    "lede": "任意の KeeperHub ワークフローと任意の cron エージェントの間に SBO3L を配置してください。すべてのティックがポリシー境界を通過します; 許可されたティックは、誰もがオフライン検証できる署名済み Passport カプセルを発行します。",
+    "section_evidence": "実稼働の証拠",
+    "evidence_blurb": "KeeperHub のワークフロー m4t4cnpmhv8qquce3bv3c は 2026 年 4 月から SBO3L のポリシー境界に対して cron ティックを実行してきました。その実行からの 5 つのカプセルが /kh-fleet でダウンロード可能です — 各カプセルは /proof の 6 つの strict モード WASM チェックすべてに合格します。",
+    "_TODO_JA_REVIEW": "Native Japanese reviewer: 'cron', 'ワークフロー', 'ティック' technical terms left as-is. 'KeeperHub' product name kept."
   }
 }
