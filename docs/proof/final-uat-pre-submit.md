@@ -133,14 +133,18 @@ node -e "console.log(Object.keys(require('@sbo3l/anthropic')))"
 | `npm test` from integration leaf dir (vitest hoisting) | 🟢 Low | Dev 2 | Follow-up; not user-facing |
 | `/submission/<slug>` for erc-8004/privy/sbe | 🟢 Low | Dev 3 | Optional; only 4 of 7 speculated slugs are deployed today |
 
-## Round 2 — pending Daniel's mainnet OR redeploy
+## Round 2 — pending Daniel's NÁVOD 1 (mainnet Phase 2 setText + Sepolia OR redeploy)
+
+> **Scope clarification (corrected post-codex P1):** there is no "mainnet OR" — the OffchainResolver is a **Sepolia-only** contract; the mainnet apex `sbo3lagent.eth` uses the regular `PublicResolver` and stores its `sbo3l:*` records directly on chain. NÁVOD 1 is two independent pieces:
+> 1. **Mainnet:** Phase 2 setText calls to add `sbo3l:pubkey_ed25519` + `sbo3l:capabilities` to the apex.
+> 2. **Sepolia:** OR redeploy with the canonical URL template (the actual Bug #2 fix).
 
 Will re-run when Daniel completes NÁVOD 1:
 
-1. `sbo3l agent verify-ens sbo3lagent.eth --network mainnet` → expect `verdict: PASS` with **all 7+ records non-empty** (including new `sbo3l:pubkey_ed25519` and `sbo3l:capabilities`)
-2. Confirm `sbo3l:endpoint` is **NOT localhost** any more (was bug #3)
-3. Decode the new OffchainResolver `urls(0)` → expect well-formed `{sender}/{data}.json`
-4. Live CCIP-Read flow: cast a real ENSIP-25 request against the new resolver, confirm gateway signs response correctly
+1. `sbo3l agent verify-ens sbo3lagent.eth --network mainnet` → expect `verdict: PASS` with **all 7+ records non-empty** (including new `sbo3l:pubkey_ed25519` and `sbo3l:capabilities` from the mainnet Phase 2 setText calls)
+2. Confirm `sbo3l:endpoint` on mainnet is **NOT localhost** any more (was bug #3)
+3. Decode the **new Sepolia OR** `urls(0)` → expect well-formed `{sender}/{data}.json` (the actual Bug #2 fix happens on Sepolia, not mainnet)
+4. Live CCIP-Read flow: cast a real ENSIP-25 request against the new Sepolia resolver, confirm gateway signs response correctly
 
 ## Round 3 — pending Daniel's demo video
 

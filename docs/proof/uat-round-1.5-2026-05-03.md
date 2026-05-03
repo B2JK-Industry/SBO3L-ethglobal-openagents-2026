@@ -34,7 +34,7 @@ For each R18 PR landing on main, run the targeted check from Daniel's R18 brief,
 
 ## Cascade snapshot at session start
 
-Open R18 PRs at 2026-05-03 ~00:10 UTC:
+Open R18 PRs at 2026-05-02 ~22:10 UTC:
 
 - #383 [agent/dev4/sepolia-or-redeploy-task-a] — fix(deploy): Task A — pin canonical URL template + probe tests
 - #384 [agent/dev1/doctor-extended] — feat(cli): sbo3l doctor --extended — Sepolia contract liveness probes
@@ -43,7 +43,7 @@ Both auto-merge armed. Will verify post-merge.
 
 ## Per-PR verification entries
 
-### Batch 1 — verified 2026-05-03 ~00:50 UTC
+### Batch 1 — verified 2026-05-02 ~22:50 UTC
 
 Five R18 PRs landed in the same 80-second window:
 
@@ -65,7 +65,7 @@ This PR is Task A of a three-PR sequence (A/B/C). Task B = #390 (deploy + regist
 
 **Note:** the PR body has a typo in the new OR address — it shows `0x87e99508Ad7DdaBcdf67C50ad5cFC18906bDb1f6` (capital letters in middle) but the actual deploy script + onchain reality is `0x87e99508c222c6e419734cacbb6781b8d282b1f6`. The deploy + onchain state are correct; only the PR body display is wrong. Filing minor doc-fix follow-up.
 
-**Bug status:** Heidi's UAT-1 Bug #2 (malformed gateway URL onchain) is now **FIXED on Sepolia**. The mainnet apex `sbo3lagent.eth` still points at the OLD OR (`0x7c69…A8c3`); pinning the new addr in `contracts.rs` + updating mainnet ENS record is Task C (pending).
+**Bug status:** Heidi's UAT-1 Bug #2 (malformed gateway URL onchain) is now **FIXED on Sepolia** (the only network where the OffchainResolver is deployed). The mainnet apex `sbo3lagent.eth` uses a regular `PublicResolver` (`0xF29100983E058B709F3D539b0c765937B804AC15`) and stores text records directly on chain — it does **not** depend on the OR, so there is no mainnet-side OR fix needed. Remaining Task C work: pin the new Sepolia OR address in `crates/sbo3l-identity/src/contracts.rs` so `sbo3l doctor --extended` probes the new deployment instead of the orphaned old one.
 
 #### #386 — Dev 1 PR2 — P-marker cleanup ✅ PASS — **Bug #5 FIXED**
 
@@ -99,14 +99,14 @@ All four help texts free of `P[0-9]+\.[0-9]+` markers. Heidi's UAT-1 Bug #5 full
 
 All three brief requirements met.
 
-### Batch 1 verdict — all 5 PASS, 2 UAT-1 bugs closed (#2, #5)
+### Batch 1 verdict — all 5 PASS, Bug #5 fully closed; Bug #2 closed on the network it actually lives on
 
 R18 batch 1 lands a major chunk of Heidi's UAT-1 follow-ups:
-- Bug #2 fixed on Sepolia (#390 Task B; mainnet update pending Task C)
-- Bug #5 fixed (#386)
-- Plus operational upgrades (#384 doctor extension; #392 live KH dashboard) and deploy-script regression guard (#383)
+- **Bug #5 fully fixed** (#386)
+- **Bug #2 fixed on Sepolia** (#390 Task B) — Sepolia is the only network where the OR is deployed; mainnet apex uses `PublicResolver` directly and was never affected by Bug #2. Remaining Task C work: bump the inlined OR address in `contracts.rs` so `sbo3l doctor --extended` probes the new deployment.
+- Plus operational upgrades (#384 doctor extension; #392 live KH dashboard) and deploy-script regression guard (#383).
 
-Task C (contracts.rs pin + mainnet ENS update + doc memory updates) is the remaining piece for full Bug #2 closure.
+Task C (contracts.rs pin + judge-facing doc memory updates) is the remaining piece for the doctor-side closure.
 
 ### Open R18 PRs at batch 1 close
 
@@ -116,7 +116,7 @@ Task C (contracts.rs pin + mainnet ENS update + doc memory updates) is the remai
 
 Batch 2 verification fires when these land.
 
-### Batch 2 — verified 2026-05-03 ~01:30 UTC — **regression bug found**
+### Batch 2 — verified 2026-05-02 ~23:25 UTC — **regression bug found**
 
 8 R18 PRs landed in a 25-second window:
 
