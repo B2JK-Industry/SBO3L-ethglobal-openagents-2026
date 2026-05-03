@@ -6,14 +6,16 @@ name: Integrations publish
 # is pushed.
 #
 # Tag conventions:
-#   langchain-ts-v*  → @sbo3l/langchain        (npm)
-#   autogen-v*       → @sbo3l/autogen          (npm)
-#   elizaos-v*       → @sbo3l/elizaos          (npm)
-#   vercel-ai-v*     → @sbo3l/vercel-ai        (npm)
-#   langchain-py-v*  → sbo3l-langchain         (PyPI)
-#   crewai-py-v*     → sbo3l-crewai            (PyPI)
-#   llamaindex-py-v* → sbo3l-llamaindex        (PyPI)
-#   langgraph-py-v*  → sbo3l-langgraph         (PyPI)
+#   langchain-ts-v*           → @sbo3l/langchain               (npm)
+#   langchain-keeperhub-ts-v* → @sbo3l/langchain-keeperhub     (npm)
+#   autogen-v*                → @sbo3l/autogen                 (npm)
+#   elizaos-v*                → @sbo3l/elizaos                 (npm)
+#   vercel-ai-v*              → @sbo3l/vercel-ai               (npm)
+#   langchain-py-v*           → sbo3l-langchain                (PyPI)
+#   langchain-keeperhub-py-v* → sbo3l-langchain-keeperhub      (PyPI)
+#   crewai-py-v*              → sbo3l-crewai                   (PyPI)
+#   llamaindex-py-v*          → sbo3l-llamaindex               (PyPI)
+#   langgraph-py-v*           → sbo3l-langgraph                (PyPI)
 #
 # OIDC trusted publishing (PyPI) and npm provenance (npm) — same model as
 # sdk-typescript.yml + sdk-python.yml.
@@ -23,10 +25,12 @@ on:
     branches: ["**"]
     tags:
       - "langchain-ts-v*"
+      - "langchain-keeperhub-ts-v*"
       - "autogen-v*"
       - "elizaos-v*"
       - "vercel-ai-v*"
       - "langchain-py-v*"
+      - "langchain-keeperhub-py-v*"
       - "crewai-py-v*"
       - "llamaindex-py-v*"
       - "langgraph-py-v*"
