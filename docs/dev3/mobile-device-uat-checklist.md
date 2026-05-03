@@ -37,7 +37,7 @@ For every page below: open the URL on phone, then run the steps. Mark ✅ pass /
 - [ ] CinematicDecision auto-plays after FCP; 6 scenes cycle without freezing
 - [ ] Primary CTA button "Start in 5 minutes" is comfortably tappable (≥ 44×44 px), visibly underlined or button-shaped
 - [ ] Tier cards (Tier 1 / Tier 2 / Tier 3) tap-navigate to /demo, /playground, /playground/live
-- [ ] Sponsor strip (KH, ENS, Uniswap, Anthropic) shows 4 cards in a grid; cards have brand motifs
+- [ ] Sponsor strip (KH, ENS, Uniswap) shows 3 cards in a grid; cards have brand motifs
 - [ ] KeyFlowDiagram renders (agent → daemon → executor with audit-log box below)
 - [ ] Footer links work; nothing overflows
 
