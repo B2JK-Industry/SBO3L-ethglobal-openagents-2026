@@ -265,6 +265,13 @@ jobs:
             # When Daniel completes the PyPI Trusted Publisher registration
             # + the publish job lands, drop this `allow_failure` line.
             allow_failure: true
+          - package: sbo3l-autogen-keeperhub
+            # Pending first PyPI publish — Trusted Publisher registration
+            # required (same gating story as sbo3l-langchain-keeperhub
+            # above; once the publish workflow lands a v1.2.0 the entry
+            # flips to a hard requirement). Tracking the same
+            # docs/dev2/pypi-langchain-keeperhub-publish-blocker.md note.
+            allow_failure: true
           - package: sbo3l-crewai
           - package: sbo3l-llamaindex
           - package: sbo3l-langgraph

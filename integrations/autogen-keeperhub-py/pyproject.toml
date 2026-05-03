@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-autogen-keeperhub"
+version = "1.2.0"
+description = "Microsoft AutoGen Python tool that gates KeeperHub workflow execution through SBO3L's policy boundary. Composable with sbo3l-sdk."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+keywords = ["sbo3l", "autogen", "pyautogen", "keeperhub", "agent", "policy", "tool", "ai-agent", "workflow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.6,<3",
+]
+
+[project.optional-dependencies]
+sdk = ["sbo3l-sdk>=1.0.0,<2"]
+# `autogen-agentchat` is the actively-maintained Microsoft AutoGen
+# distribution (the legacy `pyautogen` 0.2.x line was retired and the
+# `pyautogen` PyPI package is now an empty redirect stub since 0.10).
+# Our register helper duck-types against either AssistantAgent's
+# `tools=[...]` constructor surface (0.4.x+) or the legacy
+# ConversableAgent.register_function(function_map=...) surface — pinning
+# the modern dist as the optional extra; legacy users can install
+# `autogen-agentchat<0.4` themselves and our helper still works.
+autogen = ["autogen-agentchat>=0.4,<1"]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-httpx>=0.30,<1",
+    "ruff>=0.4,<1",
+    "mypy>=1.10,<2",
+    "pydantic>=2.6,<3",
+]
+
+[project.urls]
+Homepage = "https://sbo3l.dev"
+Repository = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sbo3l_autogen_keeperhub"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "RUF"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+files = ["sbo3l_autogen_keeperhub"]
+
+# pyautogen ships no PEP 561 type stubs. mypy --strict can't resolve
+# `from autogen import ConversableAgent` without them, so we mark the
+# namespace as untyped.
+[[tool.mypy.overrides]]
+module = ["autogen.*", "autogen_core.*", "autogen_agentchat.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]

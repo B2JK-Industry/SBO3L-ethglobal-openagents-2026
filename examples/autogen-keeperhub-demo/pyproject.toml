@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sbo3l-example-autogen-keeperhub-demo"
+version = "0.0.1"
+description = "Runnable SBO3L → KeeperHub demo inside an AutoGen 2-agent conversation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daniel Babjak", email = "babjak_daniel@hotmail.com" }]
+dependencies = [
+    # `file:` deps point at the in-repo SDK + adapter so the demo always
+    # tracks the local source, not whatever's published on PyPI. For
+    # editable installs in dev / CI prefer:
+    #   pip install -e ../../sdks/python \
+    #               -e ../../integrations/autogen-keeperhub-py \
+    #               -e .
+    "sbo3l-sdk>=1.0.0,<2",
+    "sbo3l-autogen-keeperhub>=1.2.0,<2",
+]
+
+[project.optional-dependencies]
+autogen = [
+    # Pull in the modern AutoGen distribution if a dev wants to swap
+    # the duck-typed _MockAgent in agent.py for the real
+    # AssistantAgent + a model_client. Demo runs without this extra.
+    "autogen-agentchat>=0.4,<1",
+]
+
+[project.scripts]
+sbo3l-autogen-keeperhub-demo = "agent:main"
+
+[tool.hatch.build.targets.wheel]
+# Single-file script — ship `agent.py` at the wheel root rather than
+# wrapping it in a package directory (mirrors how the langchain
+# demos directory ships individual one-file demos with no package
+# structure).
+include = ["agent.py", "README.md"]
+sources = ["."]
+
+[tool.hatch.build.targets.sdist]
+include = ["agent.py", "README.md", "pyproject.toml"]
