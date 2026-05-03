@@ -7,13 +7,15 @@
     "cta_view_source": "소스 보기",
     "cta_walk_demo": "데모 둘러보기",
     "cta_verify": "캡슐 직접 검증하기",
+    "cta_full_english": "전체 영문 버전 읽기",
     "nav_features": "기능",
     "nav_proof": "증명",
     "nav_demo": "데모",
     "nav_docs": "문서",
     "nav_github": "GitHub",
     "nav_quickstart": "빠른 시작",
-    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 제출작"
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 제출작",
+    "partial_translation_note": "이 번역은 핵심 섹션만 다룹니다. 모든 기술 세부사항을 포함한 전체 버전은 다음에서 확인할 수 있습니다:"
   },
   "index": {
     "lede": "SBO3L은 자율 AI 에이전트를 위한 암호학적으로 검증 가능한 신뢰 계층입니다. 에이전트가 수행하는 모든 작업 — 결제, 스왑, 저장, 연산, 조정 — 은 먼저 SBO3L의 정책 경계를 통과합니다. 결과물: 누구나 오프라인에서 검증할 수 있는 자기 완결형 Passport 캡슐.",
@@ -34,6 +36,28 @@
   "proof": {
     "h1": "Passport 캡슐 검증",
     "lede": "캡슐을 붙여넣거나 끌어다 놓으세요. 6가지 strict 모드 검사 모두 WASM으로 컴파일된 sbo3l-core를 통해 브라우저에서 실행됩니다. 어떤 데이터도 페이지를 떠나지 않습니다 — 업로드 없음, API 호출 없음, 분석 없음.",
-    "_TODO_KO_REVIEW": "Native Korean reviewer: 'strict 모드' is left in English-Korean mix; consider '엄격 모드' for full Korean. Same for 'WASM' (technical term, leave) and 'Passport 캡슐' (brand term, leave)."
+    "_TODO_KO_REVIEW": "Native Korean reviewer: 'strict 모드' is left in English-Korean mix; consider '엄격 모드' for full Korean. Same for 'WASM' (technical term, leave) and 'Passport 캡슐' (brand term, leave).",
+    "section_what_checks": "검증 항목",
+    "what_checks_blurb": "v2 캡슐은 정책 스냅샷과 감사 세그먼트를 포함합니다. 검증기는 보조 입력 없이 6가지 검사를 모두 실행합니다: 구조적 불변성, 요청 해시 재계산, 정책 해시 재계산, 영수증 서명, 감사 체인, 감사 이벤트 링크. v1 캡슐은 구조 검사와 요청-해시 검사를 통과하며, 나머지 4개는 SKIPPED로 표시됩니다 — 이는 정직한 보고이며 결코 거짓 OK가 아닙니다."
+  },
+  "status": {
+    "h1": "라이브, 모의(mock), 로드맵",
+    "lede": "표면별 정직한 인벤토리: SBO3L이 엔드투엔드로 라이브인 곳, 실행기가 모의된 곳, 경로가 로드맵인 곳. 상단 카운터는 아래 행과 일치합니다.",
+    "section_legend": "범례",
+    "legend_blurb": "각 행은 하나의 사용자 대면 표면입니다. Live = 엔드투엔드 서명되고 검증 가능. Mock = 우리가 의도적으로 만든 가짜 계약 또는 실행기. Not yet = 경로 설계됨, 아직 연결되지 않음.",
+    "_TODO_KO_REVIEW": "Native Korean reviewer: 'Live/Mock/Not yet' kept in English to mirror the truth-table headers."
+  },
+  "try_page": {
+    "h1": "5분 안에 SBO3L 시도하기",
+    "lede": "8단계 sticky-scroll 워크스루: 데몬 실행, 에이전트를 가리키기, 캡슐 발생 관찰, 캡슐을 오프라인 검증. 지갑 없음, API 키 없음, SaaS 계정 없음.",
+    "section_outcome": "얻게 되는 것",
+    "outcome_blurb": "끝나면 실행 중인 데몬, 허용 및 거부된 요청을 만드는 에이전트, 그리고 누구에게나 건네 오프라인 검증할 수 있는 디스크 상의 서명된 Passport 캡슐 1개를 갖게 됩니다."
+  },
+  "keeperhub": {
+    "h1": "SBO3L × KeeperHub — cron 에이전트를 위한 가드된 실행",
+    "lede": "임의의 KeeperHub 워크플로우와 임의의 cron 에이전트 사이에 SBO3L을 배치하세요. 모든 틱이 정책 경계를 통과합니다; 허용된 틱은 누구나 오프라인 검증할 수 있는 서명된 Passport 캡슐을 발생시킵니다.",
+    "section_evidence": "라이브 증거",
+    "evidence_blurb": "KeeperHub의 워크플로우 m4t4cnpmhv8qquce3bv3c는 2026년 4월부터 SBO3L 정책 경계에 대해 cron 틱을 실행해왔습니다. 해당 실행의 5개 캡슐을 /kh-fleet에서 다운로드할 수 있습니다 — 각 캡슐은 /proof의 6가지 strict 모드 WASM 검사를 모두 통과합니다.",
+    "_TODO_KO_REVIEW": "Native Korean reviewer: 'cron', 'workflow', 'tick' technical terms left in English. 'KeeperHub' is a product name and stays."
   }
 }

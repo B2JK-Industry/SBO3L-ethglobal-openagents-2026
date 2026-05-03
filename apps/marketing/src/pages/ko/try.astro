@@ -1,0 +1,39 @@
+---
+import BaseLayout from "~/layouts/BaseLayout.astro";
+import LocaleSwitcher from "~/components/LocaleSwitcher.astro";
+import { t } from "~/i18n";
+
+const locale = "ko" as const;
+---
+<BaseLayout
+  title={`SBO3L — ${t("try_page.h1", locale)}`}
+  description={t("try_page.lede", locale)}
+  lang="ko"
+>
+  <section class="hero">
+    <LocaleSwitcher current="ko" basePath="/try" />
+    <h1>{t("try_page.h1", locale)}</h1>
+    <p class="lede">{t("try_page.lede", locale)}</p>
+    <div class="cta">
+      <a class="btn primary" href="/try">{t("common.cta_walk_demo", locale)}</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>{t("try_page.section_outcome", locale)}</h2>
+    <p>{t("try_page.outcome_blurb", locale)}</p>
+  </section>
+
+  <section class="panel">
+    <p>
+      <em>{t("common.partial_translation_note", locale)} <a href="/try">{t("common.cta_full_english", locale)}</a>.</em>
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { max-width: var(--max); margin: 4em auto 3em; padding: 0 1.5em; }
+  .hero h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.3; margin: 0.5em 0 0.7em; word-break: keep-all; }
+  .hero .lede { font-size: var(--fs-2); color: var(--muted); margin-bottom: 1.5em; max-width: 700px; line-height: 1.6; }
+  .cta { display: flex; gap: 1em; flex-wrap: wrap; }
+</style>

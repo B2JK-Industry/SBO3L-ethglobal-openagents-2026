@@ -6,13 +6,15 @@
     "cta_view_source": "Pozrieť zdroj",
     "cta_walk_demo": "Prejsť demo",
     "cta_verify": "Overte si kapsulu",
+    "cta_full_english": "Prečítať plnú anglickú verziu",
     "nav_features": "Funkcie",
     "nav_proof": "Dôkaz",
     "nav_demo": "Demo",
     "nav_docs": "Dokumentácia",
     "nav_github": "GitHub",
     "nav_quickstart": "Rýchly štart",
-    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — odovzdaný projekt"
+    "footer_about": "SBO3L · ETHGlobal Open Agents 2026 — odovzdaný projekt",
+    "partial_translation_note": "Tento preklad pokrýva iba kľúčové sekcie. Plná verzia so všetkými technickými detailmi je dostupná v"
   },
   "index": {
     "lede": "SBO3L je kryptograficky overiteľná dôveryhodná vrstva pre autonómnych AI agentov. Každá akcia, ktorú agent vykoná — platba, swap, uloženie, výpočet, koordinácia — najprv prejde cez politickú hranicu SBO3L. Výstup: samostatná Passport kapsula, ktorú ktokoľvek overí offline.",
@@ -32,6 +34,26 @@
   },
   "proof": {
     "h1": "Overiť Passport kapsulu",
-    "lede": "Vložte alebo pretiahnite kapsulu. Všetkých 6 striktných kontrol prebieha vo vašom prehliadači cez WASM-kompilovaný sbo3l-core. Žiadne dáta neopúšťajú stránku — bez uploadov, bez API volaní, bez analytiky."
+    "lede": "Vložte alebo pretiahnite kapsulu. Všetkých 6 striktných kontrol prebieha vo vašom prehliadači cez WASM-kompilovaný sbo3l-core. Žiadne dáta neopúšťajú stránku — bez uploadov, bez API volaní, bez analytiky.",
+    "section_what_checks": "Čo sa kontroluje",
+    "what_checks_blurb": "Kapsula v2 obsahuje snímku politiky a audit segment. Overovač spúšťa všetkých 6 kontrol bez pomocných vstupov: štrukturálne invarianty, prepočet hash požiadavky, prepočet hash politiky, podpis potvrdenky, audit reťaz a prepojenie audit udalosti. Kapsuly v1 prejdú štrukturálnou a request-hash kontrolou; zvyšné štyri sú označené ako SKIPPED — to je čestné hlásenie, nikdy falošné OK."
+  },
+  "status": {
+    "h1": "Čo je živé, čo mock, čo roadmap",
+    "lede": "Čestná inventarizácia povrch-po-povrchu: kde je SBO3L kompletne live, kde je vykonávateľ mockovaný a kde je cesta roadmap. Počítadlá hore zodpovedajú riadkom dolu.",
+    "section_legend": "Legenda",
+    "legend_blurb": "Každý riadok je jeden užívateľsky viditeľný povrch. Live = end-to-end podpísané a overiteľné. Mock = kontrakt alebo vykonávateľ je zámerne fake, ktorý vlastníme. Zatiaľ nie = cesta navrhnutá, ešte nie zapojená."
+  },
+  "try_page": {
+    "h1": "Vyskúšajte SBO3L za 5 minút",
+    "lede": "Osemkrokový sticky-scroll návod: spustite daemon, namierte naň agenta, sledujte vznik kapsuly, overte kapsulu offline. Bez peňaženky, bez API kľúča, bez SaaS účtu.",
+    "section_outcome": "Čo si odnesiete",
+    "outcome_blurb": "Na konci máte bežiaci daemon, agenta robiaceho povolené aj zamietnuté požiadavky a jednu podpísanú Passport kapsulu na disku, ktorú môžete dať komukoľvek na offline overenie."
+  },
+  "keeperhub": {
+    "h1": "SBO3L × KeeperHub — strážená exekúcia pre cron agentov",
+    "lede": "Vložte SBO3L medzi ľubovoľný KeeperHub workflow a ľubovoľného cron agenta. Každý tick prejde cez politickú hranicu; povolené ticky vyrábajú podpísanú Passport kapsulu, ktorú ktokoľvek overí offline.",
+    "section_evidence": "Živé dôkazy",
+    "evidence_blurb": "Workflow m4t4cnpmhv8qquce3bv3c na KeeperHub beží cron tickmi cez politickú hranicu SBO3L od apríla 2026. Päť kapsúl z tohto behu je stiahnuteľných na /kh-fleet — každá prejde všetkými 6 striktnými WASM kontrolami na /proof."
   }
 }
