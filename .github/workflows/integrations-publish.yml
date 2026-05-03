@@ -39,6 +39,7 @@ on:
       - "langchain-keeperhub-py-v*"
       - "autogen-keeperhub-py-v*"
       - "crewai-py-v*"
+      - "crewai-keeperhub-py-v*"
       - "llamaindex-py-v*"
       - "langgraph-py-v*"
   pull_request:
@@ -150,7 +151,7 @@ jobs:
       # falls back to system Python). Listing both axes explicitly keeps
       # all 12 combos visible in the run summary.
       matrix:
-        id: [langchain-py, langchain-keeperhub-py, autogen-keeperhub-py, crewai-py, llamaindex-py, langgraph-py]
+        id: [langchain-py, langchain-keeperhub-py, autogen-keeperhub-py, crewai-py, crewai-keeperhub-py, llamaindex-py, langgraph-py]
         python: ["3.10", "3.11", "3.12"]
         include:
           - id: langchain-py
@@ -169,6 +170,10 @@ jobs:
             dir: integrations/crewai
             pkg: sbo3l-crewai
             module: sbo3l_crewai
+          - id: crewai-keeperhub-py
+            dir: integrations/crewai-keeperhub-py
+            pkg: sbo3l-crewai-keeperhub
+            module: sbo3l_crewai_keeperhub
           - id: llamaindex-py
             dir: integrations/llamaindex
             pkg: sbo3l-llamaindex
@@ -322,6 +327,7 @@ jobs:
       startsWith(github.ref, 'refs/tags/langchain-keeperhub-py-v') ||
       startsWith(github.ref, 'refs/tags/autogen-keeperhub-py-v') ||
       startsWith(github.ref, 'refs/tags/crewai-py-v') ||
+      startsWith(github.ref, 'refs/tags/crewai-keeperhub-py-v') ||
       startsWith(github.ref, 'refs/tags/llamaindex-py-v') ||
       startsWith(github.ref, 'refs/tags/langgraph-py-v')
     permissions:
@@ -347,6 +353,10 @@ jobs:
             tag_prefix: crewai-py-v
             dir: integrations/crewai
             pkg: sbo3l-crewai
+          - id: crewai-keeperhub-py
+            tag_prefix: crewai-keeperhub-py-v
+            dir: integrations/crewai-keeperhub-py
+            pkg: sbo3l-crewai-keeperhub
           - id: llamaindex-py
             tag_prefix: llamaindex-py-v
             dir: integrations/llamaindex

@@ -275,6 +275,13 @@ jobs:
             # docs/dev2/pypi-langchain-keeperhub-publish-blocker.md note.
             allow_failure: true
           - package: sbo3l-crewai
+          - package: sbo3l-crewai-keeperhub
+            # Pending first PyPI publish — once the publish workflow
+            # fires on the `crewai-keeperhub-py-v1.2.0` tag and the
+            # Trusted Publisher config is in place, drop this
+            # `allow_failure` line. Same precedent as
+            # `sbo3l-langchain-keeperhub` above.
+            allow_failure: true
           - package: sbo3l-llamaindex
           - package: sbo3l-langgraph
     steps:
