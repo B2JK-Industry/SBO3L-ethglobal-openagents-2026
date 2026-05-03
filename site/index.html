@@ -81,7 +81,7 @@ footer a:hover{text-decoration:underline}
 
 <li>
 <a href="capsule.json">SBO3L Passport capsule — <code>sbo3l.passport_capsule.v1</code></a>
-<div class="desc">A self-contained, offline-verifiable proof artefact for one Allow decision. Schema + structural verifier shipped in PR #42; the passport CLI MVP shipped in PR #44. Download this file and run <code>sbo3l passport verify --path capsule.json</code> from a fresh clone — the schema and every cross-field invariant (deny→no execution, live→evidence, request/policy hash internal-consistency) re-verifies offline; pass <code>--strict</code> with <code>--policy</code> / <code>--receipt-pubkey</code> / <code>--audit-bundle</code> to additionally re-derive cryptography from the capsule alone.</div>
+<div class="desc">A self-contained, offline-verifiable proof artefact for one Allow decision. Download this file and run <code>sbo3l passport verify --path capsule.json</code> — the schema and every cross-field invariant (deny→no execution, live→evidence, request/policy hash internal-consistency) re-verifies offline. <strong>Note on this canonical fixture:</strong> <code>execution.mode</code> is intentionally <code>mock</code> for reproducibility (anyone can re-derive byte-for-byte from a fresh clone). For real KeeperHub execution evidence — real <code>executionId</code>, real signed envelope, real audit chain row — see the <a href="https://sbo3l-marketing.vercel.app/kh-fleet">/kh-fleet live dashboard</a> showing 5 v2 capsules from production runs against KH workflow <code>m4t4cnpmhv8qquce3bv3c</code>, plus the mainnet UNI-A1 broadcast tx <a href="https://etherscan.io/tx/0xed68d1301b479c4229bc89cca5162b56517b80cbaeb654323e05b183000aff0b">0xed68d1…aff0b</a> on Etherscan.</div>
 </li>
 
 </ul>
