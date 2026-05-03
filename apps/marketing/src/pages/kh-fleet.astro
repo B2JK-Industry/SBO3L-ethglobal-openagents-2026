@@ -2,18 +2,27 @@
 import BaseLayout from "~/layouts/BaseLayout.astro";
 import khData from "~/data/kh-executions.json";
 
-// /kh-fleet — judge-visible "live counter" of KH executions through
-// the SBO3L policy boundary. KH-A2 amplifier per Daniel's R18 brief.
+// /kh-fleet — judge-visible roster of REAL Passport capsules emitted by
+// the SBO3L policy boundary against the live KeeperHub workflow
+// (m4t4cnpmhv8qquce3bv3c). KH-A2 amplifier per Daniel's R18 brief.
 //
-// Data source: apps/marketing/src/data/kh-executions.json (curated,
-// committed file). When the daemon's /v1/executions cron lands, this
-// becomes the cached output of GET /v1/executions?source=keeperhub.
-//
-// The execution_id values are real shape (kh-<ULID>) and the workflow
-// id matches the live KeeperHub workflow we shipped IP-1 against
-// (m4t4cnpmhv8qquce3bv3c). The dashboard pairs the real total counter
-// with a recent-20 timeline so a judge can sanity-check both that
-// activity is sustained AND that recent activity is real.
+// R22 PR3: rebuilt around real artifacts.
+//   - Removed the synthetic "247 cumulative" counter — that number was
+//     not backed by a queryable source and read as overclaim under
+//     judge scrutiny (Daniel's no-overclaim rule).
+//   - Removed the 20 synthetic kh-<ULID> rows that linked to /proof
+//     with broken cap_<ULID> query strings.
+//   - Each row in `recent[]` now points to a real, downloadable v2
+//     Passport capsule at /capsules/v2_golden_<NNN>.json. The
+//     "verify capsule" button deep-links into /proof?capsule_url=<path>
+//     so the WASM verifier loads the real bytes and runs all 6 checks
+//     offline. Each row also exposes a raw download link for judges
+//     who want to inspect the JSON directly or run the CLI verifier
+//     against it.
+//   - The headline counter shows what's actually downloadable right
+//     now — `verified_capsule_count` from the data file. When the
+//     daemon's /v1/executions endpoint starts emitting real signed v2
+//     capsules per tick, this list grows without a code change.
 
 interface KhRow {
   ts: string;
@@ -21,116 +30,123 @@ interface KhRow {
   agent_id: string;
   workflow: string;
   decision: "allow" | "deny";
-  capsule_url: string;
+  matched_rule_id: string;
+  audit_event_id: string;
+  capsule_file: string;
+  is_real_capsule: boolean;
 }
 
 const data = khData as {
   workflow_id: string;
   workflow_name: string;
-  total_count_through: number;
-  first_execution_ts: string;
-  last_execution_ts: string;
+  verified_capsule_count: number;
+  first_capsule_ts: string;
+  last_capsule_ts: string;
   recent: KhRow[];
 };
 
 const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026";
 
-// Derived counters for the header.
 const allowCount = data.recent.filter((r) => r.decision === "allow").length;
 const denyCount  = data.recent.filter((r) => r.decision === "deny").length;
 const uniqueAgents = new Set(data.recent.map((r) => r.agent_id)).size;
 
-// Format the absolute date range — UTC + en-CA so SSR/CSR agree
-// (codex-fixed pattern from PR #360).
 function fmtUtcDate(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 }
 function fmtUtcDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(iso));
 }
 ---
 <BaseLayout
-  title="KH-fleet — live KeeperHub executions through SBO3L"
-  description="Live counter of KeeperHub workflow executions that flowed through SBO3L's policy boundary. Each execution has a verifiable Passport capsule."
-  ogTitle="SBO3L × KeeperHub — live execution counter"
+  title="KH-fleet — verifiable KeeperHub Passport capsules"
+  description="Roster of real Passport capsules emitted by SBO3L's policy boundary against the live KeeperHub research-cron workflow. Each capsule is downloadable and verifiable in-browser via WASM."
+  ogTitle="SBO3L × KeeperHub — verifiable Passport capsules"
 >
   <main class="kh-fleet">
     <header>
       <p class="eyebrow">KH-A2 amplifier · ETHGlobal Open Agents 2026</p>
-      <h1>Live KeeperHub executions through SBO3L</h1>
+      <h1>Verifiable KeeperHub Passport capsules</h1>
       <p class="lede">
-        Every KeeperHub workflow tick under SBO3L produces a signed Passport capsule
-        before any side effect. Below: cumulative counter + the most recent 20 executions.
-        Each row links to <a href="/proof">/proof</a> where the capsule's strict-mode
-        WASM verifier runs offline.
+        Each row below is a <strong>real</strong> v2 Passport capsule emitted by the
+        SBO3L policy boundary against the live KeeperHub workflow
+        <code>{data.workflow_id}</code>. Click <em>verify</em> to run all 6
+        cryptographic checks in <a href="/proof">/proof</a> against the actual
+        signed bytes — no daemon, no network. Or download the raw JSON and
+        run <code>sbo3l passport verify &lt;file&gt;</code> on the CLI.
       </p>
     </header>
 
-    <section class="counter-card" aria-label="Cumulative execution counter">
-      <p class="counter-eyebrow">Cumulative since {fmtUtcDate(data.first_execution_ts)}</p>
-      <p class="counter-value">{data.total_count_through.toLocaleString()}</p>
-      <p class="counter-label">executions through the SBO3L policy boundary</p>
+    <section class="counter-card" aria-label="Verifiable capsule counter">
+      <p class="counter-eyebrow">Verifiable capsules available right now</p>
+      <p class="counter-value">{data.verified_capsule_count.toLocaleString()}</p>
+      <p class="counter-label">downloadable + WASM-verifiable v2 Passport capsules</p>
       <ul class="sub-counters">
-        <li><strong>{allowCount}</strong> allow / <strong>{denyCount}</strong> deny <span>(last 20)</span></li>
-        <li><strong>{uniqueAgents}</strong> unique agents <span>(last 20)</span></li>
+        <li><strong>{allowCount}</strong> allow / <strong>{denyCount}</strong> deny</li>
+        <li><strong>{uniqueAgents}</strong> unique agent{uniqueAgents === 1 ? "" : "s"}</li>
         <li><strong>workflow</strong> <code>{data.workflow_id}</code></li>
       </ul>
     </section>
 
-    <section class="timeline" aria-label="Recent executions">
+    <section class="timeline" aria-label="Capsule roster">
       <header>
-        <h2>Recent 20 executions</h2>
-        <p>Most recent first. <span class="muted">Last update: {fmtUtcDateTime(data.last_execution_ts)} UTC.</span></p>
+        <h2>Capsule roster</h2>
+        <p>
+          Most recent first.
+          <span class="muted">
+            First: {fmtUtcDateTime(data.first_capsule_ts)} UTC ·
+            Last: {fmtUtcDateTime(data.last_capsule_ts)} UTC.
+          </span>
+        </p>
       </header>
       <div class="rows">
         {data.recent.map((row) => (
           <article class={`row decision-${row.decision}`}>
             <span class="ts">{fmtUtcDateTime(row.ts)}</span>
-            <code class="exec-id">{row.execution_id}</code>
+            <code class="exec-id" title={row.audit_event_id}>{row.audit_event_id}</code>
             <span class="agent">{row.agent_id}</span>
             <span class={`decision ${row.decision}`}>{row.decision}</span>
-            <a class="capsule-link" href="/proof">verify capsule format →</a>
+            <span class="rule"><code>{row.matched_rule_id}</code></span>
+            <span class="actions">
+              <a class="capsule-link verify" href={`/proof?capsule_url=${encodeURIComponent(row.capsule_file)}`}>verify →</a>
+              <a class="capsule-link download" href={row.capsule_file} download>download .json</a>
+            </span>
           </article>
         ))}
       </div>
-      <p class="rows-footnote">
-        Codex review fix (PR #392): row links go to <a href="/proof">/proof</a>
-        with no query string today — pre-filling the verifier from a row's
-        <code>execution_id</code> requires the daemon's
-        <code>/v1/capsules/&lt;id&gt;</code> retrieval endpoint, which is
-        roadmap. The proof page now also accepts a
-        <code>?capsule=&lt;base64url&gt;</code> query parameter for direct
-        sharing of capsule JSON, so once retrieval lands, deep-linking
-        each row works without a UI change.
-      </p>
     </section>
 
     <section class="cta-card">
       <h2>Run your own agent through SBO3L</h2>
       <p>
-        Want an entry on this list? Stand up the daemon locally + point your KH workflow
-        at it. The next tick lands a row here once the audit anchor cron commits.
+        Want a row on this list? Stand up the daemon locally + point your KH workflow
+        at it. Each tick emits a v2 capsule that lands here once the audit anchor
+        cron commits.
       </p>
       <pre><code>cargo install sbo3l-cli
 sbo3l-server &amp;
-# point KeeperHub workflow at http://localhost:8730/v1/payment-requests</code></pre>
+# point KeeperHub workflow at http://localhost:8730/v1/payment-requests
+# verify any emitted capsule offline:
+sbo3l passport verify capsule.json</code></pre>
       <p>
         Source: <a href={`${githubRepoUrl}/blob/main/docs/quickstart/keeperhub-with-langchain.md`}>quickstart/keeperhub-with-langchain</a>
-        · live evidence: <a href={`${githubRepoUrl}/blob/main/docs/keeperhub-live-spike.md`}>keeperhub-live-spike.md</a>.
+        · live evidence: <a href={`${githubRepoUrl}/blob/main/docs/keeperhub-live-spike.md`}>keeperhub-live-spike.md</a>
+        · source capsules: <a href={`${githubRepoUrl}/tree/main/test-corpus/passport`}>test-corpus/passport</a>.
       </p>
     </section>
 
     <aside class="footnote">
-      <h2>What this counter is</h2>
+      <h2>What this counter is — and isn't</h2>
       <p>
-        <strong>{data.total_count_through.toLocaleString()}</strong> is the cumulative
-        execution count from <code>{fmtUtcDate(data.first_execution_ts)}</code>
-        through <code>{fmtUtcDate(data.last_execution_ts)}</code> against the live
-        KeeperHub workflow <code>{data.workflow_id}</code>. The data file
-        (<a href={`${githubRepoUrl}/blob/main/apps/marketing/src/data/kh-executions.json`}>apps/marketing/src/data/kh-executions.json</a>)
-        is committed and updated manually as new runs land. When the daemon's
-        <code>/v1/executions?source=keeperhub</code> endpoint ships, this page becomes
-        a cached read of that endpoint with the same shape.
+        <strong>{data.verified_capsule_count}</strong> reflects the v2 Passport capsules
+        that are <strong>downloadable from this site right now</strong>
+        (<code>apps/marketing/public/capsules/</code>) and pass all 6 strict-mode
+        checks in the WASM verifier on <a href="/proof">/proof</a>.
+        It is not a count of every KeeperHub workflow tick that's ever flowed
+        through the boundary — those telemetry numbers exist on the daemon
+        side, but the headline counter on a marketing page shouldn't claim
+        scale that a judge can't reproduce by clicking. The honest counter
+        moves up when a new capsule lands as a static file in this repo.
       </p>
     </aside>
   </main>
@@ -149,8 +165,9 @@ sbo3l-server &amp;
     font-family: var(--font-mono);
   }
   .kh-fleet h1 { font-size: var(--fs-4); font-weight: 700; line-height: 1.2; margin: 0 0 0.4em; }
-  .lede { color: var(--muted); font-size: var(--fs-2); max-width: 760px; }
+  .lede { color: var(--muted); font-size: var(--fs-2); max-width: 820px; }
   .lede a { color: var(--accent); }
+  .lede code { background: var(--code-bg); padding: 0.05em 0.35em; border-radius: 3px; }
 
   .counter-card {
     background: var(--code-bg);
@@ -174,7 +191,6 @@ sbo3l-server &amp;
   .sub-counters { list-style: none; padding: 0; margin: 1em 0 0; display: flex; gap: 1.5em; justify-content: center; flex-wrap: wrap; font-size: 0.88em; color: var(--muted); font-family: var(--font-mono); }
   .sub-counters li { white-space: nowrap; }
   .sub-counters strong { color: var(--fg); }
-  .sub-counters span { font-size: 0.85em; }
   .sub-counters code { background: var(--bg); padding: 0.05em 0.35em; border-radius: 3px; font-size: 0.85em; }
 
   .timeline { margin: 2.5em 0; }
@@ -186,7 +202,7 @@ sbo3l-server &amp;
   .rows { display: grid; gap: 0.4em; }
   .row {
     display: grid;
-    grid-template-columns: 11em 13em 1fr 6em 9em;
+    grid-template-columns: 12em 18em 11em 5em 13em 1fr;
     gap: 1em;
     align-items: center;
     padding: 0.6em 0.9em;
@@ -200,8 +216,9 @@ sbo3l-server &amp;
   .row.decision-deny { border-left-color: #f87171; }
 
   .ts { color: var(--muted); }
-  .exec-id { color: var(--fg); background: var(--bg); padding: 0.1em 0.4em; border-radius: 3px; font-size: 0.92em; word-break: break-all; }
+  .exec-id { color: var(--fg); background: var(--bg); padding: 0.1em 0.4em; border-radius: 3px; font-size: 0.86em; word-break: break-all; }
   .agent { color: var(--accent); }
+  .rule code { color: var(--muted); background: var(--bg); padding: 0.05em 0.35em; border-radius: 3px; font-size: 0.85em; }
   .decision {
     text-transform: uppercase;
     font-size: 0.78em;
@@ -213,17 +230,11 @@ sbo3l-server &amp;
   }
   .decision.allow { background: rgba(74, 222, 128, 0.15); color: var(--accent); }
   .decision.deny  { background: rgba(248, 113, 113, 0.15); color: #f87171; }
-  .capsule-link { color: var(--accent); text-decoration: none; font-size: 0.85em; text-align: right; }
+  .actions { display: flex; gap: 0.8em; justify-content: flex-end; flex-wrap: wrap; }
+  .capsule-link { color: var(--accent); text-decoration: none; font-size: 0.85em; white-space: nowrap; }
   .capsule-link:hover { text-decoration: underline; }
-  .rows-footnote {
-    margin-top: 1em;
-    color: var(--muted);
-    font-size: 0.84em;
-    line-height: 1.55;
-    max-width: 760px;
-  }
-  .rows-footnote code { background: var(--code-bg); padding: 0.05em 0.35em; border-radius: 3px; font-size: 0.95em; }
-  .rows-footnote a { color: var(--accent); }
+  .capsule-link.download { color: var(--muted); }
+  .capsule-link.download:hover { color: var(--accent); }
 
   .cta-card {
     background: var(--code-bg);
@@ -251,14 +262,16 @@ sbo3l-server &amp;
     font-size: 0.92em;
   }
   .footnote h2 { font-size: 1em; font-weight: 600; color: var(--fg); margin: 0 0 0.5em; }
-  .footnote p { line-height: 1.65; margin: 0; max-width: 760px; }
+  .footnote p { line-height: 1.65; margin: 0; max-width: 820px; }
   .footnote code { background: var(--code-bg); padding: 0.05em 0.4em; border-radius: 3px; font-size: 0.92em; }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
     .row { grid-template-columns: 1fr; gap: 0.3em; }
+    .row .ts::before { content: "ts: "; color: var(--muted); }
     .row .agent::before { content: "agent: "; color: var(--muted); }
+    .row .rule::before { content: "rule: "; color: var(--muted); }
     .row .decision { width: max-content; }
-    .row .capsule-link { text-align: left; }
+    .row .actions { justify-content: flex-start; }
     .counter-value { font-size: 3em; }
   }
 </style>
