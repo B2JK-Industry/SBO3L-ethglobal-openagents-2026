@@ -34,8 +34,8 @@ fn corpus(name: &str) -> Value {
     p.push("test-corpus");
     p.push("passport");
     p.push(name);
-    let raw = std::fs::read_to_string(&p)
-        .unwrap_or_else(|e| panic!("read fixture {}: {e}", p.display()));
+    let raw =
+        std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("read fixture {}: {e}", p.display()));
     serde_json::from_str(&raw).expect("fixture parses as JSON")
 }
 
@@ -60,7 +60,11 @@ fn corpus(name: &str) -> Value {
 fn v2_tampered_005_executor_evidence_drift_rejected_by_schema() {
     let v = corpus("v2_tampered_005_executor_evidence_drift.json");
     let err = verify_capsule(&v).expect_err("malformed executor_evidence must be rejected");
-    assert_eq!(err.code(), "capsule.schema_invalid", "unexpected error: {err}");
+    assert_eq!(
+        err.code(),
+        "capsule.schema_invalid",
+        "unexpected error: {err}"
+    );
 }
 
 // ---------------------------------------------------------------------------
