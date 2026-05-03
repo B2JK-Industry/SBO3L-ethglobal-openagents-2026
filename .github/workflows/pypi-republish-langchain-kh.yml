@@ -1,0 +1,115 @@
+name: pypi-republish-langchain-keeperhub
+
+# Auto-republish poller for sbo3l-langchain-keeperhub@1.2.0.
+#
+# Why this exists:
+#   The npm half (@sbo3l/langchain-keeperhub@1.2.0) is live on the npm
+#   registry. The PyPI half is blocked on a one-time Daniel-side PyPI
+#   Trusted Publisher registration (~5 min, doc'd at
+#   docs/dev2/pypi-langchain-keeperhub-publish-blocker.md). Once that
+#   registration completes, the existing langchain-keeperhub-py-v1.2.0
+#   tag needs the publish workflow re-fired to actually push to PyPI.
+#
+# What this workflow does:
+#   Every 30 min (during the submission window), checks if
+#   sbo3l-langchain-keeperhub==1.2.0 has appeared on PyPI. If NOT,
+#   re-fires `Integrations publish` on the existing v1.2.0 tag via
+#   workflow_dispatch. If YES, logs and exits — no action.
+#
+# Self-termination:
+#   The workflow is idempotent — it's safe to keep running indefinitely
+#   after publish succeeds (the gating step short-circuits without
+#   firing the publish workflow). After 7+ days of consecutive success
+#   we'll open a follow-up PR to delete this workflow file as cleanup.
+#   The post-success job-summary line below is the signal the cleanup
+#   PR's autogen script greps for.
+#
+# Permissions: actions:write needed to dispatch the publish workflow.
+# Other permissions kept minimal.
+
+on:
+  schedule:
+    # Every 30 min, off the half-hour to dodge runner-cold-start congestion.
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_dispatch:
+        description: "Re-fire publish workflow even if PyPI already shows the package as live"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: write  # dispatch `Integrations publish`
+
+concurrency:
+  # Only one poll at a time — successive cron fires queue rather than
+  # double-dispatch the publish workflow.
+  group: pypi-republish-langchain-kh
+  cancel-in-progress: false
+
+env:
+  PKG: sbo3l-langchain-keeperhub
+  PKG_VERSION: "1.2.0"
+  PUBLISH_WORKFLOW: integrations-publish.yml
+  PUBLISH_TAG: langchain-keeperhub-py-v1.2.0
+
+jobs:
+  poll-and-republish:
+    name: poll PyPI + dispatch on miss
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check PyPI for ${{ env.PKG }}@${{ env.PKG_VERSION }}
+        id: probe
+        run: |
+          set -euo pipefail
+          url="https://pypi.org/pypi/${PKG}/${PKG_VERSION}/json"
+          # -o /dev/null discards body; -w writes status code.
+          # Don't pass -f (fail-on-non-200) — we WANT to inspect 404 vs 200.
+          status=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+          echo "PyPI probe HTTP status: $status"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          elif [ "$status" = "404" ]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            # Treat 5xx / network issues as "unknown" — don't dispatch
+            # speculatively (could double-publish if PyPI responded 5xx
+            # mid-publish), don't claim success either.
+            echo "published=unknown" >> "$GITHUB_OUTPUT"
+            echo "::warning::PyPI returned unexpected status $status; treating as unknown — no dispatch this cycle"
+          fi
+
+      - name: Already published — short-circuit
+        if: steps.probe.outputs.published == 'true' && inputs.force_dispatch != true
+        run: |
+          echo "✅ ${PKG}@${PKG_VERSION} already on PyPI — no action."
+          echo "AUTOPUBLISH_SUCCESS_MARKER=${PKG}@${PKG_VERSION}-live" >> "$GITHUB_ENV"
+          # The marker line below is what the eventual cleanup-PR
+          # generator greps for in workflow run logs to count
+          # consecutive successes (target: 7+ days = ~336 runs).
+          echo "::notice::AUTOPUBLISH_SUCCESS_MARKER=${PKG}@${PKG_VERSION}-live"
+
+      - name: Re-fire publish workflow on existing tag
+        if: steps.probe.outputs.published == 'false' || inputs.force_dispatch == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Verify the tag actually exists before dispatching — saves
+          # a useless workflow run if someone deleted it accidentally.
+          if ! git ls-remote --tags --exit-code origin "refs/tags/${PUBLISH_TAG}" >/dev/null 2>&1; then
+            echo "::error::tag ${PUBLISH_TAG} not found on origin — cannot dispatch publish workflow"
+            exit 1
+          fi
+          echo "▶ ${PKG}@${PKG_VERSION} not on PyPI — dispatching ${PUBLISH_WORKFLOW} on tag ${PUBLISH_TAG}"
+          gh workflow run "${PUBLISH_WORKFLOW}" --ref "${PUBLISH_TAG}"
+          echo "::notice::Dispatched ${PUBLISH_WORKFLOW} on ${PUBLISH_TAG}. Track at: https://github.com/${{ github.repository }}/actions/workflows/${PUBLISH_WORKFLOW}"
+
+      - name: Unknown PyPI state — log + skip
+        if: steps.probe.outputs.published == 'unknown'
+        run: |
+          echo "⚠ PyPI status unknown (HTTP ${{ steps.probe.outputs.status }}); skipping this cycle. Next cron fires in ~30 min."
