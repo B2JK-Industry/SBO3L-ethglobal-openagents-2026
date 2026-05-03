@@ -24,7 +24,11 @@ from sbo3l_sdk import SBO3LClientSync
 
 def aprp() -> dict:
     return {
-        "agent_id": "keepalive-agent-01",
+        # research-agent-01 is the only agent_id registered in the bundled
+        # reference policy. Demos that hardcode a different id are denied
+        # before policy evaluation (auth.agent_not_found). Use SBO3L_POLICY
+        # to load a custom policy if you want a different label here.
+        "agent_id": "research-agent-01",
         "task_id": f"keepalive-{uuid.uuid4().hex[:8]}",
         "intent": "purchase_api_call",
         "amount": {"value": "0.05", "currency": "USD"},

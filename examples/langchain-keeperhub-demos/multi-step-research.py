@@ -70,7 +70,11 @@ def aprp(step: Step, agent_id: str) -> dict:
 
 def main() -> int:
     endpoint = os.environ.get("SBO3L_ENDPOINT", "http://localhost:8730")
-    agent_id = "multi-step-research-01"
+    # research-agent-01 is the only agent_id registered in the bundled
+    # reference policy; demos using a different id are denied before
+    # policy evaluation (auth.agent_not_found). Override via SBO3L_POLICY
+    # to a custom policy if you want a different label here.
+    agent_id = "research-agent-01"
     print(f"▶ daemon: {endpoint}")
     print(f"▶ agent: {agent_id}, budget: {BUDGET_USD} USD, plan: {len(PLAN)} steps")
 

@@ -120,9 +120,14 @@ test.describe("ZeroGUploader edge cases", () => {
     // Block all popups for this context — the runtime's window.open
     // call returns null, which our isPopupBlocked() catches.
     await context.route("**/storagescan-galileo.0g.ai/**", (route) => route.abort());
-    await page.evaluate(() => {
-      // Replace window.open with a stub that returns null (simulates
-      // browser popup blocker).
+
+    // CRITICAL: install the stub via addInitScript BEFORE page.goto,
+    // not via page.evaluate. page.evaluate runs in the CURRENT document
+    // context — the override is discarded the moment we navigate.
+    // addInitScript registers the script to run on every new document
+    // load, so the stubbed window.open is what /try sees when its
+    // runtime calls it.
+    await page.addInitScript(() => {
       window.open = () => null;
     });
 

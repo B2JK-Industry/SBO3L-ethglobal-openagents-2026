@@ -57,13 +57,23 @@ def main() -> int:
     endpoint = os.environ.get("SBO3L_ENDPOINT", "http://localhost:8730")
     print(f"▶ daemon: {endpoint}")
 
+    # Both agents run as research-agent-01 — the only agent_id registered
+    # in the bundled reference policy. The delegation chain is then
+    # demonstrated by audit_event_id distinction (each call gets a fresh
+    # event id, regardless of agent_id) plus B's task_id explicitly
+    # encoding A's audit_event_id. To demo TWO distinct agent_ids in the
+    # same chain, register them in a custom policy and load via
+    # SBO3L_POLICY=/path/to/your-policy.json before starting sbo3l-server.
+    AGENT_A_ID = "research-agent-01"
+    AGENT_B_ID = "research-agent-01"
+
     with SBO3LClientSync(endpoint) as client:
         descriptor = sbo3l_keeperhub_tool(client=client)
 
         # --- Agent A: planner, headline call ---
-        print("\n=== agent A (researcher-01) — planner call ===")
+        print(f"\n=== agent A ({AGENT_A_ID}, role=planner) — headline call ===")
         a_aprp = base_aprp(
-            agent_id="researcher-01",
+            agent_id=AGENT_A_ID,
             intent="purchase_api_call",
             amount_usd="0.03",
         )
@@ -77,9 +87,9 @@ def main() -> int:
         a_request_hash = a_envelope["request_hash"]
 
         # --- Agent B: executor, derived call referencing A's attestation ---
-        print(f"\n=== agent B (executor-02) — derived from A's audit_event_id={a_audit_event_id[:24]}... ===")
+        print(f"\n=== agent B ({AGENT_B_ID}, role=executor) — derived from A's audit_event_id={a_audit_event_id[:24]}... ===")
         b_aprp = base_aprp(
-            agent_id="executor-02",
+            agent_id=AGENT_B_ID,
             intent="purchase_api_call",
             amount_usd="0.02",
         )
