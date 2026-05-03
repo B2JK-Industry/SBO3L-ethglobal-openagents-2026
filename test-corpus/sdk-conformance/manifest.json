@@ -137,6 +137,46 @@
       "verify_ok": true,
       "strict_ok": false,
       "comment": "Structurally well-formed at the surface; audit_segment exceeds the 1MB envelope cap (DoS guard)."
+    },
+    {
+      "name": "v2_tampered_005_executor_evidence_drift",
+      "fixture": "passport/v2_tampered_005_executor_evidence_drift.json",
+      "schema_version": 2,
+      "verify_ok": false,
+      "known_drift": ["python", "typescript"],
+      "comment": "R20 Task C — execution.executor_evidence is a bare string; schema's `oneOf [null, object]` rejects, Rust verifier surfaces capsule.schema_invalid. Python/TS SDKs may not enforce the oneOf strictly today."
+    },
+    {
+      "name": "v2_tampered_006_reverse_chain_link",
+      "fixture": "passport/v2_tampered_006_reverse_chain_link.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "R20 Task C — seq=1 audit event's prev_event_hash points at its own event_hash (self-cycle / forward edge). Structural pass; strict audit_chain catches the linkage break (PrevHashMismatch)."
+    },
+    {
+      "name": "v2_tampered_007_signature_swap",
+      "fixture": "passport/v2_tampered_007_signature_swap.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "R20 Task C — receipt signature_hex is valid 128-hex-char shape but does NOT verify under the published receipt-signer pubkey. Caught by strict receipt_signature."
+    },
+    {
+      "name": "v2_tampered_008_replay_with_new_nonce",
+      "fixture": "passport/v2_tampered_008_replay_with_new_nonce.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "R20 Task C — request.aprp.nonce regenerated post-receipt; the recomputed JCS+SHA-256 of the mutated APRP no longer matches the claimed request_hash. Caught by strict request_hash_recompute. Offline counterpart of the daemon's HTTP nonce-replay gate."
+    },
+    {
+      "name": "v2_tampered_009_oversized_audit_segment",
+      "fixture": "passport/v2_tampered_009_oversized_audit_segment.json",
+      "schema_version": 2,
+      "verify_ok": true,
+      "strict_ok": false,
+      "comment": "R20 Task C — 10,000-event audit_chain_segment (~8 MiB) exceeds the 1 MiB cap. Same gate as v2_tampered_004 but exercised via a real-shape long chain rather than a padding field."
     }
   ],
   "notes": [

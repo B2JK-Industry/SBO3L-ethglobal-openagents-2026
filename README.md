@@ -70,9 +70,18 @@ Each row below is a real adversarial input the daemon rejects fail-closed, verif
 | Capsule with mismatched `request_hash` | `capsule.request_hash_mismatch` (`rc=2`) |
 | Capsule claiming live mode without evidence | `capsule.live_mode_empty_evidence` (`rc=2`) |
 | Capsule claiming deny but carrying `execution_ref` | `capsule.deny_with_execution_ref` (`rc=2`) |
-| All 9 tampered passport fixtures in `test-corpus/passport/` | every one rejected with `rc=2` |
+| Capsule with arbitrary `executor_evidence` non-object shape | `capsule.schema_invalid` (`rc=2`) |
+| Capsule with reverse-pointing audit-chain link | strict `audit_chain` check fails (`PrevHashMismatch`) |
+| Capsule with swapped receipt signature (wrong key) | strict `receipt_signature` Ed25519 verify fails |
+| Capsule with regenerated `aprp.nonce` (replay shape) | strict `request_hash_recompute` fails (JCS+SHA-256 diverges) |
+| Capsule with 10,000-event `audit_segment` (~8 MiB) | `capsule.audit_segment_too_large` (1 MiB cap) |
+| `Idempotency-Key` with CRLF / control-byte injection | http-crate refuses CRLF; `protocol.idempotency_key_invalid` for high bytes |
+| APRP body with 1,000-level nested JSON | `HTTP 4xx` (parse / schema reject; no panic) |
+| APRP body with a 10 MiB string field | `HTTP 4xx` (body-size cap or schema; no OOM) |
+| APRP `agent_id` containing a NUL byte | `HTTP 400` + `schema.*` (pattern violation) |
+| All 14 tampered passport fixtures in `test-corpus/passport/` (`tampered_001..009` + `v2_tampered_001..009`, minus the v1 `tampered_004` overlap) | every one rejected — structural or strict |
 
-Test surface backing these: **881 / 881 cargo tests** · **13 / 13 demo gates** · **8 / 8 HTTP adversarial fail-closed** · **9 tampered passport fixtures + manual byte-flip rejected**. `bash demo-scripts/run-openagents-final.sh` reproduces the audit-tamper detection gate end-to-end in ~10 seconds.
+Test surface backing these: **17 / 17 HTTP adversarial fail-closed** · **14 / 14 tampered passport fixtures rejected** (9 v1 in `crates/sbo3l-cli/tests/passport_cli.rs`, plus 4 v2 in `crates/sbo3l-core/src/passport.rs` strict-mode unit tests, plus 5 new R20 v2 fixtures in `crates/sbo3l-core/tests/adversarial_capsule_fixtures.rs`) · **24 / 24 SDK conformance vectors green**. The 4 new HTTP cases live in `crates/sbo3l-server/tests/adversarial_http.rs` (CRLF injection, 1000-level nesting, 10 MiB string, NUL-byte agent_id). `bash demo-scripts/run-openagents-final.sh` reproduces the audit-tamper detection gate end-to-end in ~10 seconds.
 
 ## What this is
 
