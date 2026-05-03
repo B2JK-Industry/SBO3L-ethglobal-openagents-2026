@@ -38,7 +38,8 @@ const SPEC_URL = "/openapi.yaml";
         <h1>API reference</h1>
         <p>This page renders the SBO3L daemon's OpenAPI 3.1 spec via Redoc. JavaScript is disabled in your browser.</p>
         <p>The raw spec is always available at <a href={SPEC_URL}><code>/openapi.yaml</code></a>. Open it in any OpenAPI viewer (Swagger UI, Stoplight Studio, Redocly CLI).</p>
-        <pre><code>curl -sO https://sbo3l-docs.vercel.app/openapi.yaml{"\n"}redocly preview-docs openapi.yaml</code></pre>
+        <pre><code>{`curl -sO https://sbo3l-docs.vercel.app/openapi.yaml
+redocly preview-docs openapi.yaml`}</code></pre>
       </section>
     </noscript>
 

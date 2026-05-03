@@ -23,13 +23,12 @@ export default defineConfig({
     starlight({
       title: "SBO3L Docs",
       description: "Documentation for the SBO3L agent trust layer.",
-      social: [
-        {
-          icon: "github",
-          label: "GitHub",
-          href: "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026",
-        },
-      ],
+      // Starlight 0.30 changed `social` from array to object form.
+      // Old array shape (icon/label/href) breaks with `Expected type
+      // 'object', received 'array'`. New shape: { provider: url }.
+      social: {
+        github: "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026",
+      },
       customCss: ["./src/styles/custom.css"],
       components: {
         // Mounts the VersionSelector at the top of the sidebar; the
