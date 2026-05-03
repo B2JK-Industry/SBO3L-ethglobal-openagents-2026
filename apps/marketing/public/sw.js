@@ -33,14 +33,22 @@ const SHELL_ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
+  // Self-review fix (PR #496): cache.addAll() is all-or-nothing — a
+  // single 404 in SHELL_ASSETS would leave the cache empty and
+  // offline mode broken. Use per-asset cache.add() wrapped in
+  // allSettled so individual failures don't kill the rest. Logged
+  // for observability when one drifts.
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) =>
-      cache.addAll(SHELL_ASSETS).catch((err) => {
-        // Best-effort prefetch — if one asset 404s we still install the SW
-        // and rely on runtime caching. Logging only.
-        // eslint-disable-next-line no-console
-        console.warn("[sbo3l-sw] shell prefetch partial:", err);
-      })
+      Promise.allSettled(
+        SHELL_ASSETS.map((url) =>
+          cache.add(url).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.warn(`[sbo3l-sw] shell asset failed: ${url}`, err);
+            return null;
+          })
+        )
+      )
     )
   );
   self.skipWaiting();

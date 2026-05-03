@@ -280,7 +280,13 @@ sbo3l passport verify capsule.json</code></pre>
   .footnote p { line-height: 1.65; margin: 0; max-width: 820px; }
   .footnote code { background: var(--code-bg); padding: 0.05em 0.4em; border-radius: 3px; font-size: 0.92em; }
 
-  @media (max-width: 1100px) {
+  /* Self-review (PR #496): the 7-column grid's intrinsic width is
+     ~1133px (12+18+11+5+13+4em fixed ≈ 1008px + 6 × 1em gaps ≈ 96px
+     + 0.9em row padding × 2 ≈ 29px). Below 1133px the row overflows
+     its container before the @media collapse to 1-col kicks in.
+     Lifting the breakpoint to 1200px closes the dead zone and keeps
+     a comfortable margin around medium-laptop viewports (1280px+). */
+  @media (max-width: 1200px) {
     .row { grid-template-columns: 1fr; gap: 0.3em; }
     .row .ts::before { content: "ts: "; color: var(--muted); }
     .row .agent::before { content: "agent: "; color: var(--muted); }
