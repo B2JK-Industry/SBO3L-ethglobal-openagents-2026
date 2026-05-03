@@ -71,7 +71,10 @@ def setup_otel() -> "trace.Tracer | None":
 
 def aprp() -> dict:
     return {
-        "agent_id": "observable-agent-01",
+        # research-agent-01 is the only agent_id registered in the bundled
+        # reference policy. Demos using a different id are denied before
+        # policy evaluation (auth.agent_not_found). Override via SBO3L_POLICY.
+        "agent_id": "research-agent-01",
         "task_id": f"obs-{uuid.uuid4().hex[:8]}",
         "intent": "purchase_api_call",
         "amount": {"value": "0.05", "currency": "USD"},

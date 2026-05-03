@@ -92,9 +92,14 @@ class Sbo3lKeeperHubTool(BaseTool):  # type: ignore[misc, unused-ignore]
         return str(self._func(aprp_json))
 
     async def _arun(self, aprp_json: str, **_: Any) -> str:
-        # The underlying SBO3LClientSync is sync; invoking from async
-        # contexts is fine because LangChain's BaseTool wraps in a
-        # threadpool when no native _arun exists. We provide _arun
-        # explicitly so async agents don't need to fall through to the
-        # sync path via run_in_executor (slightly cleaner semantics).
-        return str(self._func(aprp_json))
+        # The underlying SBO3LClientSync.submit performs blocking httpx
+        # I/O. Calling self._func directly from _arun would stall the
+        # event loop and starve other async tools running concurrently
+        # in the same agent. asyncio.to_thread offloads the call to the
+        # default thread pool — same semantics as LangChain BaseTool's
+        # default _arun fallback when this method isn't overridden, but
+        # explicit so future maintainers don't accidentally re-introduce
+        # the blocking version.
+        import asyncio
+
+        return await asyncio.to_thread(self._func, aprp_json)

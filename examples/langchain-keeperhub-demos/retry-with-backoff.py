@@ -37,7 +37,10 @@ from sbo3l_sdk import SBO3LClientSync
 
 def aprp() -> dict:
     return {
-        "agent_id": "retry-demo-agent",
+        # research-agent-01 is the only agent_id registered in the bundled
+        # reference policy. Demos using a different id are denied before
+        # policy evaluation (auth.agent_not_found). Override via SBO3L_POLICY.
+        "agent_id": "research-agent-01",
         "task_id": f"retry-{uuid.uuid4().hex[:8]}",
         "intent": "purchase_api_call",
         "amount": {"value": "0.05", "currency": "USD"},
@@ -96,7 +99,22 @@ def main() -> int:
     print("▶ wrapper: max 3 attempts, base backoff 0.25s with jitter")
 
     with SBO3LClientSync(endpoint) as client:
-        descriptor = sbo3l_keeperhub_tool(client=client)
+        # Deterministic idempotency key for the whole submission lifecycle:
+        # if attempt 1 succeeds server-side but the response is lost
+        # (classic transient transport failure), attempt 2 carries the
+        # SAME idempotency key and the daemon recognises it as a replay
+        # — returns the stored decision without re-running policy or
+        # re-firing KH. Without this, attempt 2 would be a NEW submission
+        # with a new nonce, doubling the side effect.
+        #
+        # The key is derived from (agent_id + task_id + nonce) — all
+        # already in the APRP body — so every retry of the same APRP
+        # gets the same key, but distinct top-level invocations
+        # (different APRPs) get distinct keys.
+        def _idem(body: dict) -> str:
+            return f"{body['agent_id']}:{body['task_id']}:{body['nonce']}"
+
+        descriptor = sbo3l_keeperhub_tool(client=client, idempotency_key=_idem)
         envelope = with_retry(descriptor.func, json.dumps(aprp()))
 
     print("\n=== envelope ===")
