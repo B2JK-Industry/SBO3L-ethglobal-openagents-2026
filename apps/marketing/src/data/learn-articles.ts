@@ -431,6 +431,143 @@ const trustDnsManifestoHtml = `
 </p>
 `;
 
+const keeperhubComposabilityHtml = `
+<p>
+  A research agent sees a paid API endpoint, decides "this is worth $0.05,"
+  and reaches for a tool to fire the payment. Two things have to happen
+  between intent and execution:
+</p>
+<ol>
+  <li><strong>Decide:</strong> is this payment authorized? Within budget? Recipient allowlisted? Right chain? Right risk class?</li>
+  <li><strong>Execute:</strong> translate the authorized intent into a signed transaction (or a webhook, or an x402 call) and dispatch it.</li>
+</ol>
+<p>
+  Most "agent payment" stacks today try to do both in one product.
+  SBO3L doesn't. KeeperHub doesn't. Together they form the cleanest
+  composition we've shipped — a policy boundary that emits a signed
+  receipt, and an execution layer that consumes the receipt and
+  actually fires the call.
+</p>
+
+<h2>1. Why two products beat one monolith</h2>
+<p>
+  The decision layer is the boundary between "what the agent wants to
+  do" and "what the operator allows the agent to do." Its audience is
+  the operator: a CFO, a compliance officer, an SRE on call. They edit
+  YAML to express budget caps, allowlist providers, set risk thresholds.
+  They want the policy engine auditable, deterministic, slow-moving.
+</p>
+<p>
+  The execution layer is the bridge between "an authorized payment
+  intent" and "the rails it actually settles on." Its audience is the
+  workflow developer wiring KeeperHub up to a Stripe webhook, an x402
+  endpoint, a Uniswap router, a Discord bot. They want flexibility,
+  fast-evolving, integration-rich.
+</p>
+<p>
+  Bundle them and you compromise both. The decision engine starts
+  shipping integrations to chase the latest payment rail. The execution
+  layer starts adding policy DSLs to chase compliance reviews. Both get
+  worse at their core jobs. Split them and each grows on its own clock —
+  <em>if</em> the contract between them is right.
+</p>
+
+<h2>2. The signed receipt as the contract</h2>
+<p>
+  When SBO3L decides on an APRP (Agent Payment Request Protocol body),
+  it emits a 14-field <code>PolicyReceipt</code>. Three things make it
+  the right contract:
+</p>
+<ol>
+  <li><strong>Content-addressable.</strong> The <code>request_hash</code> pins the exact APRP bytes that were decided on. KeeperHub can re-derive the hash from the body it receives and refuse to execute on mismatch. No "agent edited the request between decision and execution" attack.</li>
+  <li><strong>Offline-verifiable.</strong> Anyone with the policy signer's public key can verify the Ed25519 signature without contacting SBO3L. KH verifies before executing. An auditor reading the audit log months later verifies too. No "trust SBO3L" step.</li>
+  <li><strong>Carries the audit pointer.</strong> <code>audit_event_id</code> references a node in SBO3L's hash-chained audit log. KH echoes this ID back on its execution row, giving an auditor a single ID to walk both directions.</li>
+</ol>
+<p>
+  This receipt is the only thing the two layers exchange. SBO3L doesn't
+  know what KeeperHub's webhook URL is. KeeperHub doesn't know what
+  policy YAML SBO3L is running. Each side evolves freely as long as
+  the receipt schema holds.
+</p>
+
+<h2>3. Five integration paths (IP-1..IP-5)</h2>
+<p>
+  Once you have a receipt-as-contract, the next question is: how tight
+  can the composition get? Five paths, each independently shippable:
+</p>
+<ul>
+  <li><strong>IP-1 — sbo3l_* upstream-proof envelope fields.</strong> SBO3L's KH adapter posts the receipt's <code>request_hash</code> + <code>policy_hash</code> + <code>policy_version</code> + <code>audit_event_id</code> + <code>signature_hex</code> as five optional <code>sbo3l_*</code> fields alongside the workflow body. KH stores them. <strong>Shipped on the SBO3L side</strong>; pending KH-side schema adoption.</li>
+  <li><strong>IP-2 — Public submission/result envelope JSON Schema.</strong> A Draft 2020-12 schema documenting the bidirectional wire shape. Adapter authors stop reverse-engineering responses from <code>curl -v</code>.</li>
+  <li><strong>IP-3 — keeperhub.lookup_execution MCP tool.</strong> Symmetric MCP tool letting auditors query execution status + run-log + sbo3l_* fields without raw HTTP plumbing. <strong>Shipped on the SBO3L side</strong> as <code>sbo3l.audit_lookup</code>.</li>
+  <li><strong>IP-4 — Standalone sbo3l-keeperhub-adapter Rust crate.</strong> Any third-party agent framework can <code>cargo add sbo3l-keeperhub-adapter</code> with no transitive dependency on the SBO3L policy engine. <strong>Shipped at v1.2.0 on crates.io.</strong></li>
+  <li><strong>IP-5 — SBO3L Passport capsule URI on the execution row.</strong> A single optional string column — the URI to a self-contained verifiable bundle (APRP + receipt + audit segment + executor evidence + verification metadata). Capsule schema + verifier shipped; pending KH-side column adoption.</li>
+</ul>
+<p>
+  Stacking all five gives end-to-end offline auditability of every
+  KeeperHub execution that flowed through SBO3L. Two different products,
+  one verifiable trail.
+</p>
+
+<h2>4. End-to-end demo</h2>
+<p>Five lines in TypeScript:</p>
+<pre><code>import { SBO3LClient } from "@sbo3l/sdk";
+import { sbo3lKeeperHubTool } from "@sbo3l/langchain-keeperhub";
+
+const client = new SBO3LClient({ endpoint: "http://localhost:8730" });
+const tool = sbo3lKeeperHubTool({ client });
+// pass \`tool\` (or wrap as DynamicTool) into your LangChain agent's tool list</code></pre>
+<p>What happens when the agent calls <code>tool.func(JSON.stringify(aprp))</code>:</p>
+<ol>
+  <li>POST to SBO3L daemon at <code>/v1/payment-requests</code> with the APRP body</li>
+  <li>SBO3L decides allow / deny / requires_human against the policy + budget + nonce + provider trust list</li>
+  <li>On allow: SBO3L's <code>executor_callback</code> hands the signed receipt to the daemon-side KeeperHub adapter</li>
+  <li>KH adapter POSTs the IP-1 envelope to the workflow webhook, captures <code>executionId</code></li>
+  <li>Tool returns <code>{decision, kh_workflow_id_advisory, kh_execution_ref, audit_event_id, request_hash, policy_hash, deny_code}</code></li>
+</ol>
+
+<h2>5. The 15 issues we filed on KeeperHub/cli</h2>
+<p>
+  Building the composition end-to-end surfaced 15 concrete, actionable
+  asks. We filed them all on
+  <a href="https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry">KeeperHub/cli</a>:
+</p>
+<ul>
+  <li><strong>Round 1 (#47–#51)</strong> — couldn't-get-it-working frictions: token-prefix split, envelope schema, executionId lookup, sbo3l_* fields adoption, idempotency-key dedup.</li>
+  <li><strong>Round 2 (#52–#56)</strong> — post-integration concerns: HTTP error code catalog, public mock fixture suite, webhook timeout SLO, schema versioning headers, max payload size.</li>
+  <li><strong>Round 3 (#58–#62)</strong> — production-grade reliability: HMAC-SHA256 signature, workflow versioning + back-compat, response envelope JSON Schema, rate-limiting headers, delivery guarantees doc.</li>
+</ul>
+<p>
+  Each issue carries a worked reproduction, a citation to the exact
+  line in our adapter where the friction surfaces, and a proposed
+  shape for the fix. Five have <strong>companion draft PRs</strong> on
+  our repo showing the consumer-side adapter change ready to ship the
+  day KH lands the upstream contract.
+</p>
+
+<h2>6. Looking forward — joint roadmap</h2>
+<ul>
+  <li><strong>Phase 1:</strong> IP-1 + IP-2 land on KeeperHub. A workflow author opts into <code>sbo3l_*</code> envelope fields with one checkbox. The submission/result schema is published. Adapters across the ecosystem standardise.</li>
+  <li><strong>Phase 2:</strong> IP-3 + IP-5 ship. Vendor-neutral MCP tool surface for execution lookup. Capsule URI column on the execution row makes "show me the proof" a one-click download.</li>
+  <li><strong>Phase 3:</strong> Multi-tenant trust DNS. Every agent gets its own ENS name; trust commitments behind each name (policy hash, signing key, deployer attestation) resolve from a single DNS-style query.</li>
+</ul>
+<p>
+  This isn't a replacement for either product. It's a clean composition
+  where each layer keeps doing what it's best at, and the contract
+  between them carries enough cryptographic proof to satisfy the most
+  paranoid auditor.
+</p>
+<p>
+  If you're shipping an agent today, you already have an unsolved
+  gate-then-execute problem. Start with the composition.
+</p>
+
+<p>
+  <strong>
+    <a href="https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/docs/proof/blog-keeperhub-composability.md">Full long-form version →</a>
+  </strong>
+</p>
+`;
+
 export const ARTICLES: Article[] = [
   {
     slug: "tier-architecture",
@@ -479,6 +616,14 @@ export const ARTICLES: Article[] = [
     reading_min: 22,
     audience: "ENS standards reviewers, ERC-8004 implementers, agent-platform architects",
     body_html: trustDnsManifestoHtml.trim(),
+  },
+  {
+    slug: "keeperhub-composability",
+    title: "Don't give your agent a wallet. Don't make KeeperHub guess what's authorized either.",
+    description: "Composing SBO3L's policy boundary with KeeperHub's execution layer. Why two products beat one monolith, the signed receipt as the contract, IP-1..IP-5, end-to-end demo, the 15 issues we filed, joint roadmap.",
+    reading_min: 8,
+    audience: "Agent-platform engineers + KeeperHub workflow authors evaluating end-to-end safety",
+    body_html: keeperhubComposabilityHtml.trim(),
   },
 ];
 
