@@ -1,0 +1,62 @@
+{
+  "name": "@sbo3l/vercel-ai-keeperhub",
+  "version": "1.2.0",
+  "description": "Vercel AI SDK tool that gates KeeperHub workflow execution through SBO3L's policy boundary. Composable with @sbo3l/sdk. Edge-runtime compatible.",
+  "license": "MIT",
+  "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
+  "homepage": "https://sbo3l.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git",
+    "directory": "integrations/vercel-ai-keeperhub-ts"
+  },
+  "keywords": [
+    "sbo3l",
+    "vercel-ai",
+    "keeperhub",
+    "agent",
+    "policy",
+    "tool",
+    "ai-agent",
+    "workflow",
+    "edge"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@sbo3l/sdk": "^1.2.0",
+    "ai": "^3.0.0 || ^4.0.0",
+    "zod": "^3.22.0"
+  },
+  "peerDependenciesMeta": {
+    "@sbo3l/sdk": { "optional": true },
+    "ai": { "optional": true },
+    "zod": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "ai": "^3.4.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "zod": "^3.22.0"
+  },
+  "publishConfig": { "access": "public" }
+}
