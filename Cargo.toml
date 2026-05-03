@@ -16,7 +16,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 license = "MIT"
 authors = ["Daniel Babjak <babjak_daniel@hotmail.com>"]
@@ -85,23 +85,23 @@ url = "2"
 # survives). The IP-4 standalone adapter
 # (`crates/sbo3l-keeperhub-adapter`) needs `sbo3l-core` to be
 # publishable, which means the version must be declared here.
-sbo3l-core = { path = "crates/sbo3l-core", version = "1.2.0" }
+sbo3l-core = { path = "crates/sbo3l-core", version = "1.2.1" }
 # Workspace dep declares `default-features = false` so per-member
 # `features = […]` and `default-features = false/true` overrides take
 # effect. Most members opt-in to the `budget` feature explicitly via
 # `features = ["budget"]` (server, cli, mcp, identity, research-agent);
 # the wasm-target playground crate uses default-off to skip the
 # rusqlite-backed budget tracker. R17 P1.
-sbo3l-policy = { path = "crates/sbo3l-policy", version = "1.2.0", default-features = false }
-sbo3l-storage = { path = "crates/sbo3l-storage", version = "1.2.0" }
-sbo3l-identity = { path = "crates/sbo3l-identity", version = "1.2.0" }
-sbo3l-execution = { path = "crates/sbo3l-execution", version = "1.2.0" }
-sbo3l-keeperhub-adapter = { path = "crates/sbo3l-keeperhub-adapter", version = "1.2.0" }
-sbo3l-mcp = { path = "crates/sbo3l-mcp", version = "1.2.0" }
-sbo3l-cli = { path = "crates/sbo3l-cli", version = "1.2.0" }
-sbo3l-server = { path = "crates/sbo3l-server", version = "1.2.0" }
-sbo3l-anchor = { path = "crates/sbo3l-anchor", version = "1.2.0" }
-sbo3l-playground = { path = "crates/sbo3l-playground", version = "1.2.0" }
+sbo3l-policy = { path = "crates/sbo3l-policy", version = "1.2.1", default-features = false }
+sbo3l-storage = { path = "crates/sbo3l-storage", version = "1.2.1" }
+sbo3l-identity = { path = "crates/sbo3l-identity", version = "1.2.1" }
+sbo3l-execution = { path = "crates/sbo3l-execution", version = "1.2.1" }
+sbo3l-keeperhub-adapter = { path = "crates/sbo3l-keeperhub-adapter", version = "1.2.1" }
+sbo3l-mcp = { path = "crates/sbo3l-mcp", version = "1.2.1" }
+sbo3l-cli = { path = "crates/sbo3l-cli", version = "1.2.1" }
+sbo3l-server = { path = "crates/sbo3l-server", version = "1.2.1" }
+sbo3l-anchor = { path = "crates/sbo3l-anchor", version = "1.2.1" }
+sbo3l-playground = { path = "crates/sbo3l-playground", version = "1.2.1" }
 
 [profile.release]
 lto = "thin"
