@@ -61,8 +61,45 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
         six checks against any capsule JSON you paste below.
       </p>
     </div>
-    <PassportVerifier initialCapsule={initialCapsule} />
+    <PassportVerifier />
   </section>
+
+  <script>
+    // Codex review fix (PR #415, P1) — runtime client-side parser for
+    // the `?capsule=` deep-link. The original fix in #415 read
+    // Astro.url.searchParams in this page's frontmatter, which only
+    // runs at build time under `output: 'static'`. So
+    // /proof?capsule=<…> never pre-filled the textarea in production
+    // even though the code looked right in dev preview. Pre-filling
+    // belongs on the client where window.location.search is real.
+    //
+    // Accepts the same encodings the build-time parser tried:
+    //   - raw JSON (only short capsules fit in URL bounds)
+    //   - base64url-encoded JSON (matches `passport export --base64`)
+    // On malformed input we leave the textarea empty rather than
+    // surfacing a parse error — the user can try pasting manually.
+    function decodeCapsuleParam(raw: string | null): string {
+      if (!raw) return "";
+      const trimmed = raw.trim();
+      if (trimmed.startsWith("{")) return trimmed;
+      try {
+        const padded = raw.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(raw.length / 4) * 4, "=");
+        const decoded = atob(padded);
+        // Quick sanity: is it JSON-shaped? If not, return it anyway —
+        // the verifier will surface its own parse error on click.
+        return decoded;
+      } catch {
+        return "";
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const decoded = decodeCapsuleParam(params.get("capsule"));
+    if (decoded) {
+      const input = document.getElementById("capsule-input") as HTMLTextAreaElement | null;
+      if (input) input.value = decoded;
+    }
+  </script>
 
   <section class="docs">
     <h2>What gets checked</h2>
