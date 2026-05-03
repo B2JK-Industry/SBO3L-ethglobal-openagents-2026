@@ -2,10 +2,10 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-05-03 (post R22 cascade + truthfulness audit fixes)
-**Branch:** `main` (HEAD `dc77a73` — post R22: 5 KH framework adapters shipped (LangChain TS+Py, ElizaOS, AutoGen, CrewAI, Vercel-AI), 0g-storage TS SDK, R20 adversarial fixtures + R21 Codex hardening, R22 self-review #2 a11y + SW + dead-code + layout fixes, demo-video stitch fix, PWA recover, i18n SK+KO+JA, all 318→977 tests on main)
+**Last updated:** 2026-05-03 (post R22 cascade + truthfulness audit fixes + drift-fix follow-up)
+**Branch:** `main` (HEAD snapshot `5c5c7fe` at write time — post R22: 5 KH framework adapters shipped (LangChain TS+Py, ElizaOS, AutoGen, CrewAI, Vercel-AI), 0g-storage TS SDK, R20 adversarial fixtures + R21 Codex hardening, R22 self-review #2 a11y + SW + dead-code + layout fixes, demo-video stitch fix, PWA recover, i18n SK+KO+JA, install-smoke + pypi-republish CI fixes, KH-BF reference PR drafts merged, workspace bumped to 1.2.2, all 977 tests green on main. Note: HEAD is a snapshot — `main` moves; for the current HEAD see `git log -1 origin/main`.)
 **Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired.
-**Open implementation PRs:** **6 non-draft open** (1 install-smoke CI fix [#498](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/498) + 5 KH-BF reference PR drafts [#402](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/402)–[#406](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/406) — the drafts are intentionally evidence artifacts for the KH-BF-A2 amplifier and are NOT meant to merge until KH lands the upstream contracts).
+**Open implementation PRs:** **0 Dev 2-owned open at write time.** The 5 KH-BF reference draft PRs ([#402](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/402)–[#406](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/406), originally meant to stay open as KH-BF-A2 amplifier evidence) all merged at 12:00 UTC; the install-smoke CI fix landed via squash commit [`b7e84ba`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/commit/b7e84ba) referencing #495. Open-PR count is itself a snapshot — see `gh pr list --state open` for the live count.
 **CI on `main`:** ✅ green (`CI` + `Pages` + `Supply chain security` + `Integrations publish` + `Regression on main`).
 **Blockers:** none for code; demo video record + ETHGlobal form submit are operator-side actions.
 
