@@ -79,12 +79,20 @@ for tuple in "${WATCH_TARGETS[@]}"; do
     echo
     echo "── $LABEL ($REPO#$NUMBER, kind=$KIND) ──────────────"
 
+    # Top-level discussion comments (this is where bumps post). Same
+    # endpoint shape for issues and PRs.
+    COMMENTS_ENDPOINT="repos/$REPO/issues/$NUMBER/comments"
+
+    # PR review-thread comments (line-anchored on the diff) live at
+    # a SEPARATE endpoint. For kind=pr, watch BOTH endpoints —
+    # otherwise maintainers responding via review threads stay
+    # invisible to this script. (Codex P2 on PR #484 caught this.)
     if [ "$KIND" = "pr" ]; then
         ENDPOINT="repos/$REPO/pulls/$NUMBER"
-        COMMENTS_ENDPOINT="repos/$REPO/issues/$NUMBER/comments"
+        REVIEW_COMMENTS_ENDPOINT="repos/$REPO/pulls/$NUMBER/comments"
     else
         ENDPOINT="repos/$REPO/issues/$NUMBER"
-        COMMENTS_ENDPOINT="repos/$REPO/issues/$NUMBER/comments"
+        REVIEW_COMMENTS_ENDPOINT=""
     fi
 
     META=$(gh api "$ENDPOINT" 2>/dev/null) || {
@@ -107,16 +115,40 @@ for tuple in "${WATCH_TARGETS[@]}"; do
         continue
     fi
 
-    # New comments in the last 24h?
-    NEW_COMMENT_COUNT=$(gh api "$COMMENTS_ENDPOINT" --paginate \
-        --jq '[.[] | select(.created_at > (now - 86400 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length' \
-        2>/dev/null || echo "0")
+    # `gh api --paginate --jq <expr>` runs the jq expression PER
+    # PAGE and concatenates results — so `... | length` prints
+    # multiple integers (one per page) instead of an aggregate. Use
+    # `--paginate --slurp` to gather all pages into one array, then
+    # `add | length` for a correct single integer. (Codex P2 on PR
+    # #484 caught this.)
+    count_recent_comments() {
+        local endpoint="$1"
+        gh api "$endpoint" --paginate --slurp \
+            --jq 'add // [] | [.[] | select(.created_at > (now - 86400 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length' \
+            2>/dev/null || echo "0"
+    }
+    list_recent_comments() {
+        local endpoint="$1"
+        gh api "$endpoint" --paginate --slurp \
+            --jq 'add // [] | .[] | select(.created_at > (now - 86400 | strftime("%Y-%m-%dT%H:%M:%SZ"))) | "       - \(.user.login): \(.body | .[0:120])"' \
+            2>/dev/null
+    }
+
+    # Sum across both endpoints (issue-style + review-thread, when
+    # applicable).
+    NEW_COMMENT_COUNT=$(count_recent_comments "$COMMENTS_ENDPOINT")
+    if [ -n "$REVIEW_COMMENTS_ENDPOINT" ]; then
+        REVIEW_COMMENT_COUNT=$(count_recent_comments "$REVIEW_COMMENTS_ENDPOINT")
+        NEW_COMMENT_COUNT=$((NEW_COMMENT_COUNT + REVIEW_COMMENT_COUNT))
+    fi
 
     if [ "$NEW_COMMENT_COUNT" -gt 0 ] 2>/dev/null; then
         echo "  → 🆕 $NEW_COMMENT_COUNT new comment(s) in last 24h"
         echo "  → recent commenters:"
-        gh api "$COMMENTS_ENDPOINT" --paginate \
-            --jq '.[] | select(.created_at > (now - 86400 | strftime("%Y-%m-%dT%H:%M:%SZ"))) | "       - \(.user.login): \(.body | .[0:120])"' 2>/dev/null
+        list_recent_comments "$COMMENTS_ENDPOINT"
+        if [ -n "$REVIEW_COMMENTS_ENDPOINT" ]; then
+            list_recent_comments "$REVIEW_COMMENTS_ENDPOINT"
+        fi
         NEW_ACTIVITY_FOUND=1
     else
         echo "  → no comments in last 24h"
@@ -126,8 +158,8 @@ for tuple in "${WATCH_TARGETS[@]}"; do
     if [ $BUMP = 1 ] && [ "$DAYS_SINCE_UPDATE" -ge "$QUIET_DAYS" ]; then
         # Avoid bump-spam: only bump if the most recent comment is NOT
         # already a B2JK-Industry bump within the last QUIET_DAYS.
-        LAST_BUMP_FROM_US=$(gh api "$COMMENTS_ENDPOINT" --paginate \
-            --jq '[.[] | select(.user.login == "B2JK-Industry" and (.body | startswith("Bumping this for visibility")))] | last | .created_at // empty' \
+        LAST_BUMP_FROM_US=$(gh api "$COMMENTS_ENDPOINT" --paginate --slurp \
+            --jq 'add // [] | [.[] | select(.user.login == "B2JK-Industry" and (.body | startswith("Bumping this for visibility")))] | last | .created_at // empty' \
             2>/dev/null || echo "")
 
         if [ -n "$LAST_BUMP_FROM_US" ]; then

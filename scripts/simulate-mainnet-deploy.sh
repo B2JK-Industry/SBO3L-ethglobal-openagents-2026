@@ -57,6 +57,22 @@ ANVIL_LOG=/tmp/sbo3l-simulator-anvil.log
 SIM_OUTPUT_DIR=/tmp/sbo3l-simulator-output
 mkdir -p "$SIM_OUTPUT_DIR"
 
+# Robust RPC redaction. Previous version assumed Alchemy's `/v2/`
+# segment and would leak Infura `/v3/<key>`, generic
+# `?apikey=<key>`, or QuickNode `/<token>/` cleartext (Codex P2 on
+# PR #486 caught this). Strip everything past the host, replace
+# with `/<redacted>`. Pure shell param expansion — no sed (BSD vs
+# GNU regex inconsistencies).
+redact_rpc() {
+    local url="$1"
+    local scheme="${url%%://*}"
+    local rest="${url#*://}"
+    local host_port="${rest%%/*}"
+    host_port="${host_port%%\?*}"
+    host_port="${host_port%%\#*}"
+    printf '%s://%s/<redacted>' "$scheme" "$host_port"
+}
+
 cleanup() {
     if [[ -n "$ANVIL_PID" ]]; then
         kill "$ANVIL_PID" 2>/dev/null || true
@@ -67,7 +83,7 @@ trap cleanup EXIT INT TERM
 
 echo "==================================================================="
 echo "  SBO3L mainnet deploy SIMULATOR — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "  upstream RPC:  ${MAINNET_RPC_URL%v2*}v2/<redacted>"
+echo "  upstream RPC:  $(redact_rpc "$MAINNET_RPC_URL")"
 echo "  fork port:     $ANVIL_PORT"
 echo "  output dir:    $SIM_OUTPUT_DIR"
 echo "==================================================================="
@@ -169,28 +185,59 @@ echo "  STEP 2 gas estimate: ${STEP2_GAS} (~ \$$(awk "BEGIN { printf \"%.2f\", $
 echo
 
 # ============================================================
-# STEP 3 — 60x setSubnodeRecord via the forge script
+# STEP 3 — 60x setSubnodeRecord via cast send loop
 # ============================================================
-echo "  STEP 3: forge script RegisterMainnetFleet (60 subnames)"
-FLEET_OUT=$(cd crates/sbo3l-identity/contracts && \
-    PRIVATE_KEY=$SIM_DEPLOYER_PK \
-    PARENT_NODE=$NODE \
-    RESOLVER_ADDRESS=$NEW_OR \
-    forge script script/RegisterMainnetFleet.s.sol \
-        --rpc-url "$LOCAL_RPC" \
-        --broadcast \
-        --slow \
-        --sender "$PARENT_OWNER" \
-        --unlocked \
-        2>&1 || true)
-echo "$FLEET_OUT" > "$SIM_OUTPUT_DIR/step3-fleet.log"
+#
+# WHY a cast loop instead of `forge script RegisterMainnetFleet`:
+# the forge script derives its broadcaster from
+# `vm.envUint("PRIVATE_KEY")` and asserts `parentOwner == deployer`
+# inside `setUp()`. With `--unlocked --sender PARENT_OWNER` the
+# foundry --sender flag does NOT bypass that assertion (the script
+# still derives the address from PRIVATE_KEY), so the script
+# reverts. cast send with `--unlocked --from PARENT_OWNER` against
+# the impersonated address bypasses the foundry script layer
+# entirely. (Codex P1 on PR #486 caught this.)
+echo "  STEP 3: cast send setSubnodeRecord loop (60 subnames)"
 
-# Estimate: each setSubnodeRecord ~50K gas → 60 × 50K = 3M.
-# anvil with --silent doesn't print per-tx gas; use the runbook's
-# documented 3M estimate. The "did the tx land" check is via the
-# verify step below.
-STEP3_GAS=3000000
-echo "  STEP 3 gas estimate: ${STEP3_GAS} (3M aggregate, 60×50K) (~ \$$(awk "BEGIN { printf \"%.2f\", $STEP3_GAS * 50 / 1e9 * 4000 }"))"
+# Build the same 60-label list RegisterMainnetFleet.s.sol uses
+# (50 numbered + 10 specialist). Keep this list in lock-step with
+# the .s.sol file when either changes.
+ALL_LABELS=()
+for i in $(seq 1 50); do
+    ALL_LABELS+=("agent-$(printf '%03d' "$i")")
+done
+ALL_LABELS+=(research trader auditor compliance treasury analytics reputation oracle messenger executor)
+
+FLEET_FAILS=0
+STEP3_GAS_TOTAL=0
+for label in "${ALL_LABELS[@]}"; do
+    LABEL_HASH=$(cast keccak "$label")
+    TX_OUT=$(cast send "$ENS_REGISTRY" \
+        "setSubnodeRecord(bytes32,bytes32,address,address,uint64)" \
+        "$NODE" "$LABEL_HASH" "$PARENT_OWNER" "$NEW_OR" 0 \
+        --from "$PARENT_OWNER" --unlocked \
+        --rpc-url "$LOCAL_RPC" --json 2>&1) || {
+        FLEET_FAILS=$((FLEET_FAILS + 1))
+        echo "$TX_OUT" >> "$SIM_OUTPUT_DIR/step3-fleet.log"
+        printf "    ❌ setSubnodeRecord %-20s failed (see step3-fleet.log)\n" "$label"
+        continue
+    }
+    TX_GAS=$(echo "$TX_OUT" | python3 -c "import sys,json; d=json.loads(sys.stdin.read() or '{}'); print(int(d.get('gasUsed','0xC350'),16))" 2>/dev/null || echo "50000")
+    STEP3_GAS_TOTAL=$((STEP3_GAS_TOTAL + TX_GAS))
+done
+
+if [ "$FLEET_FAILS" -gt 0 ]; then
+    echo "  ⚠️  STEP 3 had $FLEET_FAILS / ${#ALL_LABELS[@]} failures (full log: $SIM_OUTPUT_DIR/step3-fleet.log)"
+fi
+
+# Use measured total when available; fall back to 3M conservative
+# estimate (60 × 50K) if every tx failed and we have nothing.
+if [ "$STEP3_GAS_TOTAL" -eq 0 ]; then
+    STEP3_GAS=3000000
+else
+    STEP3_GAS=$STEP3_GAS_TOTAL
+fi
+echo "  STEP 3 gas total: ${STEP3_GAS} (~ \$$(awk "BEGIN { printf \"%.2f\", $STEP3_GAS * 50 / 1e9 * 4000 }"))"
 echo
 
 # ============================================================
