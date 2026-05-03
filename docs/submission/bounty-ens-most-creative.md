@@ -38,8 +38,8 @@ The mainnet apex `sbo3lagent.eth` resolves **five `sbo3l:*` text records on chai
 - **Mainnet apex:** https://app.ens.domains/sbo3lagent.eth — five `sbo3l:*` records resolve via any ENS gateway
 - **Resolve from CLI:** `cargo install sbo3l-cli --version 1.2.0 && sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` — returns all 5 records + the `policy_hash = e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf` byte-match assertion
 - **Sepolia agent fleet:** 5+ named agents at `<name>.sbo3lagent.eth` — see [`docs/proof/ens-fleet-2026-05-01.json`](../proof/ens-fleet-2026-05-01.json) for the registration manifest with tx hashes
-- **Trust-DNS visualization:** https://app.sbo3l.dev/trust-dns (Vercel preview fallback while custom domain points) — D3 + canvas force-directed graph, agents discovering each other in real time
-- **1500-word essay:** https://docs.sbo3l.dev/trust-dns
+- **Trust-DNS visualization:** https://sbo3l-marketing.vercel.app/trust-dns-story — narrative + diagram of agents discovering each other through ENS
+- **5000-word RFC manifesto:** https://sbo3l-marketing.vercel.app/learn/trust-dns-manifesto — load-bearing claim, design rationale, 7 records breakdown, ENSIP-N draft integration
 
 ## Sponsor-specific value prop
 
