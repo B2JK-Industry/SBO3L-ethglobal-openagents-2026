@@ -5,18 +5,30 @@ const githubRepoUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
 // Docs site lives on Vercel via apps/docs (Starlight). Fallback to GitHub
 // repo /docs tree when sbo3l-docs.vercel.app isn't yet deployed by Daniel.
 const docsUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/docs";
+
+// R20 Task B (WCAG 2.4.8): mark the nav link matching the current page
+// with aria-current="page" so screen readers announce "current page,
+// link, Proof" instead of "link, Proof". Pure server-side derivation
+// from Astro.url.pathname; no JS hydration cost.
+const path = Astro.url?.pathname ?? "/";
+function isCurrent(href: string): boolean {
+  if (href === "/") return path === "/" || path === "";
+  if (href.startsWith("http")) return false;
+  return path === href || path.startsWith(href + "/");
+}
+const ariaCurrent = (href: string): "page" | undefined => isCurrent(href) ? "page" : undefined;
 ---
 <header role="banner">
   <nav aria-label="Primary">
-    <a href="/" class="brand" aria-label="SBO3L home">
+    <a href="/" class="brand" aria-label="SBO3L home" aria-current={ariaCurrent("/")}>
       <Logo variant="lockup" height={32} />
     </a>
     <div class="links">
       <a href={githubRepoUrl} rel="noopener">GitHub</a>
-      <a href="/proof">Proof</a>
-      <a href="/status">Status</a>
-      <a href="/kh-fleet">KH-fleet</a>
-      <a href="/roadmap">Roadmap</a>
+      <a href="/proof"    aria-current={ariaCurrent("/proof")}>Proof</a>
+      <a href="/status"   aria-current={ariaCurrent("/status")}>Status</a>
+      <a href="/kh-fleet" aria-current={ariaCurrent("/kh-fleet")}>KH-fleet</a>
+      <a href="/roadmap"  aria-current={ariaCurrent("/roadmap")}>Roadmap</a>
       <a href={`${githubRepoUrl}/blob/main/QUICKSTART.md`} rel="noopener">Quickstart</a>
       <a href={docsUrl} class="search-hint" data-docs-url={docsUrl} aria-label="Search docs (Cmd+K)">
         <span aria-hidden="true">⌘K</span>
@@ -73,6 +85,12 @@ const docsUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-202
     color: var(--muted);
   }
   .search-hint:hover { color: var(--fg); border-color: var(--accent); text-decoration: none; }
+  /* R20 Task B (WCAG 2.4.8): visual + screen-reader hint for the
+     current page in the nav. */
+  .links a[aria-current="page"] {
+    color: var(--accent);
+    border-bottom: 1px solid var(--accent);
+  }
   .sr-only {
     position: absolute;
     width: 1px;
