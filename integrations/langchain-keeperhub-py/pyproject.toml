@@ -55,6 +55,16 @@ strict = true
 python_version = "3.10"
 files = ["sbo3l_langchain_keeperhub"]
 
+# langchain-core ships no PEP 561 type stubs (issue
+# langchain-ai/langchain#9131). mypy --strict can't resolve
+# `from langchain_core.tools import BaseTool` without them and reports
+# both [import-not-found] on the import and [misc] "Class cannot
+# subclass BaseTool (has type Any)". Mark the namespace as untyped so
+# strict mode tolerates the upstream gap.
+[[tool.mypy.overrides]]
+module = ["langchain_core.*", "langchain.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["error"]
