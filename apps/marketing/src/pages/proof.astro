@@ -51,7 +51,9 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
 
   <section class="verifier-pair">
     <div class="passport-side">
-      <PassportCapsule state="open" width={760} />
+      <div class="passport-frame">
+        <PassportCapsule state="open" width={760} />
+      </div>
       <p class="passport-caption">
         Visual reference: the SBO3L Passport spread. Left page carries
         agent identity + the six cryptographic check seals; right page
@@ -105,6 +107,19 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
       align-items: start;
     }
     .passport-side { min-width: 0; }
+    /* R20 Task A: PassportCapsule shipped with explicit width=760
+       which renders >viewport on iPhone SE (375px). The frame
+       constrains it to 100% of the column and lets the SVG scale via
+       its viewBox + preserveAspectRatio. */
+    .passport-frame {
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .passport-frame :global(svg) {
+      width: 100% !important;
+      height: auto !important;
+      max-width: 760px;
+    }
     .passport-caption {
       margin: 1em 0 0;
       color: var(--muted);
