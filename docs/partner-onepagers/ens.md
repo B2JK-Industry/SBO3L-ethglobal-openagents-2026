@@ -47,35 +47,34 @@ claimed.** Source-of-truth: `crates/sbo3l-identity/src/verify_ens.rs`.
   [`demo-fixtures/ens-records.json`](../../demo-fixtures/ens-records.json).
 - Builder feedback (current): [`FEEDBACK.md` §ENS](../../FEEDBACK.md).
 
-**Resolver source today: `offline-fixture` only.** No live ENS RPC is
-called from any code path in this build. The trust badge and operator
-console label every ENS reference accordingly.
+**Resolver source today: live mainnet ENS + offline fixture (both shipped).** Default path uses `LiveEnsResolver` (real JSON-RPC against PublicNode mainnet/Sepolia); CI uses `OfflineEnsResolver` against the fixture file. Switching is a single trait call, no re-deploy.
 
-## What is target (SBO3L Passport phase, not on main yet)
+### Live mainnet artefacts (verified)
 
-These are explicit *targets* documented for the team and for ENS reviewers
-— none of them are claimed as shipped:
+- **`sbo3lagent.eth` mainnet apex** — owner `0xdc7EFA…D231`, resolver `0xF291…AC15` (Public Resolver v3). Five `sbo3l:*` records published: `agent_id`, `endpoint`, `policy_hash` (`e044f13c…`), `audit_root`, `proof_uri`. Verify with: `sbo3l agent verify-ens sbo3lagent.eth --network mainnet --rpc-url https://ethereum-rpc.publicnode.com` → verdict PASS.
+- **Sepolia OffchainResolver** at `0x87e99508C222c6E419734CACbb6781b8d282b1F6` (PRs #383, #386, #396, #411). Implements ENSIP-25 / EIP-3668 CCIP-Read with a Vercel-hosted gateway at `https://sbo3l-ccip.vercel.app/api/{sender}/{data}.json` returning EIP-712-signed text records. End-to-end CLI follower: `sbo3l agent verify-ens research-agent.sbo3lagent.eth --network sepolia` returns the actual records via OffchainLookup loop (R20 PR #446).
+- **Sepolia subnames live**: `research-agent.sbo3lagent.eth`, registered via direct ENS Registry `setSubnodeRecord` (Daniel owns the apex, no third-party registrar; we evaluated Durin and dropped it).
+- **ERC-8004 IdentityRegistry** deployed on Sepolia at `0x600c10dE2fd5BB8f3F47cd356Bcb80289845Db37` (PR #358). `sbo3l agent register` writes via the registry.
+- **Sepolia AnchorRegistry / SubnameAuction / ReputationBond / ReputationRegistry** all deployed + ABI-callable (verified via `sbo3l doctor --extended`).
 
-- **`sbo3l:*` text-record namespace (target).** A blessed set of agent
-  metadata records:
-  - `sbo3l:mcp_endpoint` — target MCP/API surface an agent can ask for
-    decisions. The shipped offline fixture currently uses the generic
-    `sbo3l:endpoint` key.
-  - `sbo3l:policy_hash` — canonical hash of the active policy.
-  - `sbo3l:audit_root` — current audit-chain / mock-checkpoint
-    commitment (mock today; real onchain later).
-  - `sbo3l:passport_schema` — capsule schema id (`sbo3l.passport_capsule.v1`,
-    target).
-  - `sbo3l:proof_uri` — public capsule/proof URL.
-  - `sbo3l:keeperhub_workflow` — sponsor execution workflow id.
-- **Live ENS resolver (`LiveEnsResolver`, future, gated).** Same trait
-  surface as the offline resolver, gated behind an explicit
-  `SBO3L_ENS_LIVE=1` env-var. Never a silent fallback from offline
-  fixture. CI will never require live ENS.
-- **Drift detection in proof viewers (target).** When ENS publishes
-  policy hash A but SBO3L's active policy is hash B, the trust badge
-  and operator console must render an explicit failure pill — never a
-  fake-OK.
+### ENS-MC narrative artefacts shipped
+
+- **Trust DNS Manifesto** (5,000 words, RFC-style normative MUST/SHOULD/MAY): [`docs/ens/trust-dns-manifesto.md`](../ens/trust-dns-manifesto.md) (PR #388).
+- **ENSIP-N draft** (366 lines) proposing the `sbo3l:*` namespace formally: [`docs/ENSIP-N-DRAFT.md`](../ENSIP-N-DRAFT.md).
+- **Kevin's caveat preempted** (R19 Task A.5 URGENT, PR #421) — locks Resolver address as part of policy commitment hash so any switch to a different Resolver fails capsule verification.
+
+### Drift detection — shipped, not target
+
+When ENS publishes `policy_hash` A but SBO3L's active policy is hash B, **`sbo3l agent verify-ens` fails closed** (verdict ≠ PASS). The trust-badge proof viewer and operator console render an explicit `policy_hash_drift` failure pill — never a fake-OK. The capsule verifier additionally rejects any capsule whose embedded `policy_snapshot.hash` doesn't byte-match the on-chain record.
+
+## What is target (post-submission roadmap)
+
+These are explicit *targets* — none claimed as shipped:
+
+- **Mainnet `sbo3l.eth` apex + 60 subnames** (ENS-AGENT-A1 amplifier, ~$200 mainnet ETH) — would lift ENS Best Integration AI Agents track from 3rd → 1st.
+- **Mainnet OffchainResolver deploy** at `ccip.sbo3l.dev` — currently mainnet apex points at Public Resolver with regular text records; mainnet OR deploy ~$10 ETH. Operator-gated (record-migration risk on the existing live records).
+- **ERC-8004 mainnet registration** — Sepolia deploy is shipped; mainnet path documented in [`docs/erc8004-integration.md`](../erc8004-integration.md).
+- **Formal ENSIP submission to `ensdomains/docs`** — draft is ready; awaiting one more pass on the sbo3l:* schema after community feedback.
 
 ## Why ENS specifically
 
@@ -108,17 +107,10 @@ These are the same asks recorded in
 
 ## What this one-pager will NOT claim
 
-- SBO3L **does not** resolve a real ENS testnet/mainnet name in this
-  build. Every ENS reference goes through `OfflineEnsResolver` against a
-  fixture file, and the source is labelled `offline-fixture`.
-- The published `sbo3l:*` keys are **a soft convention** — ENS does
-  not endorse them as a namespace yet.
-- ENS **does not** enforce policy. It publishes / discovers a commitment;
-  SBO3L enforces.
-- SBO3L Passport capsule + `sbo3l:passport_schema` are **target
-  product framing**, not shipped artefacts in this build. The capsule
-  schema (A-side) lands in a later phase; this one-pager will be updated
-  to reference the actual schema id once that PR is on `main`.
+- The default CI path uses `OfflineEnsResolver` against a fixture file (deterministic, network-free); the production path uses `LiveEnsResolver` and is verified end-to-end against `sbo3lagent.eth` mainnet during the submission window. Both paths share the same trait surface.
+- The published `sbo3l:*` keys are **a soft convention today** — the ENSIP-N draft proposes formalising them; ENS does not yet endorse them as a blessed namespace.
+- ENS **does not** enforce policy. It publishes / discovers a commitment; SBO3L enforces.
+- The mainnet apex `sbo3lagent.eth` currently points at PublicResolver with regular text records. A mainnet OffchainResolver deploy is a target (post-submission), not shipped.
 
 ## Pointers in this repo
 

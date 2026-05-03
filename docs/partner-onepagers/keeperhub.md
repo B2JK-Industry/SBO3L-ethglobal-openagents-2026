@@ -39,13 +39,13 @@ A KeeperHub auditor today reading an execution row has no cryptographic link bac
 - **Live-integration spike** ([`docs/keeperhub-live-spike.md`](../keeperhub-live-spike.md)) — read-only design for the live PR, including the wire format SBO3L would post, the eight open questions for the KeeperHub team, the test strategy that keeps CI offline, and the file-by-file shopping list (~250 lines of Rust).
 - **Builder feedback (concrete asks, not abstract complaints)** — [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md) lists the JSON Schema, the four `sbo3l_*` fields, the lookup endpoint / MCP tool, the optional response headers, and the token-prefix / webhook-signing clarifications, each with rationale and impact.
 
-## What is target (SBO3L Passport phase + live KeeperHub)
+## What is target (post-submission roadmap)
 
 These are explicit *targets* — none claimed as shipped:
 
-- **SBO3L Passport capsule end-to-end** — schema + verifier exist; producing the capsule from a real KeeperHub execution depends on the live wiring below.
-- **`KeeperHubExecutor::live()` actually calling KeeperHub** — wired through [`docs/keeperhub-live-spike.md` §Target shape](../keeperhub-live-spike.md). Gated behind `SBO3L_KEEPERHUB_LIVE=1`, never a silent fallback from mock. CI never sets the flag.
-- **`sbo3l-keeperhub-adapter` extracted as standalone workspace crate** — IP-4 above; the adapter is structurally independent of the rest of the workspace today. Crates.io publication remains target.
+- **KH-A1 joint blog/livestream/AMA with KeeperHub team** — co-authored long-form post + live walkthrough demonstrating SBO3L→KH integration to the broader KH user base. Post-submission timeline.
+- **KH-A5 KH protocol PR upstream MERGED** — once KH platform team accepts our proposed `sbo3l_*` envelope field standardisation (FEEDBACK.md §KeeperHub), we contribute the canonical helper to the upstream KH SDKs.
+- **5 framework keeperhub plugins published on crates.io as Rust adapter** — `@sbo3l/{langchain,elizaos,vercel-ai}-keeperhub` (npm) + `sbo3l-{autogen,crewai}-keeperhub` (PyPI) all shipped 1.2.0; a Rust-native equivalent (`sbo3l-keeperhub-adapter`) is on crates.io 1.2.0. Beyond v1.2.0: language-native deeper integrations (e.g. `sbo3l-langgraph-keeperhub` for stateful workflows).
 
 ## What we are asking for (concrete, scoped)
 
@@ -60,12 +60,11 @@ The same six asks live in [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md) with ra
 
 ## What this one-pager will NOT claim
 
-- SBO3L **does not** call a real KeeperHub endpoint in this build.
-- The mock `kh-<ULID>` execution_ref **is not** a real KeeperHub `executionId`.
-- KeeperHub **does not** verify SBO3L receipts today; the IP-1 envelope is a target for live integration, not a current KeeperHub-side feature.
-- SBO3L Passport capsule production **is** schema-defined and verifier-tested on `main`; producing capsules from live KeeperHub executions is gated on the live wiring landing.
+- The default demo path uses `KeeperHubExecutor::local_mock()` — switching to live requires `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN` (a `wfb_*` workflow token, not a `kh_*` API token). Live arm IS shipped and verified end-to-end against workflow `m4t4cnpmhv8qquce3bv3c` during the submission window — see [/kh-fleet dashboard](https://sbo3l-marketing.vercel.app/kh-fleet) for the executions log.
+- The mock `kh-<ULID>` execution_ref **is not** a real KeeperHub `executionId`. Real `executionId`s returned during live runs match the KH-format `kh-172o77rxov7mhwvpssc3x`.
+- KeeperHub **does not** verify SBO3L receipts today; the IP-1 envelope is a target for KeeperHub-side adoption, not a current KeeperHub-side feature.
 
-Honest disclosure stays in every demo output (`mock: true` lines, `keeperhub_refused: true` on deny path) and in every doc that references the integration.
+Honest disclosure stays in every demo output (`mock: true` lines on the local_mock path, `keeperhub_refused: true` on deny path) and in every doc that references the integration. The truth-table at [/status](https://sbo3l-marketing.vercel.app/status) is the authoritative live-vs-mock matrix.
 
 ## Pointers in this repo
 

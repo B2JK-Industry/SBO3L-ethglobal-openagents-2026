@@ -21,13 +21,33 @@ boundary and never reach the executor.
 ## What is implemented today (on `main`, this build)
 
 - Adapter trait and `UniswapExecutor`
-  (`crates/sbo3l-execution/src/uniswap.rs`) with two constructors:
-  - `UniswapExecutor::local_mock()` — used in every demo path today.
+  (`crates/sbo3l-execution/src/uniswap.rs`) with three constructors:
+  - `UniswapExecutor::local_mock()` — default in CI / demo path.
     Returns a deterministic `uni-<ULID>` execution_ref against a stored
     quote fixture.
-  - `UniswapExecutor::live()` — present as a constructor; intentionally
-    `BackendOffline` until a stable Trading API endpoint and credentials
-    are wired. **No live network call is made in this build.**
+  - `UniswapExecutor::live_from_env()` — **shipped + verified live**:
+    hits Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`)
+    via JSON-RPC for a real `quoteExactInputSingle`, env-gated on
+    `SBO3L_UNISWAP_RPC_URL` + `SBO3L_UNISWAP_TOKEN_OUT`. Real QuoterV2
+    return values (`amountOut`, `sqrtPriceX96After`, `initializedTicksCrossed`,
+    `gasEstimate`) populate the Passport capsule's `executor_evidence`.
+  - `UniswapExecutor::live()` — bare back-compat ctor; returns
+    `BackendOffline` at runtime when no env config is set (use
+    `live_from_env()` instead).
+- **Mainnet broadcast UNI-A1 (LIVE):** A real Uniswap V3 swap was
+  broadcast on Ethereum mainnet from the SBO3L deploy wallet
+  (`0xdc7EFA…D231`) — 0.005 ETH → 11.5743 USDC, settled in block
+  25,013,950, gas 139,971 @ 2.19 gwei. Tx hash:
+  [`0xed68d1301b479c4229bc89cca5162b56517b80cbaeb654323e05b183000aff0b`](https://etherscan.io/tx/0xed68d1301b479c4229bc89cca5162b56517b80cbaeb654323e05b183000aff0b).
+  The same swap-policy guard (token allowlist + slippage + treasury
+  recipient) protects this and any future agent-initiated swap.
+- **Mainnet swap envelope CLI** `sbo3l uniswap swap` (PR #394) — builds
+  + optionally broadcasts a `sbo3l.uniswap_swap_envelope.v1` JSON
+  artefact for V3 `exactInputSingle` swaps on either Sepolia or mainnet.
+  Default `--dry-run`; `--broadcast` requires the `eth_broadcast` Cargo
+  feature plus `SBO3L_ALLOW_MAINNET_TX=1` for `--network mainnet`.
+- **Universal Router** (PR #171), **Smart Wallet abstraction** (PR #183),
+  **MEV guard** (PR #179) all shipped in `crates/sbo3l-execution/`.
 - Swap-policy guard `evaluate_swap` (`crates/sbo3l-execution/src/uniswap.rs`)
   enforces, in field order:
   1. `input_token_allowlisted`
@@ -65,21 +85,22 @@ boundary and never reach the executor.
   [`demo-scripts/sponsors/uniswap-guarded-swap.sh`](../../demo-scripts/sponsors/uniswap-guarded-swap.sh).
 - Builder feedback (current): [`FEEDBACK.md` §Uniswap](../../FEEDBACK.md).
 
-## What is target (SBO3L Passport phase, not on main yet)
+## What is target (post-submission roadmap)
 
-These are explicit *targets* documented for the team and for Uniswap
-reviewers — none of them are claimed as shipped:
+These are explicit *targets* — none claimed as shipped:
 
-- **Live Trading API call (future, gated)** — wired through
-  `UniswapExecutor::live()` and exposed via an explicit
-  `SBO3L_UNISWAP_LIVE=1` env-var gate, never as a silent fallback from
-  mock. CI will never require it. **No live Uniswap API call is made in
-  this build.**
-- **Signed-quote anchoring (target ask, not implemented)** — when the
-  Trading API publishes server-issued `quote_id` + `expires_at` +
-  canonical quote hash, SBO3L would anchor that hash into the decision
-  token so a downstream executor can require the same quote. See
-  feedback below.
+- **Mainnet Universal Router integration via Trading API.** Today's
+  mainnet UNI-A1 broadcast goes through Universal Router directly via
+  envelope CLI; a server-side Trading API integration would simplify
+  fee-tier discovery + signed-quote handling.
+- **Signed-quote anchoring** — when the Trading API publishes
+  server-issued `quote_id` + `expires_at` + canonical quote hash, SBO3L
+  would anchor that hash into the decision token so a downstream
+  executor can require the same quote. See feedback below.
+- **v4 hook integration** — SBO3L is a policy boundary, not a DEX hook,
+  but a "policy-bounded swap" v4 hook reference (input/output token
+  allowlist, slippage cap, recipient guard as Solidity library) would
+  make every framework SDK adopter ship the same guarantees by default.
 
 ## Why Uniswap specifically
 
@@ -118,18 +139,8 @@ These are the same asks recorded in
 
 ## What this one-pager will NOT claim
 
-- SBO3L **does not** call the Uniswap Trading API (real swap broadcast)
-  in this build. What it does call live is the Sepolia QuoterV2 contract
-  (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) via JSON-RPC for a real
-  read-side `quoteExactInputSingle`, env-gated on `SBO3L_UNISWAP_RPC_URL`
-  + `SBO3L_UNISWAP_TOKEN_OUT` — verified end-to-end during the submission
-  window. The demo default still uses `UniswapExecutor::local_mock()`
-  against the fixture catalogue; the bare back-compat
-  `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime.
-- The mock `uni-<ULID>` execution_ref **is not** a real Uniswap
-  transaction id; live mode emits real QuoterV2 return values
-  (`amountOut`, `sqrtPriceX96After`, `initializedTicksCrossed`,
-  `gasEstimate`) into the Passport capsule's `executor_evidence`.
+- SBO3L **does not** call the Uniswap Trading API (server-side REST) in this build — what it calls live is (a) the Sepolia QuoterV2 contract `0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3` via JSON-RPC for a real read-side `quoteExactInputSingle`, and (b) the mainnet Universal Router `0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a2cca` via the UNI-A1 mainnet broadcast (tx `0xed68d1…aff0b`). The demo default still uses `UniswapExecutor::local_mock()` against the fixture catalogue.
+- The mock `uni-<ULID>` execution_ref **is not** a real Uniswap transaction id; live mode emits real QuoterV2 return values (`amountOut`, `sqrtPriceX96After`, `initializedTicksCrossed`, `gasEstimate`) into the Passport capsule's `executor_evidence`. The mainnet UNI-A1 broadcast emits a real Etherscan-verifiable tx hash.
 - This is **not** a Uniswap v4 hook project. SBO3L is a policy /
   authorisation layer that sits in front of Uniswap, not a DEX hook.
 - The Uniswap quote-evidence section of the SBO3L Passport capsule is
