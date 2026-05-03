@@ -2,6 +2,7 @@
 import Nav from "~/components/Nav.astro";
 import Footer from "~/components/Footer.astro";
 import { isLocale, isRtlLocale, DEFAULT_LOCALE, type Locale } from "~/i18n";
+import { OG_PAGES } from "~/data/og-registry";
 import "~/styles/global.css";
 
 interface Props {
@@ -26,9 +27,26 @@ const {
 // /og/[...slug].svg.ts is the static-generator endpoint that emits one SVG per
 // registry entry (variants: default / proof / status / roadmap / playground /
 // sponsor). Fall back to /og-default.svg if the slug isn't registered yet.
-const rawSlug = (Astro.url?.pathname ?? "/").replace(/^\/+|\/+$/g, "");
-const slug = rawSlug === "" ? "default" : rawSlug;
-const resolvedOgImage = ogImage ?? `/og/${slug}.svg`;
+//
+// Self-review fix (R22 round 4): astro.config has `build.format: 'file'`,
+// so Astro.url.pathname for /pages/proof.astro at SSR time is
+// `/proof.html`, not `/proof`. The slug-strip below previously produced
+// `proof.html` → resolved og URL `/og/proof.html.svg` → 404 in
+// production (the OG endpoint emits `/og/proof.svg`). Every EN page
+// except `/` had a broken og:image URL — link previews on social /
+// Slack / Discord lost their imagery. Strip the trailing `.html` so
+// the slug matches the OG registry keys.
+const rawSlug = (Astro.url?.pathname ?? "/")
+  .replace(/^\/+|\/+$/g, "")
+  .replace(/\.html$/, "");
+const candidateSlug = rawSlug === "" ? "default" : rawSlug;
+// Only emit /og/<slug>.svg if the slug is a known OG_PAGES entry — every
+// other path (like locale homepages /sk, /ko, /ja, or pages without a
+// registered OG variant) falls back to the default SVG. The endpoint
+// only generates one file per OG_PAGES key; an unknown slug would 404
+// in production. Explicit `ogImage` prop wins over both.
+const ogSlug = candidateSlug in OG_PAGES ? candidateSlug : "default";
+const resolvedOgImage = ogImage ?? `/og/${ogSlug}.svg`;
 
 // Self-review fix: derive lang + dir from Astro.currentLocale rather than
 // trusting the prop default. The previous default of `lang = "en"` meant
