@@ -32,12 +32,12 @@ Adapter has both `local_mock()` (CI-safe default — produces a deterministic `k
 - **Real KH workflow:** `https://app.keeperhub.com/api/workflows/m4t4cnpmhv8qquce3bv3c/webhook` — POST with the IP-1 envelope returns a real KH-format `executionId` (e.g. `kh-172o77rxov7mhwvpssc3x`). Verified end-to-end during the submission window.
 - **Adapter on crates.io:** https://crates.io/crates/sbo3l-keeperhub-adapter — `cargo add sbo3l-keeperhub-adapter@1.2.0`
 - **MCP tool implementation:** [`crates/sbo3l-mcp/src/lib.rs`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/blob/main/crates/sbo3l-mcp/src/lib.rs) — `sbo3l.audit_lookup(execution_id)` mirrors the proposed `keeperhub.lookup_execution` shape
-- **5 framework adapters shipped** — same policy-guarded KH executor across LangChain (TS + Py), CrewAI, AutoGen, ElizaOS, Vercel AI SDK:
-  - [`@sbo3l/langchain-keeperhub`](https://www.npmjs.com/package/@sbo3l/langchain-keeperhub) (npm) + [`sbo3l-langchain-keeperhub`](https://pypi.org/project/sbo3l-langchain-keeperhub/) (PyPI, post-Trusted-Publisher)
-  - [`sbo3l-crewai-keeperhub`](https://pypi.org/project/sbo3l-crewai-keeperhub/) (PyPI, post-Trusted-Publisher) — 3-agent crew sharing one policy boundary
-  - [`sbo3l-autogen-keeperhub`](https://pypi.org/project/sbo3l-autogen-keeperhub/) (PyPI, post-Trusted-Publisher) — 2-agent planner+executor conversation
-  - [`@sbo3l/elizaos-keeperhub`](https://www.npmjs.com/package/@sbo3l/elizaos-keeperhub) (npm) — chat-turn action handler
-  - [`@sbo3l/vercel-ai-keeperhub`](https://www.npmjs.com/package/@sbo3l/vercel-ai-keeperhub) (npm) — Edge-compatible `tool()` for `streamText`/`generateText`
+- **5 framework adapters shipped** — same policy-guarded KH executor across LangChain (TS + Py), CrewAI, AutoGen, ElizaOS, Vercel AI SDK. Source under [`integrations/<framework>-keeperhub-{ts,py}/`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/integrations) for all 6:
+  - [`@sbo3l/langchain-keeperhub`](https://www.npmjs.com/package/@sbo3l/langchain-keeperhub) (npm — live) + [`sbo3l-langchain-keeperhub`](https://pypi.org/project/sbo3l-langchain-keeperhub/) (PyPI — live)
+  - [`sbo3l-crewai-keeperhub`](https://pypi.org/project/sbo3l-crewai-keeperhub/) (PyPI — live) — 3-agent crew sharing one policy boundary
+  - [`sbo3l-autogen-keeperhub`](https://pypi.org/project/sbo3l-autogen-keeperhub/) (PyPI — live) — 2-agent planner+executor conversation
+  - `@sbo3l/elizaos-keeperhub` (npm — pending first tag-publish; source: [`integrations/elizaos-keeperhub-ts/`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/integrations/elizaos-keeperhub-ts)) — chat-turn action handler
+  - `@sbo3l/vercel-ai-keeperhub` (npm — pending first tag-publish; source: [`integrations/vercel-ai-keeperhub-ts/`](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/tree/main/integrations/vercel-ai-keeperhub-ts)) — Edge-compatible `tool()` for `streamText`/`generateText`
   - All sit composably alongside Devendra's `langchain-keeperhub` (PyPI) + Bleyle's ElizaOS plugin — they ship execution wrappers, ours ship policy-guarded execution wrappers
 - **15 KH improvement issues filed** across 3 rounds ([`KeeperHub/cli#47-#62`](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry)) — see the [Builder Feedback bounty one-pager](bounty-keeperhub-builder-feedback.md) + [round-3 evidence doc](../proof/kh-builder-feedback-2026-05-03.md)
 - **Long-form post:** [`docs/proof/blog-keeperhub-composability.md`](../proof/blog-keeperhub-composability.md) — 1700-word composability writeup also live at [`/learn/keeperhub-composability`](https://sbo3l.dev/learn/keeperhub-composability)
