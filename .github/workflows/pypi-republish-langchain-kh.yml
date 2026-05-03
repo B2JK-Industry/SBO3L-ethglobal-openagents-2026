@@ -101,7 +101,17 @@ jobs:
           set -euo pipefail
           # Verify the tag actually exists before dispatching — saves
           # a useless workflow run if someone deleted it accidentally.
-          if ! git ls-remote --tags --exit-code origin "refs/tags/${PUBLISH_TAG}" >/dev/null 2>&1; then
+          #
+          # We use `gh api repos/.../git/ref/tags/<tag>` instead of
+          # `git ls-remote` because there's no `actions/checkout@v4`
+          # step in this job — it runs lean to avoid a 5-second clone
+          # on every 30-min cron tick. The git API check works on both
+          # lightweight and annotated tags (a previous version that
+          # tried `git ls-remote origin` failed on a clean runner with
+          # no `origin` remote configured — the workflow hard-errored
+          # before getting to the dispatch and the tag-find logic was
+          # blamed when in reality the empty workspace was the bug).
+          if ! gh api "repos/${{ github.repository }}/git/ref/tags/${PUBLISH_TAG}" >/dev/null 2>&1; then
             echo "::error::tag ${PUBLISH_TAG} not found on origin — cannot dispatch publish workflow"
             exit 1
           fi

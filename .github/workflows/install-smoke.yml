@@ -104,39 +104,64 @@ jobs:
     needs: build-daemon
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Per-entry `continue-on-error` via `matrix.allow_failure` — same
+    # mechanism the pip-smoke job uses for KH-plugin pip variants pending
+    # PyPI Trusted Publisher. Used here for npm packages whose 1.2.0
+    # tag-publish hasn't fired yet (the publish workflow fires on tag
+    # push, but a brand-new package's first tag is a manual step).
+    # Drop the `allow_failure: true` line on each entry once its first
+    # tag-publish lands and the registry serves @1.2.0.
+    continue-on-error: ${{ matrix.allow_failure || false }}
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - "@sbo3l/sdk"
-          - "@sbo3l/0g-storage"
-          - "@sbo3l/marketplace"
-          - "@sbo3l/agentforce"
-          - "@sbo3l/anthropic"
-          - "@sbo3l/anthropic-computer-use"
-          - "@sbo3l/autogen"
-          - "@sbo3l/autogpt"
-          - "@sbo3l/babyagi"
-          - "@sbo3l/cohere-tools"
-          - "@sbo3l/copilot-studio"
-          - "@sbo3l/e2b"
-          - "@sbo3l/elizaos"
-          - "@sbo3l/elizaos-keeperhub"
-          - "@sbo3l/inngest"
-          - "@sbo3l/langchain"
-          - "@sbo3l/langchain-keeperhub"
-          - "@sbo3l/langflow"
-          - "@sbo3l/letta"
-          - "@sbo3l/mastra"
-          - "@sbo3l/modal"
-          - "@sbo3l/openai-assistants"
-          - "@sbo3l/perplexity"
-          - "@sbo3l/replicate"
-          - "@sbo3l/superagi"
-          - "@sbo3l/together"
-          - "@sbo3l/vellum"
-          - "@sbo3l/vercel-ai"
-          - "@sbo3l/vercel-ai-keeperhub"
+        # Each entry: `package` (required) + optional `allow_failure: true`.
+        # The matrix is `include`-only because mixing a `package` axis with
+        # per-entry `allow_failure` overrides via include-merging silently
+        # drops entries — same gotcha as pip-smoke below.
+        include:
+          - package: "@sbo3l/sdk"
+          - package: "@sbo3l/0g-storage"
+            # Pending first tag-publish on the existing v1.2.0 tag.
+            # Dev 1's package; will go live once anyone tags + pushes
+            # `0g-storage-ts-v1.2.0` per integrations-publish.yml.
+            allow_failure: true
+          - package: "@sbo3l/marketplace"
+          - package: "@sbo3l/agentforce"
+          - package: "@sbo3l/anthropic"
+          - package: "@sbo3l/anthropic-computer-use"
+          - package: "@sbo3l/autogen"
+          - package: "@sbo3l/autogpt"
+          - package: "@sbo3l/babyagi"
+          - package: "@sbo3l/cohere-tools"
+          - package: "@sbo3l/copilot-studio"
+          - package: "@sbo3l/e2b"
+          - package: "@sbo3l/elizaos"
+          - package: "@sbo3l/elizaos-keeperhub"
+            # Pending first tag-publish — R22-C cascade landed the
+            # package + matrix entry but no one tagged + pushed the
+            # `elizaos-keeperhub-ts-v1.2.0` release tag yet. Drop
+            # `allow_failure` once the registry serves @1.2.0.
+            allow_failure: true
+          - package: "@sbo3l/inngest"
+          - package: "@sbo3l/langchain"
+          - package: "@sbo3l/langchain-keeperhub"
+          - package: "@sbo3l/langflow"
+          - package: "@sbo3l/letta"
+          - package: "@sbo3l/mastra"
+          - package: "@sbo3l/modal"
+          - package: "@sbo3l/openai-assistants"
+          - package: "@sbo3l/perplexity"
+          - package: "@sbo3l/replicate"
+          - package: "@sbo3l/superagi"
+          - package: "@sbo3l/together"
+          - package: "@sbo3l/vellum"
+          - package: "@sbo3l/vercel-ai"
+          - package: "@sbo3l/vercel-ai-keeperhub"
+            # Pending first tag-publish — R22-D cascade landed the
+            # package + matrix entry but no one tagged + pushed the
+            # `vercel-ai-keeperhub-ts-v1.2.0` release tag yet.
+            allow_failure: true
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -261,27 +286,9 @@ jobs:
           - package: sbo3l-sdk
           - package: sbo3l-langchain
           - package: sbo3l-langchain-keeperhub
-            # Pending PyPI publish — Trusted Publisher config blocker
-            # documented at docs/dev2/pypi-langchain-keeperhub-publish-blocker.md.
-            # The npm version IS live; only the PyPI half is pending.
-            # When Daniel completes the PyPI Trusted Publisher registration
-            # + the publish job lands, drop this `allow_failure` line.
-            allow_failure: true
           - package: sbo3l-autogen-keeperhub
-            # Pending first PyPI publish — Trusted Publisher registration
-            # required (same gating story as sbo3l-langchain-keeperhub
-            # above; once the publish workflow lands a v1.2.0 the entry
-            # flips to a hard requirement). Tracking the same
-            # docs/dev2/pypi-langchain-keeperhub-publish-blocker.md note.
-            allow_failure: true
           - package: sbo3l-crewai
           - package: sbo3l-crewai-keeperhub
-            # Pending first PyPI publish — once the publish workflow
-            # fires on the `crewai-keeperhub-py-v1.2.0` tag and the
-            # Trusted Publisher config is in place, drop this
-            # `allow_failure` line. Same precedent as
-            # `sbo3l-langchain-keeperhub` above.
-            allow_failure: true
           - package: sbo3l-llamaindex
           - package: sbo3l-langgraph
     steps:
@@ -396,10 +403,11 @@ jobs:
           echo "pip-smoke:   $pip"
           if [ "$cargo" = "success" ] && [ "$npm" = "success" ] && [ "$pip" = "success" ]; then
             echo "✅ install-smoke green: 1 cargo + 29 npm + 8 pip = 38 packages installed cleanly"
-            echo "   (Hard-required: 35. Allowed-to-fail today: 3 KH-plugin pip variants —"
-            echo "    sbo3l-langchain-keeperhub + sbo3l-autogen-keeperhub + sbo3l-crewai-keeperhub"
-            echo "    pending PyPI Trusted Publisher; see"
-            echo "    docs/dev2/pypi-langchain-keeperhub-publish-blocker.md.)"
+            echo "   (Hard-required: 35. Allowed-to-fail today: 3 npm packages pending"
+            echo "    first tag-publish — @sbo3l/0g-storage + @sbo3l/elizaos-keeperhub +"
+            echo "    @sbo3l/vercel-ai-keeperhub. Drop their allow_failure flags once each"
+            echo "    package's <id>-v1.2.0 tag is pushed and integrations-publish.yml"
+            echo "    serves the registry @1.2.0.)"
             exit 0
           fi
           echo "❌ install-smoke regression — one or more HARD-REQUIRED matrix jobs failed"
