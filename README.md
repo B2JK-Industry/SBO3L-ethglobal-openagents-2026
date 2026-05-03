@@ -210,6 +210,8 @@ The 13 demo gates cover: schema strictness, locked golden APRP `request_hash`, a
 - [`FEEDBACK.md`](FEEDBACK.md) — partner-sponsor feedback (KeeperHub, ENS, Uniswap).
 - [`AI_USAGE.md`](AI_USAGE.md) — AI-tooling disclosure.
 - [`demo-scripts/demo-video-script.md`](demo-scripts/demo-video-script.md) — 3:30 demo-video script.
+- [`docs/submission/backup-demo-video/`](docs/submission/backup-demo-video/) — backup demo video assets: `vhs.tape` (auto-renders terminal scenes), `record-playbook.md` (30-min recording recipe), `scene-5-sponsor-wins.md` (static slide content).
+- [`docs/submission/backup-demo-video-url.md`](docs/submission/backup-demo-video-url.md) — backup video unlisted YouTube URL + SHA-256 (filled in after recording).
 - [`docs/cli/audit-bundle.md`](docs/cli/audit-bundle.md) — audit-bundle export / verify reference.
 - [`trust-badge/README.md`](trust-badge/README.md) — trust-badge proof-viewer reference.
 - [`FINAL_REVIEW.md`](FINAL_REVIEW.md) — historical readiness audit (kept for the audit trail).
