@@ -47,6 +47,12 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
       that bytes match the published <a href="https://crates.io/crates/sbo3l-core">sbo3l-core</a>
       crate yourself.
     </p>
+    <p class="install-row">
+      <button id="pwa-install-btn" class="install-btn" hidden type="button" aria-label="Install SBO3L Verify as an app">
+        <span aria-hidden="true">⤓</span> Install as offline-capable app
+      </button>
+      <span id="pwa-install-status" class="install-status" hidden role="status"></span>
+    </p>
   </section>
 
   <section class="verifier-pair">
@@ -102,11 +108,13 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
     }
 
     // R22 PR3: /kh-fleet rows deep-link via `?capsule_url=<path>` to a
-    // static JSON file under /capsules/. Fetch + populate the textarea
-    // here. Restricted to same-origin paths starting with `/` to keep
-    // the page from following an attacker-controlled absolute URL.
+    // static JSON file under /capsules/. Self-review tightening: restrict
+    // to paths starting with `/capsules/` (defense-in-depth — there is no
+    // reason to broaden the deep-link fetch surface beyond the capsules
+    // directory; the previous startsWith('/') would have permitted any
+    // same-origin asset).
     const capsuleUrl = params.get("capsule_url");
-    if (capsuleUrl && input && capsuleUrl.startsWith("/") && !capsuleUrl.startsWith("//")) {
+    if (capsuleUrl && input && capsuleUrl.startsWith("/capsules/") && !capsuleUrl.includes("..")) {
       fetch(capsuleUrl)
         .then((r) => (r.ok ? r.text() : null))
         .then((text) => {
@@ -116,6 +124,68 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
           // Silent — user can paste manually if fetch failed.
         });
     }
+  </script>
+
+  <script>
+    // R22 PR2 — register the service worker + wire the install prompt.
+    // /proof is the only route that registers the SW; the manifest is
+    // sitewide (link in BaseLayout) so any installed instance opens to
+    // /proof per manifest start_url. Registration scope defaults to
+    // /sw.js's directory ("/") which matches what we want.
+    //
+    // The install button is hidden by default and only revealed when
+    // beforeinstallprompt fires (Chromium / Edge / Android). On iOS
+    // Safari there is no programmatic prompt; users go via Share →
+    // "Add to Home Screen". We don't show iOS-specific UI here — the
+    // manifest + apple-touch-icon meta in BaseLayout cover that path.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js", { scope: "/" })
+          .catch(() => {
+            // Silent failure — the verifier still works without SW.
+          });
+      });
+    }
+
+    let deferredPrompt: any = null;
+    const installBtn = document.getElementById("pwa-install-btn") as HTMLButtonElement | null;
+    const installStatus = document.getElementById("pwa-install-status");
+
+    window.addEventListener("beforeinstallprompt", (e: Event) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) installBtn.hidden = false;
+    });
+
+    if (installBtn) {
+      installBtn.addEventListener("click", async () => {
+        if (!deferredPrompt) return;
+        installBtn.disabled = true;
+        try {
+          deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          if (installStatus) {
+            installStatus.hidden = false;
+            installStatus.textContent = choice && choice.outcome === "accepted"
+              ? "Installed — launch SBO3L Verify from your apps."
+              : "Install dismissed. You can install later from the address-bar prompt.";
+          }
+          installBtn.hidden = true;
+        } finally {
+          deferredPrompt = null;
+        }
+      });
+    }
+
+    window.addEventListener("appinstalled", () => {
+      if (installBtn) installBtn.hidden = true;
+      if (installStatus) {
+        installStatus.hidden = false;
+        installStatus.textContent = "Installed — launch SBO3L Verify from your apps.";
+      }
+      deferredPrompt = null;
+    });
   </script>
 
   <section class="docs">
@@ -150,6 +220,27 @@ const initialCapsule = decodeCapsuleParam(Astro.url.searchParams.get("capsule"))
     .hero { max-width: var(--max); margin: 2em auto 1em; padding: 0 1.5em; }
     .hero h1 { margin: 0 0 0.4em; }
     .lede { color: var(--muted); margin: 0; }
+    .install-row { margin: 0.9em 0 0; display: flex; gap: 0.8em; align-items: center; flex-wrap: wrap; }
+    .install-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.5em 0.95em;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      min-height: 44px;
+    }
+    .install-btn:hover { background: var(--accent); color: var(--bg); }
+    .install-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .install-btn:disabled { opacity: 0.5; cursor: progress; }
+    .install-status { color: var(--muted); font-size: 0.88em; }
 
     .verifier-pair {
       max-width: var(--max);

@@ -107,6 +107,9 @@ function fmtUtcDateTime(iso: string): string {
             <span class="agent">{row.agent_id}</span>
             <span class={`decision ${row.decision}`}>{row.decision}</span>
             <span class="rule"><code>{row.matched_rule_id}</code></span>
+            {row.is_real_capsule && (
+              <span class="real-badge" title="Real signed v2 Passport capsule — verifies under all 6 strict-mode WASM checks">REAL</span>
+            )}
             <span class="actions">
               <a class="capsule-link verify" href={`/proof?capsule_url=${encodeURIComponent(row.capsule_file)}`}>verify →</a>
               <a class="capsule-link download" href={row.capsule_file} download>download .json</a>
@@ -202,7 +205,7 @@ sbo3l passport verify capsule.json</code></pre>
   .rows { display: grid; gap: 0.4em; }
   .row {
     display: grid;
-    grid-template-columns: 12em 18em 11em 5em 13em 1fr;
+    grid-template-columns: 12em 18em 11em 5em 13em 4em 1fr;
     gap: 1em;
     align-items: center;
     padding: 0.6em 0.9em;
@@ -230,6 +233,18 @@ sbo3l passport verify capsule.json</code></pre>
   }
   .decision.allow { background: rgba(74, 222, 128, 0.15); color: var(--accent); }
   .decision.deny  { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+  .real-badge {
+    display: inline-block;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--bg);
+    background: var(--accent);
+    padding: 0.18em 0.55em;
+    border-radius: var(--r-sm);
+    text-align: center;
+    cursor: help;
+  }
   .actions { display: flex; gap: 0.8em; justify-content: flex-end; flex-wrap: wrap; }
   .capsule-link { color: var(--accent); text-decoration: none; font-size: 0.85em; white-space: nowrap; }
   .capsule-link:hover { text-decoration: underline; }
@@ -271,6 +286,7 @@ sbo3l passport verify capsule.json</code></pre>
     .row .agent::before { content: "agent: "; color: var(--muted); }
     .row .rule::before { content: "rule: "; color: var(--muted); }
     .row .decision { width: max-content; }
+    .row .real-badge { width: max-content; }
     .row .actions { justify-content: flex-start; }
     .counter-value { font-size: 3em; }
   }
