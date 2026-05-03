@@ -16,15 +16,45 @@ VERBOSE="${SBO3L_MONITORING_VERBOSE:-0}"
 FAIL_FAST="${SBO3L_MONITORING_FAIL_FAST:-0}"
 FAILED_ROWS=()
 
+# Retry-with-backoff config. Heidi UAT 2026-05-03 P3: jq filter
+# returned empty for crates.io API responses on 3 of 10 probe runs,
+# all self-recovered within 30 minutes (transient rate-limit or
+# brief outage). crates.io rate-limits aggressive polling; npm and
+# PyPI registries occasionally drop responses too; PublicNode RPC
+# also has periodic blips. Without retry, every transient blip
+# fired the alert pipeline (false positive) and only auto-resolved
+# on the NEXT 30-min poll, leaving a 30-min false-alarm window.
+#
+# Strategy: 1 initial attempt + 3 retries with 5s/10s/20s backoff.
+# Empty body is treated identically to a network failure for retry
+# purposes — registries can return 200 + empty/garbage during
+# transient server-side glitches, and the original `check_json`
+# couldn't tell those apart from real outages.
+#
+# Total worst-case added latency per failing probe: ~35s (5+10+20)
+# of sleep + ~30s of curl timeouts = ~65s per failed probe. With 7
+# JSON probes, even a full simultaneous registry outage stays under
+# the 5-min job timeout.
+RETRY_BACKOFFS=(5 10 20)
+
 # check_http <description> <url> <expected_status>
 check_http() {
   local desc="$1" url="$2" want="$3"
-  local got
-  got=$(curl -sk -o /dev/null -w "%{http_code}" -m 10 -L "$url")
+  local got attempt
+  got=""
+  for attempt in 0 1 2 3; do
+    got=$(curl -sk -o /dev/null -w "%{http_code}" -m 10 -L "$url")
+    if [ "$got" = "$want" ]; then
+      break
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      sleep "${RETRY_BACKOFFS[$attempt]}"
+    fi
+  done
   if [ "$got" = "$want" ]; then
     printf "${GREEN}OK${NC}   [%s] %s\n" "$got" "$desc"
   else
-    printf "${RED}FAIL${NC} [%s, want %s] %s — %s\n" "$got" "$want" "$desc" "$url"
+    printf "${RED}FAIL${NC} [%s, want %s after 3 retries] %s — %s\n" "$got" "$want" "$desc" "$url"
     FAILED_ROWS+=("$desc → HTTP $got (expected $want) [$url]")
     [ "$FAIL_FAST" = "1" ] && exit 1
   fi
@@ -32,15 +62,30 @@ check_http() {
 }
 
 # check_json <description> <url> <jq_filter> — passes if the filter
-# returns a non-empty, non-null string.
+# returns a non-empty, non-null string. Retries up to 3 times on
+# network failure OR empty body OR empty filter result; all three
+# are treated as the same retryable transient condition.
 check_json() {
   local desc="$1" url="$2" filter="$3"
-  local got
-  got=$(curl -sf -m 10 "$url" 2>/dev/null | jq -r "$filter // empty" 2>/dev/null)
+  local got body attempt
+  got=""
+  for attempt in 0 1 2 3; do
+    body=$(curl -sf -m 10 "$url" 2>/dev/null) || body=""
+    if [ -n "$body" ]; then
+      got=$(printf '%s' "$body" | jq -r "$filter // empty" 2>/dev/null)
+      if [ -n "$got" ] && [ "$got" != "null" ]; then
+        break
+      fi
+    fi
+    got=""
+    if [ "$attempt" -lt 3 ]; then
+      sleep "${RETRY_BACKOFFS[$attempt]}"
+    fi
+  done
   if [ -n "$got" ] && [ "$got" != "null" ]; then
     printf "${GREEN}OK${NC}   [%s] %s\n" "$got" "$desc"
   else
-    printf "${RED}FAIL${NC} [empty] %s — %s (filter: %s)\n" "$desc" "$url" "$filter"
+    printf "${RED}FAIL${NC} [empty after 3 retries] %s — %s (filter: %s)\n" "$desc" "$url" "$filter"
     FAILED_ROWS+=("$desc → empty JSON value [$url filter=$filter]")
     [ "$FAIL_FAST" = "1" ] && exit 1
   fi
