@@ -63,6 +63,38 @@ const dir = isRtlLocale(currentLocale) ? "rtl" : "ltr";
     <meta name="twitter:title" content={ogTitle} />
     <meta name="twitter:description" content="Don't give your agent a wallet. Give it a mandate." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {/*
+      JSON-LD structured data — gives search engines + social fetchers
+      enough metadata to render rich cards without scraping. The
+      SoftwareApplication schema is closest to "open-source dev tool"
+      (vs WebSite which is too generic). Authors + license + URL are
+      the minimum search engines actually use for ranking signal.
+    */}
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "SBO3L",
+      description: "Cryptographically verifiable trust layer for autonomous AI agents — local policy + budget + receipt + audit firewall.",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Linux, macOS, Windows",
+      url: "https://sbo3l-marketing.vercel.app",
+      sameAs: [
+        "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026",
+        "https://www.npmjs.com/org/sbo3l",
+        "https://crates.io/crates/sbo3l-cli",
+        "https://pypi.org/project/sbo3l-sdk/",
+      ],
+      author: {
+        "@type": "Person",
+        name: "Daniel Babjak",
+      },
+      license: "https://opensource.org/licenses/MIT",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+    })} />
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to main content</a>

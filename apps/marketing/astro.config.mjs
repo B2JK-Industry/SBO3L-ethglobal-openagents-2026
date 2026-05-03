@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 
 // SBO3L marketing site config.
 //
@@ -46,6 +47,16 @@ export default defineConfig({
       fallbackType: 'redirect',
     },
   },
+  // @astrojs/sitemap auto-generates sitemap-index.xml + sitemap-N.xml
+  // from every static route at build. Linked from public/robots.txt
+  // so well-behaved crawlers (Google, Bing, judge link-checkers)
+  // discover the per-page OG images + sponsor sub-pages without
+  // having to walk the index.
+  integrations: [
+    sitemap({
+      filter: (page) => !page.includes('/og/'),
+    }),
+  ],
   build: {
     format: 'file',
     assets: '_astro',
