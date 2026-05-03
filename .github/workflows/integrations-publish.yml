@@ -34,6 +34,7 @@ on:
       - "elizaos-keeperhub-ts-v*"
       - "vercel-ai-v*"
       - "vercel-ai-keeperhub-ts-v*"
+      - "0g-storage-v*"
       - "langchain-py-v*"
       - "langchain-keeperhub-py-v*"
       - "autogen-keeperhub-py-v*"
@@ -90,6 +91,9 @@ jobs:
           - id: vercel-ai-keeperhub-ts
             dir: integrations/vercel-ai-keeperhub-ts
             pkg: "@sbo3l/vercel-ai-keeperhub"
+          - id: 0g-storage
+            dir: integrations/0g-storage
+            pkg: "@sbo3l/0g-storage"
 
     steps:
       - uses: actions/checkout@v4
@@ -225,7 +229,8 @@ jobs:
       startsWith(github.ref, 'refs/tags/elizaos-v') ||
       startsWith(github.ref, 'refs/tags/elizaos-keeperhub-ts-v') ||
       startsWith(github.ref, 'refs/tags/vercel-ai-v') ||
-      startsWith(github.ref, 'refs/tags/vercel-ai-keeperhub-ts-v')
+      startsWith(github.ref, 'refs/tags/vercel-ai-keeperhub-ts-v') ||
+      startsWith(github.ref, 'refs/tags/0g-storage-v')
     strategy:
       fail-fast: false
       matrix:
@@ -251,6 +256,9 @@ jobs:
           - id: vercel-ai-keeperhub-ts
             tag_prefix: vercel-ai-keeperhub-ts-v
             dir: integrations/vercel-ai-keeperhub-ts
+          - id: 0g-storage
+            tag_prefix: 0g-storage-v
+            dir: integrations/0g-storage
 
     steps:
       - name: Skip non-matching tag
