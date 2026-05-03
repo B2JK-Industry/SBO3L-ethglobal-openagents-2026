@@ -55,7 +55,11 @@ jobs:
           python-version: "3.12"
 
       - name: Install validators
-        run: pip install "jsonschema[format]>=4.21" "openapi-spec-validator>=0.7" "referencing>=0.35"
+        # Sourced from repo-root `requirements.txt` so a judge running
+        # the same scripts locally (`pip install -r requirements.txt`
+        # then `python3 scripts/validate_schemas.py`) gets the same
+        # versions CI does.
+        run: pip install -r requirements.txt
 
       - name: Validate JSON schemas and test corpus
         run: python scripts/validate_schemas.py

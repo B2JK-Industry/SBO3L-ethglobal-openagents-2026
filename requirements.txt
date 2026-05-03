@@ -1,0 +1,16 @@
+# Python deps for the schema + OpenAPI validation scripts under
+# `scripts/`. The Rust workspace + the SBO3L Python SDK have their own
+# dep declarations (Cargo.toml + sdks/python/pyproject.toml); these are
+# ONLY for the standalone validators a judge / CI / dev runs to confirm
+# `schemas/*.json` and `docs/api/openapi.json` are well-formed.
+#
+# Install:  pip install -r requirements.txt
+# Use:      python3 scripts/validate_schemas.py
+#           python3 scripts/validate_openapi.py
+#
+# Pinned to safe-recent minor versions; the validators don't exercise
+# any spec-edge features that would force a tighter pin.
+
+jsonschema[format]>=4.21
+referencing>=0.35
+openapi-spec-validator>=0.7

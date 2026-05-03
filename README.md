@@ -18,7 +18,12 @@
 
 ```bash
 cargo install sbo3l-cli --version 1.2.2
+
+# `verify-ens` reads on-chain records via JSON-RPC. Any mainnet RPC
+# works; the public PublicNode endpoint requires no auth.
+export SBO3L_ENS_RPC_URL=https://ethereum-rpc.publicnode.com
 sbo3l agent verify-ens sbo3lagent.eth --network mainnet  # → 5 records resolved
+
 sbo3l doctor --extended                                  # → 7/7 contracts ok
 curl -s https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json \
   | sbo3l passport verify --path /dev/stdin              # → crypto verify: ok
