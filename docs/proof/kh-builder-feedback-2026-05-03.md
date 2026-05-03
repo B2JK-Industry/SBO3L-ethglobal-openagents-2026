@@ -45,7 +45,7 @@ Each PR is open as **draft** with explicit "Blocked on KeeperHub/cli#NN" in the 
 | Metric | Round 1 | Round 2 | Total |
 |---|---|---|---|
 | Issues filed on `KeeperHub/cli` | 5 (#47–#51) | 5 (#52–#56) | **10** |
-| Companion draft PRs on our repo | 0 | 5 (#402–#406) | **5** |
+| Companion adapter-shape PRs on our repo (originally drafts; all merged 2026-05-03 12:00 UTC) | 0 | 5 (#402–#406) | **5** |
 | Adapter line refs cited | 6 | 9 | 15 |
 | Proposed code-shape diffs | 0 | ~200 lines across 5 files | ~200 |
 
@@ -104,10 +104,10 @@ Round 2 covered **post-integration concerns** (error catalog, fixture suite, SLO
 | Metric | R1 | R2 | R3 | Total |
 |---|---|---|---|---|
 | Issues on `KeeperHub/cli` | 5 (#47–#51) | 5 (#52–#56) | 5 (#58–#62) | **15** |
-| Companion draft PRs | 0 | 5 (#402–#406) | 0 (R3 issues are doc-only asks) | **5** |
+| Companion adapter-shape PRs (originally drafts; all merged 2026-05-03 12:00 UTC) | 0 | 5 (#402–#406) | 0 (R3 issues are doc-only asks) | **5** |
 | Adapter line refs cited | 6 | 9 | 1 (#60 cites lib.rs:316-319) | 16 |
 
 ### Updated filtered listings
 
 - [All 15 SBO3L-filed issues on KeeperHub/cli](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry)
-- [All 5 KH-BF draft PRs on this repo](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3AB2JK-Industry+%22kh-bf-additional%22)
+- [All 5 KH-BF adapter-shape PRs on this repo (now merged)](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3AB2JK-Industry+%22kh-bf-additional%22)

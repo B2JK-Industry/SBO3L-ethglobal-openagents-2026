@@ -539,9 +539,10 @@ const tool = sbo3lKeeperHubTool({ client });
 <p>
   Each issue carries a worked reproduction, a citation to the exact
   line in our adapter where the friction surfaces, and a proposed
-  shape for the fix. Five have <strong>companion draft PRs</strong> on
-  our repo showing the consumer-side adapter change ready to ship the
-  day KH lands the upstream contract.
+  shape for the fix. Five have <strong>companion adapter-shape PRs</strong>
+  (originally drafts; all merged 2026-05-03 12:00 UTC as the upstream
+  KH contracts approached implementation) showing the consumer-side
+  adapter change ready to ship the day KH lands them.
 </p>
 
 <h2>6. Looking forward — joint roadmap</h2>
