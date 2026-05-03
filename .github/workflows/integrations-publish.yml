@@ -10,6 +10,7 @@ name: Integrations publish
 #   langchain-keeperhub-ts-v* → @sbo3l/langchain-keeperhub     (npm)
 #   autogen-v*                → @sbo3l/autogen                 (npm)
 #   elizaos-v*                → @sbo3l/elizaos                 (npm)
+#   elizaos-keeperhub-ts-v*   → @sbo3l/elizaos-keeperhub       (npm)
 #   vercel-ai-v*              → @sbo3l/vercel-ai               (npm)
 #   langchain-py-v*           → sbo3l-langchain                (PyPI)
 #   langchain-keeperhub-py-v* → sbo3l-langchain-keeperhub      (PyPI)
@@ -28,6 +29,7 @@ on:
       - "langchain-keeperhub-ts-v*"
       - "autogen-v*"
       - "elizaos-v*"
+      - "elizaos-keeperhub-ts-v*"
       - "vercel-ai-v*"
       - "langchain-py-v*"
       - "langchain-keeperhub-py-v*"
@@ -75,6 +77,9 @@ jobs:
           - id: elizaos
             dir: integrations/elizaos
             pkg: "@sbo3l/elizaos"
+          - id: elizaos-keeperhub-ts
+            dir: integrations/elizaos-keeperhub-ts
+            pkg: "@sbo3l/elizaos-keeperhub"
           - id: vercel-ai
             dir: sdks/typescript/integrations/vercel-ai
             pkg: "@sbo3l/vercel-ai"
@@ -207,6 +212,7 @@ jobs:
       startsWith(github.ref, 'refs/tags/langchain-keeperhub-ts-v') ||
       startsWith(github.ref, 'refs/tags/autogen-v') ||
       startsWith(github.ref, 'refs/tags/elizaos-v') ||
+      startsWith(github.ref, 'refs/tags/elizaos-keeperhub-ts-v') ||
       startsWith(github.ref, 'refs/tags/vercel-ai-v')
     strategy:
       fail-fast: false
@@ -224,6 +230,9 @@ jobs:
           - id: elizaos
             tag_prefix: elizaos-v
             dir: integrations/elizaos
+          - id: elizaos-keeperhub-ts
+            tag_prefix: elizaos-keeperhub-ts-v
+            dir: integrations/elizaos-keeperhub-ts
           - id: vercel-ai
             tag_prefix: vercel-ai-v
             dir: sdks/typescript/integrations/vercel-ai

@@ -1,0 +1,20 @@
+{
+  "name": "@sbo3l/example-elizaos-keeperhub-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end ElizaOS demo using @sbo3l/elizaos-keeperhub. Hardcoded chat turn → SBO3L policy gate → KH workflow execution_ref.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build:dep": "npm --prefix ../../integrations/elizaos-keeperhub-ts install --no-audit --no-fund && npm --prefix ../../integrations/elizaos-keeperhub-ts run build",
+    "preagent": "npm run build:dep",
+    "agent": "node agent.mjs"
+  },
+  "dependencies": {
+    "@sbo3l/elizaos-keeperhub": "file:../../integrations/elizaos-keeperhub-ts",
+    "@sbo3l/sdk": "file:../../sdks/typescript"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

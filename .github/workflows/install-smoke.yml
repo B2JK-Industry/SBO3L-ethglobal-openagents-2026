@@ -120,6 +120,7 @@ jobs:
           - "@sbo3l/copilot-studio"
           - "@sbo3l/e2b"
           - "@sbo3l/elizaos"
+          - "@sbo3l/elizaos-keeperhub"
           - "@sbo3l/inngest"
           - "@sbo3l/langchain"
           - "@sbo3l/langchain-keeperhub"
@@ -378,8 +379,8 @@ jobs:
           echo "npm-smoke:   $npm"
           echo "pip-smoke:   $pip"
           if [ "$cargo" = "success" ] && [ "$npm" = "success" ] && [ "$pip" = "success" ]; then
-            echo "✅ install-smoke green: 1 cargo + 26 npm + 6 pip = 33 packages installed cleanly"
-            echo "   (Hard-required: 32. Allowed-to-fail today: 1 — sbo3l-langchain-keeperhub"
+            echo "✅ install-smoke green: 1 cargo + 27 npm + 6 pip = 34 packages installed cleanly"
+            echo "   (Hard-required: 33. Allowed-to-fail today: 1 — sbo3l-langchain-keeperhub"
             echo "    pending PyPI Trusted Publisher; see"
             echo "    docs/dev2/pypi-langchain-keeperhub-publish-blocker.md.)"
             exit 0
