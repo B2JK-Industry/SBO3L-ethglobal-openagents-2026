@@ -1,0 +1,51 @@
+{
+  "name": "@sbo3l/0g-storage",
+  "version": "1.2.0",
+  "description": "Lightweight TypeScript client for 0G Storage with 5s timeout, browser fallback, and signed manifest emit. Wraps the indexer HTTP API the official 0G SDK uses, but doesn't pull in the SDK's native bindings — usable from any TS project (Node, edge, browser) in five lines.",
+  "license": "MIT",
+  "author": "Daniel Babjak <babjak_daniel@hotmail.com>",
+  "homepage": "https://sbo3l.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026.git",
+    "directory": "integrations/0g-storage"
+  },
+  "bugs": {
+    "url": "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/issues"
+  },
+  "keywords": [
+    "0g",
+    "0g-storage",
+    "sbo3l",
+    "decentralized-storage",
+    "rootHash",
+    "galileo",
+    "audit-log"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "publishConfig": { "access": "public" }
+}

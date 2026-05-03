@@ -109,6 +109,7 @@ jobs:
       matrix:
         package:
           - "@sbo3l/sdk"
+          - "@sbo3l/0g-storage"
           - "@sbo3l/marketplace"
           - "@sbo3l/agentforce"
           - "@sbo3l/anthropic"
