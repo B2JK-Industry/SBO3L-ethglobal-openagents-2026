@@ -1,8 +1,32 @@
 # SBO3L
 
-> Don't give your agent a wallet. Give it a mandate.
+> **Don't give your agent a wallet. Give it a mandate.**
 
 **SBO3L** is a local policy, budget, receipt and audit firewall that decides whether an autonomous AI agent may execute an onchain or payment action. The agent never holds a private key. SBO3L decides, signs and audits.
+
+[**📖 Wiki**](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/wiki) · [**🌐 Live site**](https://sbo3l-marketing.vercel.app) · [**🔬 Try in browser**](https://sbo3l-marketing.vercel.app/proof) · [**📚 Hosted docs**](https://sbo3l-docs.vercel.app) · [**📦 crates.io**](https://crates.io/crates/sbo3l-cli) · [**⬇️ Releases**](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases)
+
+---
+
+## ⚡ Try it in 60 seconds (no install needed)
+
+1. Open <https://sbo3l-marketing.vercel.app/proof> in any browser
+2. Right-click + save: <https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json>
+3. Drag-drop the file onto the page → **6 cryptographic checks run in your browser** (no network call after page load).
+
+**With the CLI** (3 min, ~150MB Rust install):
+
+```bash
+cargo install sbo3l-cli --version 1.2.0
+sbo3l agent verify-ens sbo3lagent.eth --network mainnet  # → 5 records resolved
+sbo3l doctor --extended                                  # → 6/6 contracts ok
+curl -s https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json \
+  | sbo3l passport verify --path /dev/stdin              # → crypto verify: ok
+```
+
+For full hands-on walkthrough see the **[Try It Now wiki page](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/wiki/Try-It-Now)** — 6 paths (browser / Rust / Python / TS / visualizations / fresh-clone reproduce), each verifiable in under 5 minutes.
+
+---
 
 This repository was implemented during **ETHGlobal Open Agents 2026**. Planning and specification artifacts under [`docs/spec/`](docs/spec/) were copied from a pre-hackathon planning repository (`agent-vault-os`) and are clearly labelled — they are not prior product code.
 
