@@ -5523,7 +5523,7 @@ dependencies = [
 
 [[package]]
 name = "research-agent"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -5916,7 +5916,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-anchor"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "chrono",
  "hex",
@@ -5932,7 +5932,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-cli"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "age",
  "alloy",
@@ -5968,7 +5968,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-core"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -6007,7 +6007,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-execution"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "chrono",
  "hex",
@@ -6025,7 +6025,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-identity"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "ed25519-dalek",
  "hex",
@@ -6042,7 +6042,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-keeperhub-adapter"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "chrono",
  "hex",
@@ -6057,7 +6057,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-mcp"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -6083,7 +6083,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-playground"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "chrono",
  "getrandom 0.3.4",
@@ -6099,7 +6099,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-policy"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "chrono",
  "hex",
@@ -6117,7 +6117,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-server"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -6162,7 +6162,7 @@ dependencies = [
 
 [[package]]
 name = "sbo3l-storage"
-version = "1.2.0"
+version = "1.2.2"
 dependencies = [
  "chrono",
  "ed25519-dalek",
