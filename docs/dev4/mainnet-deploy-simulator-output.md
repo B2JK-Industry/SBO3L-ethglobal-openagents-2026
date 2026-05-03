@@ -59,8 +59,8 @@ read-back). Outputs to stdout + per-step logs in
   ✅ resolver flipped to 0x<NEW-OR-ADDRESS>
   STEP 2 gas estimate: 80000 (~ $0.02 simulator-side; ~$3.00 real-mainnet @ 50 gwei)
 
-  STEP 3: forge script RegisterMainnetFleet (60 subnames)
-  STEP 3 gas estimate: 3000000 (3M aggregate, 60×50K) (~ $0.60 simulator-side; ~$180.00 real-mainnet @ 50 gwei)
+  STEP 3: cast send setSubnodeRecord loop (60 subnames)
+  STEP 3 gas total: 3000000 (~ $0.60 simulator-side; ~$180.00 real-mainnet @ 50 gwei)
 
 [4/4] Final state spot-check (5 subnames)
   ✅ research.sbo3lagent.eth          resolver = 0x<NEW-OR-ADDRESS>
