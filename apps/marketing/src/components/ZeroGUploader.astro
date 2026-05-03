@@ -159,10 +159,20 @@ const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
   }
-  .zg-drop:hover, .zg-drop:focus, .zg-drop.zg-drag {
+  .zg-drop:hover, .zg-drop.zg-drag {
     border-color: var(--accent);
     background: var(--code-bg);
-    outline: none;
+  }
+  /* R20 Task B: previous rule killed `outline` on `:focus`, removing
+     the keyboard ring entirely (border-color change alone isn't
+     reliable for users with reduced color sensitivity). Restored a
+     2px accent outline on `:focus-visible` so keyboard tabs ring but
+     mouse clicks don't. */
+  .zg-drop:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-color: var(--accent);
+    background: var(--code-bg);
   }
   .zg-drop strong { display: block; font-size: 1em; margin-bottom: 0.3em; }
   .zg-drop span { color: var(--muted); font-size: 0.9em; }
