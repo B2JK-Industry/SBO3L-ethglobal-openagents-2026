@@ -238,16 +238,35 @@ jobs:
     needs: build-daemon
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # `continue-on-error` is per-entry via `matrix.allow_failure`. We use it
+    # for packages that are EXPECTED to 404 on PyPI today because of an
+    # external blocker (typically a one-time Daniel-side Trusted Publisher
+    # registration the publish workflow needs but which we don't gate on
+    # for the rest of the install-smoke matrix). When the blocker clears
+    # and the package goes live, drop the `allow_failure: true` line for
+    # that entry in a follow-up PR — that re-asserts the hard requirement
+    # so any future regression (yank, registry corruption) surfaces loud.
+    continue-on-error: ${{ matrix.allow_failure || false }}
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - sbo3l-sdk
-          - sbo3l-langchain
-          - sbo3l-langchain-keeperhub
-          - sbo3l-crewai
-          - sbo3l-llamaindex
-          - sbo3l-langgraph
+        # Each entry: `package` (required) + optional `allow_failure: true`.
+        # The matrix is `include`-only because mixing a `package` axis with
+        # per-entry `allow_failure` overrides via include-merging silently
+        # drops entries when GitHub Actions evaluates the cross-product.
+        include:
+          - package: sbo3l-sdk
+          - package: sbo3l-langchain
+          - package: sbo3l-langchain-keeperhub
+            # Pending PyPI publish — Trusted Publisher config blocker
+            # documented at docs/dev2/pypi-langchain-keeperhub-publish-blocker.md.
+            # The npm version IS live; only the PyPI half is pending.
+            # When Daniel completes the PyPI Trusted Publisher registration
+            # + the publish job lands, drop this `allow_failure` line.
+            allow_failure: true
+          - package: sbo3l-crewai
+          - package: sbo3l-llamaindex
+          - package: sbo3l-langgraph
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -359,8 +378,13 @@ jobs:
           echo "npm-smoke:   $npm"
           echo "pip-smoke:   $pip"
           if [ "$cargo" = "success" ] && [ "$npm" = "success" ] && [ "$pip" = "success" ]; then
-            echo "✅ install-smoke green: 1 cargo + 25 npm + 5 pip = 31 packages installed cleanly"
+            echo "✅ install-smoke green: 1 cargo + 26 npm + 6 pip = 33 packages installed cleanly"
+            echo "   (Hard-required: 32. Allowed-to-fail today: 1 — sbo3l-langchain-keeperhub"
+            echo "    pending PyPI Trusted Publisher; see"
+            echo "    docs/dev2/pypi-langchain-keeperhub-publish-blocker.md.)"
             exit 0
           fi
-          echo "❌ install-smoke regression — one or more matrix jobs failed"
+          echo "❌ install-smoke regression — one or more HARD-REQUIRED matrix jobs failed"
+          echo "   (Allowed-to-fail entries don't count. Check matrix job results above"
+          echo "    to identify which package broke.)"
           exit 1
