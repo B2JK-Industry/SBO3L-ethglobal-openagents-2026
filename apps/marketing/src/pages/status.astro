@@ -36,6 +36,16 @@ const sections: { title: string; rows: Row[] }[] = [
         mock: null,
         notyet: null,
       },
+    ],
+  },
+  {
+    // AI provider SDK adapters are NOT ETHGlobal Open Agents 2026
+    // sponsor tracks (no bounty / no prize); they're tool integrations
+    // the project ships alongside the sponsor work. Split into their
+    // own section so the "Sponsor integrations" surface above does
+    // not imply Anthropic is a bounty-giving sponsor.
+    title: "AI provider SDK adapters",
+    rows: [
       {
         surface: "Anthropic Claude tool-use",
         live: "`@sbo3l/anthropic` published on npm. `examples/anthropic-research-agent/` runs end-to-end with `ANTHROPIC_API_KEY=…`.",
