@@ -1,10 +1,19 @@
-# Scene 5 — Sponsor wins (static slide content)
+# Scene 5 — Sponsor wins + SDK reach (static slide content)
 
 > **Format:** paste this into one Keynote / Google Slides slide at 1920×1080.
 > **Hold time:** 15 s on camera.
-> **Layout suggestion:** two columns. Left column = sponsors (5 rows). Right
-> column = the four-number outro footer (881 / 13 / 25 / 9). Use the SBO3L
-> palette: bg `#0a0a0f`, accent `#4ad6a7`, fg `#e6e6ec`.
+> **Layout suggestion:** two columns. Left column = 4 ETHGlobal sponsor
+> tracks (KH, ENS, Uniswap, 0G) + 1 SDK adapter row (Anthropic) clearly
+> visually separated from the sponsor block. Right column = the four-
+> number outro footer (881 / 13 / 25 / 9). Use the SBO3L palette: bg
+> `#0a0a0f`, accent `#4ad6a7`, fg `#e6e6ec`.
+>
+> **Anthropic note for the recording:** Anthropic is NOT an ETHGlobal
+> Open Agents 2026 sponsor (no bounty / no prize). The Claude tool-use
+> adapter is real and shipped on npm, but it belongs in the "SDK reach"
+> bucket, not the sponsor bucket. The slide MUST visually separate them
+> (different sub-heading + a divider) so a viewer can't read it as
+> "Anthropic gives a prize."
 >
 > **Voice match:** these bullets mirror the per-bounty docs at
 > [`bounty-keeperhub.md`](../bounty-keeperhub.md), [`bounty-ens-most-creative-final.md`](../bounty-ens-most-creative-final.md),
@@ -65,7 +74,13 @@
 
 ---
 
-## Anthropic — Claude tool-use
+## SDK adapter (non-sponsor): Anthropic Claude tool-use
+
+> **Important visual cue when slidedesigning:** put this section
+> under its own sub-heading or divider so it's clearly separate
+> from the 4 sponsor blocks above. Anthropic does NOT sponsor Open
+> Agents 2026 — listing them under the sponsor block would be a
+> truthfulness defect.
 
 - `@sbo3l/anthropic` npm package — `sbo3lTool` Claude `Tool` definition +
   `runSbo3lToolUseLoop()` driver for multi-turn tool dispatch

@@ -100,9 +100,15 @@ export const OG_PAGES: Record<string, OgPageMeta> = {
     variant: "sponsor",
   },
   "submission/anthropic": {
+    // Anthropic is NOT an ETHGlobal Open Agents 2026 sponsor track —
+    // they don't give a prize. The /submission/anthropic page is an
+    // SDK adapter integration story (the @sbo3l/anthropic npm package
+    // wraps Claude tool-use with policy receipts), so the OG card
+    // uses the "default" variant, not the "sponsor" variant. Avoids
+    // social-preview implying a bounty/prize relationship.
     title: "SBO3L × Anthropic",
     subtitle: "Claude tool-use signed receipts · single-line wrapAnthropic()",
-    variant: "sponsor",
+    variant: "default",
   },
 };
 
