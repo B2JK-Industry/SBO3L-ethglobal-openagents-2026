@@ -1,15 +1,21 @@
 ---
-// Sponsor track strip — links each ETHGlobal sponsor to our submission
-// page for that bounty.
+// Sponsor track strip — links each ETHGlobal Open Agents 2026 sponsor
+// to our submission page for that bounty.
 //
-// R19 Wave 2 Task C: replaced the prior text-only grid (4 plain
-// <a><strong/>name) with 4 SponsorCard SVG cards (240×140 each, brand
-// motif on the right, accent stripe on the left). Cards are still
+// R19 Wave 2 Task C: replaced the prior text-only grid (plain
+// <a><strong/>name) with SponsorCard SVG cards (240×140 each, brand
+// motif on the right, accent stripe on the left). Cards are
 // inline-SVG, no third-party images — keeps the marketing CSP clean
-// (img-src 'self'). Adoption matches the brief ordering.
+// (img-src 'self').
 //
-// Sponsor list deliberately matches the same 4 tracks the previous
-// component shipped — KH, ENS-Most-Creative, Uniswap, Anthropic.
+// 2026-05-03: removed Anthropic from the strip. Anthropic is NOT an
+// ETHGlobal Open Agents 2026 sponsor track — placing them under
+// "Live sponsor integrations" would falsely imply a prize-giving
+// relationship. The Claude tool-use ADAPTER (`@sbo3l/anthropic`) is
+// real and stays documented in /quickstarts + /status as an SDK
+// integration; the standalone /submission/anthropic page also stays
+// reachable but is no longer linked from this sponsor surface.
+//
 // Other tracks (0G, ENS-AI-Agents) live on their own /submission
 // pages but are intentionally not in this surface; that decision
 // was made when this component first shipped to avoid implying
@@ -17,11 +23,10 @@
 
 import SponsorCard from "~/components/SponsorCard.astro";
 
-const sponsors: { track: string; subtitle: string; motif: "keeperhub" | "ens" | "uniswap" | "anthropic"; href: string }[] = [
+const sponsors: { track: string; subtitle: string; motif: "keeperhub" | "ens" | "uniswap"; href: string }[] = [
   { track: "KeeperHub", subtitle: "Live workflow + signed receipts",  motif: "keeperhub", href: "/submission/keeperhub" },
   { track: "ENS",       subtitle: "sbo3lagent.eth + Trust DNS",       motif: "ens",       href: "/submission/ens-most-creative" },
   { track: "Uniswap",   subtitle: "Sepolia QuoterV2 + MEV guard",     motif: "uniswap",   href: "/submission/uniswap" },
-  { track: "Anthropic", subtitle: "Claude tool-use receipts",         motif: "anthropic", href: "/submission/anthropic" },
 ];
 ---
 <section class="sponsors" aria-label="ETHGlobal Open Agents 2026 sponsor tracks">
