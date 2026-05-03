@@ -75,7 +75,7 @@
 
 ### Onchain + ENS
 - ✅ **Mainnet ENS apex** `sbo3lagent.eth` — 5 records
-- ✅ **Sepolia OffchainResolver** `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3`
+- ✅ **Sepolia OffchainResolver** `0x87e99508C222c6E419734CACbb6781b8d282b1F6`
 - ✅ **Sepolia QuoterV2** (Uniswap path)
 
 ### Submission package (`docs/submission/`)

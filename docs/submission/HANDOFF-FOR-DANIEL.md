@@ -78,7 +78,7 @@ verify-ens: sbo3lagent.eth  (network: mainnet)
 
 1. Open https://sbo3l-marketing.vercel.app/marketplace — 5 starter policies.
 2. Click any — see the signed manifest + content-addressed registry.
-3. (Optional) `cast call 0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3 ...` — show the OffchainResolver returning a signed answer the gateway gateway-signed.
+3. (Optional) `cast call 0x87e99508C222c6E419734CACbb6781b8d282b1F6 ...` — show the OffchainResolver returning a signed answer the gateway gateway-signed.
 
 **Why this third:** marketplace closes the "where do agents come from" question. CCIP-Read shows the live Sepolia footprint.
 
@@ -134,7 +134,7 @@ Walk these in a fresh browser before hitting submit:
 - [ ] `cargo install sbo3l-cli --version 1.2.0` — confirm `sbo3l --version` → `sbo3l 1.2.0`.
 - [ ] `sbo3l agent verify-ens sbo3lagent.eth --rpc-url https://ethereum-rpc.publicnode.com` — confirm 5 records.
 - [ ] Open https://sbo3l-marketing.vercel.app/marketplace — confirm 5 starter policies render.
-- [ ] (Optional) `cast call 0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3 ...` — show OffchainResolver live.
+- [ ] (Optional) `cast call 0x87e99508C222c6E419734CACbb6781b8d282b1F6 ...` — show OffchainResolver live.
 
 If any step regresses unexpectedly, ping Heidi and re-check `docs/submission/READY.md` for the latest gap inventory.
 
@@ -151,7 +151,7 @@ If any step regresses unexpectedly, ping Heidi and re-check `docs/submission/REA
 | Try it (verifier) | https://sbo3l-marketing.vercel.app/proof |
 | Mainnet ENS | `sbo3lagent.eth` |
 | GitHub Release | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases/tag/v1.2.0 |
-| ENS contract | OffchainResolver Sepolia `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` |
+| ENS contract | OffchainResolver Sepolia `0x87e99508C222c6E419734CACbb6781b8d282b1F6` |
 | Anchor contract | AnchorRegistry Sepolia `0x4C302ba8349129bd5963A22e3c7a38a246E8f4Ac` |
 | Reputation contract | SBO3LReputationRegistry Sepolia `0x6aA95d8126B6221607245c068483fa5008F36dc2` |
 | Subname auction | SBO3LSubnameAuction Sepolia `0x5dE75E64739A95701367F3Ad592e0b674b22114B` |
