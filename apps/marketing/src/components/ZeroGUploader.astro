@@ -77,11 +77,13 @@ const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
     </p>
   </header>
 
-  <div class="zg-drop" tabindex="0" role="button" aria-label="Drop or click to pick a capsule JSON">
+  <div class="zg-drop" tabindex="0" role="button" aria-label="Tap or drop a capsule JSON to upload">
     <input type="file" accept="application/json,.json" hidden />
     <div class="zg-drop-prompt">
-      <strong>Drag a capsule JSON here</strong>
-      <span>or click to pick a file (max 1 MB)</span>
+      <strong class="zg-drop-prompt-desktop">Drag a capsule JSON here</strong>
+      <strong class="zg-drop-prompt-mobile">Tap to pick a capsule JSON</strong>
+      <span class="zg-drop-help-desktop">or click to pick a file (max 1 MB)</span>
+      <span class="zg-drop-help-mobile">max 1 MB</span>
     </div>
     <div class="zg-drop-loaded" hidden>
       <strong class="zg-file-name"></strong>
@@ -101,6 +103,11 @@ const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
 
   <div class="zg-fallback" hidden>
     <h3>0G SDK couldn't auto-push — manual fallback</h3>
+    <p class="zg-popup-blocked-warning" hidden>
+      <strong>Heads up:</strong> your browser blocked the new tab.
+      <a href={STORAGESCAN_TOOL_URL} target="_blank" rel="noopener noreferrer">Open the 0G storage tool</a>
+      manually (or allow popups for this site, then click <em>Push to 0G Storage</em> again).
+    </p>
     <ol>
       <li>We've opened the <a href={STORAGESCAN_TOOL_URL} target="_blank" rel="noopener noreferrer">0G storage tool</a> in a new tab.</li>
       <li>Drag the same file there and click <strong>Upload</strong>.</li>
@@ -136,7 +143,18 @@ const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
     <p>
       Permalink: <a class="zg-permalink" target="_blank" rel="noopener noreferrer"></a>
     </p>
+    <p class="zg-quota-warning" hidden>
+      <em>Note:</em> couldn't save this rootHash to local history (browser
+      storage quota exceeded). The rootHash above still works as proof of
+      upload — just keep your own copy.
+    </p>
   </div>
+
+  <details class="zg-recent" hidden>
+    <summary>Recently uploaded (this browser only)</summary>
+    <ul class="zg-recent-list"></ul>
+    <button type="button" class="btn ghost zg-recent-clear">Clear history</button>
+  </details>
 </section>
 
 <style>
@@ -176,6 +194,74 @@ const MAX_FILE_BYTES = 1024 * 1024; // 1 MB — 0G testnet practical cap.
   }
   .zg-drop strong { display: block; font-size: 1em; margin-bottom: 0.3em; }
   .zg-drop span { color: var(--muted); font-size: 0.9em; }
+
+  /* Mobile + touch: swap "Drag …" copy for "Tap …". The desktop strings
+     are misleading on a touchscreen where dragging is impractical. The
+     `pointer: coarse` media query is the most reliable way to detect a
+     touch-primary device — viewport width alone misses tablets. */
+  .zg-drop-prompt-mobile, .zg-drop-help-mobile { display: none; }
+  @media (pointer: coarse) {
+    .zg-drop-prompt-desktop, .zg-drop-help-desktop { display: none; }
+    .zg-drop-prompt-mobile { display: block; }
+    .zg-drop-help-mobile { display: inline; }
+  }
+  .zg-popup-blocked-warning {
+    margin: 0 0 1em;
+    padding: 0.7em 1em;
+    background: #fff3cd;
+    border-left: 3px solid #ff9500;
+    border-radius: var(--r-sm);
+    font-size: 0.9em;
+  }
+  .zg-quota-warning {
+    margin-top: 0.8em;
+    padding: 0.5em 0.8em;
+    background: #fff3cd;
+    border-left: 3px solid #ff9500;
+    border-radius: var(--r-sm);
+    font-size: 0.85em;
+    color: #6b4500;
+  }
+  .zg-recent {
+    margin-top: 1.5em;
+    padding: 0.8em 1em;
+    background: var(--code-bg);
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    font-size: 0.9em;
+  }
+  .zg-recent summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .zg-recent-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.6em 0;
+  }
+  .zg-recent-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6em;
+    padding: 0.4em 0;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+  }
+  .zg-recent-list li:first-child { border-top: none; }
+  .zg-recent-list .zg-recent-hash { word-break: break-all; }
+  .zg-recent-list .zg-recent-time { color: var(--muted); white-space: nowrap; }
+  .zg-recent-clear {
+    margin-top: 0.4em;
+    padding: 0.3em 0.7em;
+    border: 1px solid var(--border);
+    background: none;
+    border-radius: var(--r-sm);
+    font-size: 0.75em;
+    color: var(--muted);
+    cursor: pointer;
+  }
   .zg-drop-loaded {
     display: flex;
     align-items: center;

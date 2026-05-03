@@ -4,6 +4,21 @@
 // no `'unsafe-inline'`). The component element exposes its constants
 // via `data-*` attrs; the runtime auto-binds every
 // `[data-zerog-uploader]` on the page at DOMContentLoaded.
+//
+// Edge cases handled inline (sister test suite at
+// `src/lib/zerog-uploader.test.mjs` covers the pure-helper layer):
+//   1. Non-JSON file        → "Not valid JSON: <parse err>"
+//   2. Empty file           → "File is empty."
+//   3. Valid JSON not capsule → "Missing top-level `schema` field…"
+//   4. localStorage quota   → success path still works; recent list
+//                              persistence shows quota warning + no list
+//   5. Popup blocked        → fallback panel reveals "Heads up" warning
+//                              with manual link; happy path unchanged
+//   6. Mobile drag-drop     → CSS swaps copy via @media (pointer: coarse);
+//                              runtime is unchanged (drop + click both work)
+
+const RECENT_STORAGE_KEY = "sbo3l.zerog.recent.v1";
+const RECENT_HISTORY_LIMIT = 5;
 
 function initOne(root) {
   const cfg = {
@@ -33,6 +48,11 @@ function initOne(root) {
   const hashValueEl = $(".zg-hash-value");
   const copyBtn = $(".zg-copy");
   const permalinkEl = $(".zg-permalink");
+  const popupBlockedEl = $(".zg-popup-blocked-warning");
+  const quotaWarnEl = $(".zg-quota-warning");
+  const recentEl = $(".zg-recent");
+  const recentListEl = $(".zg-recent-list");
+  const recentClearBtn = $(".zg-recent-clear");
 
   let currentFile = null;
 
@@ -72,7 +92,89 @@ function initOne(root) {
         ? "Source: manually pasted from 0G storage tool."
         : "Source: 0G SDK auto-upload.";
     setState("success");
+    persistAndRenderRecent(norm);
   }
+
+  // ---- recent-uploads localStorage persistence ------------------------
+  // Mirrors `src/lib/zerog-uploader.mjs::persistRecent` — duplicated here
+  // because CSP forbids importing modules from this static script. The
+  // sister test suite locks the contract both implementations honor.
+  function safeReadRecent() {
+    try {
+      const ls = window.localStorage;
+      if (!ls) return [];
+      const raw = ls.getItem(RECENT_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (e) => e && typeof e === "object" && typeof e.rootHash === "string" && typeof e.ts === "number",
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+  function safeWriteRecent(entries) {
+    try {
+      const ls = window.localStorage;
+      if (!ls) return false;
+      ls.setItem(RECENT_STORAGE_KEY, JSON.stringify(entries));
+      return true;
+    } catch (_) {
+      return false;  // QuotaExceededError or unavailable — caller surfaces.
+    }
+  }
+  function persistAndRenderRecent(rootHash) {
+    let entries = safeReadRecent();
+    entries = entries.filter((e) => e.rootHash !== rootHash);
+    entries.unshift({ rootHash, ts: Date.now() });
+    if (entries.length > RECENT_HISTORY_LIMIT) entries = entries.slice(0, RECENT_HISTORY_LIMIT);
+    const persisted = safeWriteRecent(entries);
+    if (!persisted) {
+      // Show quota warning inline in the success card. The rootHash itself
+      // is still valid and visible — only the local history failed.
+      if (quotaWarnEl) quotaWarnEl.hidden = false;
+    } else {
+      if (quotaWarnEl) quotaWarnEl.hidden = true;
+    }
+    renderRecent(entries);
+  }
+  function renderRecent(entries) {
+    if (!recentEl || !recentListEl) return;
+    if (!entries || entries.length === 0) {
+      recentEl.hidden = true;
+      recentListEl.innerHTML = "";
+      return;
+    }
+    recentEl.hidden = false;
+    recentListEl.innerHTML = "";
+    for (const e of entries) {
+      const li = document.createElement("li");
+      const hash = document.createElement("a");
+      hash.className = "zg-recent-hash";
+      hash.href = cfg.storagescanFileUrl + "/" + e.rootHash;
+      hash.target = "_blank";
+      hash.rel = "noopener noreferrer";
+      hash.textContent = e.rootHash;
+      const time = document.createElement("span");
+      time.className = "zg-recent-time";
+      time.textContent = new Date(e.ts).toISOString().slice(0, 19).replace("T", " ");
+      li.appendChild(hash);
+      li.appendChild(time);
+      recentListEl.appendChild(li);
+    }
+  }
+  function clearRecentList() {
+    try {
+      window.localStorage && window.localStorage.removeItem(RECENT_STORAGE_KEY);
+    } catch (_) {
+      // unavailable — render an empty list anyway.
+    }
+    renderRecent([]);
+  }
+  // Hydrate the recent list on first paint if persisted entries exist.
+  renderRecent(safeReadRecent());
+  if (recentClearBtn) recentClearBtn.addEventListener("click", clearRecentList);
 
   async function pickFile(file) {
     setError(null);
@@ -202,11 +304,24 @@ function initOne(root) {
     } else {
       setStatus("indexer unreachable (" + probe.reason + ") — falling back");
     }
+    let popupBlocked = false;
     try {
-      window.open(cfg.storagescanToolUrl, "_blank", "noopener,noreferrer");
+      const winRef = window.open(cfg.storagescanToolUrl, "_blank", "noopener,noreferrer");
+      // window.open returns null when the popup is blocked. Some
+      // browsers return a stub window then close it; sample synchronously.
+      if (winRef === null || winRef === undefined) {
+        popupBlocked = true;
+      } else {
+        try {
+          if (winRef.closed) popupBlocked = true;
+        } catch (_) {
+          // Cross-origin closed access throws — popup DID open. Don't flag.
+        }
+      }
     } catch (_) {
-      // Popup blockers are non-fatal; the in-page link still works.
+      popupBlocked = true;
     }
+    if (popupBlockedEl) popupBlockedEl.hidden = !popupBlocked;
     fallbackEl.hidden = false;
     setState("fallback");
     uploadBtn.disabled = false;

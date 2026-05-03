@@ -101,3 +101,146 @@ export function bytesHuman(n) {
 }
 
 export const MAX_CAPSULE_BYTES = 1024 * 1024;
+
+/**
+ * localStorage key for the recently-uploaded rootHash list. Bump the
+ * suffix if the schema ever changes (today: array of `{rootHash, ts}`).
+ */
+export const RECENT_STORAGE_KEY = "sbo3l.zerog.recent.v1";
+
+/**
+ * Cap on persisted history. The key + each entry is ~120 bytes, so
+ * 5 entries is ~600 bytes — orders of magnitude under any browser
+ * quota even at the strictest 5 MB cap. Cap exists for UI density,
+ * not storage pressure.
+ */
+export const RECENT_HISTORY_LIMIT = 5;
+
+/**
+ * @typedef {{ rootHash: string, ts: number }} RecentEntry
+ */
+
+/**
+ * Persist a rootHash to the recently-uploaded list. Returns one of:
+ *   - `{ ok: true, entries }`
+ *   - `{ ok: false, reason: "quota" }` on QuotaExceededError
+ *   - `{ ok: false, reason: "unavailable" }` if localStorage isn't
+ *     accessible (private browsing, sandboxed iframe, etc.)
+ *   - `{ ok: false, reason: "format" }` if the rootHash fails validation
+ *
+ * Caller renders the recent list from the returned `entries` (when ok)
+ * or surfaces the failure reason inline (when not ok).
+ *
+ * @param {string} rootHash
+ * @param {Storage} [storage] — defaults to globalThis.localStorage
+ * @param {number} [now] — injection point for tests
+ * @returns {{ ok: true, entries: RecentEntry[] } | { ok: false, reason: "quota" | "unavailable" | "format" }}
+ */
+export function persistRecent(rootHash, storage, now) {
+  if (!isValidRootHash(rootHash)) {
+    return { ok: false, reason: "format" };
+  }
+  const store = storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+  if (!store) return { ok: false, reason: "unavailable" };
+
+  /** @type {RecentEntry[]} */
+  let existing = [];
+  try {
+    const raw = store.getItem(RECENT_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        existing = parsed.filter(
+          (e) => e && typeof e === "object" && typeof e.rootHash === "string" && typeof e.ts === "number",
+        );
+      }
+    }
+  } catch (_) {
+    // Corrupt JSON in storage — discard, start fresh. Don't surface
+    // as an error to the caller; recovery is automatic.
+    existing = [];
+  }
+
+  const norm = rootHash.trim().toLowerCase();
+  // De-dup by hash; promote any prior entry to the front.
+  existing = existing.filter((e) => e.rootHash !== norm);
+  existing.unshift({ rootHash: norm, ts: now ?? Date.now() });
+  if (existing.length > RECENT_HISTORY_LIMIT) {
+    existing = existing.slice(0, RECENT_HISTORY_LIMIT);
+  }
+
+  try {
+    store.setItem(RECENT_STORAGE_KEY, JSON.stringify(existing));
+    return { ok: true, entries: existing };
+  } catch (e) {
+    // QuotaExceededError name varies across browsers (Safari uses
+    // "QuotaExceededError" / code 22; Firefox "NS_ERROR_DOM_QUOTA_REACHED";
+    // Chrome both). Any setItem throw under a normal call is effectively
+    // quota-related — treat uniformly.
+    return { ok: false, reason: "quota" };
+  }
+}
+
+/**
+ * Read the recently-uploaded list out of localStorage. Returns an empty
+ * array on missing key / corrupt JSON / unavailable storage.
+ *
+ * @param {Storage} [storage]
+ * @returns {RecentEntry[]}
+ */
+export function readRecent(storage) {
+  const store = storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+  if (!store) return [];
+  try {
+    const raw = store.getItem(RECENT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e) => e && typeof e === "object" && typeof e.rootHash === "string" && typeof e.ts === "number",
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Clear the recently-uploaded list. Returns true on success, false on
+ * unavailable storage.
+ *
+ * @param {Storage} [storage]
+ * @returns {boolean}
+ */
+export function clearRecent(storage) {
+  const store = storage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+  if (!store) return false;
+  try {
+    store.removeItem(RECENT_STORAGE_KEY);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Detect a popup-blocked outcome from `window.open`. Returns true when
+ * the result is null/undefined OR when the returned window's `closed`
+ * flag is true immediately (some browsers return a stub window then
+ * close it on the next tick — sample after a short timeout when
+ * possible). For the synchronous check we just inspect what we got.
+ *
+ * @param {Window | null | undefined} winRef
+ * @returns {boolean}
+ */
+export function isPopupBlocked(winRef) {
+  if (winRef === null || winRef === undefined) return true;
+  // `closed` may be true synchronously when a popup is blocked silently.
+  try {
+    if (winRef.closed) return true;
+  } catch (_) {
+    // Cross-origin access can throw — that means the popup DID open
+    // (just on a different origin we can't inspect). Treat as not-blocked.
+    return false;
+  }
+  return false;
+}
