@@ -57,23 +57,15 @@ files = ["sbo3l_langchain_keeperhub"]
 
 # langchain-core ships no PEP 561 type stubs (issue
 # langchain-ai/langchain#9131). mypy --strict can't resolve
-# `from langchain_core.tools import BaseTool` without them. Two-part
-# mitigation:
-#   1. ignore_missing_imports for the langchain.* namespace so the
-#      [import-not-found] error goes away.
-#   2. set disallow_subclassing_any=false on the same scope so the
-#      [misc] "Class cannot subclass BaseTool (has type Any)" error
-#      stops firing when our Sbo3lKeeperHubTool subclasses the now-Any
-#      BaseTool. Without this the strict subclass-Any rule still bites
-#      even after the import is suppressed.
+# `from langchain_core.tools import BaseTool` without them, so we mark
+# the namespace as untyped. The [misc] "Class cannot subclass BaseTool
+# (has type Any)" error on the Sbo3lKeeperHubTool class is suppressed
+# inline via `# type: ignore[misc]` rather than disabling the rule
+# globally — that way OTHER subclass-Any cases in our code still get
+# flagged.
 [[tool.mypy.overrides]]
 module = ["langchain_core.*", "langchain.*"]
 ignore_missing_imports = true
-
-# Apply the subclass-Any tolerance to OUR module (not the upstream
-# one — module-level override doesn't propagate to subclasses defined
-# in our code).
-disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

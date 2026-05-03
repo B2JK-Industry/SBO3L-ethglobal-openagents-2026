@@ -35,7 +35,7 @@ class _Sbo3lKeeperHubInput(BaseModel):
     )
 
 
-class Sbo3lKeeperHubTool(BaseTool):
+class Sbo3lKeeperHubTool(BaseTool):  # type: ignore[misc]
     """LangChain BaseTool that gates KeeperHub execution through SBO3L.
 
     Construct with an SBO3L client (`SBO3LClientSync` recommended for
