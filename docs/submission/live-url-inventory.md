@@ -79,7 +79,7 @@ Web pages on `crates.io` and `npmjs.com` are JS-rendered SPAs that return 404/40
 | Subname pattern | `<name>.sbo3lagent.eth` | 🟡 issued via direct ENS Registry `setSubnodeRecord` (Durin dropped 2026-05-01) | |
 | ENS Registry constant | `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` | ✅ deterministic on mainnet + Sepolia | https://etherscan.io/address/0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e |
 | Mainnet PublicResolver | `0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63` | ✅ | https://etherscan.io/address/0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63 |
-| Sepolia OffchainResolver (CCIP-Read) | `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` | ✅ | https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3 |
+| Sepolia OffchainResolver (CCIP-Read) | `0x87e99508C222c6E419734CACbb6781b8d282b1F6` | ✅ | https://sepolia.etherscan.io/address/0x87e99508C222c6E419734CACbb6781b8d282b1F6 |
 
 ## GitHub
 
@@ -120,7 +120,7 @@ Web pages on `crates.io` and `npmjs.com` are JS-rendered SPAs that return 404/40
 |---|---|---|
 | Sepolia QuoterV2 (Uniswap) | Sepolia | `0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3` ([Etherscan](https://sepolia.etherscan.io/address/0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3)) |
 | Sepolia USDC | Sepolia | `0x1c7D4B19…` (route used in submission-day verification) |
-| Sepolia OffchainResolver | Sepolia | `0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3` ([Etherscan](https://sepolia.etherscan.io/address/0x7c6913D52DfE8f4aFc9C4931863A498A4cACA8c3)) |
+| Sepolia OffchainResolver | Sepolia | `0x87e99508C222c6E419734CACbb6781b8d282b1F6` ([Etherscan](https://sepolia.etherscan.io/address/0x87e99508C222c6E419734CACbb6781b8d282b1F6)) |
 | Real Sepolia swap (capsule's `tx_hash`) | Sepolia | _populate from `demo-scripts/artifacts/uniswap-real-swap-capsule.json` after T-5-5 lands_ |
 | KeeperHub workflow execution | KH (off-chain) | last verified executionId: `kh-172o77rxov7mhwvpssc3x` |
 | ENS subname issuance txs | Sepolia | _populate from `demo-fixtures/sepolia-agent-fleet.json` after fleet-of-5 broadcasts_ |
