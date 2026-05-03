@@ -32,10 +32,10 @@ const sections: { title: string; rows: Row[] }[] = [
         notyet: "Mainnet OffchainResolver (Phase 2 amplifier; needs ~$10 mainnet ETH). Sepolia OffchainResolver deployed but orphan (no subnames wired to it on Sepolia chain).",
       },
       {
-        surface: "Uniswap — read side",
-        live: "Sepolia QuoterV2 returns real quote for USDC→WETH. Guards: token allowlist + max notional + max slippage + quote freshness + treasury recipient.",
+        surface: "Uniswap — read side + mainnet broadcast",
+        live: "Sepolia QuoterV2 returns real quote for USDC→WETH. Guards: token allowlist + max notional + max slippage + quote freshness + treasury recipient. **Mainnet UNI-A1 broadcast LIVE**: 0.005 ETH → 11.5743 USDC at block 25,013,950 ([0xed68d1…aff0b](https://etherscan.io/tx/0xed68d1301b479c4229bc89cca5162b56517b80cbaeb654323e05b183000aff0b)).",
         mock: null,
-        notyet: "Real swap broadcast (scope-cut for hackathon; needs mainnet ETH + post-submission narrative).",
+        notyet: null,
       },
       {
         surface: "Anthropic Claude tool-use",
