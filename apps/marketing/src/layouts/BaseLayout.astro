@@ -53,6 +53,21 @@ const dir = isRtlLocale(currentLocale) ? "rtl" : "ltr";
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     {/*
+      R20 Task C perf — on the /proof route only, prefetch the WASM
+      verifier bundle (~2.4 MB) + its JS shim (~14 KB) at low priority
+      so that when the user clicks Verify, the dynamic import() in
+      PassportVerifier resolves from the HTTP cache instead of paying
+      cold network. fetchpriority="low" keeps these off the LCP path;
+      they fill the cache opportunistically. CSP allows /wasm/* under
+      script-src 'self' + the wasm-unsafe-eval directive.
+    */}
+    {(Astro.url?.pathname ?? "").startsWith("/proof") && (
+      <>
+        <link rel="prefetch" href="/wasm/sbo3l_core.js" as="script" fetchpriority="low" />
+        <link rel="prefetch" href="/wasm/sbo3l_core_bg.wasm" as="fetch" type="application/wasm" crossorigin="anonymous" fetchpriority="low" />
+      </>
+    )}
+    {/*
       Codex review fix (PR #291): X/Twitter cards do not render SVG, so
       twitter:image pointing at any SVG produces cards without preview
       imagery. Card type stays "summary" (text-only fallback). When the
