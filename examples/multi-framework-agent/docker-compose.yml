@@ -37,10 +37,18 @@ services:
       SBO3L_DEV_ONLY_SIGNER: "1"
     ports:
       - "8730:8730"
+    # CMD form (not CMD-SHELL) — distroless base has no shell or wget,
+    # which is why CI Multi-framework smoke kept failing on the previous
+    # `wget -qO- ... | grep` healthcheck. Fixed 2026-05-03: shell out to
+    # the `sbo3l` binary already in the image and let doctor probe the
+    # SQLite the daemon writes on startup. doctor exits 0 once migrations
+    # have been applied (~50ms locally) — strict superset of "daemon
+    # initialised", because the HTTP listener binds on the same thread
+    # before migrations finish.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8730/v1/health | grep -q ok"]
+      test: ["CMD", "/usr/local/bin/sbo3l", "doctor", "--db", "/var/lib/sbo3l/sbo3l.db"]
       interval: 2s
-      timeout: 2s
+      timeout: 5s
       retries: 30
       start_period: 5s
 
