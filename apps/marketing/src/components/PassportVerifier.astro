@@ -90,8 +90,13 @@ const {
     border: none;
     border-radius: 6px;
     background: var(--accent, #1f6feb);
-    color: white;
+    /* R21 a11y — Lighthouse 1.4.3 flagged this button on /proof.
+       white-on-accent (#fff on #4ad6a7) is ~1.6:1, way below 4.5:1
+       AA. var(--bg) (#0a0a0f) on accent is ~9.3:1, AAA. Matches
+       .btn.primary in global.css. */
+    color: var(--bg, #0a0a0f);
     cursor: pointer;
+    font-weight: 700;
   }
   button:disabled { opacity: 0.6; cursor: progress; }
   .status { color: var(--muted); font-size: 0.9em; font-family: ui-monospace, monospace; }
