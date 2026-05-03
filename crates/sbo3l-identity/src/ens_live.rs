@@ -103,6 +103,16 @@ pub trait JsonRpcTransport {
             "JsonRpcTransport::http_get not implemented for this transport".into(),
         ))
     }
+
+    /// POST a CCIP-Read gateway URL with a JSON body — required by
+    /// EIP-3668 when the URL template does NOT contain `{data}`. The
+    /// body shape is `{ "sender": "0x..", "data": "0x.." }`. Default
+    /// impl errors out; live transport implements it.
+    fn http_post_json(&self, _url: &str, _body: &[u8]) -> Result<Vec<u8>, RpcError> {
+        Err(RpcError::Http(
+            "JsonRpcTransport::http_post_json not implemented for this transport".into(),
+        ))
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -242,6 +252,25 @@ impl JsonRpcTransport for ReqwestTransport {
         resp.bytes()
             .map(|b| b.to_vec())
             .map_err(|e| RpcError::Http(format!("CCIP gateway body {url}: {e}")))
+    }
+
+    fn http_post_json(&self, url: &str, body: &[u8]) -> Result<Vec<u8>, RpcError> {
+        let resp = self
+            .client
+            .post(url)
+            .header("content-type", "application/json")
+            .body(body.to_vec())
+            .send()
+            .map_err(|e| RpcError::Http(format!("CCIP gateway POST {url}: {e}")))?;
+        if !resp.status().is_success() {
+            return Err(RpcError::Http(format!(
+                "CCIP gateway POST {url}: status {}",
+                resp.status()
+            )));
+        }
+        resp.bytes()
+            .map(|b| b.to_vec())
+            .map_err(|e| RpcError::Http(format!("CCIP gateway POST body {url}: {e}")))
     }
 }
 
@@ -500,6 +529,25 @@ fn call_text_via_ensip10<T: JsonRpcTransport>(
                     "ENSIP-10 resolver {resolver_addr} reverted with non-OffchainLookup data: {e}"
                 ))
             })?;
+            // EIP-3668 sender-check (Codex P1): the lookup's `sender`
+            // MUST equal the resolver address we just called.
+            // Otherwise a resolver could bubble an OffchainLookup
+            // from a *nested* call to an attacker-controlled
+            // contract, and we'd issue gateway requests + a callback
+            // `eth_call` against that untrusted address. The spec
+            // requires the client to refuse in that case (see EIP-3668
+            // §"Client Lookup Protocol", "Verify that sender is the
+            // address of a contract the client is currently
+            // resolving").
+            let resolver_lower = resolver_addr.trim_start_matches("0x").to_ascii_lowercase();
+            let sender_lower = hex::encode(lookup.sender);
+            if resolver_lower != sender_lower {
+                return Err(RpcError::Decode(format!(
+                    "EIP-3668 sender mismatch: resolver is 0x{resolver_lower}, \
+                     OffchainLookup.sender is 0x{sender_lower} — refusing to follow \
+                     a nested-call lookup pointing at an unrelated address"
+                )));
+            }
             let inner_bytes = crate::ccip_read::follow_offchain_lookup(transport, &lookup)?;
             decode_string_from_inner(&inner_bytes)
         }
@@ -812,7 +860,7 @@ mod tests {
         }
 
         fn http_get(&self, url: &str) -> Result<Vec<u8>, RpcError> {
-            self.http_calls.borrow_mut().push(url.to_string());
+            self.http_calls.borrow_mut().push(format!("GET {url}"));
             let mut script = self.http_scripted.borrow_mut();
             let pos = script
                 .iter()
@@ -821,6 +869,25 @@ mod tests {
                 Some(i) => script.remove(i).1,
                 None => Err(RpcError::Http(format!(
                     "FakeTransport: no http_get expectation for {url}"
+                ))),
+            }
+        }
+
+        fn http_post_json(&self, url: &str, body: &[u8]) -> Result<Vec<u8>, RpcError> {
+            // Record both the URL and the body so tests can assert
+            // that the JSON envelope (`{sender,data}`) is correct.
+            self.http_calls.borrow_mut().push(format!(
+                "POST {url} body={}",
+                std::str::from_utf8(body).unwrap_or("<non-utf8>")
+            ));
+            let mut script = self.http_scripted.borrow_mut();
+            let pos = script
+                .iter()
+                .position(|(prefix, _)| url.starts_with(prefix));
+            match pos {
+                Some(i) => script.remove(i).1,
+                None => Err(RpcError::Http(format!(
+                    "FakeTransport: no http_post_json expectation for {url}"
                 ))),
             }
         }
@@ -1271,6 +1338,60 @@ mod tests {
             .resolve_raw_text("sbo3lagent.eth", "sbo3l:agent_id")
             .unwrap();
         assert_eq!(v.as_deref(), Some("research-agent-01"));
+    }
+
+    /// EIP-3668 sender-check (Codex P1 review on PR #446): if the
+    /// OffchainLookup's `sender` doesn't match the resolver address
+    /// we just called, refuse to follow. Otherwise an attacker-
+    /// controlled inner contract could reroute the gateway request +
+    /// callback `eth_call` to an unrelated address.
+    #[test]
+    fn resolve_raw_text_rejects_offchain_lookup_with_mismatched_sender() {
+        let transport = FakeTransport::new();
+        let resolver_addr = "0x87e99508c222c6e419734cacbb6781b8d282b1f6";
+        let attacker_sender_bytes = {
+            let mut a = [0u8; 20];
+            // Different from `resolver_addr`.
+            hex::decode_to_slice("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", &mut a).unwrap();
+            a
+        };
+
+        transport.expect(
+            ENS_REGISTRY_ADDRESS,
+            "0x0178b8bf",
+            Ok(abi_encode_address_response(
+                "87e99508c222c6e419734cacbb6781b8d282b1f6",
+            )),
+        );
+        let true_word = format!("0x{}{}", "00".repeat(31), "01");
+        transport.expect(resolver_addr, "0x01ffc9a7", Ok(true_word));
+
+        let urls = vec!["https://gateway.test/api/{sender}/{data}.json"];
+        let inner_call_data = encode_text_call(&[0u8; 32], "sbo3l:agent_id");
+        let callback_selector = [0xb4, 0xa8, 0x5b, 0x71];
+        let extra_data = inner_call_data.clone();
+        let revert_bytes = abi_encode_offchain_lookup_revert(
+            &attacker_sender_bytes, // <-- mismatch
+            &urls,
+            &inner_call_data,
+            &callback_selector,
+            &extra_data,
+        );
+        transport.expect(
+            resolver_addr,
+            "0x9061b923",
+            Err(RpcError::Reverted { data: revert_bytes }),
+        );
+
+        let resolver = LiveEnsResolver::new(transport, EnsNetwork::Sepolia);
+        let err = resolver
+            .resolve_raw_text("research-agent.sbo3lagent.eth", "sbo3l:agent_id")
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("EIP-3668 sender mismatch"),
+            "expected sender-mismatch error, got: {msg}"
+        );
     }
 
     /// `find_resolver` walks parent names when the leaf has no

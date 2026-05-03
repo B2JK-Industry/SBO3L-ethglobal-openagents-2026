@@ -292,17 +292,23 @@ fn u256_be(n: u64) -> [u8; 32] {
     out
 }
 
-/// CCIP-Read end-to-end follow: gateway GET → decode response →
+/// CCIP-Read end-to-end follow: gateway request → decode response →
 /// callback `eth_call` on the OffchainResolver → unwrap the inner
 /// `bytes` return, which is the ABI-encoded payload the original
 /// `text(node, key)` / `addr(node)` would have returned (i.e. an
 /// ABI-encoded `(string)` for `text`, or a 32-byte address word for
 /// `addr`).
 ///
-/// Tries the gateway URLs in order, treating any 4xx HTTP status as
-/// a "skip + try next" signal (per EIP-3668). 5xx and transport
-/// errors short-circuit without trying further URLs — those signal a
-/// real outage, not a "wrong gateway" condition.
+/// Per EIP-3668 §"Client Lookup Protocol":
+///
+/// * **HTTP method.** If the URL template contains the `{data}`
+///   placeholder, use GET (params in URL). Otherwise POST a JSON
+///   body `{"sender":"0x..","data":"0x.."}`. Both forms are
+///   compliant; the resolver picks per-URL.
+/// * **Retry classification.** 4xx responses are *terminal* for that
+///   lookup — the gateway has authoritative data and is rejecting,
+///   so trying another gateway won't help. 5xx and transport errors
+///   trigger trying the next URL in the list.
 ///
 /// Returns the inner-result bytes. Use [`decode_string_result`] to
 /// pull a string out of a `text(node, key)` follow.
@@ -318,8 +324,22 @@ pub fn follow_offchain_lookup<T: JsonRpcTransport>(
 
     let mut last_error: Option<RpcError> = None;
     for template in &lookup.urls {
+        let has_data_placeholder = template.contains("{data}");
         let url = substitute_gateway_url(template, &lookup.sender, &lookup.call_data);
-        match transport.http_get(&url) {
+
+        let body_result = if has_data_placeholder {
+            transport.http_get(&url)
+        } else {
+            let body = serde_json::json!({
+                "sender": format!("0x{}", hex::encode(lookup.sender)),
+                "data": format!("0x{}", hex::encode(&lookup.call_data)),
+            })
+            .to_string()
+            .into_bytes();
+            transport.http_post_json(&url, &body)
+        };
+
+        match body_result {
             Ok(body) => {
                 let parsed = decode_gateway_response_body(&body)
                     .map_err(|e| RpcError::Decode(format!("gateway body {url}: {e}")))?;
@@ -361,9 +381,13 @@ pub fn follow_offchain_lookup<T: JsonRpcTransport>(
                     .map_err(|e| RpcError::Decode(format!("callback {sender_hex}: {e}")));
             }
             Err(e) => {
-                let is_4xx = matches!(&e, RpcError::Http(msg) if msg.contains("status 4"));
+                // EIP-3668 §"Client Lookup Protocol": 4xx is
+                // authoritative-rejection from the gateway and
+                // terminates this lookup; 5xx (and transport
+                // failures) trigger trying the next URL.
+                let is_4xx = is_http_4xx(&e);
                 last_error = Some(e);
-                if !is_4xx {
+                if is_4xx {
                     break;
                 }
                 // Else fall through and try the next URL in the list.
@@ -372,6 +396,25 @@ pub fn follow_offchain_lookup<T: JsonRpcTransport>(
     }
     Err(last_error
         .unwrap_or_else(|| RpcError::Http("CCIP-Read: all gateway URLs exhausted".into())))
+}
+
+/// Detect a 4xx HTTP status from the error string the live transport
+/// produces (`"status 4xx"`). The trait-level error is opaque, so we
+/// match on the standardised substring rather than parameterising
+/// every transport with a status code accessor.
+fn is_http_4xx(e: &RpcError) -> bool {
+    if let RpcError::Http(msg) = e {
+        // Live transport formats: "...: status 404 Not Found".
+        // Match digit immediately after "status ".
+        if let Some(idx) = msg.find("status ") {
+            let tail = &msg[idx + "status ".len()..];
+            let mut iter = tail.chars();
+            return matches!(iter.next(), Some('4'))
+                && iter.next().is_some_and(|c| c.is_ascii_digit())
+                && iter.next().is_some_and(|c| c.is_ascii_digit());
+        }
+    }
+    false
 }
 
 /// Decode an ABI-encoded `(bytes)` tuple — the outer shape returned
@@ -409,6 +452,180 @@ pub fn decode_string_result(result_bytes: &[u8]) -> Result<String, CcipError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+
+    /// Local minimal fake — covers just enough of `JsonRpcTransport`
+    /// to drive `follow_offchain_lookup` end-to-end. The richer
+    /// fixture in `ens_live::tests` exercises the resolver-side
+    /// dispatch; this one focuses on the EIP-3668 client semantics
+    /// (GET vs POST, 4xx vs 5xx).
+    struct FollowFake {
+        get_responses: RefCell<Vec<Result<Vec<u8>, RpcError>>>,
+        post_responses: RefCell<Vec<Result<Vec<u8>, RpcError>>>,
+        eth_call_responses: RefCell<Vec<Result<String, RpcError>>>,
+        http_log: RefCell<Vec<String>>,
+    }
+
+    impl FollowFake {
+        fn new() -> Self {
+            Self {
+                get_responses: RefCell::new(Vec::new()),
+                post_responses: RefCell::new(Vec::new()),
+                eth_call_responses: RefCell::new(Vec::new()),
+                http_log: RefCell::new(Vec::new()),
+            }
+        }
+    }
+
+    impl JsonRpcTransport for FollowFake {
+        fn eth_call(&self, _to: &str, _data: &str) -> Result<String, RpcError> {
+            self.eth_call_responses
+                .borrow_mut()
+                .pop()
+                .unwrap_or_else(|| Err(RpcError::Decode("fake: no eth_call scripted".into())))
+        }
+        fn http_get(&self, url: &str) -> Result<Vec<u8>, RpcError> {
+            self.http_log.borrow_mut().push(format!("GET {url}"));
+            self.get_responses
+                .borrow_mut()
+                .pop()
+                .unwrap_or_else(|| Err(RpcError::Http(format!("fake: no GET scripted for {url}"))))
+        }
+        fn http_post_json(&self, url: &str, body: &[u8]) -> Result<Vec<u8>, RpcError> {
+            self.http_log.borrow_mut().push(format!(
+                "POST {url} body={}",
+                std::str::from_utf8(body).unwrap_or("<non-utf8>")
+            ));
+            self.post_responses
+                .borrow_mut()
+                .pop()
+                .unwrap_or_else(|| Err(RpcError::Http(format!("fake: no POST scripted for {url}"))))
+        }
+    }
+
+    fn build_lookup(urls: &[&str]) -> OffchainLookup {
+        OffchainLookup {
+            sender: [0x11u8; 20],
+            urls: urls.iter().map(|s| s.to_string()).collect(),
+            call_data: vec![0xaa, 0xbb],
+            callback_selector: [0xb4, 0xa8, 0x5b, 0x71],
+            extra_data: vec![0xcc],
+        }
+    }
+
+    /// EIP-3668 §"Client Lookup Protocol" (Codex P1 review on PR
+    /// #446): when the URL template contains `{data}`, use HTTP GET.
+    /// `follow_offchain_lookup` should *only* hit `http_get` on this
+    /// path, never `http_post_json`.
+    #[test]
+    fn follow_uses_get_when_url_has_data_placeholder() {
+        let fake = FollowFake::new();
+        // Push a 4xx so the follow terminates without invoking the
+        // callback eth_call — keeps the test focused on dispatch.
+        fake.get_responses
+            .borrow_mut()
+            .push(Err(RpcError::Http("GET ...: status 404 Not Found".into())));
+        let lookup = build_lookup(&["https://gw.test/api/{sender}/{data}.json"]);
+        let _ = follow_offchain_lookup(&fake, &lookup);
+        let log = fake.http_log.borrow();
+        assert_eq!(log.len(), 1, "exactly one HTTP attempt");
+        assert!(log[0].starts_with("GET "), "got: {log:?}");
+    }
+
+    /// EIP-3668: when the URL template lacks `{data}`, the client
+    /// MUST POST `{"sender":"0x..","data":"0x.."}`. (Codex P1 review
+    /// on PR #446 — previously we always GET-ed.)
+    #[test]
+    fn follow_uses_post_when_url_lacks_data_placeholder() {
+        let fake = FollowFake::new();
+        fake.post_responses
+            .borrow_mut()
+            .push(Err(RpcError::Http("POST ...: status 404 Not Found".into())));
+        // Template has only {sender} → POST.
+        let lookup = build_lookup(&["https://gw.test/api/{sender}/lookup"]);
+        let _ = follow_offchain_lookup(&fake, &lookup);
+        let log = fake.http_log.borrow();
+        assert_eq!(log.len(), 1, "exactly one HTTP attempt");
+        assert!(log[0].starts_with("POST "), "got: {log:?}");
+        assert!(
+            log[0].contains(r#""sender":"0x"#),
+            "missing sender: {log:?}"
+        );
+        assert!(
+            log[0].contains(r#""data":"0xaabb""#),
+            "missing data: {log:?}"
+        );
+    }
+
+    /// EIP-3668: 4xx responses are *terminal* — the gateway has
+    /// authoritative data and is rejecting. Don't try the next URL.
+    /// (Codex P2 review on PR #446 flagged the inverted policy.)
+    #[test]
+    fn follow_does_not_retry_after_4xx() {
+        let fake = FollowFake::new();
+        // Push *two* 404s, but we expect only the first to be
+        // consumed (4xx terminates).
+        fake.get_responses.borrow_mut().push(Err(RpcError::Http(
+            "GET https://gw2.test/...: status 404 Not Found".into(),
+        )));
+        fake.get_responses.borrow_mut().push(Err(RpcError::Http(
+            "GET https://gw1.test/...: status 404 Not Found".into(),
+        )));
+        let lookup = build_lookup(&[
+            "https://gw1.test/api/{sender}/{data}.json",
+            "https://gw2.test/api/{sender}/{data}.json",
+        ]);
+        let err = follow_offchain_lookup(&fake, &lookup).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("404"), "expected 404 in surfaced error: {msg}");
+        assert_eq!(
+            fake.http_log.borrow().len(),
+            1,
+            "must NOT try next URL after a 4xx"
+        );
+    }
+
+    /// EIP-3668: 5xx responses + transport errors trigger the next
+    /// URL. (Codex P2 review on PR #446 flagged the inverted policy.)
+    #[test]
+    fn follow_retries_next_url_after_5xx() {
+        let fake = FollowFake::new();
+        // Pre-populate post-stack-pop order: first GET (gw1) =
+        // 502, second GET (gw2) = success.
+        let success_body = serde_json::json!({
+            "data": "0x",
+            "ttl": 60,
+        })
+        .to_string()
+        .into_bytes();
+        fake.get_responses.borrow_mut().push(Ok(success_body));
+        fake.get_responses.borrow_mut().push(Err(RpcError::Http(
+            "GET https://gw1.test/...: status 502 Bad Gateway".into(),
+        )));
+        // The success path then tries to decode a callback eth_call.
+        // We don't care about the callback in this test (it'll fail
+        // on empty `0x`); we just want to confirm we tried both
+        // URLs.
+        fake.eth_call_responses
+            .borrow_mut()
+            .push(Err(RpcError::Decode("test stub".into())));
+
+        let lookup = build_lookup(&[
+            "https://gw1.test/api/{sender}/{data}.json",
+            "https://gw2.test/api/{sender}/{data}.json",
+        ]);
+        let _ = follow_offchain_lookup(&fake, &lookup);
+        let log = fake.http_log.borrow();
+        assert_eq!(log.len(), 2, "should try both URLs after 5xx");
+        assert!(
+            log[0].contains("gw1.test"),
+            "first attempt should be gw1: {log:?}"
+        );
+        assert!(
+            log[1].contains("gw2.test"),
+            "second attempt should be gw2 after 5xx: {log:?}"
+        );
+    }
 
     #[test]
     fn offchain_lookup_selector_matches_keccak() {
@@ -529,6 +746,31 @@ mod tests {
         buf.extend(std::iter::repeat_n(0u8, pad));
         let decoded = decode_single_bytes_tuple(&buf).unwrap();
         assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn is_http_4xx_recognises_404_but_not_5xx_or_transport() {
+        assert!(is_http_4xx(&RpcError::Http(
+            "GET https://x: status 404 Not Found".into()
+        )));
+        assert!(is_http_4xx(&RpcError::Http(
+            "POST https://x: status 410 Gone".into()
+        )));
+        assert!(is_http_4xx(&RpcError::Http(
+            "GET https://x: status 451 Unavailable For Legal Reasons".into()
+        )));
+        // 5xx must not match (gateway-outage retry path).
+        assert!(!is_http_4xx(&RpcError::Http(
+            "GET https://x: status 500 Internal Server Error".into()
+        )));
+        assert!(!is_http_4xx(&RpcError::Http(
+            "GET https://x: status 503 Service Unavailable".into()
+        )));
+        // Plain transport failure (no "status N" substring) must
+        // NOT be classified as 4xx — those are retry-next-URL.
+        assert!(!is_http_4xx(&RpcError::Http("connection refused".into())));
+        // Other RpcError variants don't classify either.
+        assert!(!is_http_4xx(&RpcError::Decode("garbage".into())));
     }
 
     #[test]
