@@ -1,7 +1,7 @@
-name: Publish 9 SBO3L crates to crates.io
+name: Publish 10 SBO3L crates to crates.io
 
 # Triggered by tagging the workspace with a version tag (`v0.1.0`,
-# `v0.2.0`, ...). The 9 crates are published in dependency order:
+# `v0.2.0`, ...). The 10 crates are published in dependency order:
 #
 #   1. sbo3l-core              (no internal deps)
 #   2. sbo3l-storage           (deps: sbo3l-core)
@@ -11,7 +11,8 @@ name: Publish 9 SBO3L crates to crates.io
 #   6. sbo3l-execution         (deps: sbo3l-core, sbo3l-keeperhub-adapter)
 #   7. sbo3l-server            (deps: sbo3l-core, sbo3l-policy, sbo3l-storage)
 #   8. sbo3l-mcp               (deps: 1-7)
-#   9. sbo3l-cli               (deps: 1-7)
+#   9. sbo3l-anchor            (deps: sbo3l-core, sbo3l-storage)
+#  10. sbo3l-cli               (deps: 1-9, including sbo3l-anchor)
 #
 # Each step waits ~30s for the crates.io index to propagate before
 # publishing the next dependent crate — necessary because subsequent
@@ -181,6 +182,24 @@ jobs:
       - name: wait for crates.io index propagation (sbo3l-mcp)
         run: sleep 30
 
+      # sbo3l-anchor must publish BEFORE sbo3l-cli — cli depends on it for the
+      # `sbo3l audit anchor` subcommand. Originally published manually at v1.2.0
+      # and missing from this workflow until v1.2.1 patch (UAT found that bumping
+      # workspace 1.2.0→1.2.1 broke sbo3l-cli publish because sbo3l-anchor 1.2.1
+      # didn't yet exist on crates.io).
+      - name: cargo package — sbo3l-anchor
+        run: cargo package -p sbo3l-anchor --allow-dirty
+      - name: attest provenance — sbo3l-anchor
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: target/package/sbo3l-anchor-${{ env.VERSION }}.crate
+      - name: cargo publish — sbo3l-anchor
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish -p sbo3l-anchor --no-verify
+      - name: wait for crates.io index propagation (sbo3l-anchor)
+        run: sleep 30
+
       - name: cargo package — sbo3l-cli
         run: cargo package -p sbo3l-cli --allow-dirty
       - name: attest provenance — sbo3l-cli
@@ -192,7 +211,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish -p sbo3l-cli --no-verify
 
-      - name: Upload all 9 .crate files + attestation bundles
+      - name: Upload all 10 .crate files + attestation bundles
         uses: actions/upload-artifact@v4
         with:
           name: sbo3l-crates-${{ env.VERSION }}-attested
