@@ -10,7 +10,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
       "/workspace/sdks/python" \
       "/workspace/integrations/crewai" \
       "fastapi==0.115.*" \
-      "uvicorn[standard]==0.32.*"
+      "uvicorn[standard]==0.32.*" \
+      "python-ulid==2.*"
 
 COPY examples/multi-framework-agent/services/execute/app.py /app/app.py
 

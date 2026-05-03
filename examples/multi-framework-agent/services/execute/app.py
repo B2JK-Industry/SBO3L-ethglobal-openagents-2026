@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import FastAPI
+from ulid import ULID
 from sbo3l_crewai import sbo3l_tool
 from sbo3l_sdk import SBO3LClientSync
 
@@ -66,7 +66,7 @@ def execute(body: dict[str, Any]) -> dict[str, Any]:
         "chain": "base",
         "provider_url": "https://api.example.com",
         "expiry": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
-        "nonce": str(uuid.uuid4()),
+        "nonce": str(ULID()),
         "risk_class": "low",
     }
     return {
