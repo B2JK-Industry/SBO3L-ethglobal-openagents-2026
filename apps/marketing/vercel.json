@@ -14,7 +14,7 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-izfFjz6m8R+Iz8La4PhCo97aktnmLMdl35hdtDJneEY=' 'sha256-dpRy5EqlrV6PgKQR+ijjR/Zf6VzDhe2+QFQRJg88PuA=' 'sha256-xSD/UTL990x+5JgHn8Px3FjqD07lwGmN3wLHtJaW0JM='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://indexer-storage-testnet-turbo.0g.ai https://evmrpc-testnet.0g.ai; frame-src https://sbo3l-trust-dns-viz.vercel.app" }
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-izfFjz6m8R+Iz8La4PhCo97aktnmLMdl35hdtDJneEY=' 'sha256-dpRy5EqlrV6PgKQR+ijjR/Zf6VzDhe2+QFQRJg88PuA=' 'sha256-EVcbzSrjMe93RUiACR7STsvmPsjqcJvP/3foS2a5n0w=' 'sha256-40C/bc/kKVN7AA1Oh1Moxc6LYtxcphgGipMSdZ8iaXY=' 'sha256-P8+d5zk3yQeLIvlA/JxHbDwfkHsaifEvBrOQVYCakus=' 'sha256-wbkyAuI4zQR+symGz+KdBYuU9Gi1+QrLOG3OwvoMS9g='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://indexer-storage-testnet-turbo.0g.ai https://evmrpc-testnet.0g.ai; frame-src https://sbo3l-trust-dns-viz.vercel.app" }
       ]
     },
     {
