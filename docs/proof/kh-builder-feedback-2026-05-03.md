@@ -73,10 +73,41 @@ Direct links (no GitHub login required — `author:@me` would have only resolved
   - [PR #406](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/406) — consumer shape for KH-cli#56
 - [Re-read round 1 evidence](../submission/bounty-keeperhub-builder-feedback.md) — original 5 issues (#47–#51) that started the cumulative submission.
 
-Filtered listings (link to a search anyone can run; uses explicit author):
-- [All 10 SBO3L-filed issues on KeeperHub/cli](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry)
-- [All 5 KH-BF draft PRs on this repo](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3AB2JK-Industry+%22kh-bf-additional%22)
+Filtered listings (link to a search anyone can run; uses explicit author). Both listings cover all 15 issues across rounds 1+2+3 and the 5 round-2 companion draft PRs:
+- [All SBO3L-filed issues on KeeperHub/cli](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry)
+- [All KH-BF draft PRs on this repo](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3AB2JK-Industry+%22kh-bf-additional%22)
 
 ## Sponsor-specific value prop
 
 We want KH to win with us. Every issue in this round has a paired implementation commitment from our side. Five round-2 issues × five draft PRs = ten distinct contracts where SBO3L commits to landing the consumer-side change as soon as KH ships the upstream platform change. That's a higher commitment density than vendor-SDK feedback usually carries and it's the thing the Builder Feedback bounty is designed to reward.
+
+---
+
+## Round 3 (2026-05-03 evening) — KH-BF-A3 amplifier closure
+
+5 MORE concrete asks filed (each ≤ 200 words), bringing total filed feedback to **15 issues + 5 reference PRs** on KeeperHub/cli — clears the KH-BF-A3 amplifier threshold (15+ issues).
+
+| Issue | Subject |
+|---|---|
+| [KeeperHub/cli#58](https://github.com/KeeperHub/cli/issues/58) | HMAC-SHA256 webhook signature verification (`X-KeeperHub-Signature`) |
+| [KeeperHub/cli#59](https://github.com/KeeperHub/cli/issues/59) | Workflow versioning (per-revision IDs) + back-compat policy |
+| [KeeperHub/cli#60](https://github.com/KeeperHub/cli/issues/60) | Publish JSON Schema for webhook 2xx response envelope |
+| [KeeperHub/cli#61](https://github.com/KeeperHub/cli/issues/61) | `X-KeeperHub-RateLimit-*` headers on every webhook response |
+| [KeeperHub/cli#62](https://github.com/KeeperHub/cli/issues/62) | Document webhook delivery guarantees (semantics + ordering + dedup) |
+
+### Why these 5
+
+Round 2 covered **post-integration concerns** (error catalog, fixture suite, SLO, schema versioning, payload size). Round 3 covers **production-grade reliability concerns**: signing for reverse-direction webhooks, workflow revision pinning for upgrade safety, response schema for parser stability, rate-limit telemetry for client pacing, and delivery-guarantees documentation for queue-backed integrations. Each is a single platform change KH can land in any order; together they define the reliability contract a production agent fleet needs.
+
+### Cumulative totals (rounds 1 + 2 + 3)
+
+| Metric | R1 | R2 | R3 | Total |
+|---|---|---|---|---|
+| Issues on `KeeperHub/cli` | 5 (#47–#51) | 5 (#52–#56) | 5 (#58–#62) | **15** |
+| Companion draft PRs | 0 | 5 (#402–#406) | 0 (R3 issues are doc-only asks) | **5** |
+| Adapter line refs cited | 6 | 9 | 1 (#60 cites lib.rs:316-319) | 16 |
+
+### Updated filtered listings
+
+- [All 15 SBO3L-filed issues on KeeperHub/cli](https://github.com/KeeperHub/cli/issues?q=is%3Aissue+author%3AB2JK-Industry)
+- [All 5 KH-BF draft PRs on this repo](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pulls?q=is%3Apr+author%3AB2JK-Industry+%22kh-bf-additional%22)
