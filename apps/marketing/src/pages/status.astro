@@ -143,7 +143,7 @@ const sections: { title: string; rows: Row[] }[] = [
       },
       {
         surface: "Sepolia OffchainResolver → ENS chain",
-        live: "Redeployed at `0x87e9…b1f6` with canonical URL template (#383). `sbo3lagent.eth` registered on Sepolia ENS + `research-agent.sbo3lagent.eth` subname wired to the new OR (#390). `OR.resolve(dnsEncode(...), text(node, sbo3l:agent_id))` reverts with `OffchainLookup` carrying canonical URL — verified end-to-end against `cargo test -p sbo3l-identity --test sepolia_or_live -- --ignored`.",
+        live: "Redeployed at `0x87e9…b1f6` with canonical URL template (#383). `sbo3lagent.eth` registered on Sepolia ENS + `research-agent.sbo3lagent.eth` subname wired to the new OR (#390). End-to-end verified via SBO3L CLI (R20 #446 added CCIP-Read OffchainLookup follower) AND viem byte-for-byte: `sbo3l agent verify-ens research-agent.sbo3lagent.eth --network sepolia` returns the actual records.",
         mock: null,
         notyet: "Production-grade subname registration UX (today: `cast send setSubnodeRecord` on every new agent). Roadmap, not v1.",
       },
