@@ -1,17 +1,17 @@
-//! CCIP-Read (ENSIP-10 / EIP-3668) client-side decoder.
+//! CCIP-Read (ENSIP-10 / EIP-3668) client-side decoder + orchestrator.
 //!
 //! The gateway lives in `apps/ccip-gateway/` (TypeScript / Vercel
 //! function); this module is the **Rust counterpart** for SBO3L's own
-//! tooling — `sbo3l passport resolve <name>` and friends — so we can
-//! resolve subnames behind the OffchainResolver without trusting
-//! third-party clients.
+//! tooling — `sbo3l passport resolve <name>`, `sbo3l agent verify-ens`,
+//! and friends — so we can resolve subnames behind the OffchainResolver
+//! without trusting third-party clients.
 //!
 //! T-4-1 ships:
 //!
 //! * [`parse_offchain_lookup_revert`] — extract sender / urls /
 //!   callData / callbackFunction / extraData from the standard
 //!   `OffchainLookup(address,string[],bytes,bytes4,bytes)` revert
-//!   payload that an OffchainResolver returns from `text()` / `addr()`.
+//!   payload that an OffchainResolver returns from `resolve()`.
 //! * [`decode_gateway_response_body`] — parse the gateway's
 //!   `{"data": "0x...", "ttl": N}` JSON.
 //! * [`decode_gateway_data`] — split the gateway's `data` field into
@@ -20,16 +20,29 @@
 //!   `value`, which is the ABI-encoded `(string)` tuple that
 //!   `abi.decode(..., (string))` would unwrap.
 //!
+//! Loop-7 follow-up (`sbo3l agent verify-ens` UAT): adds the missing
+//! end-to-end follow:
+//!
+//! * [`substitute_gateway_url`] — substitute `{sender}` and `{data}`
+//!   placeholders in the URL template per ENSIP-10.
+//! * [`encode_callback_call`] — build the resolver's
+//!   `callback(bytes response, bytes extraData)` calldata.
+//! * [`follow_offchain_lookup`] — full follow: gateway GET → decode →
+//!   callback `eth_call` → unwrap inner ABI tuple. Used by
+//!   [`crate::ens_live::LiveEnsResolver::resolve_raw_text`] when the
+//!   resolved name is behind an ENSIP-10 OffchainResolver.
+//!
 //! Signature verification (recover the gateway signer's address from
 //! the signature, compare to the OffchainResolver's expected signer)
-//! is the missing piece. Adding it requires `k256` or
-//! `secp256k1`; T-4-1 leaves that as a follow-up so the dep tree
-//! stays minimal — the trust model for our internal tools right now
-//! is "trust the gateway URL TLS cert + the OffchainResolver
-//! contract", which matches what `viem.getEnsText` does today.
+//! happens **on-chain** in `resolveCallback`. We don't re-verify in
+//! Rust — the contract is the trust root. If the gateway returns a
+//! tampered response, the on-chain callback reverts, our `eth_call`
+//! surfaces that revert, and we bubble it up.
 
 use serde::Deserialize;
 use thiserror::Error;
+
+use crate::ens_live::{JsonRpcTransport, RpcError};
 
 /// Standard ENSIP-10 / EIP-3668 OffchainLookup error selector =
 /// keccak256("OffchainLookup(address,string[],bytes,bytes4,bytes)")[..4].
@@ -211,6 +224,169 @@ pub fn decode_gateway_data(data_hex: &str) -> Result<GatewayResponse, CcipError>
     })
 }
 
+/// Substitute `{sender}` and `{data}` placeholders in a CCIP-Read
+/// gateway URL template per EIP-3668 / ENSIP-10. Both substitutions
+/// are 0x-prefixed lowercase hex of the corresponding bytes.
+///
+/// `sender` is the OffchainResolver's address (20 bytes).
+/// `call_data` is the original inner calldata (the `text(node, key)`
+/// or `addr(node)` selector + ABI args that the resolver was asked
+/// to handle).
+pub fn substitute_gateway_url(template: &str, sender: &[u8; 20], call_data: &[u8]) -> String {
+    let sender_hex = format!("0x{}", hex::encode(sender));
+    let data_hex = format!("0x{}", hex::encode(call_data));
+    template
+        .replace("{sender}", &sender_hex)
+        .replace("{data}", &data_hex)
+}
+
+/// Encode the resolver-side callback calldata: `selector ||
+/// abi.encode(bytes response, bytes extraData)`.
+///
+/// `response` is the gateway's signed `(value, expires, signature)`
+/// triple (raw bytes — already ABI-encoded by the gateway). The
+/// resolver re-decodes it inside `resolveCallback` and verifies the
+/// signature on-chain.
+pub fn encode_callback_call(
+    callback_selector: &[u8; 4],
+    response: &[u8],
+    extra_data: &[u8],
+) -> Vec<u8> {
+    // Two dynamic args (`bytes response, bytes extraData`):
+    //   head[0] = offset to response (= 0x40, after the two heads)
+    //   head[1] = offset to extraData (= 0x40 + 32 + padded(response))
+    //   tail[0] = u256 length || padded response bytes
+    //   tail[1] = u256 length || padded extra_data bytes
+    let response_padded = response.len().div_ceil(32) * 32;
+    let extra_data_padded = extra_data.len().div_ceil(32) * 32;
+
+    let head_offset_response: u64 = 0x40;
+    let head_offset_extra: u64 = head_offset_response + 32 + response_padded as u64;
+
+    let mut out = Vec::with_capacity(4 + 64 + 32 + response_padded + 32 + extra_data_padded);
+    out.extend_from_slice(callback_selector);
+
+    // Heads.
+    out.extend_from_slice(&u256_be(head_offset_response));
+    out.extend_from_slice(&u256_be(head_offset_extra));
+
+    // response tail.
+    out.extend_from_slice(&u256_be(response.len() as u64));
+    out.extend_from_slice(response);
+    out.extend(std::iter::repeat_n(0u8, response_padded - response.len()));
+
+    // extra_data tail.
+    out.extend_from_slice(&u256_be(extra_data.len() as u64));
+    out.extend_from_slice(extra_data);
+    out.extend(std::iter::repeat_n(
+        0u8,
+        extra_data_padded - extra_data.len(),
+    ));
+
+    out
+}
+
+fn u256_be(n: u64) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out[24..].copy_from_slice(&n.to_be_bytes());
+    out
+}
+
+/// CCIP-Read end-to-end follow: gateway GET → decode response →
+/// callback `eth_call` on the OffchainResolver → unwrap the inner
+/// `bytes` return, which is the ABI-encoded payload the original
+/// `text(node, key)` / `addr(node)` would have returned (i.e. an
+/// ABI-encoded `(string)` for `text`, or a 32-byte address word for
+/// `addr`).
+///
+/// Tries the gateway URLs in order, treating any 4xx HTTP status as
+/// a "skip + try next" signal (per EIP-3668). 5xx and transport
+/// errors short-circuit without trying further URLs — those signal a
+/// real outage, not a "wrong gateway" condition.
+///
+/// Returns the inner-result bytes. Use [`decode_string_result`] to
+/// pull a string out of a `text(node, key)` follow.
+pub fn follow_offchain_lookup<T: JsonRpcTransport>(
+    transport: &T,
+    lookup: &OffchainLookup,
+) -> Result<Vec<u8>, RpcError> {
+    if lookup.urls.is_empty() {
+        return Err(RpcError::Decode(
+            "OffchainLookup carried no gateway URLs".into(),
+        ));
+    }
+
+    let mut last_error: Option<RpcError> = None;
+    for template in &lookup.urls {
+        let url = substitute_gateway_url(template, &lookup.sender, &lookup.call_data);
+        match transport.http_get(&url) {
+            Ok(body) => {
+                let parsed = decode_gateway_response_body(&body)
+                    .map_err(|e| RpcError::Decode(format!("gateway body {url}: {e}")))?;
+                let response_hex = parsed.data;
+                let stripped = response_hex
+                    .strip_prefix("0x")
+                    .or_else(|| response_hex.strip_prefix("0X"))
+                    .ok_or_else(|| {
+                        RpcError::Decode(format!("gateway {url}: response.data missing 0x prefix"))
+                    })?;
+                let response_bytes = hex::decode(stripped).map_err(|e| {
+                    RpcError::Decode(format!("gateway {url}: response.data hex decode: {e}"))
+                })?;
+
+                // Build the callback eth_call.
+                let callback_data = encode_callback_call(
+                    &lookup.callback_selector,
+                    &response_bytes,
+                    &lookup.extra_data,
+                );
+                let sender_hex = format!("0x{}", hex::encode(lookup.sender));
+                let calldata_hex = format!("0x{}", hex::encode(&callback_data));
+                let raw = transport.eth_call(&sender_hex, &calldata_hex)?;
+
+                // The callback returns `bytes` — outer `eth_call`
+                // result is the ABI-encoded single-bytes tuple.
+                let outer = raw
+                    .strip_prefix("0x")
+                    .or_else(|| raw.strip_prefix("0X"))
+                    .ok_or_else(|| {
+                        RpcError::Decode(format!(
+                            "callback {sender_hex}: response missing 0x prefix"
+                        ))
+                    })?;
+                let outer_bytes = hex::decode(outer).map_err(|e| {
+                    RpcError::Decode(format!("callback {sender_hex}: hex decode: {e}"))
+                })?;
+                return decode_single_bytes_tuple(&outer_bytes)
+                    .map_err(|e| RpcError::Decode(format!("callback {sender_hex}: {e}")));
+            }
+            Err(e) => {
+                let is_4xx = matches!(&e, RpcError::Http(msg) if msg.contains("status 4"));
+                last_error = Some(e);
+                if !is_4xx {
+                    break;
+                }
+                // Else fall through and try the next URL in the list.
+            }
+        }
+    }
+    Err(last_error
+        .unwrap_or_else(|| RpcError::Http("CCIP-Read: all gateway URLs exhausted".into())))
+}
+
+/// Decode an ABI-encoded `(bytes)` tuple — the outer shape returned
+/// by `resolveCallback(response, extraData) returns (bytes)`.
+fn decode_single_bytes_tuple(b: &[u8]) -> Result<Vec<u8>, CcipError> {
+    if b.len() < 64 {
+        return Err(CcipError::AbiDecode(format!(
+            "(bytes) tuple too short: {} bytes",
+            b.len()
+        )));
+    }
+    let offset = read_u64_word(b, 0)? as usize;
+    decode_bytes(b, offset)
+}
+
 /// Decode an ABI-encoded `(string)` tuple as a UTF-8 [`String`]. The
 /// gateway returns text records this way for `text(node, key)`
 /// queries.
@@ -283,6 +459,76 @@ mod tests {
     fn decode_gateway_data_rejects_short() {
         let err = decode_gateway_data("0x00").unwrap_err();
         assert!(matches!(err, CcipError::Hex(_) | CcipError::AbiDecode(_)));
+    }
+
+    #[test]
+    fn substitute_gateway_url_replaces_both_placeholders() {
+        let template = "https://example.test/api/{sender}/{data}.json";
+        let sender = [0x11u8; 20];
+        let call_data = vec![0xaa, 0xbb, 0xcc];
+        let url = substitute_gateway_url(template, &sender, &call_data);
+        assert_eq!(
+            url,
+            "https://example.test/api/0x1111111111111111111111111111111111111111/0xaabbcc.json"
+        );
+    }
+
+    #[test]
+    fn substitute_gateway_url_idempotent_when_placeholders_missing() {
+        let template = "https://no-placeholders.test/static.json";
+        let sender = [0u8; 20];
+        let url = substitute_gateway_url(template, &sender, &[]);
+        assert_eq!(url, template);
+    }
+
+    #[test]
+    fn encode_callback_call_starts_with_selector() {
+        let selector = [0xde, 0xad, 0xbe, 0xef];
+        let response = vec![0x01, 0x02, 0x03];
+        let extra = vec![0xff];
+        let bytes = encode_callback_call(&selector, &response, &extra);
+        assert_eq!(&bytes[..4], &selector);
+        // Two head words = 64 bytes after selector.
+        assert_eq!(bytes.len() - 4, 64 + 32 + 32 + 32 + 32);
+    }
+
+    #[test]
+    fn encode_callback_call_offsets_resolve_to_payloads() {
+        let selector = [0u8; 4];
+        let response = b"response-bytes-payload".to_vec();
+        let extra = b"extra".to_vec();
+        let bytes = encode_callback_call(&selector, &response, &extra);
+        // Skip selector. Head[0] = offset to response = 0x40.
+        let body = &bytes[4..];
+        let head0 = read_u64_word(body, 0).unwrap() as usize;
+        let head1 = read_u64_word(body, 32).unwrap() as usize;
+        assert_eq!(head0, 0x40);
+        // Response length word at offset 0x40.
+        let resp_len = read_u64_word(body, head0).unwrap() as usize;
+        assert_eq!(resp_len, response.len());
+        // Response bytes at offset 0x40 + 32.
+        assert_eq!(&body[head0 + 32..head0 + 32 + resp_len], &response[..]);
+        // Extra length word at head1.
+        let extra_len = read_u64_word(body, head1).unwrap() as usize;
+        assert_eq!(extra_len, extra.len());
+        assert_eq!(&body[head1 + 32..head1 + 32 + extra_len], &extra[..]);
+    }
+
+    #[test]
+    fn decode_single_bytes_tuple_round_trip() {
+        // (bytes) = head(0x20) || length || padded body.
+        let payload = b"hello-callback-result".to_vec();
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&[0u8; 31]);
+        buf.push(0x20);
+        let mut len_word = [0u8; 32];
+        len_word[24..].copy_from_slice(&(payload.len() as u64).to_be_bytes());
+        buf.extend_from_slice(&len_word);
+        let pad = payload.len().div_ceil(32) * 32 - payload.len();
+        buf.extend_from_slice(&payload);
+        buf.extend(std::iter::repeat_n(0u8, pad));
+        let decoded = decode_single_bytes_tuple(&buf).unwrap();
+        assert_eq!(decoded, payload);
     }
 
     #[test]

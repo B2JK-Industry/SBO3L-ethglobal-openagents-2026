@@ -64,6 +64,12 @@ pub enum RpcError {
     Parse(String),
     #[error("RPC reported error: {code} {message}")]
     Server { code: i64, message: String },
+    /// Solidity revert. The `data` is the raw revert bytes (selector
+    /// || ABI args). Distinct from `Server` so the CCIP-Read follow
+    /// path can detect the `OffchainLookup` selector and dispatch
+    /// without depending on the human-readable `message`.
+    #[error("contract reverted ({} bytes of revert data)", data.len())]
+    Reverted { data: Vec<u8> },
     #[error("malformed eth_call response: {0}")]
     Decode(String),
 }
@@ -79,7 +85,24 @@ impl From<RpcError> for ResolveError {
 pub trait JsonRpcTransport {
     /// Call `eth_call` against `to` with `data` (both `0x`-prefixed
     /// hex strings). Returns the `0x`-prefixed hex result string.
+    ///
+    /// On a Solidity revert, return [`RpcError::Reverted`] carrying
+    /// the raw revert bytes (selector || ABI args) so callers can
+    /// dispatch on the selector — the CCIP-Read follow path needs
+    /// access to the `OffchainLookup` payload regardless of the
+    /// upstream RPC's human-readable message.
     fn eth_call(&self, to: &str, data: &str) -> Result<String, RpcError>;
+
+    /// Fetch a CCIP-Read gateway URL via HTTP GET. Default impl
+    /// surfaces `RpcError::Http("transport does not support HTTP
+    /// GET")` — only the live transport needs to implement this; the
+    /// test fakes that don't exercise CCIP-Read can leave it
+    /// unimplemented. Returns the raw response body bytes.
+    fn http_get(&self, _url: &str) -> Result<Vec<u8>, RpcError> {
+        Err(RpcError::Http(
+            "JsonRpcTransport::http_get not implemented for this transport".into(),
+        ))
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -102,6 +125,35 @@ struct JsonRpcResponse {
 struct JsonRpcErrorBody {
     code: i64,
     message: String,
+    /// Solidity revert payload; geth/anvil/Alchemy populate this when
+    /// a `view` call reverts. Spec: JSON-RPC error data is "Primitive
+    /// or structured value". Geth uses a `0x`-hex string for
+    /// `eth_call` reverts. Alchemy occasionally wraps it as
+    /// `{ "data": "0x..." }`. We accept both shapes (string OR object
+    /// with `.data`).
+    #[serde(default)]
+    data: Option<RevertDataField>,
+}
+
+/// `data` field on a JSON-RPC error. Geth returns a hex string;
+/// Alchemy sometimes returns `{ "data": "0x...", "message": "..." }`.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RevertDataField {
+    String(String),
+    Object {
+        #[serde(default)]
+        data: Option<String>,
+    },
+}
+
+impl RevertDataField {
+    fn as_hex(&self) -> Option<&str> {
+        match self {
+            Self::String(s) => Some(s.as_str()),
+            Self::Object { data } => data.as_deref(),
+        }
+    }
 }
 
 /// Production [`JsonRpcTransport`] backed by `reqwest::blocking`.
@@ -151,6 +203,20 @@ impl JsonRpcTransport for ReqwestTransport {
         }
         let parsed: JsonRpcResponse = resp.json().map_err(|e| RpcError::Parse(e.to_string()))?;
         if let Some(err) = parsed.error {
+            // If the error carries a hex `data` payload, that's a
+            // Solidity revert — surface as `Reverted` so callers can
+            // dispatch on the selector. Otherwise fall back to the
+            // generic `Server` variant.
+            if let Some(hex_data) = err.data.as_ref().and_then(|d| d.as_hex()) {
+                if let Some(stripped) = hex_data
+                    .strip_prefix("0x")
+                    .or_else(|| hex_data.strip_prefix("0X"))
+                {
+                    if let Ok(bytes) = hex::decode(stripped) {
+                        return Err(RpcError::Reverted { data: bytes });
+                    }
+                }
+            }
             return Err(RpcError::Server {
                 code: err.code,
                 message: err.message,
@@ -159,6 +225,23 @@ impl JsonRpcTransport for ReqwestTransport {
         parsed
             .result
             .ok_or_else(|| RpcError::Decode("no result and no error in response".into()))
+    }
+
+    fn http_get(&self, url: &str) -> Result<Vec<u8>, RpcError> {
+        let resp = self
+            .client
+            .get(url)
+            .send()
+            .map_err(|e| RpcError::Http(format!("CCIP gateway GET {url}: {e}")))?;
+        if !resp.status().is_success() {
+            return Err(RpcError::Http(format!(
+                "CCIP gateway GET {url}: status {}",
+                resp.status()
+            )));
+        }
+        resp.bytes()
+            .map(|b| b.to_vec())
+            .map_err(|e| RpcError::Http(format!("CCIP gateway body {url}: {e}")))
     }
 }
 
@@ -184,23 +267,71 @@ impl<T: JsonRpcTransport> LiveEnsResolver<T> {
     /// `sbo3l:pubkey_ed25519`, `sbo3l:capabilities`,
     /// `sbo3l:policy_url`).
     ///
+    /// Resolution dispatch:
+    ///
+    /// 1. Walk the registry to find the resolver (climbing parent
+    ///    names if the leaf has no direct entry — ENSIP-10 wildcard
+    ///    behaviour).
+    /// 2. If the resolver advertises ENSIP-10 (`supportsInterface(
+    ///    0x9061b923) == true`), call `resolve(dnsEncode(name),
+    ///    text(node,key))` and follow the EIP-3668 `OffchainLookup`
+    ///    revert through the gateway. This is the load-bearing path
+    ///    for SBO3L's own subnames behind the OffchainResolver
+    ///    (loop-7 UAT fix — without this we couldn't resolve our own
+    ///    `research-agent.sbo3lagent.eth` even though viem can).
+    /// 3. Otherwise call `text(node, key)` directly (legacy
+    ///    PublicResolver path — covers mainnet `sbo3lagent.eth` and
+    ///    other apex names with text records pinned on-chain).
+    ///
     /// Returns `Ok(None)` for empty / unset records (PublicResolver
     /// convention: missing record → empty string), `Ok(Some(value))`
-    /// otherwise. Resolves the same two-step `resolver(node) +
-    /// text(node, key)` flow [`Self::resolve`] uses, just per-key
-    /// instead of a fixed five-key sweep.
+    /// otherwise.
     pub fn resolve_raw_text(&self, name: &str, key: &str) -> Result<Option<String>, ResolveError> {
-        let node = namehash(name).map_err(|_| ResolveError::UnknownName(name.to_string()))?;
-        let resolver_addr = call_resolver(&self.transport, &node)?;
-        if is_zero_address(&resolver_addr) {
+        let (resolver_addr, node) = self.find_resolver(name)?;
+        let value = if is_zero_address(&resolver_addr) {
             return Err(ResolveError::UnknownName(name.to_string()));
-        }
-        let value = call_text(&self.transport, &resolver_addr, &node, key)?;
+        } else if supports_ensip10(&self.transport, &resolver_addr).unwrap_or(false) {
+            call_text_via_ensip10(&self.transport, &resolver_addr, name, &node, key)?
+        } else {
+            call_text(&self.transport, &resolver_addr, &node, key)?
+        };
         if value.is_empty() {
             Ok(None)
         } else {
             Ok(Some(value))
         }
+    }
+
+    /// Resolve `name` to the contract that holds its records. Climbs
+    /// parent names if the leaf has no direct registry entry — this
+    /// is the ENSIP-10 wildcard / parent-resolver pattern that
+    /// CCIP-Read clients (viem, ethers) implement. Returns the
+    /// resolver address paired with the namehash of the *original*
+    /// leaf (not the parent we found the resolver on) — the inner
+    /// `text(node, key)` calldata uses the leaf's namehash so the
+    /// resolver's gateway dispatches by the right node.
+    fn find_resolver(&self, name: &str) -> Result<(String, [u8; 32]), ResolveError> {
+        let leaf_node = namehash(name).map_err(|_| ResolveError::UnknownName(name.to_string()))?;
+        // Try the leaf first.
+        let direct = call_resolver(&self.transport, &leaf_node)?;
+        if !is_zero_address(&direct) {
+            return Ok((direct, leaf_node));
+        }
+        // Walk parents. `a.b.c.eth` -> `b.c.eth` -> `c.eth` -> `eth`.
+        let mut remaining = name;
+        while let Some(idx) = remaining.find('.') {
+            remaining = &remaining[idx + 1..];
+            if remaining.is_empty() {
+                break;
+            }
+            let parent_node =
+                namehash(remaining).map_err(|_| ResolveError::UnknownName(name.to_string()))?;
+            let parent_resolver = call_resolver(&self.transport, &parent_node)?;
+            if !is_zero_address(&parent_resolver) {
+                return Ok((parent_resolver, leaf_node));
+            }
+        }
+        Err(ResolveError::UnknownName(name.to_string()))
     }
 }
 
@@ -292,6 +423,201 @@ fn call_text<T: JsonRpcTransport>(
     let hex_data = format!("0x{}", hex::encode(&data));
     let raw = transport.eth_call(resolver_addr, &hex_data)?;
     decode_string(&raw)
+}
+
+/// `supportsInterface(bytes4)` selector = `0x01ffc9a7`. ENSIP-10
+/// `IExtendedResolver` interface id = `0x9061b923`.
+const SUPPORTS_INTERFACE_SELECTOR: [u8; 4] = [0x01, 0xff, 0xc9, 0xa7];
+const ENSIP10_INTERFACE_ID: [u8; 4] = [0x90, 0x61, 0xb9, 0x23];
+
+/// Probe `supportsInterface(0x9061b923)` on the resolver. ENSIP-10
+/// resolvers (the OffchainResolver lineage) advertise this; legacy
+/// PublicResolver returns false. We treat any error from the call
+/// (resolver doesn't implement ERC-165, RPC blip, etc.) as "no" so
+/// the caller falls back to direct `text()` — consistent with viem's
+/// pragmatic dispatch.
+fn supports_ensip10<T: JsonRpcTransport>(
+    transport: &T,
+    resolver_addr: &str,
+) -> Result<bool, RpcError> {
+    let mut data = Vec::with_capacity(4 + 32);
+    data.extend_from_slice(&SUPPORTS_INTERFACE_SELECTOR);
+    // 4-byte interface id, left-aligned in a 32-byte slot.
+    let mut padded = [0u8; 32];
+    padded[..4].copy_from_slice(&ENSIP10_INTERFACE_ID);
+    data.extend_from_slice(&padded);
+    let hex_data = format!("0x{}", hex::encode(&data));
+    let raw = transport.eth_call(resolver_addr, &hex_data)?;
+    let body = strip_0x(&raw)?;
+    let bytes = hex::decode(body).map_err(|e| RpcError::Decode(format!("hex decode: {e}")))?;
+    if bytes.len() < 32 {
+        return Ok(false);
+    }
+    // ABI-encoded bool: 31 zero bytes + (0|1).
+    Ok(bytes[31] == 1)
+}
+
+/// ENSIP-10 + EIP-3668 path: call `resolve(dnsEncode(name),
+/// text(node, key))` on `resolver_addr`. If it reverts with
+/// `OffchainLookup`, follow the gateway round-trip via
+/// [`crate::ccip_read::follow_offchain_lookup`] and decode the
+/// returned `(string)` tuple.
+///
+/// Errors:
+/// - `RpcError::Reverted` with a non-OffchainLookup selector
+///   surfaces verbatim (e.g. `SignatureExpired` from the callback).
+/// - `RpcError::Decode` if the gateway's signed result doesn't
+///   round-trip to a UTF-8 string (e.g. an `addr(node)` followed by
+///   text decoder — caller bug, not gateway bug).
+fn call_text_via_ensip10<T: JsonRpcTransport>(
+    transport: &T,
+    resolver_addr: &str,
+    name: &str,
+    node: &[u8; 32],
+    key: &str,
+) -> Result<String, RpcError> {
+    let inner = encode_text_call(node, key);
+    let dns_name =
+        dns_encode(name).map_err(|e| RpcError::Decode(format!("DNS-encode {name}: {e}")))?;
+    let outer = encode_resolve_call(&dns_name, &inner);
+    let hex_data = format!("0x{}", hex::encode(&outer));
+
+    match transport.eth_call(resolver_addr, &hex_data) {
+        Ok(raw) => {
+            // `resolve()` returns `bytes` — the inner-call's actual
+            // return ABI-encoded inside. For `text()`, that's
+            // `(string)`. Outer hex → outer bytes → `(bytes)` tuple
+            // → inner bytes → `(string)` tuple.
+            let body = strip_0x(&raw)?;
+            let outer_bytes =
+                hex::decode(body).map_err(|e| RpcError::Decode(format!("hex decode: {e}")))?;
+            let inner_bytes = decode_outer_bytes_tuple(&outer_bytes)?;
+            decode_string_from_inner(&inner_bytes)
+        }
+        Err(RpcError::Reverted { data }) => {
+            let lookup = crate::ccip_read::parse_offchain_lookup_revert(&data).map_err(|e| {
+                RpcError::Decode(format!(
+                    "ENSIP-10 resolver {resolver_addr} reverted with non-OffchainLookup data: {e}"
+                ))
+            })?;
+            let inner_bytes = crate::ccip_read::follow_offchain_lookup(transport, &lookup)?;
+            decode_string_from_inner(&inner_bytes)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Encode `IExtendedResolver.resolve(bytes name, bytes data)` —
+/// selector `0x9061b923` (same selector the UniversalResolver uses,
+/// because they share the same function signature).
+fn encode_resolve_call(name: &[u8], data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(4 + 64 + name.len() + data.len() + 128);
+    out.extend_from_slice(&[0x90, 0x61, 0xb9, 0x23]); // resolve(bytes,bytes)
+
+    // Two heads.
+    let name_padded = name.len().div_ceil(32) * 32;
+    let data_offset: u64 = 0x40 + 32 + name_padded as u64;
+    out.extend_from_slice(&u256_be(0x40));
+    out.extend_from_slice(&u256_be(data_offset));
+
+    // name tail.
+    out.extend_from_slice(&u256_be(name.len() as u64));
+    out.extend_from_slice(name);
+    out.extend(std::iter::repeat_n(0u8, name_padded - name.len()));
+
+    // data tail.
+    out.extend_from_slice(&u256_be(data.len() as u64));
+    out.extend_from_slice(data);
+    let data_padded = data.len().div_ceil(32) * 32;
+    out.extend(std::iter::repeat_n(0u8, data_padded - data.len()));
+
+    out
+}
+
+/// DNS-encode an ENS name. Uses the same algorithm as
+/// `crate::universal::dns_encode` but with this crate's error type so
+/// the ENSIP-10 path can stay inside `ens_live`'s error surface.
+fn dns_encode(name: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::with_capacity(name.len() + 2);
+    if !name.is_empty() {
+        for label in name.split('.') {
+            if label.is_empty() {
+                continue;
+            }
+            let bytes = label.as_bytes();
+            if bytes.len() > 63 {
+                return Err(format!(
+                    "DNS label too long ({} bytes; max 63)",
+                    bytes.len()
+                ));
+            }
+            out.push(bytes.len() as u8);
+            out.extend_from_slice(bytes);
+        }
+    }
+    out.push(0);
+    Ok(out)
+}
+
+/// Decode a top-level ABI `(bytes)` tuple. `eth_call` of `resolve()`
+/// returns the dynamic `bytes` payload wrapped in this single-element
+/// tuple shape: head word = offset (0x20), then length-prefixed body.
+fn decode_outer_bytes_tuple(b: &[u8]) -> Result<Vec<u8>, RpcError> {
+    if b.len() < 64 {
+        return Err(RpcError::Decode(format!(
+            "(bytes) tuple too short: {} bytes",
+            b.len()
+        )));
+    }
+    let offset = u256_to_usize(&b[..32])?;
+    if b.len() < offset + 32 {
+        return Err(RpcError::Decode(format!(
+            "(bytes) length-word at offset {offset} OOB"
+        )));
+    }
+    let len = u256_to_usize(&b[offset..offset + 32])?;
+    let start = offset + 32;
+    let end = start + len;
+    if b.len() < end {
+        return Err(RpcError::Decode(format!(
+            "(bytes) content {start}..{end} OOB ({} bytes total)",
+            b.len()
+        )));
+    }
+    Ok(b[start..end].to_vec())
+}
+
+/// Decode a string from an ABI-encoded `(string)` tuple's *inner*
+/// bytes — the shape `text(node, key)` returns. Mirror of
+/// [`crate::ccip_read::decode_string_result`] but with this crate's
+/// error type for symmetry with [`call_text`]'s [`decode_string`].
+fn decode_string_from_inner(inner: &[u8]) -> Result<String, RpcError> {
+    if inner.is_empty() {
+        return Ok(String::new());
+    }
+    if inner.len() < 64 {
+        return Err(RpcError::Decode(format!(
+            "string tuple too short: {} bytes",
+            inner.len()
+        )));
+    }
+    let offset = u256_to_usize(&inner[..32])?;
+    if inner.len() < offset + 32 {
+        return Err(RpcError::Decode(format!(
+            "string length-word at offset {offset} OOB"
+        )));
+    }
+    let len = u256_to_usize(&inner[offset..offset + 32])?;
+    let start = offset + 32;
+    let end = start + len;
+    if inner.len() < end {
+        return Err(RpcError::Decode(format!(
+            "string content {start}..{end} OOB ({} bytes total)",
+            inner.len()
+        )));
+    }
+    String::from_utf8(inner[start..end].to_vec())
+        .map_err(|e| RpcError::Decode(format!("non-UTF-8 string record: {e}")))
 }
 
 fn encode_text_call(node: &[u8; 32], key: &str) -> Vec<u8> {
@@ -435,11 +761,15 @@ mod tests {
     /// One scripted expectation: `(to, data_prefix, response)`.
     type Expectation = (String, String, Result<String, RpcError>);
 
+    type HttpExpectation = (String, Result<Vec<u8>, RpcError>);
+
     /// In-test fake transport. Records calls and replays scripted
     /// responses. Not threadsafe — that's fine for unit tests.
     struct FakeTransport {
         scripted: RefCell<Vec<Expectation>>,
         calls: RefCell<Vec<(String, String)>>,
+        http_scripted: RefCell<Vec<HttpExpectation>>,
+        http_calls: RefCell<Vec<String>>,
     }
 
     impl FakeTransport {
@@ -447,12 +777,19 @@ mod tests {
             Self {
                 scripted: RefCell::new(Vec::new()),
                 calls: RefCell::new(Vec::new()),
+                http_scripted: RefCell::new(Vec::new()),
+                http_calls: RefCell::new(Vec::new()),
             }
         }
         fn expect(&self, to: &str, data_prefix: &str, response: Result<String, RpcError>) {
             self.scripted
                 .borrow_mut()
                 .push((to.to_string(), data_prefix.to_string(), response));
+        }
+        fn expect_http(&self, url_prefix: &str, body: Result<Vec<u8>, RpcError>) {
+            self.http_scripted
+                .borrow_mut()
+                .push((url_prefix.to_string(), body));
         }
     }
 
@@ -470,6 +807,20 @@ mod tests {
                 Some(i) => script.remove(i).2,
                 None => Err(RpcError::Decode(format!(
                     "FakeTransport: no expectation matched to={to} data={data}"
+                ))),
+            }
+        }
+
+        fn http_get(&self, url: &str) -> Result<Vec<u8>, RpcError> {
+            self.http_calls.borrow_mut().push(url.to_string());
+            let mut script = self.http_scripted.borrow_mut();
+            let pos = script
+                .iter()
+                .position(|(prefix, _)| url.starts_with(prefix));
+            match pos {
+                Some(i) => script.remove(i).1,
+                None => Err(RpcError::Http(format!(
+                    "FakeTransport: no http_get expectation for {url}"
                 ))),
             }
         }
@@ -676,5 +1027,278 @@ mod tests {
         let raw = abi_encode_address_response(&"00".repeat(20));
         let a = decode_address(&raw).unwrap();
         assert!(is_zero_address(&a));
+    }
+
+    /// Build a `(bytes)` ABI-tuple from a payload. Used by the
+    /// CCIP-Read tests below to wrap inner-text bytes as the
+    /// `eth_call` of `resolveCallback` would return them.
+    fn abi_encode_outer_bytes_tuple(payload: &[u8]) -> Vec<u8> {
+        let mut out = Vec::with_capacity(64 + payload.len() + 32);
+        out.extend_from_slice(&u256_be(0x20));
+        out.extend_from_slice(&u256_be(payload.len() as u64));
+        out.extend_from_slice(payload);
+        let pad = payload.len().div_ceil(32) * 32 - payload.len();
+        out.extend(std::iter::repeat_n(0u8, pad));
+        out
+    }
+
+    /// Build the inner-`(string)` payload returned by an ENSIP-10
+    /// callback for a `text(node, key)` query.
+    fn abi_encode_inner_string(s: &str) -> Vec<u8> {
+        let mut out = Vec::with_capacity(64 + s.len() + 32);
+        out.extend_from_slice(&u256_be(0x20));
+        out.extend_from_slice(&u256_be(s.len() as u64));
+        out.extend_from_slice(s.as_bytes());
+        let pad = s.len().div_ceil(32) * 32 - s.len();
+        out.extend(std::iter::repeat_n(0u8, pad));
+        out
+    }
+
+    /// Build the gateway-side `(value, expires, signature)` triple
+    /// in the shape the OffchainResolver's `resolveCallback` accepts.
+    /// The test path doesn't verify the signature on-chain, but the
+    /// ABI shape must be byte-correct so our `encode_callback_call`
+    /// + `decode_outer_bytes_tuple` round-trip lines up.
+    fn abi_encode_signed_response(value: &[u8], expires: u64, signature: &[u8]) -> Vec<u8> {
+        // `(bytes value, uint64 expires, bytes signature)`:
+        // head: 3 words = 96 bytes.
+        //   word 0: offset to value = 0x60
+        //   word 1: expires (right-aligned in 32-byte slot)
+        //   word 2: offset to signature = 0x60 + 32 + padded(value)
+        let value_padded = value.len().div_ceil(32) * 32;
+        let sig_padded = signature.len().div_ceil(32) * 32;
+        let mut out = Vec::with_capacity(96 + 32 + value_padded + 32 + sig_padded);
+        out.extend_from_slice(&u256_be(0x60));
+        out.extend_from_slice(&u256_be(expires));
+        out.extend_from_slice(&u256_be(0x60 + 32 + value_padded as u64));
+        // value tail.
+        out.extend_from_slice(&u256_be(value.len() as u64));
+        out.extend_from_slice(value);
+        out.extend(std::iter::repeat_n(0u8, value_padded - value.len()));
+        // signature tail.
+        out.extend_from_slice(&u256_be(signature.len() as u64));
+        out.extend_from_slice(signature);
+        out.extend(std::iter::repeat_n(0u8, sig_padded - signature.len()));
+        out
+    }
+
+    /// Build an `OffchainLookup(address, string[], bytes, bytes4,
+    /// bytes)` revert payload: selector || ABI args.
+    fn abi_encode_offchain_lookup_revert(
+        sender: &[u8; 20],
+        urls: &[&str],
+        call_data: &[u8],
+        callback_selector: &[u8; 4],
+        extra_data: &[u8],
+    ) -> Vec<u8> {
+        // 5 head words = 160 bytes:
+        //   word 0: address sender (20 right-padded in 32)
+        //   word 1: offset to urls (string[])
+        //   word 2: offset to callData (bytes)
+        //   word 3: bytes4 callbackFunction (left-aligned)
+        //   word 4: offset to extraData (bytes)
+        let mut head = Vec::with_capacity(160);
+        let mut sender_word = [0u8; 32];
+        sender_word[12..].copy_from_slice(sender);
+        head.extend_from_slice(&sender_word);
+        // Offsets fixed up below.
+        head.extend_from_slice(&[0u8; 32]); // urls offset
+        head.extend_from_slice(&[0u8; 32]); // calldata offset
+        let mut cb_word = [0u8; 32];
+        cb_word[..4].copy_from_slice(callback_selector);
+        head.extend_from_slice(&cb_word);
+        head.extend_from_slice(&[0u8; 32]); // extraData offset
+
+        // Tails — order: urls, callData, extraData.
+        // urls tail: length || N head offsets || padded element bodies.
+        let mut urls_tail = Vec::new();
+        urls_tail.extend_from_slice(&u256_be(urls.len() as u64));
+        let heads_len = urls.len() * 32;
+        let mut cursor = heads_len as u64;
+        let mut url_bodies: Vec<Vec<u8>> = Vec::new();
+        for u in urls {
+            let bytes = u.as_bytes();
+            let padded = bytes.len().div_ceil(32) * 32;
+            let mut body = Vec::with_capacity(32 + padded);
+            body.extend_from_slice(&u256_be(bytes.len() as u64));
+            body.extend_from_slice(bytes);
+            body.extend(std::iter::repeat_n(0u8, padded - bytes.len()));
+            url_bodies.push(body);
+        }
+        for body in &url_bodies {
+            urls_tail.extend_from_slice(&u256_be(cursor));
+            cursor += body.len() as u64;
+        }
+        for body in url_bodies {
+            urls_tail.extend_from_slice(&body);
+        }
+
+        let mut calldata_tail = Vec::new();
+        calldata_tail.extend_from_slice(&u256_be(call_data.len() as u64));
+        calldata_tail.extend_from_slice(call_data);
+        let cd_pad = call_data.len().div_ceil(32) * 32 - call_data.len();
+        calldata_tail.extend(std::iter::repeat_n(0u8, cd_pad));
+
+        let mut extra_tail = Vec::new();
+        extra_tail.extend_from_slice(&u256_be(extra_data.len() as u64));
+        extra_tail.extend_from_slice(extra_data);
+        let ed_pad = extra_data.len().div_ceil(32) * 32 - extra_data.len();
+        extra_tail.extend(std::iter::repeat_n(0u8, ed_pad));
+
+        // Fix offsets.
+        let urls_offset: u64 = 160; // start of tails section
+        let calldata_offset: u64 = urls_offset + urls_tail.len() as u64;
+        let extra_offset: u64 = calldata_offset + calldata_tail.len() as u64;
+        head[32..64].copy_from_slice(&u256_be(urls_offset));
+        head[64..96].copy_from_slice(&u256_be(calldata_offset));
+        head[128..160].copy_from_slice(&u256_be(extra_offset));
+
+        let mut out = Vec::with_capacity(
+            4 + head.len() + urls_tail.len() + calldata_tail.len() + extra_tail.len(),
+        );
+        out.extend_from_slice(&crate::ccip_read::OFFCHAIN_LOOKUP_SELECTOR);
+        out.extend_from_slice(&head);
+        out.extend_from_slice(&urls_tail);
+        out.extend_from_slice(&calldata_tail);
+        out.extend_from_slice(&extra_tail);
+        out
+    }
+
+    /// End-to-end CCIP-Read follow on the `text(node, key)` path, the
+    /// load-bearing scenario for `sbo3l agent verify-ens
+    /// research-agent.sbo3lagent.eth` in the loop-7 UAT bug. Verifies:
+    /// 1. supportsInterface(0x9061b923) → true → ENSIP-10 dispatch
+    /// 2. resolve(dnsEncode(name), text(node,key)) reverts with
+    ///    OffchainLookup
+    /// 3. gateway HTTP GET decodes; callback eth_call returns the
+    ///    record value
+    #[test]
+    fn resolve_raw_text_follows_offchain_lookup_via_ensip10() {
+        let transport = FakeTransport::new();
+        let resolver_addr = "0x87e99508c222c6e419734cacbb6781b8d282b1f6";
+        let resolver_addr_bytes = {
+            let mut a = [0u8; 20];
+            hex::decode_to_slice("87e99508c222c6e419734cacbb6781b8d282b1f6", &mut a).unwrap();
+            a
+        };
+
+        // Step 1: registry.resolver(node) → 32-byte left-padded address.
+        transport.expect(
+            ENS_REGISTRY_ADDRESS,
+            "0x0178b8bf",
+            Ok(abi_encode_address_response(
+                "87e99508c222c6e419734cacbb6781b8d282b1f6",
+            )),
+        );
+
+        // Step 2: supportsInterface(0x9061b923) → true.
+        let true_word = format!("0x{}{}", "00".repeat(31), "01");
+        transport.expect(resolver_addr, "0x01ffc9a7", Ok(true_word));
+
+        // Step 3: resolve(name, data) reverts with OffchainLookup.
+        let urls = vec!["https://gateway.test/api/{sender}/{data}.json"];
+        let inner_call_data = encode_text_call(&[0u8; 32], "sbo3l:agent_id");
+        let callback_selector = [0xb4, 0xa8, 0x5b, 0x71]; // resolveCallback selector (arbitrary for the test)
+        let extra_data = inner_call_data.clone();
+        let revert_bytes = abi_encode_offchain_lookup_revert(
+            &resolver_addr_bytes,
+            &urls,
+            &inner_call_data,
+            &callback_selector,
+            &extra_data,
+        );
+        transport.expect(
+            resolver_addr,
+            "0x9061b923",
+            Err(RpcError::Reverted { data: revert_bytes }),
+        );
+
+        // Step 4: gateway HTTP GET → signed response.
+        let inner_string_payload = abi_encode_inner_string("research-agent-01");
+        let gateway_data = abi_encode_signed_response(&inner_string_payload, u64::MAX, &[0u8; 65]);
+        let gateway_body = serde_json::json!({
+            "data": format!("0x{}", hex::encode(&gateway_data)),
+            "ttl": 60u64,
+        })
+        .to_string()
+        .into_bytes();
+        transport.expect_http("https://gateway.test/api/", Ok(gateway_body));
+
+        // Step 5: callback eth_call → outer (bytes) tuple wrapping
+        //         the inner (string) tuple.
+        let outer = abi_encode_outer_bytes_tuple(&inner_string_payload);
+        transport.expect(
+            resolver_addr,
+            &format!("0x{}", hex::encode(callback_selector)),
+            Ok(format!("0x{}", hex::encode(outer))),
+        );
+
+        // The leaf name doesn't have to namehash to anything specific
+        // for the test; the fake matches by data prefix not by node.
+        let resolver = LiveEnsResolver::new(transport, EnsNetwork::Sepolia);
+        let v = resolver
+            .resolve_raw_text("research-agent.sbo3lagent.eth", "sbo3l:agent_id")
+            .unwrap();
+        assert_eq!(v.as_deref(), Some("research-agent-01"));
+    }
+
+    /// Regression: the legacy direct-`text()` path must still work
+    /// for resolvers that don't advertise ENSIP-10 (e.g. the ENS
+    /// PublicResolver on mainnet `sbo3lagent.eth`).
+    #[test]
+    fn resolve_raw_text_legacy_text_path_when_resolver_not_ensip10() {
+        let transport = FakeTransport::new();
+        let resolver_addr = "0xed79b9b96c6f44ee7b8e1ad1c2519bba2cdcc7d3";
+
+        transport.expect(
+            ENS_REGISTRY_ADDRESS,
+            "0x0178b8bf",
+            Ok(abi_encode_address_response(
+                "ed79b9b96c6f44ee7b8e1ad1c2519bba2cdcc7d3",
+            )),
+        );
+        // supportsInterface returns false (last byte 0).
+        let false_word = format!("0x{}", "00".repeat(32));
+        transport.expect(resolver_addr, "0x01ffc9a7", Ok(false_word));
+        transport.expect(
+            resolver_addr,
+            "0x59d1d43c",
+            Ok(abi_encode_string_response("research-agent-01")),
+        );
+
+        let resolver = LiveEnsResolver::new(transport, EnsNetwork::Mainnet);
+        let v = resolver
+            .resolve_raw_text("sbo3lagent.eth", "sbo3l:agent_id")
+            .unwrap();
+        assert_eq!(v.as_deref(), Some("research-agent-01"));
+    }
+
+    /// `find_resolver` walks parent names when the leaf has no
+    /// resolver entry — ENSIP-10 wildcard pattern.
+    #[test]
+    fn find_resolver_walks_parents_when_leaf_has_no_entry() {
+        let transport = FakeTransport::new();
+        let parent_resolver = "0x87e99508c222c6e419734cacbb6781b8d282b1f6";
+
+        // Leaf returns 0x0 (no direct entry).
+        transport.expect(
+            ENS_REGISTRY_ADDRESS,
+            "0x0178b8bf",
+            Ok(abi_encode_address_response(&"00".repeat(20))),
+        );
+        // Parent returns the OR.
+        transport.expect(
+            ENS_REGISTRY_ADDRESS,
+            "0x0178b8bf",
+            Ok(abi_encode_address_response(
+                "87e99508c222c6e419734cacbb6781b8d282b1f6",
+            )),
+        );
+
+        let resolver = LiveEnsResolver::new(transport, EnsNetwork::Sepolia);
+        let (addr, _node) = resolver
+            .find_resolver("research-agent.sbo3lagent.eth")
+            .unwrap();
+        assert_eq!(addr.to_ascii_lowercase(), parent_resolver);
     }
 }

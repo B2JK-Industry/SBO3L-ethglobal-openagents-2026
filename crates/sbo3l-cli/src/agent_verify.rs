@@ -6,9 +6,18 @@
 //! ## What we verify
 //!
 //! 1. **Resolution liveness** — `LiveEnsResolver::resolve_raw_text`
-//!    successfully reads the canonical `sbo3l:*` keys via the
-//!    network's PublicResolver (or the OffchainResolver pointer
-//!    flipped per T-4-1's deploy runbook).
+//!    successfully reads the canonical `sbo3l:*` keys, dispatching
+//!    on the resolver's interface advertisement:
+//!    - **PublicResolver** (apex `sbo3lagent.eth` on mainnet): direct
+//!      `text(node, key)` call; record returned in-band.
+//!    - **OffchainResolver** (Sepolia subnames behind T-4-1's CCIP-Read
+//!      gateway, e.g. `research-agent.sbo3lagent.eth`): `resolve(
+//!      dnsEncode(name), text(node,key))` reverts with EIP-3668
+//!      `OffchainLookup`; the resolver follows the gateway round-trip
+//!      and re-submits via `resolveCallback` for on-chain signature
+//!      verification before returning the value. Loop-7 UAT fix —
+//!      without this dispatch the CLI was the only ENSIP-10 client
+//!      that *couldn't* read SBO3L's own published records.
 //! 2. **Per-record value match** — each present record's value
 //!    matches `--expected-records '<json>'` if supplied. Records
 //!    that the operator didn't list expected values for are
@@ -26,8 +35,9 @@
 //!
 //! Set `SBO3L_LIVE_ETH=1` + `SBO3L_ENS_RPC_URL` to run the
 //! `tests/agent_verify_live.rs` integration test against
-//! `sbo3lagent.eth` on mainnet. Skipped cleanly otherwise — keeps CI
-//! offline.
+//! `sbo3lagent.eth` on mainnet. Set `SBO3L_SEPOLIA_RPC_URL` to
+//! exercise the CCIP-Read path against `research-agent.sbo3lagent.eth`
+//! on Sepolia. Skipped cleanly otherwise — keeps CI offline.
 
 use std::path::PathBuf;
 use std::process::ExitCode;

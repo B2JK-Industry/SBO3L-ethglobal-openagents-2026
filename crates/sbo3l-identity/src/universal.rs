@@ -164,6 +164,18 @@ impl<T: JsonRpcTransport> UniversalResolver<T> {
 
         let response_hex = match raw {
             Ok(s) => s,
+            // Modern RPCs surface the revert payload as JSON-RPC
+            // `error.data`; we get a `Reverted` whose first 4 bytes
+            // are the OffchainLookup selector when the resolver
+            // delegated to CCIP-Read.
+            Err(RpcError::Reverted { data })
+                if data.len() >= 4 && data[..4] == OFFCHAIN_LOOKUP_SELECTOR =>
+            {
+                return Err(UniversalError::OffchainResolverRequiresCcipFlow);
+            }
+            // Older RPCs (or proxied infra that strips `error.data`)
+            // only put a textual hint in `message`. Keep the
+            // string-match path so we don't regress those.
             Err(RpcError::Server { message, .. }) if message_contains_offchain_lookup(&message) => {
                 return Err(UniversalError::OffchainResolverRequiresCcipFlow);
             }
