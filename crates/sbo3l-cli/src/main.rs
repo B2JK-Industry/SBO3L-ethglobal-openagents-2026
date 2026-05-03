@@ -816,6 +816,50 @@ enum AuditCmd {
         #[arg(long)]
         path: PathBuf,
     },
+    /// Publish an audit bundle (or any payload) to a 0G Data
+    /// Availability layer (T-6-2). Sister to `audit export` —
+    /// `export` writes a self-contained bundle file; `publish`
+    /// anchors that file's bytes to a DA layer that gives an
+    /// independently-retrievable `blob_id`.
+    ///
+    /// Three backends:
+    ///
+    /// * `0g` — POSTs to the 0G Galileo DA testnet at
+    ///   `SBO3L_ZEROG_DA_URL` (or the baked default). Documented-flaky;
+    ///   retries 3× with 1s/3s backoff.
+    /// * `mock` — deterministic `sha256:` blob_id, fully offline.
+    ///   **The load-bearing path for demos when testnet is down** —
+    ///   every CLI line gets a `mock-da:` prefix so it's impossible to
+    ///   mistake for a live publish.
+    /// * `local` — writes the bytes to a local file and returns
+    ///   `file://<abs-path>` as the blob_id. Useful for CI fixture
+    ///   generation.
+    ///
+    /// Reads `--in <path>` (or stdin when omitted) and emits a
+    /// single-line JSON envelope to stdout: `{ "blob_id": "...",
+    /// "backend": "...", "endpoint": "...", "published_at": "..." }`.
+    Publish {
+        /// Path to read the publish payload from. When omitted,
+        /// stdin is consumed in full.
+        #[arg(long)]
+        r#in: Option<PathBuf>,
+        /// DA backend selection. See command help for the trade-offs.
+        #[arg(long, value_parser = ["0g", "mock", "local"], default_value = "mock")]
+        da: String,
+        /// 0G DA endpoint URL (only consulted when `--da 0g`).
+        /// Defaults to `SBO3L_ZEROG_DA_URL` env, then the baked
+        /// Galileo testnet default.
+        #[arg(long)]
+        zerog_da_url: Option<String>,
+        /// Output directory for the `local` backend. Required when
+        /// `--da local` and ignored otherwise.
+        #[arg(long)]
+        local_dir: Option<PathBuf>,
+        /// Optional path to write the JSON envelope to (in addition
+        /// to stdout). Useful for chaining into another tool.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// **Mock-anchored** audit checkpoints (PSM-A4).
     ///
     /// Operates on the persistent `audit_checkpoints` SQLite table
@@ -1062,6 +1106,22 @@ fn main() -> ExitCode {
         Command::Audit {
             op: AuditCmd::VerifyBundle { path },
         } => cmd_audit_verify_bundle(&path),
+        Command::Audit {
+            op:
+                AuditCmd::Publish {
+                    r#in,
+                    da,
+                    zerog_da_url,
+                    local_dir,
+                    out,
+                },
+        } => cmd_audit_publish(
+            r#in.as_deref(),
+            &da,
+            zerog_da_url.as_deref(),
+            local_dir.as_deref(),
+            out.as_deref(),
+        ),
         Command::Audit {
             op:
                 AuditCmd::Checkpoint {
@@ -1775,6 +1835,135 @@ fn cmd_audit_export(
             ExitCode::from(2)
         }
     }
+}
+
+fn cmd_audit_publish(
+    in_path: Option<&Path>,
+    da: &str,
+    zerog_da_url: Option<&str>,
+    local_dir: Option<&Path>,
+    out: Option<&Path>,
+) -> ExitCode {
+    use sbo3l_storage::zerog_da::{
+        DaRef, LocalFileDABackend, MockDABackend, ZeroGDABackend, ZeroGDataAvailability,
+        DEFAULT_ZEROG_DA_URL,
+    };
+
+    // Read the payload (file or stdin).
+    let payload = match in_path {
+        Some(p) => match std::fs::read(p) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("error reading {}: {e}", p.display());
+                return ExitCode::from(2);
+            }
+        },
+        None => {
+            let mut buf = Vec::new();
+            use std::io::Read;
+            if let Err(e) = std::io::stdin().read_to_end(&mut buf) {
+                eprintln!("error reading stdin: {e}");
+                return ExitCode::from(2);
+            }
+            buf
+        }
+    };
+
+    if payload.is_empty() {
+        eprintln!("audit publish: payload is empty (nothing to publish)");
+        return ExitCode::from(2);
+    }
+
+    // Dispatch on backend selection.
+    let result: Result<DaRef, String> = match da {
+        "mock" => {
+            let backend = MockDABackend::new();
+            // Loud-disclosure prefix on stderr — never on stdout (stdout
+            // stays a single JSON envelope so callers can pipe).
+            eprintln!(
+                "mock-da: publishing {} bytes to mock backend (deterministic sha256 blob_id; \
+                 NOT a real 0G publish — use --da 0g for testnet)",
+                payload.len()
+            );
+            backend
+                .publish(&payload)
+                .map_err(|e| format!("mock-da publish failed: {e}"))
+        }
+        "0g" => {
+            let endpoint = zerog_da_url
+                .map(|s| s.to_string())
+                .or_else(|| std::env::var("SBO3L_ZEROG_DA_URL").ok())
+                .unwrap_or_else(|| DEFAULT_ZEROG_DA_URL.to_string());
+            let backend = ZeroGDABackend::new(&endpoint);
+            eprintln!(
+                "0g-da: publishing {} bytes to {endpoint} (max attempts: {})",
+                payload.len(),
+                backend.max_attempts()
+            );
+            backend
+                .publish(&payload)
+                .map_err(|e| format!("0g-da publish failed: {e}"))
+        }
+        "local" => {
+            let dir = match local_dir {
+                Some(d) => d.to_path_buf(),
+                None => {
+                    eprintln!("audit publish: --da local requires --local-dir <DIR>");
+                    return ExitCode::from(2);
+                }
+            };
+            let backend = LocalFileDABackend::new(dir.clone());
+            eprintln!(
+                "local-da: writing {} bytes to {}",
+                payload.len(),
+                dir.display()
+            );
+            backend
+                .publish(&payload)
+                .map_err(|e| format!("local-da publish failed: {e}"))
+        }
+        other => {
+            eprintln!(
+                "audit publish: unknown --da '{other}' (clap should have rejected this); \
+                 expected one of: 0g, mock, local"
+            );
+            return ExitCode::from(2);
+        }
+    };
+
+    let r = match result {
+        Ok(r) => r,
+        Err(msg) => {
+            eprintln!("{msg}");
+            return ExitCode::from(1);
+        }
+    };
+
+    // Emit single-line JSON envelope to stdout.
+    let envelope = serde_json::json!({
+        "blob_id": r.blob_id,
+        "backend": r.backend,
+        "endpoint": r.endpoint,
+        "published_at": r.published_at.to_rfc3339(),
+    });
+    let envelope_str = match serde_json::to_string(&envelope) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("audit publish: failed to serialise envelope: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    println!("{envelope_str}");
+
+    if let Some(p) = out {
+        if let Err(e) = std::fs::write(p, format!("{envelope_str}\n")) {
+            eprintln!("audit publish: failed to write {}: {e}", p.display());
+            return ExitCode::from(2);
+        }
+        eprintln!("audit publish: wrote envelope to {}", p.display());
+    }
+
+    ExitCode::SUCCESS
 }
 
 fn cmd_audit_verify_bundle(path: &Path) -> ExitCode {

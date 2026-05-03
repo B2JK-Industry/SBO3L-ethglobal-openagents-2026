@@ -23,6 +23,8 @@ pub mod policy_store;
 pub mod tenant;
 // Remote upload backends for `sbo3l audit export` (Task C).
 pub mod zerog_backend;
+// 0G Data Availability publishing for `sbo3l audit publish` (T-6-2).
+pub mod zerog_da;
 
 pub use audit_checkpoint_store::AuditCheckpointRecord;
 pub use audit_store::NewAuditEvent;
