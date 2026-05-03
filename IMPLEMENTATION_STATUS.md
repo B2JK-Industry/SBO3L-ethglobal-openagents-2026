@@ -2,10 +2,10 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-05-03 (post R18 cascade)
-**Branch:** `main` (HEAD `84a811a` — post R18: KeyFlowDiagram + /roadmap + /status truth-table + /submission/<slug> 404s fixed + CLI Bug #5+#6 fixes + sbo3l doctor --extended + install-smoke CI + final UAT pre-submit pass)
+**Last updated:** 2026-05-03 (post R22 cascade)
+**Branch:** `main` (HEAD `75ec1ef` — post R22: 5 KH framework adapters shipped (LangChain TS+Py, ElizaOS, AutoGen, CrewAI, Vercel-AI), 0g-storage TS SDK, R20 adversarial fixtures + R21 Codex hardening, demo-video stitch fix, PWA recover, i18n SK+KO+JA, all 318→977 tests on main)
 **Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired.
-**Open implementation PRs:** **0** open. R18 wave landed PRs #369–#384 (marketing truthfulness + WASM verifier deploy, Vercel rootDirectory fix, ruff/fmt drift, Astro 5 schema fix for /submission, truth-table /status page, KeyFlowDiagram, /roadmap, install-smoke CI, sbo3l doctor --extended, UAT Round 1).
+**Open implementation PRs:** **0** non-draft open. R22 wave landed PRs #472-#493 (15 PRs: 5 KH framework adapters + 0g-storage TS + R20 adversarial fixtures + R21 Codex fixes + i18n + PWA recover + demo-video automation).
 **CI on `main`:** ✅ green (`CI` + `Pages` + `Supply chain security` + `Integrations publish` + `Regression on main`).
 **Blockers:** none for code; demo video record + ETHGlobal form submit are operator-side actions.
 
@@ -17,7 +17,7 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 |---|---|
 | `cargo fmt --check` | ✅ |
 | `cargo clippy --workspace --all-targets -- -D warnings` | ✅ no warnings |
-| `cargo test --workspace --tests --no-fail-fast` | ✅ **881 / 881 pass** (0 fail) across 37 test binaries on 10 crates |
+| `cargo test --workspace --tests --no-fail-fast` | ✅ **977 / 977 pass** (0 fail) across 40+ test binaries on 11 crates |
 | `python3 scripts/validate_schemas.py` | ✅ (7 schemas + 14 corpus fixtures) |
 | `python3 scripts/validate_openapi.py` | ✅ (`docs/api/openapi.json` valid) |
 | `bash demo-scripts/run-openagents-final.sh` | ✅ all **13 gates** green incl. audit-chain tamper detection and agent no-key proof (~10s end-to-end) |
@@ -25,14 +25,14 @@ For the **B5 final audit (earlier snapshot)** see [`FINAL_REVIEW_B5.md`](FINAL_R
 | `python3 trust-badge/build.py` | ✅ writes `trust-badge/index.html` (self-contained, no JS, no fetch) |
 | `python3 trust-badge/test_build.py` | ✅ **49 stdlib assertions** on the rendered HTML (capsule summary tile + 4 fallback states added in Passport P2.2) |
 | `python3 operator-console/build.py` | ✅ writes `operator-console/index.html` (self-contained, no JS, no fetch) — renders the `sbo3l-demo-summary-v1` transcript plus the `sbo3l-operator-evidence-v1` evidence transcript, with one real panel per merged A-side surface |
-| `python3 operator-console/test_build.py` | ✅ **118 stdlib assertions** (B2.v2 real-evidence panels — PSM-A2 + PSM-A5 + PSM-A1.9 + PSM-A3 + PSM-A4 — plus the Passport P2.2 capsule panel with both allow + deny tiles and 4 capsule fallback states) |
+| `python3 operator-console/test_build.py` | ✅ **109 stdlib assertions** (B2.v2 real-evidence panels — PSM-A2 + PSM-A5 + PSM-A1.9 + PSM-A3 + PSM-A4 — plus the Passport P2.2 capsule panel with both allow + deny tiles and 4 capsule fallback states) |
 | `python3 demo-fixtures/test_fixtures.py` | ✅ 4 mock fixtures clean + url-allowlist self-test |
 
 ## What is implemented
 
 Full Open Agents vertical:
 
-- Rust workspace (9 crates + research-agent demo binary).
+- Rust workspace (11 crates: 10 publishable + 1 wasm-only playground, plus research-agent demo binary).
 - `sbo3l` CLI: `aprp validate|hash|run-corpus`, `schema`, `verify-audit`, `audit export`, `audit verify-bundle`.
 - APRP v1 wire format with `serde(deny_unknown_fields)` end-to-end + JCS canonical request hashing (golden hash `c0bd2fab…` locked in test).
 - Strict JSON Schema validation (embedded, local refs, no network).
