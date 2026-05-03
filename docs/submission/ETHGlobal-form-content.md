@@ -26,10 +26,10 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 >
 > **Live integrations.** All three sponsor live paths shipped + smoke-verified end-to-end. KeeperHub: real workflow webhook accepts the IP-1 envelope, returns a real `executionId` (`kh-172o77rxov7mhwvpssc3x`-shape). ENS: `sbo3lagent.eth` mainnet apex with 5 `sbo3l:*` records on chain (Phase 2 adds 2 more); subnames issued via direct ENS Registry. Uniswap: live `quoteExactInputSingle` against Sepolia QuoterV2 (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`); real swap captures `tx_hash` into the capsule.
 >
-> **What ships at v1.2.0.** Nine Rust crates on crates.io. TypeScript SDK on npm. Python SDK on PyPI. Eight framework integrations (LangChain TS/Py, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph). Docker compose. Marketing site, hosted preview, docs site, CCIP-Read gateway. ENS mainnet apex. Phase 1 exit gate green: 441/441 cargo tests, 13/13 demo gates, 26/0/1 production-shaped runner.
+> **What ships at v1.2.2.** Ten Rust crates on crates.io. TypeScript SDK on npm. Python SDK on PyPI. Eight framework integrations (LangChain TS/Py, CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph) plus 18 marketplace adapter packages (26 npm total under `@sbo3l/*`). Docker compose. Marketing site, docs site, CCIP-Read gateway. ENS mainnet apex. Phase 1 exit gate green: 977/977 cargo tests, 13/13 demo gates, 26/0/1 production-shaped runner.
 
 **Tech stack:**
-- **Core:** Rust workspace, 9 published crates (`sbo3l-{core,storage,policy,identity,execution,keeperhub-adapter,server,mcp,cli}`)
+- **Core:** Rust workspace, 10 published crates (`sbo3l-{core,storage,policy,identity,execution,keeperhub-adapter,anchor,server,mcp,cli}`)
 - **SDKs:** TypeScript (`@sbo3l/sdk` on npm), Python (`sbo3l-sdk` on PyPI)
 - **Framework integrations:** LangChain (TS + Py), CrewAI, AutoGen, ElizaOS, LlamaIndex, Vercel AI, LangGraph
 - **Onchain:** ENS (Registry + PublicResolver), ENSIP-25 CCIP-Read, ERC-8004 Identity Registry, Uniswap V3 QuoterV2 + Universal Router (Sepolia)
@@ -40,15 +40,15 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **Repo URL:** https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
 
-**Live demo URL:** https://sbo3l.dev (custom domain pending; fallback https://sbo3l-marketing.vercel.app)
+**Live demo URL:** https://sbo3l-marketing.vercel.app (custom domain `sbo3l.dev` not yet pointed; the Vercel preview is the canonical live URL)
 
-**Verifier (judges click this):** https://sbo3l.dev/proof (fallback: `/proof` route on the Vercel preview)
+**Verifier (judges click this):** https://sbo3l-marketing.vercel.app/proof
 
 **Source:** https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
 
 **Demo video URL:** _populate after recording — see [`demo-video-script.md`](demo-video-script.md)_
 
-**Built during the hackathon? (yes/no):** Yes — entire codebase shipped within the 100-day window. Repo init at `9504fa7`; v1.2.0 release commit at `c90f571`.
+**Built during the hackathon? (yes/no):** Yes — entire codebase shipped within the 100-day window. Repo init at `9504fa7`; v1.0.0 release commit at `c90f571`; current stable v1.2.2 (10 crates on crates.io, 26 npm packages under `@sbo3l/*`).
 
 ## Bounty selections
 
@@ -95,25 +95,25 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 **How does your project use ENS?**
 
-> SBO3L turns ENS into *the agent trust DNS*. Every named agent gets a subname under `sbo3lagent.eth` (mainnet apex Daniel owns) with `sbo3l:*` text records. v1.2.0 ships **5 records on chain** (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`); Phase 2 adds two more (`capability`, `reputation`) for the full 7-record profile. Subname registration uses **direct ENS Registry `setSubnodeRecord`** (Daniel is the parent owner) + PublicResolver `setText` per record — no third-party registrar abstraction needed (we evaluated Durin and dropped it 2026-05-01: direct registry is fewer moving parts, more verifiable on Etherscan, and zero new contracts to deploy).
+> SBO3L turns ENS into *the agent trust DNS*. Every named agent gets a subname under `sbo3lagent.eth` (mainnet apex Daniel owns) with `sbo3l:*` text records. v1.2.2 ships **5 records on chain** (`agent_id`, `endpoint`, `policy_hash`, `audit_root`, `proof_uri`); Phase 2 adds two more (`capability`, `reputation`) for the full 7-record profile. Subname registration uses **direct ENS Registry `setSubnodeRecord`** (Daniel is the parent owner) + PublicResolver `setText` per record — no third-party registrar abstraction needed (we evaluated Durin and dropped it 2026-05-01: direct registry is fewer moving parts, more verifiable on Etherscan, and zero new contracts to deploy).
 >
 > An agent resolves another agent by ENS name and gets back a complete trust profile — *without trusting any single party*. Cross-agent attestations are signed Ed25519 envelopes that pin the recipient's expected `policy_hash` and an `expires_at`; the receiving SBO3L instance verifies the chain (sender's pubkey → recipient's published policy → recipient's actual decision) before allowing the delegated action.
 >
-> Five+ named agents on Sepolia (`research-agent`, `trading-agent`, `swap-agent`, `audit-agent`, `coordinator-agent`) discover each other in real time in the [trust-DNS visualization](https://app.sbo3l.dev/trust-dns). The visualization is the demo video centerpiece.
+> Five+ named agents on Sepolia (`research-agent`, `trading-agent`, `swap-agent`, `audit-agent`, `coordinator-agent`) discover each other in real time in the [trust-DNS visualization](https://sbo3l-trust-dns-viz.vercel.app). The visualization is the demo video centerpiece.
 
 **Live ENS evidence:**
 - Mainnet `sbo3lagent.eth` with 5 `sbo3l:*` records on chain. `policy_hash = e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf` — matches the offline fixture byte-for-byte (no drift)
 - ENS Registry constant: `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` (mainnet + Sepolia, deterministic deployment)
 - Mainnet PublicResolver: `0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63`
 - Sepolia subname issuance via direct ENS Registry (`sbo3l agent register --network sepolia`; PR #116 dry-run merged; broadcast slice in flight)
-- ENSIP-25 CCIP-Read gateway live at https://ccip.sbo3l.dev (T-4-1 ✅; PR #124 + #121 + uptime probe)
+- ENSIP-25 CCIP-Read gateway live at https://sbo3l-ccip.vercel.app (T-4-1 ✅; PR #124 + #121 + uptime probe)
 - Cross-agent attestation protocol (T-3-4 — first-tier amplifier 60-agent fleet PR #141)
 - Trust-DNS viz (T-3-5 — canvas renderer PR #164 for ≥100 agents)
-- 1500-word "Trust DNS" essay at https://docs.sbo3l.dev/trust-dns (T-3-6 — pending)
+- 1500-word "Trust DNS" essay at https://sbo3l-docs.vercel.app/concepts/trust-dns (T-3-6 ✅)
 
 ## Sponsor track field — ENS AI Agents
 
-**Differentiator:** SBO3L combines **ENS as identity** + **ERC-8004 Identity Registry** + **ENSIP-25 CCIP-Read** for off-chain dynamic records (computed reputation, current audit-root, fresh capability set). The CCIP-Read gateway runs at https://ccip.sbo3l.dev with an uptime probe.
+**Differentiator:** SBO3L combines **ENS as identity** + **ERC-8004 Identity Registry** + **ENSIP-25 CCIP-Read** for off-chain dynamic records (computed reputation, current audit-root, fresh capability set). The CCIP-Read gateway runs at https://sbo3l-ccip.vercel.app with an uptime probe.
 
 ## Sponsor track field — Uniswap Best API
 
@@ -121,7 +121,7 @@ The form fields below are derived from typical ETHGlobal submission forms. If th
 
 > SBO3L's `UniswapExecutor` is a `GuardedExecutor` over the Uniswap Trading API. Each swap intent runs through SBO3L's policy boundary before the swap is constructed. Slippage, MEV-protection (priority fee bounding, freshness), token-allowlist, and value-cap are all expressed as policy rules — not as bot logic. The policy decision is signed; the audit row links that decision to the eventual on-chain tx hash via the Passport capsule.
 >
-> v1.2.0 ships a working Sepolia QuoterV2 quote path, with the real swap construction landing in T-5-1..T-5-5. The capsule's `execution.live_evidence.tx_hash` is the canonical proof — drop it into a verifier and you can confirm the swap was bounded, authorised, and within slippage limits.
+> v1.2.2 ships a working Sepolia QuoterV2 quote path, with the real swap construction landing in T-5-1..T-5-5. The capsule's `execution.live_evidence.tx_hash` is the canonical proof — drop it into a verifier and you can confirm the swap was bounded, authorised, and within slippage limits.
 
 **Live Uniswap evidence:**
 - `crates/sbo3l-execution/src/uniswap.rs` — `live_from_env()` + Sepolia QuoterV2 quote
@@ -163,5 +163,5 @@ Honest disclosure: anything labelled mock in the demo output is mock. The capsul
 - [ ] All Etherscan tx hashes captured
 - [ ] All KH issue URLs filled in
 - [ ] FEEDBACK.md last commit ≤ 24h ago (proves freshness)
-- [ ] `cargo install sbo3l-cli --version 1.2.0` works on a fresh `mktemp -d` env (Heidi pre-verifies)
-- [ ] https://sbo3l.dev/proof loads + verifies a tampered capsule as failed
+- [ ] `cargo install sbo3l-cli --version 1.2.2` works on a fresh `mktemp -d` env (Heidi pre-verifies)
+- [ ] https://sbo3l-marketing.vercel.app/proof loads + verifies a tampered capsule as failed

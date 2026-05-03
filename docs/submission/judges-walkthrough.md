@@ -19,8 +19,8 @@ This is the entry point. It indexes everything else. Pick a reading-time budget 
 ## ⏱️ If you have **5 minutes** — verify one capsule end-to-end
 
 ```bash
-# 1. Install the CLI from crates.io (already at v1.2.0; v1.2.0 in flight)
-cargo install sbo3l-cli --version 1.2.0
+# 1. Install the CLI from crates.io (latest stable: v1.2.2)
+cargo install sbo3l-cli --version 1.2.2
 
 # 2. Run the full Open-Agents demo (13 gates, ~30s)
 git clone --depth=1 https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026
@@ -35,7 +35,7 @@ sbo3l passport verify --strict --path demo-scripts/artifacts/passport-allow.json
 
 That's the whole product in three commands. The capsule contains every byte needed to re-derive the policy decision; the verifier runs against the agent's published Ed25519 pubkey alone.
 
-**Browser version:** drop a capsule JSON at https://sbo3l.dev/proof — same WASM verifier runs in the page. Tamper one byte, verifier rejects.
+**Browser version:** drop a capsule JSON at https://sbo3l-marketing.vercel.app/proof — same WASM verifier runs in the page. Tamper one byte, verifier rejects.
 
 If just one of those three commands fails, **the project hasn't shipped what it claims**. Move on. If they all pass, you're holding cryptographic proof of an agent action — keep reading for the rest.
 
@@ -52,9 +52,9 @@ bash scripts/judges/verify-everything.sh
 ```
 
 What it checks:
-- 9 Rust crates installable from crates.io @ 1.2.0
-- 6 npm packages + 5 PyPI packages installable
-- `sbo3l --version` returns 1.2.0
+- 10 Rust crates installable from crates.io @ 1.2.2
+- 26 npm packages + 8 PyPI packages installable
+- `sbo3l --version` returns 1.2.2
 - ENS Registry mainnet RPC: `sbo3lagent.eth` resolver lookup
 - CCIP-Read gateway smoke fail-mode rejection
 - Marketing site / GitHub / ENS app HTTP 200
@@ -77,15 +77,15 @@ Each one-pager is ~500 words, evidence-linked, sponsor-specific:
 | Surface | URL | Status |
 |---|---|---|
 | Marketing site | https://sbo3l-marketing.vercel.app/ | ✅ 200 |
-| Public proof verifier | https://sbo3l.dev/proof (preview routes pending Vercel root config) | 🟡 |
+| Public proof verifier | https://sbo3l-marketing.vercel.app/proof | ✅ 200 |
 | CCIP-Read gateway | https://sbo3l-ccip.vercel.app/ + smoke-fail https://sbo3l-ccip.vercel.app/api/0xdeadbeef/0x12345678.json | ✅ 200 / ✅ 400 (correct rejection) |
 | ENS mainnet apex | https://app.ens.domains/sbo3lagent.eth | ✅ 200; 5 records on chain |
-| GitHub releases | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases | ✅ v1.0.0 + v1.2.0 (v1.2.0 in flight) |
-| crates.io / npm / PyPI | see [`live-url-inventory.md`](live-url-inventory.md) | 9 crates + 1 npm + 1 PyPI live; 8 framework-integration packages tagged but pending workflow trigger fix |
+| GitHub releases | https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/releases | ✅ v1.0.0 + v1.2.2 |
+| crates.io / npm / PyPI | see [`live-url-inventory.md`](live-url-inventory.md) | 10 crates + 26 npm + 8 PyPI live (3 npm packages awaiting first tag-publish, marked allow_failure in install-smoke matrix) |
 
 ### Real-time visualisation
 
-[`https://app.sbo3l.dev/trust-dns`](https://app.sbo3l.dev/trust-dns) (Vercel preview fallback while custom domain points) — D3 + canvas force-directed graph; agents discover each other and sign cross-agent attestations live. **This is the demo-video centerpiece for ENS Most Creative.**
+[`https://sbo3l-trust-dns-viz.vercel.app`](https://sbo3l-trust-dns-viz.vercel.app) (custom-domain `app.sbo3l.dev` not yet pointed) — D3 + canvas force-directed graph; agents discover each other and sign cross-agent attestations live. **This is the demo-video centerpiece for ENS Most Creative.**
 
 ---
 
@@ -151,7 +151,7 @@ Production-shaped, not hackathon-shaped:
 | **30 min** | this page + the 5 bounty one-pagers | `verify-everything.sh` (4-5 min) |
 | **90 min** | this page + bounty docs + Trust DNS essay + ENS narrative | `verify-everything.sh` + `chaos/run-all.sh` + browse `/proof` page |
 
-If you have less than 5 minutes: **drag any `passport-*.json` from `demo-scripts/artifacts/` into https://sbo3l.dev/proof**. That's the load-bearing demonstration in one click.
+If you have less than 5 minutes: **drag any `passport-*.json` from `demo-scripts/artifacts/` into https://sbo3l-marketing.vercel.app/proof**. That's the load-bearing demonstration in one click.
 
 ---
 
