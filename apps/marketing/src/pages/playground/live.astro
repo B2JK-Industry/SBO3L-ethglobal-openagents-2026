@@ -14,11 +14,18 @@ const githubBaseUrl = "https://github.com/B2JK-Industry/SBO3L-ethglobal-openagen
 >
   <article class="playground">
     <div class="live-banner" role="status" data-api-base={apiBase}>
-      <strong>🌐 LIVE TIER.</strong>
-      Submissions hit a real <code>sbo3l-server</code> instance hosted on Vercel Functions.
-      Receipts are <strong>real Ed25519-signed capsules</strong>, the audit chain is anchored to Sepolia every 6 hours.
+      <strong>🚧 PREVIEW TIER.</strong>
+      The Tier-3 backend (<code>sbo3l-playground-api.vercel.app</code>)
+      currently exposes a healthz probe + skeleton routes. The full
+      submission pipeline (APRP → policy → audit → signed capsule)
+      runs <strong>live in the CLI + daemon</strong> (Tier 1) and
+      <strong>fully in your browser via WASM</strong> (Tier 2 at
+      <a href="/playground">/playground</a>). Tier 3's hosted daemon
+      promotes from preview to live when the demo-fixtures cron lands
+      its first signed receipt — track via
+      <a href="/status">/status</a>.
       <span class="banner-actions">
-        <a href="/playground">↓ Same scenario in Tier 2 (mock)</a>
+        <a href="/playground">↓ Try Tier 2 (browser-WASM, real verifier)</a>
         <a href="/learn/tier-architecture">What's a tier?</a>
       </span>
     </div>
