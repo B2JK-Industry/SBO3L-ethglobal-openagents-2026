@@ -102,6 +102,14 @@ Pinned in code at:
 | OffchainResolver mainnet | **Not yet deployed.** Same script, `NETWORK=mainnet SBO3L_ALLOW_MAINNET_TX=1`. | (constant added on deploy) | Cost ceiling ~$10 mainnet gas. Migration plan for existing 5 records on `sbo3lagent.eth` documented in [`docs/cli/ens-fleet-sepolia.md`](../cli/ens-fleet-sepolia.md). |
 | Fleet broadcast (Sepolia) | **Pending Daniel's apex path choice.** | (per-agent tx hashes added on broadcast) | See [`docs/cli/ens-fleet-sepolia.md`](../cli/ens-fleet-sepolia.md) for Path A vs B. |
 
+## Mainnet broadcasts (real txs from `0xdc7EFA…D231`)
+
+| Action | Tx hash | Block | Etherscan |
+|---|---|---|---|
+| **UNI-A1 Uniswap V3 swap** — 0.005 ETH → 11.5743 USDC via Universal Router (0x4c82d1…2cca) | `0xed68d1…aff0b` | 25,013,950 | [etherscan.io/tx/0xed68d1…aff0b](https://etherscan.io/tx/0xed68d1301b479c4229bc89cca5162b56517b80cbaeb654323e05b183000aff0b) |
+
+Real production swap proves the SBO3L→Uniswap path end-to-end on Ethereum mainnet. Same swap-policy guard (token allowlist + slippage + treasury recipient) protects this and any future agent-initiated swap.
+
 ## Off-chain components (no on-chain address, but contract-of-trust)
 
 | Component | Location | Source |
