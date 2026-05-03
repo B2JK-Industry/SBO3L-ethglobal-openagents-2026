@@ -167,13 +167,20 @@ Stacking them gives end-to-end offline auditability of every KeeperHub execution
 
 In this hackathon build, the demo default constructs `KeeperHubExecutor::local_mock()` (clearly disclosed as `mock: true` in every demo output line, with a deterministic `kh-<ULID>` execution_ref). The live arm — `KeeperHubExecutor::execute` with `submit_live_to` — is **shipped and verified end-to-end against a real KeeperHub workflow during the submission window** (env-gated on `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN`, returns a real `executionId`). The bare back-compat `KeeperHubExecutor::live()` ctor (no transport, no config) returns `BackendOffline` at runtime. There is no silent fallback from mock to live, and no KeeperHub credentials anywhere in the repo (verifiable by `git grep`).
 
-**Framework plugin (TS + Python parity).** Beyond the Rust adapter, we ship two LangChain framework plugins as drop-in tools:
-  - `@sbo3l/langchain-keeperhub` (npm)
-  - `sbo3l-langchain-keeperhub` (PyPI)
+**Framework plugins (5-ecosystem coverage).** Beyond the Rust adapter, we ship the SAME policy-guarded KH executor across **5 framework adapters** — vs Devendra's `langchain-keeperhub` (PyPI only) and Bleyle's ElizaOS plugin. Each ships under both the framework-agnostic `sbo3l_*_keeperhub_tool({client})` factory + a typed framework-specific subclass:
 
-Both expose a `Sbo3lKeeperHubTool` / `sbo3lKeeperHubTool({client})` that gates KeeperHub workflow execution through the SBO3L policy boundary. Wire path: agent → tool → SBO3L decides → (on allow) daemon's KH adapter executes → tool returns `kh_execution_ref` + signed audit envelope.
+| Framework | Package | Registry |
+|---|---|---|
+| LangChain (TS) | `@sbo3l/langchain-keeperhub` | npm |
+| LangChain (Py) | `sbo3l-langchain-keeperhub` | PyPI |
+| CrewAI | `sbo3l-crewai-keeperhub` | PyPI |
+| AutoGen | `sbo3l-autogen-keeperhub` | PyPI (`autogen-agentchat>=0.4`; `pyautogen` is a dead package) |
+| ElizaOS | `@sbo3l/elizaos-keeperhub` | npm |
+| Vercel AI SDK | `@sbo3l/vercel-ai-keeperhub` | npm |
 
-This sits **next to** Devendra's `langchain-keeperhub` (PyPI), not replacing it. Devendra's plugin ships an execution wrapper (KH webhook + ENS resolution + Turnkey TEE signing + MCP bridge); ours ships a **policy-guarded** execution wrapper (SBO3L decide → on allow → KH execution). The two are **composable** — a developer can use Devendra's tool for the raw KH binding and ours as the policy gate that decides whether the raw call should fire at all. Or use ours alone for the full gate-then-execute path. Side-by-side runnable demo lives at `examples/langchain-keeperhub-policy-guarded/` (Python `agent.py` + TS `agent.mjs`, identical wire path, different language ergonomics).
+All 5+1 adapters expose the same envelope shape with `kh_workflow_id_advisory` + `kh_execution_ref`, gate KeeperHub workflow execution through the SBO3L policy boundary, and route the IP-1 envelope to the workflow webhook. Wire path: agent → tool → SBO3L decides → (on allow) daemon's KH adapter executes → tool returns `kh_execution_ref` + signed audit envelope.
+
+This sits **next to** Devendra's `langchain-keeperhub` (PyPI) and Bleyle's ElizaOS plugin, not replacing them. Their plugins ship execution wrappers (KH webhook + ENS resolution + Turnkey TEE signing + MCP bridge); ours ship **policy-guarded** execution wrappers (SBO3L decide → on allow → KH execution). The two are **composable** — a developer can use a competitor's tool for the raw KH binding and ours as the policy gate. Or use ours alone for the full gate-then-execute path. Runnable demos under `examples/{langchain,crewai,autogen,elizaos,vercel-ai}-keeperhub-demo*/` (each demonstrates a framework-idiomatic composition: 3-agent CrewAI crew sharing one policy boundary, 2-agent AutoGen planner+executor, ElizaOS chat-turn action, Vercel AI Edge function).
 ```
 
 ### Uniswap — Best Uniswap API Integration (stretch)

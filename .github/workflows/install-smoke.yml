@@ -395,8 +395,9 @@ jobs:
           echo "npm-smoke:   $npm"
           echo "pip-smoke:   $pip"
           if [ "$cargo" = "success" ] && [ "$npm" = "success" ] && [ "$pip" = "success" ]; then
-            echo "✅ install-smoke green: 1 cargo + 27 npm + 6 pip = 34 packages installed cleanly"
-            echo "   (Hard-required: 33. Allowed-to-fail today: 1 — sbo3l-langchain-keeperhub"
+            echo "✅ install-smoke green: 1 cargo + 29 npm + 8 pip = 38 packages installed cleanly"
+            echo "   (Hard-required: 35. Allowed-to-fail today: 3 KH-plugin pip variants —"
+            echo "    sbo3l-langchain-keeperhub + sbo3l-autogen-keeperhub + sbo3l-crewai-keeperhub"
             echo "    pending PyPI Trusted Publisher; see"
             echo "    docs/dev2/pypi-langchain-keeperhub-publish-blocker.md.)"
             exit 0
