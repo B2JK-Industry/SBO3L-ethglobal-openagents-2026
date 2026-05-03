@@ -135,6 +135,7 @@ jobs:
           - "@sbo3l/together"
           - "@sbo3l/vellum"
           - "@sbo3l/vercel-ai"
+          - "@sbo3l/vercel-ai-keeperhub"
     steps:
       - uses: actions/setup-node@v4
         with:
