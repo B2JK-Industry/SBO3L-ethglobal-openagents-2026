@@ -3,8 +3,10 @@
 > A credible safety layer for agentic swaps, not just another quote API
 > call.
 
-**Status: target product framing, with the parts that already exist on
-`main` clearly separated from the parts that depend on later phases.**
+**Status: live read-side QuoterV2 against Sepolia shipped + verified.
+Universal Router + Smart Wallet abstraction + MEV guard merged. Mainnet
+swap envelope CLI shipped. Live broadcast remains env-gated +
+intentionally not exercised in CI.**
 
 ## The pitch in one paragraph
 
@@ -22,12 +24,34 @@ boundary and never reach the executor.
 
 - Adapter trait and `UniswapExecutor`
   (`crates/sbo3l-execution/src/uniswap.rs`) with two constructors:
-  - `UniswapExecutor::local_mock()` — used in every demo path today.
-    Returns a deterministic `uni-<ULID>` execution_ref against a stored
-    quote fixture.
-  - `UniswapExecutor::live()` — present as a constructor; intentionally
-    `BackendOffline` until a stable Trading API endpoint and credentials
-    are wired. **No live network call is made in this build.**
+  - `UniswapExecutor::local_mock()` — CI default. Returns a
+    deterministic `uni-<ULID>` execution_ref against a stored quote
+    fixture.
+  - `UniswapExecutor::live_from_env()` — **shipped + verified**. Calls
+    `quoteExactInputSingle()` on the Sepolia QuoterV2 contract
+    ([`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`](https://sepolia.etherscan.io/address/0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3))
+    via JSON-RPC, env-gated on `SBO3L_UNISWAP_RPC_URL` +
+    `SBO3L_UNISWAP_TOKEN_OUT`. Returns real `amountOut` +
+    `sqrtPriceX96After` + `initializedTicksCrossed` + `gasEstimate`
+    into the Passport capsule's `executor_evidence`. The bare
+    back-compat `UniswapExecutor::live()` ctor (no transport, no
+    config) returns `BackendOffline` at runtime — that's the legacy
+    surface the live broadcast path will replace.
+- **Universal Router integration** (PR [#171](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/171))
+  — multi-hop route parsing + V3 swap construction shipped. Source:
+  [`crates/sbo3l-execution/src/uniswap_trading.rs`](../../crates/sbo3l-execution/src/uniswap_trading.rs).
+- **Smart Wallet abstraction** (PR [#183](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/183))
+  — wraps the recipient as a smart-account session for
+  `smart_account_session` APRP variants.
+- **MEV guard** (PR [#179](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/179),
+  10 unit tests) — three layers of slippage defense (slippage cap +
+  recipient allowlist + private mempool requirement). Zero-quote
+  bypass codex finding fixed in same PR. Source:
+  [`crates/sbo3l-policy/src/mev_guard.rs`](../../crates/sbo3l-policy/src/mev_guard.rs).
+- **Mainnet swap envelope CLI** (PR [#394](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/394))
+  — `sbo3l swap envelope` builds the mainnet-shaped Universal Router
+  payload + signed APRP envelope ready for broadcast. Broadcast
+  itself is intentionally a separate human-gated step.
 - Swap-policy guard `evaluate_swap` (`crates/sbo3l-execution/src/uniswap.rs`)
   enforces, in field order:
   1. `input_token_allowlisted`
@@ -70,16 +94,17 @@ boundary and never reach the executor.
 These are explicit *targets* documented for the team and for Uniswap
 reviewers — none of them are claimed as shipped:
 
-- **Live Trading API call (future, gated)** — wired through
-  `UniswapExecutor::live()` and exposed via an explicit
-  `SBO3L_UNISWAP_LIVE=1` env-var gate, never as a silent fallback from
-  mock. CI will never require it. **No live Uniswap API call is made in
-  this build.**
-- **Signed-quote anchoring (target ask, not implemented)** — when the
-  Trading API publishes server-issued `quote_id` + `expires_at` +
-  canonical quote hash, SBO3L would anchor that hash into the decision
-  token so a downstream executor can require the same quote. See
-  feedback below.
+- **Live broadcast of a signed swap envelope to mainnet** — the
+  envelope-build path is shipped (PR #394); actually broadcasting to
+  mainnet is intentionally a separate human-gated step (operator
+  signs + broadcasts via their own wallet/relayer; SBO3L never holds
+  mainnet keys in CI). The envelope's `sbo3l_*` fields are already
+  what the broadcaster needs to prove upstream authorization.
+- **Signed-quote anchoring (target ask)** — when the Trading API
+  publishes server-issued `quote_id` + `expires_at` + canonical
+  quote hash, SBO3L would anchor that hash into the decision token
+  so a downstream executor can require the same quote. See feedback
+  below. Today freshness is approximated from local timestamps.
 
 ## Why Uniswap specifically
 
@@ -118,14 +143,15 @@ These are the same asks recorded in
 
 ## What this one-pager will NOT claim
 
-- SBO3L **does not** call the Uniswap Trading API (real swap broadcast)
-  in this build. What it does call live is the Sepolia QuoterV2 contract
-  (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`) via JSON-RPC for a real
-  read-side `quoteExactInputSingle`, env-gated on `SBO3L_UNISWAP_RPC_URL`
-  + `SBO3L_UNISWAP_TOKEN_OUT` — verified end-to-end during the submission
-  window. The demo default still uses `UniswapExecutor::local_mock()`
-  against the fixture catalogue; the bare back-compat
-  `UniswapExecutor::live()` ctor returns `BackendOffline` at runtime.
+- SBO3L **does not** broadcast a real swap to mainnet from CI in this
+  build — that's intentionally human-gated. What it does call live is
+  the Sepolia QuoterV2 contract (`0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3`)
+  via JSON-RPC for real read-side `quoteExactInputSingle`, env-gated
+  on `SBO3L_UNISWAP_RPC_URL` + `SBO3L_UNISWAP_TOKEN_OUT` — verified
+  end-to-end during the submission window. The mainnet swap envelope
+  CLI (`sbo3l swap envelope`) builds + signs the broadcast-ready
+  payload but does not transmit. The demo default uses
+  `UniswapExecutor::local_mock()` against the fixture catalogue.
 - The mock `uni-<ULID>` execution_ref **is not** a real Uniswap
   transaction id; live mode emits real QuoterV2 return values
   (`amountOut`, `sqrtPriceX96After`, `initializedTicksCrossed`,

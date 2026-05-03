@@ -39,13 +39,21 @@ A KeeperHub auditor today reading an execution row has no cryptographic link bac
 - **Live-integration spike** ([`docs/keeperhub-live-spike.md`](../keeperhub-live-spike.md)) — read-only design for the live PR, including the wire format SBO3L would post, the eight open questions for the KeeperHub team, the test strategy that keeps CI offline, and the file-by-file shopping list (~250 lines of Rust).
 - **Builder feedback (concrete asks, not abstract complaints)** — [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md) lists the JSON Schema, the four `sbo3l_*` fields, the lookup endpoint / MCP tool, the optional response headers, and the token-prefix / webhook-signing clarifications, each with rationale and impact.
 
-## What is target (SBO3L Passport phase + live KeeperHub)
+## What is target (next phase)
 
 These are explicit *targets* — none claimed as shipped:
 
-- **SBO3L Passport capsule end-to-end** — schema + verifier exist; producing the capsule from a real KeeperHub execution depends on the live wiring below.
-- **`KeeperHubExecutor::live()` actually calling KeeperHub** — wired through [`docs/keeperhub-live-spike.md` §Target shape](../keeperhub-live-spike.md). Gated behind `SBO3L_KEEPERHUB_LIVE=1`, never a silent fallback from mock. CI never sets the flag.
-- **`sbo3l-keeperhub-adapter` extracted as standalone workspace crate** — IP-4 above; the adapter is structurally independent of the rest of the workspace today. Crates.io publication remains target.
+- **SBO3L Passport capsule end-to-end against live KH executions** —
+  schema + verifier shipped; the live-side adapter call is shipped
+  (see "implemented today" above). Producing capsules at scale from
+  a fleet of live executions remains a runtime/operations target.
+- **5 framework adapters wider adoption** — the `@sbo3l/{langchain,
+  crewai-keeperhub, autogen-keeperhub, elizaos-keeperhub, vercel-ai-keeperhub}`
+  adapters are shipped (npm + PyPI); broader uptake by other agent
+  framework communities is post-submission outreach.
+- **KH-side adoption of IP-1..IP-5** — the SBO3L side of all 5 paths
+  ships today; KH platform adoption is what we're asking for in the
+  builder feedback.
 
 ## What we are asking for (concrete, scoped)
 
@@ -60,12 +68,22 @@ The same six asks live in [`FEEDBACK.md` §KeeperHub](../../FEEDBACK.md) with ra
 
 ## What this one-pager will NOT claim
 
-- SBO3L **does not** call a real KeeperHub endpoint in this build.
-- The mock `kh-<ULID>` execution_ref **is not** a real KeeperHub `executionId`.
-- KeeperHub **does not** verify SBO3L receipts today; the IP-1 envelope is a target for live integration, not a current KeeperHub-side feature.
-- SBO3L Passport capsule production **is** schema-defined and verifier-tested on `main`; producing capsules from live KeeperHub executions is gated on the live wiring landing.
+- SBO3L **does** call a real KeeperHub endpoint in this build —
+  `KeeperHubExecutor::execute` with `submit_live_to`, env-gated on
+  `SBO3L_KEEPERHUB_WEBHOOK_URL` + `SBO3L_KEEPERHUB_TOKEN`. Verified
+  end-to-end against a real workflow during the submission window.
+  The CI demo default uses `local_mock()` for determinism; the live
+  arm is a config flip, not an unimplemented path.
+- The mock `kh-<ULID>` execution_ref **is not** a real KeeperHub
+  `executionId`. The live arm captures and surfaces the real one.
+- KeeperHub **does not** verify SBO3L receipts today on the KH-platform
+  side; the IP-1 envelope is what we POST and what we'd want KH to
+  echo on lookup. KH-side adoption is the ask in the builder feedback.
 
-Honest disclosure stays in every demo output (`mock: true` lines, `keeperhub_refused: true` on deny path) and in every doc that references the integration.
+Honest disclosure stays in every demo output (`mock: true` lines on the
+mock path, `mock: false` + real `executionId` on the live path,
+`keeperhub_refused: true` on deny path) and in every doc that
+references the integration.
 
 ## Pointers in this repo
 

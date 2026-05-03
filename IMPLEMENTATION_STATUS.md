@@ -2,10 +2,10 @@
 
 Current snapshot for the ETHGlobal Open Agents 2026 submission of **SBO3L**.
 
-**Last updated:** 2026-05-03 (post R22 cascade)
-**Branch:** `main` (HEAD `75ec1ef` — post R22: 5 KH framework adapters shipped (LangChain TS+Py, ElizaOS, AutoGen, CrewAI, Vercel-AI), 0g-storage TS SDK, R20 adversarial fixtures + R21 Codex hardening, demo-video stitch fix, PWA recover, i18n SK+KO+JA, all 318→977 tests on main)
+**Last updated:** 2026-05-03 (post R22 cascade + truthfulness audit fixes)
+**Branch:** `main` (HEAD `dc77a73` — post R22: 5 KH framework adapters shipped (LangChain TS+Py, ElizaOS, AutoGen, CrewAI, Vercel-AI), 0g-storage TS SDK, R20 adversarial fixtures + R21 Codex hardening, R22 self-review #2 a11y + SW + dead-code + layout fixes, demo-video stitch fix, PWA recover, i18n SK+KO+JA, all 318→977 tests on main)
 **Phase:** submission. `main` is implemented, reproducible, and the public proof surface is wired.
-**Open implementation PRs:** **0** non-draft open. R22 wave landed PRs #472-#493 (15 PRs: 5 KH framework adapters + 0g-storage TS + R20 adversarial fixtures + R21 Codex fixes + i18n + PWA recover + demo-video automation).
+**Open implementation PRs:** **6 non-draft open** (1 install-smoke CI fix [#498](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/498) + 5 KH-BF reference PR drafts [#402](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/402)–[#406](https://github.com/B2JK-Industry/SBO3L-ethglobal-openagents-2026/pull/406) — the drafts are intentionally evidence artifacts for the KH-BF-A2 amplifier and are NOT meant to merge until KH lands the upstream contracts).
 **CI on `main`:** ✅ green (`CI` + `Pages` + `Supply chain security` + `Integrations publish` + `Regression on main`).
 **Blockers:** none for code; demo video record + ETHGlobal form submit are operator-side actions.
 
