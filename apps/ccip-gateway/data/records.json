@@ -4,7 +4,7 @@
   "research-agent.sbo3lagent.eth": {
     "sbo3l:agent_id": "research-agent-01",
     "sbo3l:endpoint": "https://sbo3l-playground-api.vercel.app/api/v1",
-    "sbo3l:policy_hash": "e044f13c5acb2c94f8c8e0b3e9a1d7f2c8b5e4a3d6c9b8e7f6a5d4c3b2a1f0e9d",
+    "sbo3l:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
     "sbo3l:audit_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json",
     "sbo3l:capability": "x402-purchase",
@@ -14,7 +14,7 @@
   "trader-agent.sbo3lagent.eth": {
     "sbo3l:agent_id": "trader-agent-01",
     "sbo3l:endpoint": "https://sbo3l-playground-api.vercel.app/api/v1",
-    "sbo3l:policy_hash": "f155e24c6bdc3da59d9e1c4e0a2e8a3d9c6f5b4e7da9c8f7b6a5d4c3b2a1f0e9d",
+    "sbo3l:policy_hash": "e044f13c5acb792dd3109f1be3a98536168b0990e25595b3cedc131d02e666cf",
     "sbo3l:audit_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "sbo3l:proof_uri": "https://b2jk-industry.github.io/SBO3L-ethglobal-openagents-2026/capsule.json",
     "sbo3l:capability": "uniswap-swap",
