@@ -19,12 +19,20 @@
 export MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/n9pLYLbfcNRkZXVs7Togt
 export DANIEL_WALLET=0xdc7EFA6b4Bd77d1a406DE4727F0DF567e597D231
 
+# Set the mainnet gate FIRST. The CLI rejects every `--network mainnet`
+# invocation (including --dry-run) without this — STEPS 0.2 and 1
+# below would otherwise fail at the gate check before any quoting
+# happens. The gate is the same disclosure pattern audit-anchor /
+# verify-ens use; setting it acknowledges "yes I'm intentionally
+# touching mainnet."
+export SBO3L_ALLOW_MAINNET_TX=1
+
 # 0.1 — Verify Daniel wallet has > 0.013 ETH (0.005 swap + 0.008 gas headroom)
 cast balance "$DANIEL_WALLET" --rpc-url "$MAINNET_RPC_URL"
 # expect: > 13000000000000000
 
 # 0.2 — Check current ETH/USDC pool depth (sanity, no commit)
-# (Optional — Quoter is read-only so always safe to call.)
+# (Optional — Quoter is read-only; --dry-run never broadcasts.)
 sbo3l uniswap swap \
   --network mainnet \
   --amount-in 0.005ETH \
@@ -32,16 +40,21 @@ sbo3l uniswap swap \
   --recipient "$DANIEL_WALLET" \
   --rpc-url "$MAINNET_RPC_URL" \
   --dry-run
-# expect: an envelope with quote.outputAmount ≈ 12-18 USDC
-#         (depends on ETH/USDC rate at the time)
+# expect: human-readable envelope with `expected_amount_out: <N>`
+#         where N ≈ 12-18 USDC (depends on ETH/USDC rate)
 ```
 
-If the dry-run output shows < 8 USDC for 0.005 ETH, ETH crashed
-or RPC is misconfigured — STOP and investigate.
+If `expected_amount_out` shows < 8 USDC for 0.005 ETH, ETH
+crashed or RPC is misconfigured — STOP and investigate.
 
 ---
 
-## STEP 1 — Build + inspect the dry-run envelope
+## STEP 1 — Build + inspect the dry-run envelope (JSON)
+
+`sbo3l uniswap swap` prints a human-readable summary to stdout.
+To get the **JSON envelope** for `jq` queries you must pass
+`--out <path>`. The flag writes the canonical JSON to disk in
+addition to the stdout summary.
 
 ```bash
 sbo3l uniswap swap \
@@ -50,25 +63,39 @@ sbo3l uniswap swap \
   --token-out USDC \
   --recipient "$DANIEL_WALLET" \
   --rpc-url "$MAINNET_RPC_URL" \
-  --dry-run \
-  > /tmp/sbo3l-swap-envelope.json
+  --out /tmp/sbo3l-swap-envelope.json \
+  --dry-run
 
-# Inspect the envelope:
-jq '.quote, .receipt.decision, .receipt.policy_hash' /tmp/sbo3l-swap-envelope.json
+# Inspect the envelope. The JSON is FLAT — top-level keys, no
+# nested `quote` or `receipt` objects (the swap envelope is
+# pure swap calldata + quote metadata; signing happens at
+# --broadcast time, not in the dry-run envelope).
+jq '{ amount_in_wei, expected_amount_out, amount_out_minimum, slippage_bps, quote_source, deadline_unix }' \
+  /tmp/sbo3l-swap-envelope.json
 ```
 
-What you're looking for:
+What you're looking for in the JSON:
 
-- `quote.input_amount` matches your `--amount-in` (5000000000000000 wei = 0.005 ETH)
-- `quote.output_amount_minimum` is non-zero and reasonable
-- `receipt.decision == "allow"`
-- `receipt.policy_hash` is a 64-hex string (the JCS+SHA-256 of the
-  active SBO3L policy that decided this swap)
-- `receipt.signature` is present (Ed25519 signature over the receipt)
+- `amount_in_wei == "5000000000000000"` (= 0.005 ETH; matches `--amount-in`)
+- `expected_amount_out` is a non-empty decimal string ≥ 8 (≈ 12-18
+  USDC for 0.005 ETH at current rates; treat anything below 8 as a
+  red flag)
+- `amount_out_minimum` is `expected_amount_out × (1 - slippage_bps/10000)`,
+  default slippage 50 bps = 0.5%
+- `quote_source` starts with `uniswap-v3-quoter-mainnet-` (proves
+  the quote came from a real on-chain Quoter call, not a stale
+  stub)
+- `deadline_unix` is a future timestamp ~30 min out
 
-If `decision == "deny"`, your active policy refused the swap —
-inspect `receipt.deny_code` to understand why and either fix the
-policy or retry with different params.
+If `expected_amount_out == "0"` and `quote_source` says
+`no-quote`, the CLI couldn't reach the live Quoter — confirm
+`--rpc-url` is set and the RPC is reachable, then retry.
+
+The dry-run envelope does NOT include a signed receipt or a
+`decision` field — those live at the policy-engine layer (a
+separate flow). The envelope is pure swap calldata + quote
+metadata; Daniel's policy decision happens by inspecting this
+output and choosing whether to invoke `--broadcast`.
 
 ---
 
@@ -121,7 +148,7 @@ Open `https://etherscan.io/tx/$SWAP_TX_HASH` in a browser. Expected:
 - Status: Success
 - Method: `multicall` or `exactInputSingle` (depending on which
   router path the executor took)
-- Token Transferred: USDC `≥ quote.output_amount_minimum`
+- Token Transferred: USDC ≥ envelope's `amount_out_minimum`
 - To: `0xdc7E…D231` (Daniel's wallet)
 
 ### 3b — Cast verify (no browser)
@@ -134,7 +161,7 @@ cast tx "$SWAP_TX_HASH" --rpc-url "$MAINNET_RPC_URL" | head -20
 cast call 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 \
   "balanceOf(address)(uint256)" "$DANIEL_WALLET" \
   --rpc-url "$MAINNET_RPC_URL"
-# expect: increased by ≥ quote.output_amount_minimum (in USDC's 6 decimals)
+# expect: increased by ≥ envelope's `amount_out_minimum` (USDC, 6 decimals)
 ```
 
 ---
@@ -163,7 +190,8 @@ mainnet rates is final.
 The closest mitigation is **don't broadcast if you're not sure**:
 the dry-run path (`--dry-run`) costs nothing and produces the
 same envelope minus the on-chain commit — use it to inspect
-quote, decision, and signature before STEP 2.
+the quote (`expected_amount_out`, `amount_out_minimum`,
+`quote_source`) before STEP 2.
 
 ---
 
@@ -175,7 +203,7 @@ quote, decision, and signature before STEP 2.
 | `eth_chainId mismatch` | RPC chain id doesn't match `--network mainnet` | Verify `MAINNET_RPC_URL` actually returns `1` (`cast chain-id`) |
 | `insufficient funds for gas * price + value` | Wallet ETH < 0.005 + gas | Top up before retry; pre-flight 0.1 should have caught this |
 | Tx pending > 60s | Gas price too low for current congestion | Wait or bump gas via Etherscan's "Speed Up" UI |
-| Swap output < quote minimum | Slippage on confirm > slippage tolerance | Tx will revert atomically; no funds lost (only gas). Retry with higher `--max-slippage-bps` |
+| Swap output < quote minimum | Slippage on confirm > slippage tolerance | Tx will revert atomically; no funds lost (only gas). Retry with higher `--slippage-bps` (default 50 = 0.5%; bump to 100 for 1%) |
 
 ---
 
