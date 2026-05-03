@@ -148,7 +148,7 @@ fn manifest_vector_count_is_stable() {
     let m = load_manifest();
     assert_eq!(
         m.vectors.len(),
-        19,
+        24,
         "manifest vector count drifted — update test-corpus/sdk-conformance/manifest.json + this assertion together"
     );
 }
