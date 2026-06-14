@@ -4,10 +4,12 @@ All notable changes to SBO3L are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — Phase 3 (post-v1.2.0)
+## [1.2.2] — 2026-05-03 — Phase 3
 
-> Phase 3 work landed after the v1.2.0 tag (2026-05-02). Tracked here pending the next
-> tag bump.
+> **Phase 3 closeout.** Work landed after the v1.2.0 tag (2026-05-02) across the
+> `v1.2.1` and `v1.2.2` tags (both 2026-05-03); the crate workspace is pinned at
+> `1.2.2`. This entry finalizes the previously `[Unreleased]` Phase 3 log against
+> those tags. See the GitHub Releases page for the published v1.2.2 release notes.
 
 ### Added
 - **Phase 3.1 audit anchoring** — `sbo3l-anchor` workspace crate (#246) +
