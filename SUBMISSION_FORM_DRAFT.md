@@ -169,14 +169,14 @@ In this hackathon build, the demo default constructs `KeeperHubExecutor::local_m
 
 **Framework plugins (5-ecosystem coverage).** Beyond the Rust adapter, we ship the SAME policy-guarded KH executor across **5 framework adapters** — vs Devendra's `langchain-keeperhub` (PyPI only) and Bleyle's ElizaOS plugin. Each ships under both the framework-agnostic `sbo3l_*_keeperhub_tool({client})` factory + a typed framework-specific subclass:
 
-| Framework | Package | Registry |
-|---|---|---|
-| LangChain (TS) | `@sbo3l/langchain-keeperhub` | npm |
-| LangChain (Py) | `sbo3l-langchain-keeperhub` | PyPI |
-| CrewAI | `sbo3l-crewai-keeperhub` | PyPI |
-| AutoGen | `sbo3l-autogen-keeperhub` | PyPI (`autogen-agentchat>=0.4`; `pyautogen` is a dead package) |
-| ElizaOS | `@sbo3l/elizaos-keeperhub` | npm |
-| Vercel AI SDK | `@sbo3l/vercel-ai-keeperhub` | npm |
+| Framework | Package | Registry | Status |
+|---|---|---|---|
+| LangChain (TS) | `@sbo3l/langchain-keeperhub` | npm | live |
+| LangChain (Py) | `sbo3l-langchain-keeperhub` | PyPI | live |
+| CrewAI | `sbo3l-crewai-keeperhub` | PyPI | live |
+| AutoGen | `sbo3l-autogen-keeperhub` | PyPI (`autogen-agentchat>=0.4`; `pyautogen` is a dead package) | live |
+| ElizaOS | `@sbo3l/elizaos-keeperhub` | npm | pending first tag-publish (source on main; install-smoke matrix entry carries `allow_failure: true` until first tag lands) |
+| Vercel AI SDK | `@sbo3l/vercel-ai-keeperhub` | npm | pending first tag-publish (source on main; install-smoke matrix entry carries `allow_failure: true` until first tag lands) |
 
 All 5+1 adapters expose the same envelope shape with `kh_workflow_id_advisory` + `kh_execution_ref`, gate KeeperHub workflow execution through the SBO3L policy boundary, and route the IP-1 envelope to the workflow webhook. Wire path: agent → tool → SBO3L decides → (on allow) daemon's KH adapter executes → tool returns `kh_execution_ref` + signed audit envelope.
 

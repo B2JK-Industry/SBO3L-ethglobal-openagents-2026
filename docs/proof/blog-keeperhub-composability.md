@@ -156,7 +156,7 @@ Building the composition end-to-end surfaced 15 concrete, actionable asks on the
 
 **Round 3 (#58–#62)** — production-grade reliability concerns: HMAC-SHA256 signature for reverse-direction webhooks, workflow versioning + back-compat policy, response envelope JSON Schema, rate-limiting headers, delivery guarantees documentation.
 
-Each issue carries a worked reproduction (`curl` invocation or unit test), a citation to the exact line in our adapter where the friction surfaces, and a proposed shape for the fix. Five of them have **companion draft PRs** on our repo showing the consumer-side adapter change ready to ship the day KH lands the upstream contract.
+Each issue carries a worked reproduction (`curl` invocation or unit test), a citation to the exact line in our adapter where the friction surfaces, and a proposed shape for the fix. Five of them have **companion adapter-shape PRs** (originally drafts; all merged 2026-05-03 12:00 UTC as the upstream KH contracts approached implementation) showing the consumer-side adapter change ready to ship the day KH lands them.
 
 The fastest unlock for the broader adapter ecosystem: **#48** (envelope schema, R1) + **#52** (error catalog, R2) + **#55** (schema-version header, R2). Three docs/platform changes that together unblock every subsequent adapter author.
 
@@ -178,4 +178,4 @@ If you're shipping an agent today, you already have an unsolved gate-then-execut
 
 ---
 
-*Written by Daniel Babjak ([@B2JK-Industry](https://github.com/B2JK-Industry)) for ETHGlobal Open Agents 2026. Companion to the [SBO3L → KeeperHub Builder Feedback submission](../submission/bounty-keeperhub-builder-feedback.md). Code: [`@sbo3l/langchain-keeperhub`](https://www.npmjs.com/package/@sbo3l/langchain-keeperhub) (npm), [`sbo3l-langchain-keeperhub`](https://pypi.org/project/sbo3l-langchain-keeperhub/) (PyPI — pending Trusted Publisher registration), [`sbo3l-keeperhub-adapter`](https://crates.io/crates/sbo3l-keeperhub-adapter) (crates.io). All 15 KH issues + 5 companion draft PRs catalogued in [docs/proof/kh-builder-feedback-2026-05-03.md](kh-builder-feedback-2026-05-03.md).*
+*Written by Daniel Babjak ([@B2JK-Industry](https://github.com/B2JK-Industry)) for ETHGlobal Open Agents 2026. Companion to the [SBO3L → KeeperHub Builder Feedback submission](../submission/bounty-keeperhub-builder-feedback.md). Code: [`@sbo3l/langchain-keeperhub`](https://www.npmjs.com/package/@sbo3l/langchain-keeperhub) (npm — live), [`sbo3l-langchain-keeperhub`](https://pypi.org/project/sbo3l-langchain-keeperhub/) (PyPI — live), [`sbo3l-keeperhub-adapter`](https://crates.io/crates/sbo3l-keeperhub-adapter) (crates.io — live). All 15 KH issues + 5 companion adapter-shape PRs catalogued in [docs/proof/kh-builder-feedback-2026-05-03.md](kh-builder-feedback-2026-05-03.md).*
